@@ -35,6 +35,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/track"
 	"github.com/dotwaffle/beamers/ent/votingeligibility"
+	"github.com/dotwaffle/beamers/ent/votingkey"
 )
 
 // EventUpdate is the builder for updating Event entities.
@@ -647,6 +648,21 @@ func (_u *EventUpdate) AddVotingEligibilities(v ...*VotingEligibility) *EventUpd
 	return _u.AddVotingEligibilityIDs(ids...)
 }
 
+// AddVotingKeyIDs adds the "voting_keys" edge to the VotingKey entity by IDs.
+func (_u *EventUpdate) AddVotingKeyIDs(ids ...int) *EventUpdate {
+	_u.mutation.AddVotingKeyIDs(ids...)
+	return _u
+}
+
+// AddVotingKeys adds the "voting_keys" edges to the VotingKey entity.
+func (_u *EventUpdate) AddVotingKeys(v ...*VotingKey) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddVotingKeyIDs(ids...)
+}
+
 // AddDraftEditIDs adds the "draft_edits" edge to the DraftEdit entity by IDs.
 func (_u *EventUpdate) AddDraftEditIDs(ids ...int) *EventUpdate {
 	_u.mutation.AddDraftEditIDs(ids...)
@@ -1065,6 +1081,27 @@ func (_u *EventUpdate) RemoveVotingEligibilities(v ...*VotingEligibility) *Event
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveVotingEligibilityIDs(ids...)
+}
+
+// ClearVotingKeys clears all "voting_keys" edges to the VotingKey entity.
+func (_u *EventUpdate) ClearVotingKeys() *EventUpdate {
+	_u.mutation.ClearVotingKeys()
+	return _u
+}
+
+// RemoveVotingKeyIDs removes the "voting_keys" edge to VotingKey entities by IDs.
+func (_u *EventUpdate) RemoveVotingKeyIDs(ids ...int) *EventUpdate {
+	_u.mutation.RemoveVotingKeyIDs(ids...)
+	return _u
+}
+
+// RemoveVotingKeys removes "voting_keys" edges to VotingKey entities.
+func (_u *EventUpdate) RemoveVotingKeys(v ...*VotingKey) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveVotingKeyIDs(ids...)
 }
 
 // ClearDraftEdits clears all "draft_edits" edges to the DraftEdit entity.
@@ -2106,6 +2143,51 @@ func (_u *EventUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.VotingKeysCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.VotingKeysTable,
+			Columns: []string{event.VotingKeysColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingkey.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedVotingKeysIDs(); len(nodes) > 0 && !_u.mutation.VotingKeysCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.VotingKeysTable,
+			Columns: []string{event.VotingKeysColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingkey.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.VotingKeysIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.VotingKeysTable,
+			Columns: []string{event.VotingKeysColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingkey.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.DraftEditsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -2977,6 +3059,21 @@ func (_u *EventUpdateOne) AddVotingEligibilities(v ...*VotingEligibility) *Event
 	return _u.AddVotingEligibilityIDs(ids...)
 }
 
+// AddVotingKeyIDs adds the "voting_keys" edge to the VotingKey entity by IDs.
+func (_u *EventUpdateOne) AddVotingKeyIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.AddVotingKeyIDs(ids...)
+	return _u
+}
+
+// AddVotingKeys adds the "voting_keys" edges to the VotingKey entity.
+func (_u *EventUpdateOne) AddVotingKeys(v ...*VotingKey) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddVotingKeyIDs(ids...)
+}
+
 // AddDraftEditIDs adds the "draft_edits" edge to the DraftEdit entity by IDs.
 func (_u *EventUpdateOne) AddDraftEditIDs(ids ...int) *EventUpdateOne {
 	_u.mutation.AddDraftEditIDs(ids...)
@@ -3395,6 +3492,27 @@ func (_u *EventUpdateOne) RemoveVotingEligibilities(v ...*VotingEligibility) *Ev
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveVotingEligibilityIDs(ids...)
+}
+
+// ClearVotingKeys clears all "voting_keys" edges to the VotingKey entity.
+func (_u *EventUpdateOne) ClearVotingKeys() *EventUpdateOne {
+	_u.mutation.ClearVotingKeys()
+	return _u
+}
+
+// RemoveVotingKeyIDs removes the "voting_keys" edge to VotingKey entities by IDs.
+func (_u *EventUpdateOne) RemoveVotingKeyIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.RemoveVotingKeyIDs(ids...)
+	return _u
+}
+
+// RemoveVotingKeys removes "voting_keys" edges to VotingKey entities.
+func (_u *EventUpdateOne) RemoveVotingKeys(v ...*VotingKey) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveVotingKeyIDs(ids...)
 }
 
 // ClearDraftEdits clears all "draft_edits" edges to the DraftEdit entity.
@@ -4459,6 +4577,51 @@ func (_u *EventUpdateOne) sqlSave(ctx context.Context) (_node *Event, err error)
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(votingeligibility.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.VotingKeysCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.VotingKeysTable,
+			Columns: []string{event.VotingKeysColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingkey.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedVotingKeysIDs(); len(nodes) > 0 && !_u.mutation.VotingKeysCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.VotingKeysTable,
+			Columns: []string{event.VotingKeysColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingkey.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.VotingKeysIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.VotingKeysTable,
+			Columns: []string{event.VotingKeysColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingkey.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

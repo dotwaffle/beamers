@@ -26,6 +26,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/recoverytoken"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/votingeligibility"
+	"github.com/dotwaffle/beamers/ent/votingkey"
 	"github.com/dotwaffle/beamers/ent/webauthncredential"
 )
 
@@ -293,6 +294,21 @@ func (_c *AccountCreate) AddVotingEligibilities(v ...*VotingEligibility) *Accoun
 		ids[i] = v[i].ID
 	}
 	return _c.AddVotingEligibilityIDs(ids...)
+}
+
+// AddRedeemedVotingKeyIDs adds the "redeemed_voting_keys" edge to the VotingKey entity by IDs.
+func (_c *AccountCreate) AddRedeemedVotingKeyIDs(ids ...int) *AccountCreate {
+	_c.mutation.AddRedeemedVotingKeyIDs(ids...)
+	return _c
+}
+
+// AddRedeemedVotingKeys adds the "redeemed_voting_keys" edges to the VotingKey entity.
+func (_c *AccountCreate) AddRedeemedVotingKeys(v ...*VotingKey) *AccountCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddRedeemedVotingKeyIDs(ids...)
 }
 
 // AddAuditEntryIDs adds the "audit_entries" edge to the AuditEntry entity by IDs.
@@ -662,6 +678,22 @@ func (_c *AccountCreate) createSpec() (*Account, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(votingeligibility.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.RedeemedVotingKeysIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.RedeemedVotingKeysTable,
+			Columns: []string{account.RedeemedVotingKeysColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingkey.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

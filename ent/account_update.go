@@ -28,6 +28,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/recoverytoken"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/votingeligibility"
+	"github.com/dotwaffle/beamers/ent/votingkey"
 	"github.com/dotwaffle/beamers/ent/webauthncredential"
 )
 
@@ -297,6 +298,21 @@ func (_u *AccountUpdate) AddVotingEligibilities(v ...*VotingEligibility) *Accoun
 		ids[i] = v[i].ID
 	}
 	return _u.AddVotingEligibilityIDs(ids...)
+}
+
+// AddRedeemedVotingKeyIDs adds the "redeemed_voting_keys" edge to the VotingKey entity by IDs.
+func (_u *AccountUpdate) AddRedeemedVotingKeyIDs(ids ...int) *AccountUpdate {
+	_u.mutation.AddRedeemedVotingKeyIDs(ids...)
+	return _u
+}
+
+// AddRedeemedVotingKeys adds the "redeemed_voting_keys" edges to the VotingKey entity.
+func (_u *AccountUpdate) AddRedeemedVotingKeys(v ...*VotingKey) *AccountUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddRedeemedVotingKeyIDs(ids...)
 }
 
 // AddAuditEntryIDs adds the "audit_entries" edge to the AuditEntry entity by IDs.
@@ -575,6 +591,27 @@ func (_u *AccountUpdate) RemoveVotingEligibilities(v ...*VotingEligibility) *Acc
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveVotingEligibilityIDs(ids...)
+}
+
+// ClearRedeemedVotingKeys clears all "redeemed_voting_keys" edges to the VotingKey entity.
+func (_u *AccountUpdate) ClearRedeemedVotingKeys() *AccountUpdate {
+	_u.mutation.ClearRedeemedVotingKeys()
+	return _u
+}
+
+// RemoveRedeemedVotingKeyIDs removes the "redeemed_voting_keys" edge to VotingKey entities by IDs.
+func (_u *AccountUpdate) RemoveRedeemedVotingKeyIDs(ids ...int) *AccountUpdate {
+	_u.mutation.RemoveRedeemedVotingKeyIDs(ids...)
+	return _u
+}
+
+// RemoveRedeemedVotingKeys removes "redeemed_voting_keys" edges to VotingKey entities.
+func (_u *AccountUpdate) RemoveRedeemedVotingKeys(v ...*VotingKey) *AccountUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveRedeemedVotingKeyIDs(ids...)
 }
 
 // ClearAuditEntries clears all "audit_entries" edges to the AuditEntry entity.
@@ -1246,6 +1283,51 @@ func (_u *AccountUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.RedeemedVotingKeysCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.RedeemedVotingKeysTable,
+			Columns: []string{account.RedeemedVotingKeysColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingkey.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedRedeemedVotingKeysIDs(); len(nodes) > 0 && !_u.mutation.RedeemedVotingKeysCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.RedeemedVotingKeysTable,
+			Columns: []string{account.RedeemedVotingKeysColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingkey.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RedeemedVotingKeysIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.RedeemedVotingKeysTable,
+			Columns: []string{account.RedeemedVotingKeysColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingkey.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.AuditEntriesCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -1656,6 +1738,21 @@ func (_u *AccountUpdateOne) AddVotingEligibilities(v ...*VotingEligibility) *Acc
 	return _u.AddVotingEligibilityIDs(ids...)
 }
 
+// AddRedeemedVotingKeyIDs adds the "redeemed_voting_keys" edge to the VotingKey entity by IDs.
+func (_u *AccountUpdateOne) AddRedeemedVotingKeyIDs(ids ...int) *AccountUpdateOne {
+	_u.mutation.AddRedeemedVotingKeyIDs(ids...)
+	return _u
+}
+
+// AddRedeemedVotingKeys adds the "redeemed_voting_keys" edges to the VotingKey entity.
+func (_u *AccountUpdateOne) AddRedeemedVotingKeys(v ...*VotingKey) *AccountUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddRedeemedVotingKeyIDs(ids...)
+}
+
 // AddAuditEntryIDs adds the "audit_entries" edge to the AuditEntry entity by IDs.
 func (_u *AccountUpdateOne) AddAuditEntryIDs(ids ...int) *AccountUpdateOne {
 	_u.mutation.AddAuditEntryIDs(ids...)
@@ -1932,6 +2029,27 @@ func (_u *AccountUpdateOne) RemoveVotingEligibilities(v ...*VotingEligibility) *
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveVotingEligibilityIDs(ids...)
+}
+
+// ClearRedeemedVotingKeys clears all "redeemed_voting_keys" edges to the VotingKey entity.
+func (_u *AccountUpdateOne) ClearRedeemedVotingKeys() *AccountUpdateOne {
+	_u.mutation.ClearRedeemedVotingKeys()
+	return _u
+}
+
+// RemoveRedeemedVotingKeyIDs removes the "redeemed_voting_keys" edge to VotingKey entities by IDs.
+func (_u *AccountUpdateOne) RemoveRedeemedVotingKeyIDs(ids ...int) *AccountUpdateOne {
+	_u.mutation.RemoveRedeemedVotingKeyIDs(ids...)
+	return _u
+}
+
+// RemoveRedeemedVotingKeys removes "redeemed_voting_keys" edges to VotingKey entities.
+func (_u *AccountUpdateOne) RemoveRedeemedVotingKeys(v ...*VotingKey) *AccountUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveRedeemedVotingKeyIDs(ids...)
 }
 
 // ClearAuditEntries clears all "audit_entries" edges to the AuditEntry entity.
@@ -2626,6 +2744,51 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(votingeligibility.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.RedeemedVotingKeysCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.RedeemedVotingKeysTable,
+			Columns: []string{account.RedeemedVotingKeysColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingkey.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedRedeemedVotingKeysIDs(); len(nodes) > 0 && !_u.mutation.RedeemedVotingKeysCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.RedeemedVotingKeysTable,
+			Columns: []string{account.RedeemedVotingKeysColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingkey.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RedeemedVotingKeysIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.RedeemedVotingKeysTable,
+			Columns: []string{account.RedeemedVotingKeysColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingkey.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

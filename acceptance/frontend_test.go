@@ -39,6 +39,7 @@ import (
 var frontendCSRFInput = regexp.MustCompile(`name="csrf_token" value="([^"]+)"`)
 var recoveryCodeOutput = regexp.MustCompile(`data-recovery-code>([^<]+)</code>`)
 var recoveryTokenOutput = regexp.MustCompile(`data-recovery-token>([^<]+)</code>`)
+var votingKeyOutput = regexp.MustCompile(`data-voting-key>([^<]+)</code>`)
 
 func TestBrowserSetupAndSessionSurviveRestart(t *testing.T) {
 	bin := buildBeamers(t)
@@ -1628,6 +1629,227 @@ func TestBackstageNavigationReflectsAuthorityAndInterface(t *testing.T) {
 		t.Fatalf("public-listener Frontend = %d, want 200", frontend.status)
 	} else if strings.Contains(frontend.body, `href="/backstage"`) {
 		t.Fatalf("public-listener Frontend advertises private Backstage: %q", frontend.body)
+	}
+	server.stop(t)
+}
+
+func TestVotingKeysIssueRedeemAndSurviveRestart(t *testing.T) {
+	const unavailableMessage = "Voting Key unavailable. Check the Event and key."
+	csrfToken := func(response frontendResponse) string {
+		match := frontendCSRFInput.FindStringSubmatch(response.body)
+		if len(match) != 2 {
+			t.Fatalf("Voting page lacks CSRF proof: %d %q", response.status, response.body)
+		}
+		return match[1]
+	}
+	administrator, server := startAuthenticatedAdministratorWithPublicListener(t)
+	administrator.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/events",
+		validEventInput(), http.StatusCreated,
+		"{\"id\":1,\"name\":\"Revision 2026\",\"planned_start_date\":\"2026-08-21\",\"planned_end_date\":\"2026-08-23\",\"timezone\":\"Europe/Berlin\",\"event_locale\":\"de-DE\",\"content_language\":\"en-GB\",\"event_day_boundary\":\"06:00\",\"revision\":1}\n",
+	)
+	otherEvent := validEventInput()
+	otherEvent["name"] = "Other Event"
+	otherEvent["command_id"] = "create-voting-event-2"
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/events",
+		otherEvent, http.StatusCreated,
+		"{\"id\":2,\"name\":\"Other Event\",\"planned_start_date\":\"2026-08-21\",\"planned_end_date\":\"2026-08-23\",\"timezone\":\"Europe/Berlin\",\"event_locale\":\"de-DE\",\"content_language\":\"en-GB\",\"event_day_boundary\":\"06:00\",\"revision\":1}\n",
+	)
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/events/1/grants",
+		map[string]any{
+			"account_id": 1, "role": "Producer", "command_id": "grant-voting-producer",
+		},
+		http.StatusCreated,
+		"{\"event_id\":1,\"account_id\":1,\"role\":\"Producer\"}\n",
+	)
+	const password = "voting correct horse battery staple"
+	for id, name := range []string{"Alice Voter", "Bob Voter"} {
+		assertJSONRequest(
+			t, administrator, server.address, "/admin/accounts",
+			map[string]string{
+				"name": name, "password": password,
+				"command_id": "create-voter-" + strconv.Itoa(id+2),
+			},
+			http.StatusCreated,
+			"{\"id\":"+strconv.Itoa(id+2)+",\"name\":\""+name+"\",\"administrator\":false}\n",
+		)
+	}
+
+	path := "/backstage/events/1/voting-keys"
+	page := getFrontendPage(t, administrator, server.address, path)
+	commands := frontendNamedValues(page.body, "command_id")
+	if page.status != http.StatusOK || len(commands["command_id"]) != 1 {
+		t.Fatalf("Voting Key page = %d %q", page.status, page.body)
+	}
+	location, err := time.LoadLocation("Europe/Berlin")
+	if err != nil {
+		t.Fatalf("load Voting Event timezone: %v", err)
+	}
+	issued := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token": {csrfToken(page)},
+		"command_id": {commands.Get("command_id")},
+		"action":     {"issue"},
+		"count":      {"2"},
+		"expires_at": {time.Now().Add(24 * time.Hour).In(location).Format("2006-01-02T15:04")},
+	})
+	matches := votingKeyOutput.FindAllStringSubmatch(issued.body, -1)
+	if issued.status != http.StatusOK || len(matches) != 2 {
+		t.Fatalf("issued Voting Keys = %d %q", issued.status, issued.body)
+	}
+	firstKey, secondKey := matches[0][1], matches[1][1]
+
+	database, err := sql.Open("sqlite", filepath.Join(server.dataDir, "beamers.db"))
+	if err != nil {
+		t.Fatalf("open Voting database: %v", err)
+	}
+	var storedHash string
+	if err = database.QueryRowContext(
+		t.Context(), "SELECT token_hash FROM voting_keys WHERE id = 1",
+	).Scan(&storedHash); err != nil {
+		t.Fatalf("read protected Voting Key: %v", err)
+	}
+	if storedHash == firstKey || len(storedHash) != 64 {
+		t.Fatalf("stored Voting Key = %q", storedHash)
+	}
+	if err = database.Close(); err != nil {
+		t.Fatalf("close Voting database: %v", err)
+	}
+	for _, route := range []string{"/admin/audit", "/diagnostics"} {
+		found := getFrontendPage(t, administrator, server.address, route)
+		if strings.Contains(found.body, firstKey) || strings.Contains(found.body, secondKey) {
+			t.Fatalf("%s leaked Voting Key: %q", route, found.body)
+		}
+	}
+
+	signIn := func(name string) *http.Client {
+		t.Helper()
+		client := authenticatedClient(t)
+		client.CheckRedirect = administrator.CheckRedirect
+		assertJSONRequest(
+			t, client, server.address, "/auth/sign-in",
+			map[string]string{"name": name, "password": password},
+			http.StatusNoContent, "",
+		)
+		return client
+	}
+	alice := signIn("Alice Voter")
+	bob := signIn("Bob Voter")
+
+	redeemPage := getFrontendPage(t, alice, server.address, "/voting")
+	redeemValues := frontendNamedValues(redeemPage.body, "command_id")
+	wrongEvent := postFrontendForm(t, alice, server.address, "/voting", url.Values{
+		"csrf_token": {csrfToken(redeemPage)},
+		"command_id": {redeemValues.Get("command_id")},
+		"event_id":   {"2"},
+		"voting_key": {firstKey},
+	})
+	if wrongEvent.status != http.StatusUnprocessableEntity ||
+		!strings.Contains(wrongEvent.body, unavailableMessage) {
+		t.Fatalf("wrong-Event Voting Key = %d %q", wrongEvent.status, wrongEvent.body)
+	}
+	redeemValues = frontendNamedValues(wrongEvent.body, "command_id")
+	successValues := url.Values{
+		"csrf_token": {csrfToken(wrongEvent)},
+		"command_id": {redeemValues.Get("command_id")},
+		"event_id":   {"1"},
+		"voting_key": {firstKey},
+	}
+	redeemed := postFrontendForm(t, alice, server.address, "/voting", successValues)
+	if redeemed.status != http.StatusOK ||
+		!strings.Contains(redeemed.body, "Voting Eligibility granted.") {
+		t.Fatalf("Voting Key redemption = %d %q", redeemed.status, redeemed.body)
+	}
+	if replay := postFrontendForm(
+		t, alice, server.address, "/voting", successValues,
+	); replay.status != http.StatusOK ||
+		!strings.Contains(replay.body, "Voting Eligibility granted.") {
+		t.Fatalf("Voting Key redemption replay = %d %q", replay.status, replay.body)
+	}
+
+	bobPage := getFrontendPage(t, bob, server.address, "/voting")
+	bobValues := frontendNamedValues(bobPage.body, "command_id")
+	reused := postFrontendForm(t, bob, server.address, "/voting", url.Values{
+		"csrf_token": {csrfToken(bobPage)},
+		"command_id": {bobValues.Get("command_id")},
+		"event_id":   {"1"},
+		"voting_key": {firstKey},
+	})
+	if reused.status != wrongEvent.status ||
+		!strings.Contains(reused.body, unavailableMessage) {
+		t.Fatalf("transferred Voting Key = %d %q", reused.status, reused.body)
+	}
+
+	revokeForm := regexp.MustCompile(
+		`(?s)name="command_id" value="([^"]+-revoke-2)".*?name="key_id" value="2"`,
+	).FindStringSubmatch(issued.body)
+	if len(revokeForm) != 2 {
+		t.Fatalf("Voting Key revoke form missing: %q", issued.body)
+	}
+	revoked := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token": {csrfToken(issued)},
+		"command_id": {revokeForm[1]},
+		"action":     {"revoke"},
+		"key_id":     {"2"},
+	})
+	if revoked.status != http.StatusOK {
+		t.Fatalf("revoke Voting Key = %d %q", revoked.status, revoked.body)
+	}
+	bobValues = frontendNamedValues(reused.body, "command_id")
+	revokedRedemption := postFrontendForm(t, bob, server.address, "/voting", url.Values{
+		"csrf_token": {csrfToken(reused)},
+		"command_id": {bobValues.Get("command_id")},
+		"event_id":   {"1"},
+		"voting_key": {secondKey},
+	})
+	if revokedRedemption.status != wrongEvent.status ||
+		!strings.Contains(revokedRedemption.body, unavailableMessage) {
+		t.Fatalf("revoked Voting Key = %d %q", revokedRedemption.status, revokedRedemption.body)
+	}
+
+	failed := revokedRedemption
+	for attempt := range 6 {
+		values := frontendNamedValues(failed.body, "command_id")
+		failed = postFrontendForm(t, bob, server.address, "/voting", url.Values{
+			"csrf_token": {csrfToken(failed)},
+			"command_id": {values.Get("command_id")},
+			"event_id":   {"1"},
+			"voting_key": {"NOT-A-KEY"},
+		})
+		if attempt < 5 && failed.status != http.StatusUnprocessableEntity {
+			t.Fatalf("malformed Voting Key attempt %d = %d %q", attempt+1, failed.status, failed.body)
+		}
+	}
+	if failed.status != http.StatusTooManyRequests {
+		t.Fatalf("Voting Key abuse response = %d %q", failed.status, failed.body)
+	}
+
+	dataDir, bin := server.dataDir, server.bin
+	server.stop(t)
+	database, err = sql.Open("sqlite", filepath.Join(dataDir, "beamers.db"))
+	if err != nil {
+		t.Fatalf("reopen Voting database: %v", err)
+	}
+	var eligibilityCount int
+	if err = database.QueryRowContext(
+		t.Context(),
+		"SELECT count(*) FROM voting_eligibilities WHERE event_id = 1 AND account_id = 2",
+	).Scan(&eligibilityCount); err != nil {
+		t.Fatalf("read durable Voting Eligibility: %v", err)
+	}
+	if closeErr := database.Close(); closeErr != nil {
+		t.Fatalf("close restarted Voting database: %v", closeErr)
+	}
+	if eligibilityCount != 1 {
+		t.Fatalf("durable Voting Eligibility count = %d, want 1", eligibilityCount)
+	}
+	server = startBeamersWithPublicListener(t, bin, dataDir)
+	if page = getFrontendPage(t, alice, server.address, "/voting"); page.status != http.StatusOK {
+		t.Fatalf("restarted Voting page = %d %q", page.status, page.body)
 	}
 	server.stop(t)
 }

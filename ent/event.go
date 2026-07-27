@@ -103,6 +103,8 @@ type EventEdges struct {
 	ResultsCorrections []*ResultsCorrection `json:"results_corrections,omitempty"`
 	// VotingEligibilities holds the value of the voting_eligibilities edge.
 	VotingEligibilities []*VotingEligibility `json:"voting_eligibilities,omitempty"`
+	// VotingKeys holds the value of the voting_keys edge.
+	VotingKeys []*VotingKey `json:"voting_keys,omitempty"`
 	// DraftEdits holds the value of the draft_edits edge.
 	DraftEdits []*DraftEdit `json:"draft_edits,omitempty"`
 	// DraftChanges holds the value of the draft_changes edge.
@@ -117,7 +119,7 @@ type EventEdges struct {
 	DisplayOverrides []*DisplayOverride `json:"display_overrides,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [22]bool
+	loadedTypes [23]bool
 }
 
 // GrantsOrErr returns the Grants value or an error if the edge
@@ -266,10 +268,19 @@ func (e EventEdges) VotingEligibilitiesOrErr() ([]*VotingEligibility, error) {
 	return nil, &NotLoadedError{edge: "voting_eligibilities"}
 }
 
+// VotingKeysOrErr returns the VotingKeys value or an error if the edge
+// was not loaded in eager-loading.
+func (e EventEdges) VotingKeysOrErr() ([]*VotingKey, error) {
+	if e.loadedTypes[16] {
+		return e.VotingKeys, nil
+	}
+	return nil, &NotLoadedError{edge: "voting_keys"}
+}
+
 // DraftEditsOrErr returns the DraftEdits value or an error if the edge
 // was not loaded in eager-loading.
 func (e EventEdges) DraftEditsOrErr() ([]*DraftEdit, error) {
-	if e.loadedTypes[16] {
+	if e.loadedTypes[17] {
 		return e.DraftEdits, nil
 	}
 	return nil, &NotLoadedError{edge: "draft_edits"}
@@ -278,7 +289,7 @@ func (e EventEdges) DraftEditsOrErr() ([]*DraftEdit, error) {
 // DraftChangesOrErr returns the DraftChanges value or an error if the edge
 // was not loaded in eager-loading.
 func (e EventEdges) DraftChangesOrErr() ([]*DraftChange, error) {
-	if e.loadedTypes[17] {
+	if e.loadedTypes[18] {
 		return e.DraftChanges, nil
 	}
 	return nil, &NotLoadedError{edge: "draft_changes"}
@@ -287,7 +298,7 @@ func (e EventEdges) DraftChangesOrErr() ([]*DraftChange, error) {
 // ImportReferencesOrErr returns the ImportReferences value or an error if the edge
 // was not loaded in eager-loading.
 func (e EventEdges) ImportReferencesOrErr() ([]*ImportReference, error) {
-	if e.loadedTypes[18] {
+	if e.loadedTypes[19] {
 		return e.ImportReferences, nil
 	}
 	return nil, &NotLoadedError{edge: "import_references"}
@@ -298,7 +309,7 @@ func (e EventEdges) ImportReferencesOrErr() ([]*ImportReference, error) {
 func (e EventEdges) PublicScheduleBaselineOrErr() (*PublicScheduleBaseline, error) {
 	if e.PublicScheduleBaseline != nil {
 		return e.PublicScheduleBaseline, nil
-	} else if e.loadedTypes[19] {
+	} else if e.loadedTypes[20] {
 		return nil, &NotFoundError{label: publicschedulebaseline.Label}
 	}
 	return nil, &NotLoadedError{edge: "public_schedule_baseline"}
@@ -307,7 +318,7 @@ func (e EventEdges) PublicScheduleBaselineOrErr() (*PublicScheduleBaseline, erro
 // DisplayAssignmentsOrErr returns the DisplayAssignments value or an error if the edge
 // was not loaded in eager-loading.
 func (e EventEdges) DisplayAssignmentsOrErr() ([]*DisplayAssignment, error) {
-	if e.loadedTypes[20] {
+	if e.loadedTypes[21] {
 		return e.DisplayAssignments, nil
 	}
 	return nil, &NotLoadedError{edge: "display_assignments"}
@@ -316,7 +327,7 @@ func (e EventEdges) DisplayAssignmentsOrErr() ([]*DisplayAssignment, error) {
 // DisplayOverridesOrErr returns the DisplayOverrides value or an error if the edge
 // was not loaded in eager-loading.
 func (e EventEdges) DisplayOverridesOrErr() ([]*DisplayOverride, error) {
-	if e.loadedTypes[21] {
+	if e.loadedTypes[22] {
 		return e.DisplayOverrides, nil
 	}
 	return nil, &NotLoadedError{edge: "display_overrides"}
@@ -580,6 +591,11 @@ func (_m *Event) QueryResultsCorrections() *ResultsCorrectionQuery {
 // QueryVotingEligibilities queries the "voting_eligibilities" edge of the Event entity.
 func (_m *Event) QueryVotingEligibilities() *VotingEligibilityQuery {
 	return NewEventClient(_m.config).QueryVotingEligibilities(_m)
+}
+
+// QueryVotingKeys queries the "voting_keys" edge of the Event entity.
+func (_m *Event) QueryVotingKeys() *VotingKeyQuery {
+	return NewEventClient(_m.config).QueryVotingKeys(_m)
 }
 
 // QueryDraftEdits queries the "draft_edits" edge of the Event entity.

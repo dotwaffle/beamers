@@ -47,6 +47,7 @@ func TestBackstageNavigationReflectsEffectiveAuthority(t *testing.T) {
 	if got := backstageSectionLabels(navigation.Events[0]); !reflect.DeepEqual(got, []string{
 		"Event overview",
 		"Plan and publish",
+		"Voting Keys",
 		"Sessions and Displays",
 		"Program Output and Overrides",
 		"Emergency Alerts",
@@ -108,15 +109,18 @@ func TestBackstageNavigationRejectsAttendeeAndSeparatesRouteInterfaces(t *testin
 	registerAdministrationRoutes(routes, nil, nil, nil, nil, nil)
 	registerOperationRoutes(routes, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	registerControlRoutes(routes, nil, nil, nil, nil, nil, "", nil)
+	registerVotingRoutes(routes, nil, nil, nil, nil, nil)
 	for path, want := range map[string]interfaceKind{
-		"/profile":                       publicInterface,
-		"/backstage":                     crewInterface,
-		"/backstage/administration":      crewInterface,
-		"/admin/registration":            crewInterface,
-		"/backstage/events/1/planning":   crewInterface,
-		"/backstage/events/1/operations": crewInterface,
-		"/backstage/events/1/control":    crewInterface,
-		"/backstage/events/new":          crewInterface,
+		"/profile":                        publicInterface,
+		"/backstage":                      crewInterface,
+		"/backstage/administration":       crewInterface,
+		"/admin/registration":             crewInterface,
+		"/backstage/events/1/planning":    crewInterface,
+		"/backstage/events/1/operations":  crewInterface,
+		"/backstage/events/1/control":     crewInterface,
+		"/backstage/events/1/voting-keys": crewInterface,
+		"/voting":                         publicInterface,
+		"/backstage/events/new":           crewInterface,
 	} {
 		request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, http.NoBody)
 		contract, ok := routes.contract(request)

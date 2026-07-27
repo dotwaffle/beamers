@@ -655,6 +655,7 @@ func backstageNavigation(account auth.Account) backstageNavigationModel {
 		if role == viewer.Producer {
 			sections = append(sections,
 				backstageSection(eventID, "planning", "Plan and publish"),
+				backstageSection(eventID, "voting", "Voting Keys"),
 			)
 		}
 		scope := account.EventScopes[eventID]
@@ -712,6 +713,9 @@ func backstageSection(eventID int, fragment, label string) frontend.BackstageSec
 	}
 	if fragment == "control" {
 		href = "/backstage/events/" + strconv.Itoa(eventID) + "/control"
+	}
+	if fragment == "voting" {
+		href = "/backstage/events/" + strconv.Itoa(eventID) + "/voting-keys"
 	}
 	if fragment == "entries" {
 		href = "/backstage/events/" + strconv.Itoa(eventID) +

@@ -1856,6 +1856,44 @@ var (
 			},
 		},
 	}
+	// VotingKeysColumns holds the columns for the "voting_keys" table.
+	VotingKeysColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "token_hash", Type: field.TypeString, Unique: true, Size: 64},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "expires_at", Type: field.TypeTime},
+		{Name: "revoked_at", Type: field.TypeTime, Nullable: true},
+		{Name: "redeemed_at", Type: field.TypeTime, Nullable: true},
+		{Name: "redeemed_by_account_id", Type: field.TypeInt, Nullable: true},
+		{Name: "event_id", Type: field.TypeInt},
+	}
+	// VotingKeysTable holds the schema information for the "voting_keys" table.
+	VotingKeysTable = &schema.Table{
+		Name:       "voting_keys",
+		Columns:    VotingKeysColumns,
+		PrimaryKey: []*schema.Column{VotingKeysColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "voting_keys_accounts_redeemed_voting_keys",
+				Columns:    []*schema.Column{VotingKeysColumns[6]},
+				RefColumns: []*schema.Column{AccountsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+			{
+				Symbol:     "voting_keys_events_voting_keys",
+				Columns:    []*schema.Column{VotingKeysColumns[7]},
+				RefColumns: []*schema.Column{EventsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "votingkey_event_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{VotingKeysColumns[7], VotingKeysColumns[2]},
+			},
+		},
+	}
 	// WebAuthnCredentialsColumns holds the columns for the "web_authn_credentials" table.
 	WebAuthnCredentialsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -2100,6 +2138,7 @@ var (
 		TrackDraftsTable,
 		TrackPublishedVersionsTable,
 		VotingEligibilitiesTable,
+		VotingKeysTable,
 		WebAuthnCredentialsTable,
 		SessionDraftLanesTable,
 		SessionDraftLocationsTable,
@@ -2188,6 +2227,8 @@ func init() {
 	TrackPublishedVersionsTable.ForeignKeys[0].RefTable = TracksTable
 	VotingEligibilitiesTable.ForeignKeys[0].RefTable = AccountsTable
 	VotingEligibilitiesTable.ForeignKeys[1].RefTable = EventsTable
+	VotingKeysTable.ForeignKeys[0].RefTable = AccountsTable
+	VotingKeysTable.ForeignKeys[1].RefTable = EventsTable
 	WebAuthnCredentialsTable.ForeignKeys[0].RefTable = AccountsTable
 	SessionDraftLanesTable.ForeignKeys[0].RefTable = SessionDraftsTable
 	SessionDraftLanesTable.ForeignKeys[1].RefTable = LanesTable

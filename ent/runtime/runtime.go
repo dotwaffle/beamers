@@ -66,6 +66,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/trackdraft"
 	"github.com/dotwaffle/beamers/ent/trackpublishedversion"
 	"github.com/dotwaffle/beamers/ent/votingeligibility"
+	"github.com/dotwaffle/beamers/ent/votingkey"
 	"github.com/dotwaffle/beamers/ent/webauthncredential"
 
 	"entgo.io/ent"
@@ -2588,6 +2589,39 @@ func init() {
 	votingeligibilityDescCreatedAt := votingeligibilityFields[2].Descriptor()
 	// votingeligibility.DefaultCreatedAt holds the default value on creation for the created_at field.
 	votingeligibility.DefaultCreatedAt = votingeligibilityDescCreatedAt.Default.(func() time.Time)
+	votingkey.Policy = privacy.NewPolicies(schema.VotingKey{})
+	votingkey.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := votingkey.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	votingkeyFields := schema.VotingKey{}.Fields()
+	_ = votingkeyFields
+	// votingkeyDescTokenHash is the schema descriptor for token_hash field.
+	votingkeyDescTokenHash := votingkeyFields[1].Descriptor()
+	// votingkey.TokenHashValidator is a validator for the "token_hash" field. It is called by the builders before save.
+	votingkey.TokenHashValidator = func() func(string) error {
+		validators := votingkeyDescTokenHash.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(token_hash string) error {
+			for _, fn := range fns {
+				if err := fn(token_hash); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// votingkeyDescCreatedAt is the schema descriptor for created_at field.
+	votingkeyDescCreatedAt := votingkeyFields[2].Descriptor()
+	// votingkey.DefaultCreatedAt holds the default value on creation for the created_at field.
+	votingkey.DefaultCreatedAt = votingkeyDescCreatedAt.Default.(func() time.Time)
 	webauthncredential.Policy = privacy.NewPolicies(schema.WebAuthnCredential{})
 	webauthncredential.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {

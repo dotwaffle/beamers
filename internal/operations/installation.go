@@ -27,6 +27,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/schedulebaseline"
 	"github.com/dotwaffle/beamers/internal/sessioncontrol"
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/voting"
 )
 
 var (
@@ -62,6 +63,7 @@ type Installation struct {
 	baselineCommands *schedulebaseline.Commands
 	baselineQueries  *schedulebaseline.Queries
 	sessionControl   *sessioncontrol.Service
+	voting           *voting.Service
 }
 
 // Capacity is the durable installation shape compared with the tested envelope.
@@ -283,6 +285,11 @@ func OpenInstallationWithConfig(
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.sessionControl = sessionControlService
+	votingService, err := voting.New(storage, nil, time.Now)
+	if err != nil {
+		return nil, errors.Join(err, installation.Close())
+	}
+	installation.voting = votingService
 	return installation, nil
 }
 
@@ -454,6 +461,12 @@ func (installation *Installation) ScheduleBaselineQueries() *schedulebaseline.Qu
 // It is nil only while the installation is restricted to recovery mode.
 func (installation *Installation) SessionControl() *sessioncontrol.Service {
 	return installation.sessionControl
+}
+
+// Voting returns Event Voting Key issuance and redemption.
+// It is nil only while the installation is restricted to recovery mode.
+func (installation *Installation) Voting() *voting.Service {
+	return installation.voting
 }
 
 // Close closes storage and releases the installation lock.

@@ -98,6 +98,7 @@ func TestSanitizedBackupIncludesConfiguredAttachmentsAndRemovesCredentials(t *te
 		"recovery_tokens",
 		"display_credentials",
 		"display_enrollments",
+		"voting_keys",
 	} {
 		var count int
 		if err = database.QueryRowContext(ctx, "SELECT count(*) FROM "+table).Scan(&count); err != nil {

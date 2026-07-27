@@ -200,6 +200,14 @@ var migrationContracts = map[int]migrationContract{
 		minimumWriter: 59,
 		consequence:   "removes anonymous Upload Link credential persistence",
 	},
+	60: {
+		name:          "add_voting_keys",
+		checksum:      "ca28bc8d1f1831a18f6d43b1d182ffd80f3307762d827732846c546419fd0836",
+		safety:        MigrationNonDestructive,
+		minimumReader: 60,
+		minimumWriter: 60,
+		consequence:   "adds protected single-use Event Voting Keys",
+	},
 }
 
 // MigrationStep is one exact committed migration in an upgrade plan.
@@ -529,6 +537,7 @@ func SanitizeSnapshot(ctx context.Context, path string) (returnErr error) {
 		"DELETE FROM recovery_tokens",
 		"DELETE FROM display_credentials",
 		"DELETE FROM display_enrollments",
+		"DELETE FROM voting_keys",
 	} {
 		if _, err = transaction.ExecContext(ctx, statement); err != nil {
 			return fmt.Errorf("sanitize Backup authentication material: %w", err)
@@ -575,6 +584,7 @@ func ValidateSanitizedSnapshot(ctx context.Context, path string) (returnErr erro
 		"SELECT EXISTS(SELECT 1 FROM recovery_tokens)",
 		"SELECT EXISTS(SELECT 1 FROM display_credentials)",
 		"SELECT EXISTS(SELECT 1 FROM display_enrollments)",
+		"SELECT EXISTS(SELECT 1 FROM voting_keys)",
 	} {
 		var found bool
 		if err = database.QueryRowContext(ctx, query).Scan(&found); err != nil {

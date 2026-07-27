@@ -1,0 +1,162 @@
+package frontend
+
+import (
+	"strconv"
+	"time"
+
+	"github.com/dotwaffle/beamers/internal/events"
+	"github.com/dotwaffle/beamers/internal/voting"
+)
+
+type VotingRedemptionPage struct {
+	AccountName    string
+	CSRFToken      string
+	ReducedEffects bool
+	Backstage      bool
+	CommandID      string
+	EventID        int
+	Message        string
+	Success        bool
+}
+
+type VotingKeyPage struct {
+	AccountName    string
+	CSRFToken      string
+	ReducedEffects bool
+	Navigation     BackstageNavigation
+	CommandID      string
+	Event          events.Event
+	ExpiryValue    string
+	Keys           []voting.Key
+	Issued         []voting.IssuedKey
+	Message        string
+	Now            time.Time
+}
+
+templ VotingRedemption(page VotingRedemptionPage) {
+	<!doctype html>
+	<html lang="en">
+		@Head("Redeem Voting Key · Beamers")
+		<body data-reduced-effects={ strconv.FormatBool(page.ReducedEffects) }>
+			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, page.Backstage)
+			<main>
+				<h1>Redeem Event Voting Key</h1>
+				if page.Message != "" {
+					if page.Success {
+						<p role="status">{ page.Message }</p>
+					} else {
+						<p class="error" role="alert">{ page.Message }</p>
+					}
+				}
+				<form class="stack" method="post" action="/voting">
+					<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+					<input type="hidden" name="command_id" value={ page.CommandID }/>
+					<label>
+						Event number
+						<input type="number" name="event_id" min="1" value={ votingEventID(page.EventID) } required/>
+					</label>
+					<label>
+						Voting Key
+						<input name="voting_key" autocomplete="off" spellcheck="false" required/>
+					</label>
+					<button type="submit">Redeem Voting Key</button>
+				</form>
+			</main>
+		</body>
+	</html>
+}
+
+templ VotingKeys(page VotingKeyPage) {
+	<!doctype html>
+	<html lang={ page.Event.EventLocale }>
+		@Head("Voting Keys · Beamers")
+		<body data-reduced-effects={ strconv.FormatBool(page.ReducedEffects) }>
+			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, true)
+			<div class="backstage-layout">
+				@BackstageNavigationViews(page.Navigation)
+				<main>
+					<h1>{ page.Event.Name } Voting Keys</h1>
+					<p>Event #{ strconv.Itoa(page.Event.ID) }</p>
+					if page.Message != "" {
+						<p class="error" role="alert">{ page.Message }</p>
+					}
+					<form class="stack" method="post">
+						<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+						<input type="hidden" name="command_id" value={ page.CommandID }/>
+						<input type="hidden" name="action" value="issue"/>
+						<label>
+							Number of keys
+							<input type="number" name="count" min="1" max="100" value="10" required/>
+						</label>
+						<label>
+							Expires at ({ page.Event.Timezone })
+							<input type="datetime-local" name="expires_at" value={ page.ExpiryValue } required/>
+						</label>
+						<button type="submit">Issue printable keys</button>
+					</form>
+					if len(page.Issued) > 0 {
+						<section aria-labelledby="issued-voting-keys">
+							<h2 id="issued-voting-keys">New Voting Keys</h2>
+							<p>Print or save these now. They will not be shown again.</p>
+							<ol>
+								for _, item := range page.Issued {
+									<li><code data-voting-key>{ item.Token }</code></li>
+								}
+							</ol>
+						</section>
+					}
+					<section>
+						<h2>Key inventory</h2>
+						if len(page.Keys) == 0 {
+							<p>No Voting Keys issued.</p>
+						} else {
+							<table>
+								<thead><tr><th>Key</th><th>Expires</th><th>Status</th><th>Action</th></tr></thead>
+								<tbody>
+									for _, item := range page.Keys {
+										<tr>
+											<td>#{ strconv.Itoa(item.ID) }</td>
+											<td>@EventTime(item.ExpiresAt, page.Event.Timezone, page.Event.EventLocale)</td>
+											<td>{ votingKeyStatus(item, page.Now) }</td>
+											<td>
+												if item.RevokedAt.IsZero() && item.RedeemedAt.IsZero() && item.ExpiresAt.After(page.Now) {
+													<form method="post">
+														<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+														<input type="hidden" name="command_id" value={ page.CommandID + "-revoke-" + strconv.Itoa(item.ID) }/>
+														<input type="hidden" name="action" value="revoke"/>
+														<input type="hidden" name="key_id" value={ strconv.Itoa(item.ID) }/>
+														<button type="submit">Revoke</button>
+													</form>
+												}
+											</td>
+										</tr>
+									}
+								</tbody>
+							</table>
+						}
+					</section>
+				</main>
+			</div>
+		</body>
+	</html>
+}
+
+func votingEventID(eventID int) string {
+	if eventID <= 0 {
+		return ""
+	}
+	return strconv.Itoa(eventID)
+}
+
+func votingKeyStatus(key voting.Key, now time.Time) string {
+	switch {
+	case !key.RedeemedAt.IsZero():
+		return "Redeemed"
+	case !key.RevokedAt.IsZero():
+		return "Revoked"
+	case !key.ExpiresAt.After(now):
+		return "Expired"
+	default:
+		return "Available"
+	}
+}

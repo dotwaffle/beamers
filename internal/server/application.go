@@ -673,6 +673,14 @@ func (application *application) buildHandler(
 		notifyScheduleAndDisplays,
 		application.config.Logger,
 	)
+	registerVotingRoutes(
+		mux,
+		installation.Authentication(),
+		installation.Events(),
+		installation.Voting(),
+		authenticationLimiter,
+		application.config.Logger,
+	)
 	registerOperationRoutes(
 		mux,
 		installation.Authentication(),

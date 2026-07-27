@@ -66,6 +66,8 @@ type AccountEdges struct {
 	SubmittedPresentations []*Session `json:"submitted_presentations,omitempty"`
 	// VotingEligibilities holds the value of the voting_eligibilities edge.
 	VotingEligibilities []*VotingEligibility `json:"voting_eligibilities,omitempty"`
+	// RedeemedVotingKeys holds the value of the redeemed_voting_keys edge.
+	RedeemedVotingKeys []*VotingKey `json:"redeemed_voting_keys,omitempty"`
 	// AuditEntries holds the value of the audit_entries edge.
 	AuditEntries []*AuditEntry `json:"audit_entries,omitempty"`
 	// CommandReceipts holds the value of the command_receipts edge.
@@ -74,7 +76,7 @@ type AccountEdges struct {
 	DraftEdits []*DraftEdit `json:"draft_edits,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [16]bool
+	loadedTypes [17]bool
 }
 
 // PasswordCredentialOrErr returns the PasswordCredential value or an error if the edge
@@ -200,10 +202,19 @@ func (e AccountEdges) VotingEligibilitiesOrErr() ([]*VotingEligibility, error) {
 	return nil, &NotLoadedError{edge: "voting_eligibilities"}
 }
 
+// RedeemedVotingKeysOrErr returns the RedeemedVotingKeys value or an error if the edge
+// was not loaded in eager-loading.
+func (e AccountEdges) RedeemedVotingKeysOrErr() ([]*VotingKey, error) {
+	if e.loadedTypes[13] {
+		return e.RedeemedVotingKeys, nil
+	}
+	return nil, &NotLoadedError{edge: "redeemed_voting_keys"}
+}
+
 // AuditEntriesOrErr returns the AuditEntries value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) AuditEntriesOrErr() ([]*AuditEntry, error) {
-	if e.loadedTypes[13] {
+	if e.loadedTypes[14] {
 		return e.AuditEntries, nil
 	}
 	return nil, &NotLoadedError{edge: "audit_entries"}
@@ -212,7 +223,7 @@ func (e AccountEdges) AuditEntriesOrErr() ([]*AuditEntry, error) {
 // CommandReceiptsOrErr returns the CommandReceipts value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) CommandReceiptsOrErr() ([]*CommandReceipt, error) {
-	if e.loadedTypes[14] {
+	if e.loadedTypes[15] {
 		return e.CommandReceipts, nil
 	}
 	return nil, &NotLoadedError{edge: "command_receipts"}
@@ -221,7 +232,7 @@ func (e AccountEdges) CommandReceiptsOrErr() ([]*CommandReceipt, error) {
 // DraftEditsOrErr returns the DraftEdits value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) DraftEditsOrErr() ([]*DraftEdit, error) {
-	if e.loadedTypes[15] {
+	if e.loadedTypes[16] {
 		return e.DraftEdits, nil
 	}
 	return nil, &NotLoadedError{edge: "draft_edits"}
@@ -376,6 +387,11 @@ func (_m *Account) QuerySubmittedPresentations() *SessionQuery {
 // QueryVotingEligibilities queries the "voting_eligibilities" edge of the Account entity.
 func (_m *Account) QueryVotingEligibilities() *VotingEligibilityQuery {
 	return NewAccountClient(_m.config).QueryVotingEligibilities(_m)
+}
+
+// QueryRedeemedVotingKeys queries the "redeemed_voting_keys" edge of the Account entity.
+func (_m *Account) QueryRedeemedVotingKeys() *VotingKeyQuery {
+	return NewAccountClient(_m.config).QueryRedeemedVotingKeys(_m)
 }
 
 // QueryAuditEntries queries the "audit_entries" edge of the Account entity.

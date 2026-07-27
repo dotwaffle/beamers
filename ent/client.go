@@ -74,6 +74,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/trackdraft"
 	"github.com/dotwaffle/beamers/ent/trackpublishedversion"
 	"github.com/dotwaffle/beamers/ent/votingeligibility"
+	"github.com/dotwaffle/beamers/ent/votingkey"
 	"github.com/dotwaffle/beamers/ent/webauthncredential"
 
 	stdsql "database/sql"
@@ -202,6 +203,8 @@ type Client struct {
 	TrackPublishedVersion *TrackPublishedVersionClient
 	// VotingEligibility is the client for interacting with the VotingEligibility builders.
 	VotingEligibility *VotingEligibilityClient
+	// VotingKey is the client for interacting with the VotingKey builders.
+	VotingKey *VotingKeyClient
 	// WebAuthnCredential is the client for interacting with the WebAuthnCredential builders.
 	WebAuthnCredential *WebAuthnCredentialClient
 }
@@ -274,6 +277,7 @@ func (c *Client) init() {
 	c.TrackDraft = NewTrackDraftClient(c.config)
 	c.TrackPublishedVersion = NewTrackPublishedVersionClient(c.config)
 	c.VotingEligibility = NewVotingEligibilityClient(c.config)
+	c.VotingKey = NewVotingKeyClient(c.config)
 	c.WebAuthnCredential = NewWebAuthnCredentialClient(c.config)
 }
 
@@ -426,6 +430,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		TrackDraft:                  NewTrackDraftClient(cfg),
 		TrackPublishedVersion:       NewTrackPublishedVersionClient(cfg),
 		VotingEligibility:           NewVotingEligibilityClient(cfg),
+		VotingKey:                   NewVotingKeyClient(cfg),
 		WebAuthnCredential:          NewWebAuthnCredentialClient(cfg),
 	}, nil
 }
@@ -505,6 +510,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		TrackDraft:                  NewTrackDraftClient(cfg),
 		TrackPublishedVersion:       NewTrackPublishedVersionClient(cfg),
 		VotingEligibility:           NewVotingEligibilityClient(cfg),
+		VotingKey:                   NewVotingKeyClient(cfg),
 		WebAuthnCredential:          NewWebAuthnCredentialClient(cfg),
 	}, nil
 }
@@ -550,7 +556,7 @@ func (c *Client) Use(hooks ...Hook) {
 		c.ResultsCorrection, c.ResultsPublication, c.Rundown, c.Session,
 		c.SessionCancellation, c.SessionDraft, c.SessionPublishedVersion, c.SessionRun,
 		c.SessionRunAmendment, c.Track, c.TrackDraft, c.TrackPublishedVersion,
-		c.VotingEligibility, c.WebAuthnCredential,
+		c.VotingEligibility, c.VotingKey, c.WebAuthnCredential,
 	} {
 		n.Use(hooks...)
 	}
@@ -575,7 +581,7 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.ResultsCorrection, c.ResultsPublication, c.Rundown, c.Session,
 		c.SessionCancellation, c.SessionDraft, c.SessionPublishedVersion, c.SessionRun,
 		c.SessionRunAmendment, c.Track, c.TrackDraft, c.TrackPublishedVersion,
-		c.VotingEligibility, c.WebAuthnCredential,
+		c.VotingEligibility, c.VotingKey, c.WebAuthnCredential,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -702,6 +708,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.TrackPublishedVersion.mutate(ctx, m)
 	case *VotingEligibilityMutation:
 		return c.VotingEligibility.mutate(ctx, m)
+	case *VotingKeyMutation:
+		return c.VotingKey.mutate(ctx, m)
 	case *WebAuthnCredentialMutation:
 		return c.WebAuthnCredential.mutate(ctx, m)
 	default:
@@ -1018,6 +1026,22 @@ func (c *AccountClient) QueryVotingEligibilities(_m *Account) *VotingEligibility
 			sqlgraph.From(account.Table, account.FieldID, id),
 			sqlgraph.To(votingeligibility.Table, votingeligibility.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, account.VotingEligibilitiesTable, account.VotingEligibilitiesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryRedeemedVotingKeys queries the redeemed_voting_keys edge of a Account.
+func (c *AccountClient) QueryRedeemedVotingKeys(_m *Account) *VotingKeyQuery {
+	query := (&VotingKeyClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, id),
+			sqlgraph.To(votingkey.Table, votingkey.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, account.RedeemedVotingKeysTable, account.RedeemedVotingKeysColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -4744,6 +4768,22 @@ func (c *EventClient) QueryVotingEligibilities(_m *Event) *VotingEligibilityQuer
 			sqlgraph.From(event.Table, event.FieldID, id),
 			sqlgraph.To(votingeligibility.Table, votingeligibility.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, event.VotingEligibilitiesTable, event.VotingEligibilitiesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryVotingKeys queries the voting_keys edge of a Event.
+func (c *EventClient) QueryVotingKeys(_m *Event) *VotingKeyQuery {
+	query := (&VotingKeyClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, id),
+			sqlgraph.To(votingkey.Table, votingkey.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, event.VotingKeysTable, event.VotingKeysColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -11078,6 +11118,172 @@ func (c *VotingEligibilityClient) mutate(ctx context.Context, m *VotingEligibili
 	}
 }
 
+// VotingKeyClient is a client for the VotingKey schema.
+type VotingKeyClient struct {
+	config
+}
+
+// NewVotingKeyClient returns a client for the VotingKey from the given config.
+func NewVotingKeyClient(c config) *VotingKeyClient {
+	return &VotingKeyClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `votingkey.Hooks(f(g(h())))`.
+func (c *VotingKeyClient) Use(hooks ...Hook) {
+	c.hooks.VotingKey = append(c.hooks.VotingKey, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `votingkey.Intercept(f(g(h())))`.
+func (c *VotingKeyClient) Intercept(interceptors ...Interceptor) {
+	c.inters.VotingKey = append(c.inters.VotingKey, interceptors...)
+}
+
+// Create returns a builder for creating a VotingKey entity.
+func (c *VotingKeyClient) Create() *VotingKeyCreate {
+	mutation := newVotingKeyMutation(c.config, OpCreate)
+	return &VotingKeyCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of VotingKey entities.
+func (c *VotingKeyClient) CreateBulk(builders ...*VotingKeyCreate) *VotingKeyCreateBulk {
+	return &VotingKeyCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *VotingKeyClient) MapCreateBulk(slice any, setFunc func(*VotingKeyCreate, int)) *VotingKeyCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &VotingKeyCreateBulk{err: fmt.Errorf("calling to VotingKeyClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*VotingKeyCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &VotingKeyCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for VotingKey.
+func (c *VotingKeyClient) Update() *VotingKeyUpdate {
+	mutation := newVotingKeyMutation(c.config, OpUpdate)
+	return &VotingKeyUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *VotingKeyClient) UpdateOne(_m *VotingKey) *VotingKeyUpdateOne {
+	mutation := newVotingKeyMutation(c.config, OpUpdateOne, withVotingKey(_m))
+	return &VotingKeyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *VotingKeyClient) UpdateOneID(id int) *VotingKeyUpdateOne {
+	mutation := newVotingKeyMutation(c.config, OpUpdateOne, withVotingKeyID(id))
+	return &VotingKeyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for VotingKey.
+func (c *VotingKeyClient) Delete() *VotingKeyDelete {
+	mutation := newVotingKeyMutation(c.config, OpDelete)
+	return &VotingKeyDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *VotingKeyClient) DeleteOne(_m *VotingKey) *VotingKeyDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *VotingKeyClient) DeleteOneID(id int) *VotingKeyDeleteOne {
+	builder := c.Delete().Where(votingkey.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &VotingKeyDeleteOne{builder}
+}
+
+// Query returns a query builder for VotingKey.
+func (c *VotingKeyClient) Query() *VotingKeyQuery {
+	return &VotingKeyQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeVotingKey},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a VotingKey entity by its id.
+func (c *VotingKeyClient) Get(ctx context.Context, id int) (*VotingKey, error) {
+	return c.Query().Where(votingkey.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *VotingKeyClient) GetX(ctx context.Context, id int) *VotingKey {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryEvent queries the event edge of a VotingKey.
+func (c *VotingKeyClient) QueryEvent(_m *VotingKey) *EventQuery {
+	query := (&EventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(votingkey.Table, votingkey.FieldID, id),
+			sqlgraph.To(event.Table, event.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, votingkey.EventTable, votingkey.EventColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryRedeemedBy queries the redeemed_by edge of a VotingKey.
+func (c *VotingKeyClient) QueryRedeemedBy(_m *VotingKey) *AccountQuery {
+	query := (&AccountClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(votingkey.Table, votingkey.FieldID, id),
+			sqlgraph.To(account.Table, account.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, votingkey.RedeemedByTable, votingkey.RedeemedByColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *VotingKeyClient) Hooks() []Hook {
+	hooks := c.hooks.VotingKey
+	return append(hooks[:len(hooks):len(hooks)], votingkey.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *VotingKeyClient) Interceptors() []Interceptor {
+	return c.inters.VotingKey
+}
+
+func (c *VotingKeyClient) mutate(ctx context.Context, m *VotingKeyMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&VotingKeyCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&VotingKeyUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&VotingKeyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&VotingKeyDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown VotingKey mutation op: %q", m.Op())
+	}
+}
+
 // WebAuthnCredentialClient is a client for the WebAuthnCredential schema.
 type WebAuthnCredentialClient struct {
 	config
@@ -11244,7 +11450,7 @@ type (
 		ReleasedProfileEntry, ReopenWindow, ResultsCorrection, ResultsPublication,
 		Rundown, Session, SessionCancellation, SessionDraft, SessionPublishedVersion,
 		SessionRun, SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
-		VotingEligibility, WebAuthnCredential []ent.Hook
+		VotingEligibility, VotingKey, WebAuthnCredential []ent.Hook
 	}
 	inters struct {
 		Account, AccountPreference, AccountProfile, AccountSession, Attachment,
@@ -11260,7 +11466,7 @@ type (
 		ReleasedProfileEntry, ReopenWindow, ResultsCorrection, ResultsPublication,
 		Rundown, Session, SessionCancellation, SessionDraft, SessionPublishedVersion,
 		SessionRun, SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
-		VotingEligibility, WebAuthnCredential []ent.Interceptor
+		VotingEligibility, VotingKey, WebAuthnCredential []ent.Interceptor
 	}
 )
 

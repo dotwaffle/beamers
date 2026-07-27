@@ -717,6 +717,18 @@ func (f VotingEligibilityFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.VotingEligibilityMutation", m)
 }
 
+// The VotingKeyFunc type is an adapter to allow the use of ordinary
+// function as VotingKey mutator.
+type VotingKeyFunc func(context.Context, *ent.VotingKeyMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f VotingKeyFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.VotingKeyMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.VotingKeyMutation", m)
+}
+
 // The WebAuthnCredentialFunc type is an adapter to allow the use of ordinary
 // function as WebAuthnCredential mutator.
 type WebAuthnCredentialFunc func(context.Context, *ent.WebAuthnCredentialMutation) (ent.Value, error)

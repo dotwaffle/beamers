@@ -92,6 +92,8 @@ const (
 	EdgeResultsCorrections = "results_corrections"
 	// EdgeVotingEligibilities holds the string denoting the voting_eligibilities edge name in mutations.
 	EdgeVotingEligibilities = "voting_eligibilities"
+	// EdgeVotingKeys holds the string denoting the voting_keys edge name in mutations.
+	EdgeVotingKeys = "voting_keys"
 	// EdgeDraftEdits holds the string denoting the draft_edits edge name in mutations.
 	EdgeDraftEdits = "draft_edits"
 	// EdgeDraftChanges holds the string denoting the draft_changes edge name in mutations.
@@ -218,6 +220,13 @@ const (
 	VotingEligibilitiesInverseTable = "voting_eligibilities"
 	// VotingEligibilitiesColumn is the table column denoting the voting_eligibilities relation/edge.
 	VotingEligibilitiesColumn = "event_id"
+	// VotingKeysTable is the table that holds the voting_keys relation/edge.
+	VotingKeysTable = "voting_keys"
+	// VotingKeysInverseTable is the table name for the VotingKey entity.
+	// It exists in this package in order to avoid circular dependency with the "votingkey" package.
+	VotingKeysInverseTable = "voting_keys"
+	// VotingKeysColumn is the table column denoting the voting_keys relation/edge.
+	VotingKeysColumn = "event_id"
 	// DraftEditsTable is the table that holds the draft_edits relation/edge.
 	DraftEditsTable = "draft_edits"
 	// DraftEditsInverseTable is the table name for the DraftEdit entity.
@@ -771,6 +780,20 @@ func ByVotingEligibilities(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOpti
 	}
 }
 
+// ByVotingKeysCount orders the results by voting_keys count.
+func ByVotingKeysCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newVotingKeysStep(), opts...)
+	}
+}
+
+// ByVotingKeys orders the results by voting_keys terms.
+func ByVotingKeys(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newVotingKeysStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByDraftEditsCount orders the results by draft_edits count.
 func ByDraftEditsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -957,6 +980,13 @@ func newVotingEligibilitiesStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(VotingEligibilitiesInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, VotingEligibilitiesTable, VotingEligibilitiesColumn),
+	)
+}
+func newVotingKeysStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(VotingKeysInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, VotingKeysTable, VotingKeysColumn),
 	)
 }
 func newDraftEditsStep() *sqlgraph.Step {

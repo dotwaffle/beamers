@@ -1623,6 +1623,29 @@ func HasVotingEligibilitiesWith(preds ...predicate.VotingEligibility) predicate.
 	})
 }
 
+// HasVotingKeys applies the HasEdge predicate on the "voting_keys" edge.
+func HasVotingKeys() predicate.Event {
+	return predicate.Event(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, VotingKeysTable, VotingKeysColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasVotingKeysWith applies the HasEdge predicate on the "voting_keys" edge with a given conditions (other predicates).
+func HasVotingKeysWith(preds ...predicate.VotingKey) predicate.Event {
+	return predicate.Event(func(s *sql.Selector) {
+		step := newVotingKeysStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasDraftEdits applies the HasEdge predicate on the "draft_edits" edge.
 func HasDraftEdits() predicate.Event {
 	return predicate.Event(func(s *sql.Selector) {

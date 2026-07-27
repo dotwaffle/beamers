@@ -183,5 +183,8 @@ type TrackPublishedVersion func(*sql.Selector)
 // VotingEligibility is the predicate function for votingeligibility builders.
 type VotingEligibility func(*sql.Selector)
 
+// VotingKey is the predicate function for votingkey builders.
+type VotingKey func(*sql.Selector)
+
 // WebAuthnCredential is the predicate function for webauthncredential builders.
 type WebAuthnCredential func(*sql.Selector)

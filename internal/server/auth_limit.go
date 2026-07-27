@@ -186,6 +186,18 @@ func accountUploadLimitKeys(
 		}
 }
 
+func votingKeyFailureKeys(
+	request *http.Request,
+	token string,
+) (authFailureKey, authFailureKey) {
+	client := authClientAddress(request)
+	return authFailureKey{value: "voting-client|" + client, limit: clientFailureLimit},
+		authFailureKey{
+			value: "voting-key|" + authFingerprint(token),
+			limit: principalFailureLimit,
+		}
+}
+
 func authClientAddress(request *http.Request) string {
 	return requestClientAddress(request)
 }
