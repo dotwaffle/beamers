@@ -17,6 +17,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/accountsession"
 	"github.com/dotwaffle/beamers/ent/auditentry"
 	"github.com/dotwaffle/beamers/ent/commandreceipt"
+	"github.com/dotwaffle/beamers/ent/competitionentry"
 	"github.com/dotwaffle/beamers/ent/draftedit"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/favoritesession"
@@ -25,6 +26,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/predicate"
 	"github.com/dotwaffle/beamers/ent/recoverycode"
 	"github.com/dotwaffle/beamers/ent/recoverytoken"
+	"github.com/dotwaffle/beamers/ent/votingeligibility"
 	"github.com/dotwaffle/beamers/ent/webauthncredential"
 )
 
@@ -251,6 +253,36 @@ func (_u *AccountUpdate) AddFavoriteSessions(v ...*FavoriteSession) *AccountUpda
 	return _u.AddFavoriteSessionIDs(ids...)
 }
 
+// AddCompetitionEntryIDs adds the "competition_entries" edge to the CompetitionEntry entity by IDs.
+func (_u *AccountUpdate) AddCompetitionEntryIDs(ids ...int) *AccountUpdate {
+	_u.mutation.AddCompetitionEntryIDs(ids...)
+	return _u
+}
+
+// AddCompetitionEntries adds the "competition_entries" edges to the CompetitionEntry entity.
+func (_u *AccountUpdate) AddCompetitionEntries(v ...*CompetitionEntry) *AccountUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddCompetitionEntryIDs(ids...)
+}
+
+// AddVotingEligibilityIDs adds the "voting_eligibilities" edge to the VotingEligibility entity by IDs.
+func (_u *AccountUpdate) AddVotingEligibilityIDs(ids ...int) *AccountUpdate {
+	_u.mutation.AddVotingEligibilityIDs(ids...)
+	return _u
+}
+
+// AddVotingEligibilities adds the "voting_eligibilities" edges to the VotingEligibility entity.
+func (_u *AccountUpdate) AddVotingEligibilities(v ...*VotingEligibility) *AccountUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddVotingEligibilityIDs(ids...)
+}
+
 // AddAuditEntryIDs adds the "audit_entries" edge to the AuditEntry entity by IDs.
 func (_u *AccountUpdate) AddAuditEntryIDs(ids ...int) *AccountUpdate {
 	_u.mutation.AddAuditEntryIDs(ids...)
@@ -464,6 +496,48 @@ func (_u *AccountUpdate) RemoveFavoriteSessions(v ...*FavoriteSession) *AccountU
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveFavoriteSessionIDs(ids...)
+}
+
+// ClearCompetitionEntries clears all "competition_entries" edges to the CompetitionEntry entity.
+func (_u *AccountUpdate) ClearCompetitionEntries() *AccountUpdate {
+	_u.mutation.ClearCompetitionEntries()
+	return _u
+}
+
+// RemoveCompetitionEntryIDs removes the "competition_entries" edge to CompetitionEntry entities by IDs.
+func (_u *AccountUpdate) RemoveCompetitionEntryIDs(ids ...int) *AccountUpdate {
+	_u.mutation.RemoveCompetitionEntryIDs(ids...)
+	return _u
+}
+
+// RemoveCompetitionEntries removes "competition_entries" edges to CompetitionEntry entities.
+func (_u *AccountUpdate) RemoveCompetitionEntries(v ...*CompetitionEntry) *AccountUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveCompetitionEntryIDs(ids...)
+}
+
+// ClearVotingEligibilities clears all "voting_eligibilities" edges to the VotingEligibility entity.
+func (_u *AccountUpdate) ClearVotingEligibilities() *AccountUpdate {
+	_u.mutation.ClearVotingEligibilities()
+	return _u
+}
+
+// RemoveVotingEligibilityIDs removes the "voting_eligibilities" edge to VotingEligibility entities by IDs.
+func (_u *AccountUpdate) RemoveVotingEligibilityIDs(ids ...int) *AccountUpdate {
+	_u.mutation.RemoveVotingEligibilityIDs(ids...)
+	return _u
+}
+
+// RemoveVotingEligibilities removes "voting_eligibilities" edges to VotingEligibility entities.
+func (_u *AccountUpdate) RemoveVotingEligibilities(v ...*VotingEligibility) *AccountUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveVotingEligibilityIDs(ids...)
 }
 
 // ClearAuditEntries clears all "audit_entries" edges to the AuditEntry entity.
@@ -1000,6 +1074,96 @@ func (_u *AccountUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.CompetitionEntriesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.CompetitionEntriesTable,
+			Columns: []string{account.CompetitionEntriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionentry.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedCompetitionEntriesIDs(); len(nodes) > 0 && !_u.mutation.CompetitionEntriesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.CompetitionEntriesTable,
+			Columns: []string{account.CompetitionEntriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionentry.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.CompetitionEntriesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.CompetitionEntriesTable,
+			Columns: []string{account.CompetitionEntriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionentry.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.VotingEligibilitiesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.VotingEligibilitiesTable,
+			Columns: []string{account.VotingEligibilitiesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingeligibility.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedVotingEligibilitiesIDs(); len(nodes) > 0 && !_u.mutation.VotingEligibilitiesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.VotingEligibilitiesTable,
+			Columns: []string{account.VotingEligibilitiesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingeligibility.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.VotingEligibilitiesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.VotingEligibilitiesTable,
+			Columns: []string{account.VotingEligibilitiesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingeligibility.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.AuditEntriesCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -1365,6 +1529,36 @@ func (_u *AccountUpdateOne) AddFavoriteSessions(v ...*FavoriteSession) *AccountU
 	return _u.AddFavoriteSessionIDs(ids...)
 }
 
+// AddCompetitionEntryIDs adds the "competition_entries" edge to the CompetitionEntry entity by IDs.
+func (_u *AccountUpdateOne) AddCompetitionEntryIDs(ids ...int) *AccountUpdateOne {
+	_u.mutation.AddCompetitionEntryIDs(ids...)
+	return _u
+}
+
+// AddCompetitionEntries adds the "competition_entries" edges to the CompetitionEntry entity.
+func (_u *AccountUpdateOne) AddCompetitionEntries(v ...*CompetitionEntry) *AccountUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddCompetitionEntryIDs(ids...)
+}
+
+// AddVotingEligibilityIDs adds the "voting_eligibilities" edge to the VotingEligibility entity by IDs.
+func (_u *AccountUpdateOne) AddVotingEligibilityIDs(ids ...int) *AccountUpdateOne {
+	_u.mutation.AddVotingEligibilityIDs(ids...)
+	return _u
+}
+
+// AddVotingEligibilities adds the "voting_eligibilities" edges to the VotingEligibility entity.
+func (_u *AccountUpdateOne) AddVotingEligibilities(v ...*VotingEligibility) *AccountUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddVotingEligibilityIDs(ids...)
+}
+
 // AddAuditEntryIDs adds the "audit_entries" edge to the AuditEntry entity by IDs.
 func (_u *AccountUpdateOne) AddAuditEntryIDs(ids ...int) *AccountUpdateOne {
 	_u.mutation.AddAuditEntryIDs(ids...)
@@ -1578,6 +1772,48 @@ func (_u *AccountUpdateOne) RemoveFavoriteSessions(v ...*FavoriteSession) *Accou
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveFavoriteSessionIDs(ids...)
+}
+
+// ClearCompetitionEntries clears all "competition_entries" edges to the CompetitionEntry entity.
+func (_u *AccountUpdateOne) ClearCompetitionEntries() *AccountUpdateOne {
+	_u.mutation.ClearCompetitionEntries()
+	return _u
+}
+
+// RemoveCompetitionEntryIDs removes the "competition_entries" edge to CompetitionEntry entities by IDs.
+func (_u *AccountUpdateOne) RemoveCompetitionEntryIDs(ids ...int) *AccountUpdateOne {
+	_u.mutation.RemoveCompetitionEntryIDs(ids...)
+	return _u
+}
+
+// RemoveCompetitionEntries removes "competition_entries" edges to CompetitionEntry entities.
+func (_u *AccountUpdateOne) RemoveCompetitionEntries(v ...*CompetitionEntry) *AccountUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveCompetitionEntryIDs(ids...)
+}
+
+// ClearVotingEligibilities clears all "voting_eligibilities" edges to the VotingEligibility entity.
+func (_u *AccountUpdateOne) ClearVotingEligibilities() *AccountUpdateOne {
+	_u.mutation.ClearVotingEligibilities()
+	return _u
+}
+
+// RemoveVotingEligibilityIDs removes the "voting_eligibilities" edge to VotingEligibility entities by IDs.
+func (_u *AccountUpdateOne) RemoveVotingEligibilityIDs(ids ...int) *AccountUpdateOne {
+	_u.mutation.RemoveVotingEligibilityIDs(ids...)
+	return _u
+}
+
+// RemoveVotingEligibilities removes "voting_eligibilities" edges to VotingEligibility entities.
+func (_u *AccountUpdateOne) RemoveVotingEligibilities(v ...*VotingEligibility) *AccountUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveVotingEligibilityIDs(ids...)
 }
 
 // ClearAuditEntries clears all "audit_entries" edges to the AuditEntry entity.
@@ -2137,6 +2373,96 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(favoritesession.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.CompetitionEntriesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.CompetitionEntriesTable,
+			Columns: []string{account.CompetitionEntriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionentry.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedCompetitionEntriesIDs(); len(nodes) > 0 && !_u.mutation.CompetitionEntriesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.CompetitionEntriesTable,
+			Columns: []string{account.CompetitionEntriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionentry.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.CompetitionEntriesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.CompetitionEntriesTable,
+			Columns: []string{account.CompetitionEntriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionentry.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.VotingEligibilitiesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.VotingEligibilitiesTable,
+			Columns: []string{account.VotingEligibilitiesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingeligibility.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedVotingEligibilitiesIDs(); len(nodes) > 0 && !_u.mutation.VotingEligibilitiesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.VotingEligibilitiesTable,
+			Columns: []string{account.VotingEligibilitiesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingeligibility.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.VotingEligibilitiesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.VotingEligibilitiesTable,
+			Columns: []string{account.VotingEligibilitiesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingeligibility.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

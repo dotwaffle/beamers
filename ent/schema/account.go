@@ -53,6 +53,8 @@ func (Account) Edges() []ent.Edge {
 		edge.To("recovery_tokens", RecoveryToken.Type),
 		edge.To("event_grants", EventGrant.Type),
 		edge.To("favorite_sessions", FavoriteSession.Type),
+		edge.To("competition_entries", CompetitionEntry.Type),
+		edge.To("voting_eligibilities", VotingEligibility.Type),
 		edge.To("audit_entries", AuditEntry.Type),
 		edge.To("command_receipts", CommandReceipt.Type),
 		edge.To("draft_edits", DraftEdit.Type),

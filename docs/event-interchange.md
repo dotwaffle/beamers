@@ -4,8 +4,8 @@ Beamers Event interchange is a vendor-neutral authoring format for moving one Ev
 It is separate from Backup and Restore and does not preserve operational history.
 
 The current format identifier is `beamers.event`.
-The current version is `1`.
-An importer must reject any other format or version without creating an Event.
+The current version is `2`.
+An importer accepts versions `1` and `2` and rejects any other format or version without creating an Event.
 
 ## Workflow
 
@@ -21,14 +21,14 @@ It creates a new inactive Event, grants the importing Administrator the Producer
 The Event configuration, Producer Grant, Draft changes, Command Receipt, and Audit Entry commit in one transaction.
 The imported Rundown remains unpublished until the normal Draft review and Publish workflow completes.
 
-## Version 1 document
+## Version 2 document
 
-Version 1 is strict UTF-8 JSON with this shape: One document must not exceed 64 MiB.
+Version 2 is strict UTF-8 JSON with this shape: One document must not exceed 64 MiB.
 
 ```json
 {
   "format": "beamers.event",
-  "version": 1,
+  "version": 2,
   "event": {
     "name": "Revision 2026",
     "planned_start_date": "2026-08-21",
@@ -38,6 +38,7 @@ Version 1 is strict UTF-8 JSON with this shape: One document must not exceed 64 
     "content_language": "en",
     "event_day_boundary": "06:00",
     "entry_default_disposition": "Pending",
+    "submission_eligibility": "AllAccounts",
     "target_adjustment_presets_seconds": [-300, 300, 600]
   },
   "locations": [
@@ -88,7 +89,10 @@ Refs do not establish lineage or authorize later updates to another Event.
 Arrays use source identity order.
 Relationship arrays represent sets and must not contain duplicates.
 Export orders relationship refs deterministically.
-An exported document imported into a new Event and Published re-exports as the same version 1 bytes.
+An exported document imported into a new Event and Published re-exports as the same version 2 bytes.
+
+Version 1 documents remain importable.
+They predate Submission Eligibility and import with the `AllAccounts` default.
 
 ## Validation and preservation
 
@@ -108,7 +112,7 @@ This preserves the selected occurrence of a repeated local time and rejects fabr
 
 ## Deliberate exclusions
 
-Version 1 excludes Crew Notes, matching the external-import boundary in ADR 0015.
+Version 2 excludes Crew Notes, matching the external-import boundary in ADR 0015.
 It also excludes Draft and Published history, lifecycle and live timing state, Session Runs, Competition Entries, Results, Awards, Prizegiving state, Attachments and bytes, Accounts and Event Grants, Displays, Command Receipts, Audit Entries, credentials, generated publications, and Backup or Restore metadata.
 
-Add a new format version when portable authoring needs content that version 1 cannot represent as a reviewable Rundown Draft.
+Add a new format version when portable authoring needs content that version 2 cannot represent as a reviewable Rundown Draft.

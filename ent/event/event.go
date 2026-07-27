@@ -36,6 +36,8 @@ const (
 	FieldEventDayBoundary = "event_day_boundary"
 	// FieldEntryDefaultDisposition holds the string denoting the entry_default_disposition field in the database.
 	FieldEntryDefaultDisposition = "entry_default_disposition"
+	// FieldSubmissionEligibility holds the string denoting the submission_eligibility field in the database.
+	FieldSubmissionEligibility = "submission_eligibility"
 	// FieldTargetAdjustmentPresets holds the string denoting the target_adjustment_presets field in the database.
 	FieldTargetAdjustmentPresets = "target_adjustment_presets"
 	// FieldDisplayConfiguration holds the string denoting the display_configuration field in the database.
@@ -90,6 +92,8 @@ const (
 	EdgeResultsCorrections = "results_corrections"
 	// EdgeUploadLinks holds the string denoting the upload_links edge name in mutations.
 	EdgeUploadLinks = "upload_links"
+	// EdgeVotingEligibilities holds the string denoting the voting_eligibilities edge name in mutations.
+	EdgeVotingEligibilities = "voting_eligibilities"
 	// EdgeDraftEdits holds the string denoting the draft_edits edge name in mutations.
 	EdgeDraftEdits = "draft_edits"
 	// EdgeDraftChanges holds the string denoting the draft_changes edge name in mutations.
@@ -216,6 +220,13 @@ const (
 	UploadLinksInverseTable = "upload_links"
 	// UploadLinksColumn is the table column denoting the upload_links relation/edge.
 	UploadLinksColumn = "event_id"
+	// VotingEligibilitiesTable is the table that holds the voting_eligibilities relation/edge.
+	VotingEligibilitiesTable = "voting_eligibilities"
+	// VotingEligibilitiesInverseTable is the table name for the VotingEligibility entity.
+	// It exists in this package in order to avoid circular dependency with the "votingeligibility" package.
+	VotingEligibilitiesInverseTable = "voting_eligibilities"
+	// VotingEligibilitiesColumn is the table column denoting the voting_eligibilities relation/edge.
+	VotingEligibilitiesColumn = "event_id"
 	// DraftEditsTable is the table that holds the draft_edits relation/edge.
 	DraftEditsTable = "draft_edits"
 	// DraftEditsInverseTable is the table name for the DraftEdit entity.
@@ -273,6 +284,7 @@ var Columns = []string{
 	FieldContentLanguage,
 	FieldEventDayBoundary,
 	FieldEntryDefaultDisposition,
+	FieldSubmissionEligibility,
 	FieldTargetAdjustmentPresets,
 	FieldDisplayConfiguration,
 	FieldAttachmentReleasePolicy,
@@ -380,6 +392,32 @@ func EntryDefaultDispositionValidator(edd EntryDefaultDisposition) error {
 	}
 }
 
+// SubmissionEligibility defines the type for the "submission_eligibility" enum field.
+type SubmissionEligibility string
+
+// SubmissionEligibilityAllAccounts is the default value of the SubmissionEligibility enum.
+const DefaultSubmissionEligibility = SubmissionEligibilityAllAccounts
+
+// SubmissionEligibility values.
+const (
+	SubmissionEligibilityAllAccounts            SubmissionEligibility = "AllAccounts"
+	SubmissionEligibilityVotingEligibleAccounts SubmissionEligibility = "VotingEligibleAccounts"
+)
+
+func (se SubmissionEligibility) String() string {
+	return string(se)
+}
+
+// SubmissionEligibilityValidator is a validator for the "submission_eligibility" field enum values. It is called by the builders before save.
+func SubmissionEligibilityValidator(se SubmissionEligibility) error {
+	switch se {
+	case SubmissionEligibilityAllAccounts, SubmissionEligibilityVotingEligibleAccounts:
+		return nil
+	default:
+		return fmt.Errorf("event: invalid enum value for submission_eligibility field: %q", se)
+	}
+}
+
 // AttachmentReleasePolicy defines the type for the "attachment_release_policy" enum field.
 type AttachmentReleasePolicy string
 
@@ -463,6 +501,11 @@ func ByEventDayBoundary(opts ...sql.OrderTermOption) OrderOption {
 // ByEntryDefaultDisposition orders the results by the entry_default_disposition field.
 func ByEntryDefaultDisposition(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldEntryDefaultDisposition, opts...).ToFunc()
+}
+
+// BySubmissionEligibility orders the results by the submission_eligibility field.
+func BySubmissionEligibility(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSubmissionEligibility, opts...).ToFunc()
 }
 
 // ByTargetAdjustmentPresets orders the results by the target_adjustment_presets field.
@@ -737,6 +780,20 @@ func ByUploadLinks(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByVotingEligibilitiesCount orders the results by voting_eligibilities count.
+func ByVotingEligibilitiesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newVotingEligibilitiesStep(), opts...)
+	}
+}
+
+// ByVotingEligibilities orders the results by voting_eligibilities terms.
+func ByVotingEligibilities(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newVotingEligibilitiesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByDraftEditsCount orders the results by draft_edits count.
 func ByDraftEditsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -923,6 +980,13 @@ func newUploadLinksStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(UploadLinksInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, UploadLinksTable, UploadLinksColumn),
+	)
+}
+func newVotingEligibilitiesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(VotingEligibilitiesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, VotingEligibilitiesTable, VotingEligibilitiesColumn),
 	)
 }
 func newDraftEditsStep() *sqlgraph.Step {

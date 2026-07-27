@@ -326,6 +326,47 @@ func (_u *SessionUpdate) SetNillableRequireEntryReview(v *bool) *SessionUpdate {
 	return _u
 }
 
+// SetSubmissionEligibilityOverride sets the "submission_eligibility_override" field.
+func (_u *SessionUpdate) SetSubmissionEligibilityOverride(v session.SubmissionEligibilityOverride) *SessionUpdate {
+	_u.mutation.SetSubmissionEligibilityOverride(v)
+	return _u
+}
+
+// SetNillableSubmissionEligibilityOverride sets the "submission_eligibility_override" field if the given value is not nil.
+func (_u *SessionUpdate) SetNillableSubmissionEligibilityOverride(v *session.SubmissionEligibilityOverride) *SessionUpdate {
+	if v != nil {
+		_u.SetSubmissionEligibilityOverride(*v)
+	}
+	return _u
+}
+
+// ClearSubmissionEligibilityOverride clears the value of the "submission_eligibility_override" field.
+func (_u *SessionUpdate) ClearSubmissionEligibilityOverride() *SessionUpdate {
+	_u.mutation.ClearSubmissionEligibilityOverride()
+	return _u
+}
+
+// SetSubmissionEligibilityRevision sets the "submission_eligibility_revision" field.
+func (_u *SessionUpdate) SetSubmissionEligibilityRevision(v int) *SessionUpdate {
+	_u.mutation.ResetSubmissionEligibilityRevision()
+	_u.mutation.SetSubmissionEligibilityRevision(v)
+	return _u
+}
+
+// SetNillableSubmissionEligibilityRevision sets the "submission_eligibility_revision" field if the given value is not nil.
+func (_u *SessionUpdate) SetNillableSubmissionEligibilityRevision(v *int) *SessionUpdate {
+	if v != nil {
+		_u.SetSubmissionEligibilityRevision(*v)
+	}
+	return _u
+}
+
+// AddSubmissionEligibilityRevision adds value to the "submission_eligibility_revision" field.
+func (_u *SessionUpdate) AddSubmissionEligibilityRevision(v int) *SessionUpdate {
+	_u.mutation.AddSubmissionEligibilityRevision(v)
+	return _u
+}
+
 // SetFileDeliveryRequired sets the "file_delivery_required" field.
 func (_u *SessionUpdate) SetFileDeliveryRequired(v bool) *SessionUpdate {
 	_u.mutation.SetFileDeliveryRequired(v)
@@ -1064,6 +1105,16 @@ func (_u *SessionUpdate) check() error {
 			return &ValidationError{Name: "corrected_public_details", err: fmt.Errorf(`ent: validator failed for field "Session.corrected_public_details": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.SubmissionEligibilityOverride(); ok {
+		if err := session.SubmissionEligibilityOverrideValidator(v); err != nil {
+			return &ValidationError{Name: "submission_eligibility_override", err: fmt.Errorf(`ent: validator failed for field "Session.submission_eligibility_override": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.SubmissionEligibilityRevision(); ok {
+		if err := session.SubmissionEligibilityRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "submission_eligibility_revision", err: fmt.Errorf(`ent: validator failed for field "Session.submission_eligibility_revision": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.ReadinessRevision(); ok {
 		if err := session.ReadinessRevisionValidator(v); err != nil {
 			return &ValidationError{Name: "readiness_revision", err: fmt.Errorf(`ent: validator failed for field "Session.readiness_revision": %w`, err)}
@@ -1220,6 +1271,18 @@ func (_u *SessionUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.RequireEntryReview(); ok {
 		_spec.SetField(session.FieldRequireEntryReview, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.SubmissionEligibilityOverride(); ok {
+		_spec.SetField(session.FieldSubmissionEligibilityOverride, field.TypeEnum, value)
+	}
+	if _u.mutation.SubmissionEligibilityOverrideCleared() {
+		_spec.ClearField(session.FieldSubmissionEligibilityOverride, field.TypeEnum)
+	}
+	if value, ok := _u.mutation.SubmissionEligibilityRevision(); ok {
+		_spec.SetField(session.FieldSubmissionEligibilityRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedSubmissionEligibilityRevision(); ok {
+		_spec.AddField(session.FieldSubmissionEligibilityRevision, field.TypeInt, value)
 	}
 	if value, ok := _u.mutation.FileDeliveryRequired(); ok {
 		_spec.SetField(session.FieldFileDeliveryRequired, field.TypeBool, value)
@@ -2060,6 +2123,47 @@ func (_u *SessionUpdateOne) SetNillableRequireEntryReview(v *bool) *SessionUpdat
 	return _u
 }
 
+// SetSubmissionEligibilityOverride sets the "submission_eligibility_override" field.
+func (_u *SessionUpdateOne) SetSubmissionEligibilityOverride(v session.SubmissionEligibilityOverride) *SessionUpdateOne {
+	_u.mutation.SetSubmissionEligibilityOverride(v)
+	return _u
+}
+
+// SetNillableSubmissionEligibilityOverride sets the "submission_eligibility_override" field if the given value is not nil.
+func (_u *SessionUpdateOne) SetNillableSubmissionEligibilityOverride(v *session.SubmissionEligibilityOverride) *SessionUpdateOne {
+	if v != nil {
+		_u.SetSubmissionEligibilityOverride(*v)
+	}
+	return _u
+}
+
+// ClearSubmissionEligibilityOverride clears the value of the "submission_eligibility_override" field.
+func (_u *SessionUpdateOne) ClearSubmissionEligibilityOverride() *SessionUpdateOne {
+	_u.mutation.ClearSubmissionEligibilityOverride()
+	return _u
+}
+
+// SetSubmissionEligibilityRevision sets the "submission_eligibility_revision" field.
+func (_u *SessionUpdateOne) SetSubmissionEligibilityRevision(v int) *SessionUpdateOne {
+	_u.mutation.ResetSubmissionEligibilityRevision()
+	_u.mutation.SetSubmissionEligibilityRevision(v)
+	return _u
+}
+
+// SetNillableSubmissionEligibilityRevision sets the "submission_eligibility_revision" field if the given value is not nil.
+func (_u *SessionUpdateOne) SetNillableSubmissionEligibilityRevision(v *int) *SessionUpdateOne {
+	if v != nil {
+		_u.SetSubmissionEligibilityRevision(*v)
+	}
+	return _u
+}
+
+// AddSubmissionEligibilityRevision adds value to the "submission_eligibility_revision" field.
+func (_u *SessionUpdateOne) AddSubmissionEligibilityRevision(v int) *SessionUpdateOne {
+	_u.mutation.AddSubmissionEligibilityRevision(v)
+	return _u
+}
+
 // SetFileDeliveryRequired sets the "file_delivery_required" field.
 func (_u *SessionUpdateOne) SetFileDeliveryRequired(v bool) *SessionUpdateOne {
 	_u.mutation.SetFileDeliveryRequired(v)
@@ -2811,6 +2915,16 @@ func (_u *SessionUpdateOne) check() error {
 			return &ValidationError{Name: "corrected_public_details", err: fmt.Errorf(`ent: validator failed for field "Session.corrected_public_details": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.SubmissionEligibilityOverride(); ok {
+		if err := session.SubmissionEligibilityOverrideValidator(v); err != nil {
+			return &ValidationError{Name: "submission_eligibility_override", err: fmt.Errorf(`ent: validator failed for field "Session.submission_eligibility_override": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.SubmissionEligibilityRevision(); ok {
+		if err := session.SubmissionEligibilityRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "submission_eligibility_revision", err: fmt.Errorf(`ent: validator failed for field "Session.submission_eligibility_revision": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.ReadinessRevision(); ok {
 		if err := session.ReadinessRevisionValidator(v); err != nil {
 			return &ValidationError{Name: "readiness_revision", err: fmt.Errorf(`ent: validator failed for field "Session.readiness_revision": %w`, err)}
@@ -2984,6 +3098,18 @@ func (_u *SessionUpdateOne) sqlSave(ctx context.Context) (_node *Session, err er
 	}
 	if value, ok := _u.mutation.RequireEntryReview(); ok {
 		_spec.SetField(session.FieldRequireEntryReview, field.TypeBool, value)
+	}
+	if value, ok := _u.mutation.SubmissionEligibilityOverride(); ok {
+		_spec.SetField(session.FieldSubmissionEligibilityOverride, field.TypeEnum, value)
+	}
+	if _u.mutation.SubmissionEligibilityOverrideCleared() {
+		_spec.ClearField(session.FieldSubmissionEligibilityOverride, field.TypeEnum)
+	}
+	if value, ok := _u.mutation.SubmissionEligibilityRevision(); ok {
+		_spec.SetField(session.FieldSubmissionEligibilityRevision, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedSubmissionEligibilityRevision(); ok {
+		_spec.AddField(session.FieldSubmissionEligibilityRevision, field.TypeInt, value)
 	}
 	if value, ok := _u.mutation.FileDeliveryRequired(); ok {
 		_spec.SetField(session.FieldFileDeliveryRequired, field.TypeBool, value)

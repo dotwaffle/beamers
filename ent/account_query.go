@@ -19,6 +19,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/accountsession"
 	"github.com/dotwaffle/beamers/ent/auditentry"
 	"github.com/dotwaffle/beamers/ent/commandreceipt"
+	"github.com/dotwaffle/beamers/ent/competitionentry"
 	"github.com/dotwaffle/beamers/ent/draftedit"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/favoritesession"
@@ -27,6 +28,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/predicate"
 	"github.com/dotwaffle/beamers/ent/recoverycode"
 	"github.com/dotwaffle/beamers/ent/recoverytoken"
+	"github.com/dotwaffle/beamers/ent/votingeligibility"
 	"github.com/dotwaffle/beamers/ent/webauthncredential"
 )
 
@@ -47,6 +49,8 @@ type AccountQuery struct {
 	withRecoveryTokens      *RecoveryTokenQuery
 	withEventGrants         *EventGrantQuery
 	withFavoriteSessions    *FavoriteSessionQuery
+	withCompetitionEntries  *CompetitionEntryQuery
+	withVotingEligibilities *VotingEligibilityQuery
 	withAuditEntries        *AuditEntryQuery
 	withCommandReceipts     *CommandReceiptQuery
 	withDraftEdits          *DraftEditQuery
@@ -299,6 +303,50 @@ func (_q *AccountQuery) QueryFavoriteSessions() *FavoriteSessionQuery {
 			sqlgraph.From(account.Table, account.FieldID, selector),
 			sqlgraph.To(favoritesession.Table, favoritesession.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, account.FavoriteSessionsTable, account.FavoriteSessionsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryCompetitionEntries chains the current query on the "competition_entries" edge.
+func (_q *AccountQuery) QueryCompetitionEntries() *CompetitionEntryQuery {
+	query := (&CompetitionEntryClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, selector),
+			sqlgraph.To(competitionentry.Table, competitionentry.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, account.CompetitionEntriesTable, account.CompetitionEntriesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryVotingEligibilities chains the current query on the "voting_eligibilities" edge.
+func (_q *AccountQuery) QueryVotingEligibilities() *VotingEligibilityQuery {
+	query := (&VotingEligibilityClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, selector),
+			sqlgraph.To(votingeligibility.Table, votingeligibility.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, account.VotingEligibilitiesTable, account.VotingEligibilitiesColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -574,6 +622,8 @@ func (_q *AccountQuery) Clone() *AccountQuery {
 		withRecoveryTokens:      _q.withRecoveryTokens.Clone(),
 		withEventGrants:         _q.withEventGrants.Clone(),
 		withFavoriteSessions:    _q.withFavoriteSessions.Clone(),
+		withCompetitionEntries:  _q.withCompetitionEntries.Clone(),
+		withVotingEligibilities: _q.withVotingEligibilities.Clone(),
 		withAuditEntries:        _q.withAuditEntries.Clone(),
 		withCommandReceipts:     _q.withCommandReceipts.Clone(),
 		withDraftEdits:          _q.withDraftEdits.Clone(),
@@ -690,6 +740,28 @@ func (_q *AccountQuery) WithFavoriteSessions(opts ...func(*FavoriteSessionQuery)
 		opt(query)
 	}
 	_q.withFavoriteSessions = query
+	return _q
+}
+
+// WithCompetitionEntries tells the query-builder to eager-load the nodes that are connected to
+// the "competition_entries" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *AccountQuery) WithCompetitionEntries(opts ...func(*CompetitionEntryQuery)) *AccountQuery {
+	query := (&CompetitionEntryClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withCompetitionEntries = query
+	return _q
+}
+
+// WithVotingEligibilities tells the query-builder to eager-load the nodes that are connected to
+// the "voting_eligibilities" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *AccountQuery) WithVotingEligibilities(opts ...func(*VotingEligibilityQuery)) *AccountQuery {
+	query := (&VotingEligibilityClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withVotingEligibilities = query
 	return _q
 }
 
@@ -810,7 +882,7 @@ func (_q *AccountQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Acco
 	var (
 		nodes       = []*Account{}
 		_spec       = _q.querySpec()
-		loadedTypes = [13]bool{
+		loadedTypes = [15]bool{
 			_q.withPasswordCredential != nil,
 			_q.withWebauthnCredentials != nil,
 			_q.withFederatedIdentities != nil,
@@ -821,6 +893,8 @@ func (_q *AccountQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Acco
 			_q.withRecoveryTokens != nil,
 			_q.withEventGrants != nil,
 			_q.withFavoriteSessions != nil,
+			_q.withCompetitionEntries != nil,
+			_q.withVotingEligibilities != nil,
 			_q.withAuditEntries != nil,
 			_q.withCommandReceipts != nil,
 			_q.withDraftEdits != nil,
@@ -912,6 +986,24 @@ func (_q *AccountQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Acco
 		if err := _q.loadFavoriteSessions(ctx, query, nodes,
 			func(n *Account) { n.Edges.FavoriteSessions = []*FavoriteSession{} },
 			func(n *Account, e *FavoriteSession) { n.Edges.FavoriteSessions = append(n.Edges.FavoriteSessions, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withCompetitionEntries; query != nil {
+		if err := _q.loadCompetitionEntries(ctx, query, nodes,
+			func(n *Account) { n.Edges.CompetitionEntries = []*CompetitionEntry{} },
+			func(n *Account, e *CompetitionEntry) {
+				n.Edges.CompetitionEntries = append(n.Edges.CompetitionEntries, e)
+			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withVotingEligibilities; query != nil {
+		if err := _q.loadVotingEligibilities(ctx, query, nodes,
+			func(n *Account) { n.Edges.VotingEligibilities = []*VotingEligibility{} },
+			func(n *Account, e *VotingEligibility) {
+				n.Edges.VotingEligibilities = append(n.Edges.VotingEligibilities, e)
+			}); err != nil {
 			return nil, err
 		}
 	}
@@ -1215,6 +1307,69 @@ func (_q *AccountQuery) loadFavoriteSessions(ctx context.Context, query *Favorit
 	}
 	query.Where(predicate.FavoriteSession(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(account.FavoriteSessionsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.AccountID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "account_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *AccountQuery) loadCompetitionEntries(ctx context.Context, query *CompetitionEntryQuery, nodes []*Account, init func(*Account), assign func(*Account, *CompetitionEntry)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Account)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(competitionentry.FieldSubmitterAccountID)
+	}
+	query.Where(predicate.CompetitionEntry(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(account.CompetitionEntriesColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.SubmitterAccountID
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "submitter_account_id" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "submitter_account_id" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *AccountQuery) loadVotingEligibilities(ctx context.Context, query *VotingEligibilityQuery, nodes []*Account, init func(*Account), assign func(*Account, *VotingEligibility)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Account)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(votingeligibility.FieldAccountID)
+	}
+	query.Where(predicate.VotingEligibility(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(account.VotingEligibilitiesColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

@@ -233,6 +233,34 @@ func (_c *SessionCreate) SetNillableRequireEntryReview(v *bool) *SessionCreate {
 	return _c
 }
 
+// SetSubmissionEligibilityOverride sets the "submission_eligibility_override" field.
+func (_c *SessionCreate) SetSubmissionEligibilityOverride(v session.SubmissionEligibilityOverride) *SessionCreate {
+	_c.mutation.SetSubmissionEligibilityOverride(v)
+	return _c
+}
+
+// SetNillableSubmissionEligibilityOverride sets the "submission_eligibility_override" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableSubmissionEligibilityOverride(v *session.SubmissionEligibilityOverride) *SessionCreate {
+	if v != nil {
+		_c.SetSubmissionEligibilityOverride(*v)
+	}
+	return _c
+}
+
+// SetSubmissionEligibilityRevision sets the "submission_eligibility_revision" field.
+func (_c *SessionCreate) SetSubmissionEligibilityRevision(v int) *SessionCreate {
+	_c.mutation.SetSubmissionEligibilityRevision(v)
+	return _c
+}
+
+// SetNillableSubmissionEligibilityRevision sets the "submission_eligibility_revision" field if the given value is not nil.
+func (_c *SessionCreate) SetNillableSubmissionEligibilityRevision(v *int) *SessionCreate {
+	if v != nil {
+		_c.SetSubmissionEligibilityRevision(*v)
+	}
+	return _c
+}
+
 // SetFileDeliveryRequired sets the "file_delivery_required" field.
 func (_c *SessionCreate) SetFileDeliveryRequired(v bool) *SessionCreate {
 	_c.mutation.SetFileDeliveryRequired(v)
@@ -690,6 +718,10 @@ func (_c *SessionCreate) defaults() error {
 		v := session.DefaultRequireEntryReview
 		_c.mutation.SetRequireEntryReview(v)
 	}
+	if _, ok := _c.mutation.SubmissionEligibilityRevision(); !ok {
+		v := session.DefaultSubmissionEligibilityRevision
+		_c.mutation.SetSubmissionEligibilityRevision(v)
+	}
 	if _, ok := _c.mutation.ReadinessRevision(); !ok {
 		v := session.DefaultReadinessRevision
 		_c.mutation.SetReadinessRevision(v)
@@ -780,6 +812,19 @@ func (_c *SessionCreate) check() error {
 	}
 	if _, ok := _c.mutation.RequireEntryReview(); !ok {
 		return &ValidationError{Name: "require_entry_review", err: errors.New(`ent: missing required field "Session.require_entry_review"`)}
+	}
+	if v, ok := _c.mutation.SubmissionEligibilityOverride(); ok {
+		if err := session.SubmissionEligibilityOverrideValidator(v); err != nil {
+			return &ValidationError{Name: "submission_eligibility_override", err: fmt.Errorf(`ent: validator failed for field "Session.submission_eligibility_override": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.SubmissionEligibilityRevision(); !ok {
+		return &ValidationError{Name: "submission_eligibility_revision", err: errors.New(`ent: missing required field "Session.submission_eligibility_revision"`)}
+	}
+	if v, ok := _c.mutation.SubmissionEligibilityRevision(); ok {
+		if err := session.SubmissionEligibilityRevisionValidator(v); err != nil {
+			return &ValidationError{Name: "submission_eligibility_revision", err: fmt.Errorf(`ent: validator failed for field "Session.submission_eligibility_revision": %w`, err)}
+		}
 	}
 	if _, ok := _c.mutation.ReadinessRevision(); !ok {
 		return &ValidationError{Name: "readiness_revision", err: errors.New(`ent: missing required field "Session.readiness_revision"`)}
@@ -941,6 +986,14 @@ func (_c *SessionCreate) createSpec() (*Session, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.RequireEntryReview(); ok {
 		_spec.SetField(session.FieldRequireEntryReview, field.TypeBool, value)
 		_node.RequireEntryReview = value
+	}
+	if value, ok := _c.mutation.SubmissionEligibilityOverride(); ok {
+		_spec.SetField(session.FieldSubmissionEligibilityOverride, field.TypeEnum, value)
+		_node.SubmissionEligibilityOverride = &value
+	}
+	if value, ok := _c.mutation.SubmissionEligibilityRevision(); ok {
+		_spec.SetField(session.FieldSubmissionEligibilityRevision, field.TypeInt, value)
+		_node.SubmissionEligibilityRevision = value
 	}
 	if value, ok := _c.mutation.FileDeliveryRequired(); ok {
 		_spec.SetField(session.FieldFileDeliveryRequired, field.TypeBool, value)

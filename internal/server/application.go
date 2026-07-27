@@ -707,6 +707,7 @@ func (application *application) buildHandler(
 		application.config.DisplayStream.Notify,
 		application.config.ScheduleStream.Notify,
 		application.config.Logger,
+		authenticationLimiter,
 	)
 	registerResultsFrontendRoutes(
 		mux,

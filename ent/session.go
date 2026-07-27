@@ -56,6 +56,10 @@ type Session struct {
 	CorrectedPublicDetails *string `json:"corrected_public_details,omitempty"`
 	// RequireEntryReview holds the value of the "require_entry_review" field.
 	RequireEntryReview bool `json:"require_entry_review,omitempty"`
+	// SubmissionEligibilityOverride holds the value of the "submission_eligibility_override" field.
+	SubmissionEligibilityOverride *session.SubmissionEligibilityOverride `json:"submission_eligibility_override,omitempty"`
+	// SubmissionEligibilityRevision holds the value of the "submission_eligibility_revision" field.
+	SubmissionEligibilityRevision int `json:"submission_eligibility_revision,omitempty"`
 	// FileDeliveryRequired holds the value of the "file_delivery_required" field.
 	FileDeliveryRequired *bool `json:"file_delivery_required,omitempty"`
 	// ReadinessRevision holds the value of the "readiness_revision" field.
@@ -254,9 +258,9 @@ func (*Session) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case session.FieldRequireEntryReview, session.FieldFileDeliveryRequired:
 			values[i] = new(sql.NullBool)
-		case session.FieldID, session.FieldEventID, session.FieldLiveStateRevision, session.FieldReadinessRevision, session.FieldEntryOrderSeed, session.FieldEntryOrderRevision, session.FieldProgramOutputEntryID, session.FieldProgramOutputRevision, session.FieldProgramCursor, session.FieldAttachmentReleaseRevision:
+		case session.FieldID, session.FieldEventID, session.FieldLiveStateRevision, session.FieldSubmissionEligibilityRevision, session.FieldReadinessRevision, session.FieldEntryOrderSeed, session.FieldEntryOrderRevision, session.FieldProgramOutputEntryID, session.FieldProgramOutputRevision, session.FieldProgramCursor, session.FieldAttachmentReleaseRevision:
 			values[i] = new(sql.NullInt64)
-		case session.FieldLifecycle, session.FieldPublicCancellationMessage, session.FieldCancellationCrewNotes, session.FieldCorrectedTitle, session.FieldCorrectedSpeaker, session.FieldCorrectedPublicDetails, session.FieldEntryOrderPolicy, session.FieldProgramOutputKind, session.FieldAttachmentReleasePolicyOverride:
+		case session.FieldLifecycle, session.FieldPublicCancellationMessage, session.FieldCancellationCrewNotes, session.FieldCorrectedTitle, session.FieldCorrectedSpeaker, session.FieldCorrectedPublicDetails, session.FieldSubmissionEligibilityOverride, session.FieldEntryOrderPolicy, session.FieldProgramOutputKind, session.FieldAttachmentReleasePolicyOverride:
 			values[i] = new(sql.NullString)
 		case session.FieldForecastStart, session.FieldForecastEnd, session.FieldCommunicatedStart, session.FieldCommunicatedEnd, session.FieldPreviousForecastStart, session.FieldEntryOrderLockedAt, session.FieldProgramOutputTakenAt, session.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -383,6 +387,19 @@ func (_m *Session) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field require_entry_review", values[i])
 			} else if value.Valid {
 				_m.RequireEntryReview = value.Bool
+			}
+		case session.FieldSubmissionEligibilityOverride:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field submission_eligibility_override", values[i])
+			} else if value.Valid {
+				_m.SubmissionEligibilityOverride = new(session.SubmissionEligibilityOverride)
+				*_m.SubmissionEligibilityOverride = session.SubmissionEligibilityOverride(value.String)
+			}
+		case session.FieldSubmissionEligibilityRevision:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field submission_eligibility_revision", values[i])
+			} else if value.Valid {
+				_m.SubmissionEligibilityRevision = int(value.Int64)
 			}
 		case session.FieldFileDeliveryRequired:
 			if value, ok := values[i].(*sql.NullBool); !ok {
@@ -644,6 +661,14 @@ func (_m *Session) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("require_entry_review=")
 	builder.WriteString(fmt.Sprintf("%v", _m.RequireEntryReview))
+	builder.WriteString(", ")
+	if v := _m.SubmissionEligibilityOverride; v != nil {
+		builder.WriteString("submission_eligibility_override=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("submission_eligibility_revision=")
+	builder.WriteString(fmt.Sprintf("%v", _m.SubmissionEligibilityRevision))
 	builder.WriteString(", ")
 	if v := _m.FileDeliveryRequired; v != nil {
 		builder.WriteString("file_delivery_required=")

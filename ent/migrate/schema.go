@@ -122,7 +122,7 @@ var (
 		{Name: "size_bytes", Type: field.TypeInt64},
 		{Name: "sha256", Type: field.TypeString, Size: 64},
 		{Name: "storage_key", Type: field.TypeString, Size: 200},
-		{Name: "uploader_type", Type: field.TypeEnum, Enums: []string{"UploadLink", "Crew"}},
+		{Name: "uploader_type", Type: field.TypeEnum, Enums: []string{"UploadLink", "Crew", "Account"}},
 		{Name: "uploader_id", Type: field.TypeInt},
 		{Name: "final", Type: field.TypeBool, Default: false},
 		{Name: "primary", Type: field.TypeBool, Default: false},
@@ -247,6 +247,7 @@ var (
 		{Name: "release_hold", Type: field.TypeBool, Default: false},
 		{Name: "revision", Type: field.TypeInt, Default: 1},
 		{Name: "created_at", Type: field.TypeTime},
+		{Name: "submitter_account_id", Type: field.TypeInt, Nullable: true},
 		{Name: "event_id", Type: field.TypeInt},
 		{Name: "competition_session_id", Type: field.TypeInt},
 	}
@@ -257,14 +258,20 @@ var (
 		PrimaryKey: []*schema.Column{CompetitionEntriesColumns[0]},
 		ForeignKeys: []*schema.ForeignKey{
 			{
-				Symbol:     "competition_entries_events_competition_entries",
+				Symbol:     "competition_entries_accounts_competition_entries",
 				Columns:    []*schema.Column{CompetitionEntriesColumns[21]},
+				RefColumns: []*schema.Column{AccountsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+			{
+				Symbol:     "competition_entries_events_competition_entries",
+				Columns:    []*schema.Column{CompetitionEntriesColumns[22]},
 				RefColumns: []*schema.Column{EventsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "competition_entries_sessions_competition_entries",
-				Columns:    []*schema.Column{CompetitionEntriesColumns[22]},
+				Columns:    []*schema.Column{CompetitionEntriesColumns[23]},
 				RefColumns: []*schema.Column{SessionsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -273,7 +280,7 @@ var (
 			{
 				Name:    "competitionentry_competition_session_id_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{CompetitionEntriesColumns[22], CompetitionEntriesColumns[20]},
+				Columns: []*schema.Column{CompetitionEntriesColumns[23], CompetitionEntriesColumns[20]},
 			},
 		},
 	}
@@ -726,6 +733,7 @@ var (
 		{Name: "content_language", Type: field.TypeString, Nullable: true, Size: 100},
 		{Name: "event_day_boundary", Type: field.TypeString, Size: 5},
 		{Name: "entry_default_disposition", Type: field.TypeEnum, Enums: []string{"Pending", "Included"}, Default: "Pending"},
+		{Name: "submission_eligibility", Type: field.TypeEnum, Enums: []string{"AllAccounts", "VotingEligibleAccounts"}, Default: "AllAccounts"},
 		{Name: "target_adjustment_presets", Type: field.TypeString, Size: 256, Default: "[-300,300,600]"},
 		{Name: "display_configuration", Type: field.TypeString, Size: 4096, Default: "{\"rotation_seconds\":15,\"theme\":{\"branding\":\"\",\"foreground_color\":\"#ffffff\",\"background_color\":\"#101828\",\"accent_color\":\"#1d4ed8\",\"background\":\"solid\",\"scrim_color\":\"#000000\",\"scrim_opacity\":85,\"font\":\"sans\",\"transition\":\"fade\"}}"},
 		{Name: "attachment_release_policy", Type: field.TypeEnum, Enums: []string{"OnLive", "OnEnded", "OnEventReleaseCue"}, Default: "OnEnded"},
@@ -1522,6 +1530,8 @@ var (
 		{Name: "corrected_speaker", Type: field.TypeString, Nullable: true, Size: 200},
 		{Name: "corrected_public_details", Type: field.TypeString, Nullable: true, Size: 10000},
 		{Name: "require_entry_review", Type: field.TypeBool, Default: false},
+		{Name: "submission_eligibility_override", Type: field.TypeEnum, Nullable: true, Enums: []string{"AllAccounts", "VotingEligibleAccounts"}},
+		{Name: "submission_eligibility_revision", Type: field.TypeInt, Default: 0},
 		{Name: "file_delivery_required", Type: field.TypeBool, Nullable: true},
 		{Name: "readiness_revision", Type: field.TypeInt, Default: 0},
 		{Name: "entry_order_policy", Type: field.TypeEnum, Enums: []string{"SubmissionOrder", "ManualOrder", "DeterministicShuffle"}, Default: "DeterministicShuffle"},
@@ -1549,7 +1559,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "sessions_events_sessions",
-				Columns:    []*schema.Column{SessionsColumns[33]},
+				Columns:    []*schema.Column{SessionsColumns[35]},
 				RefColumns: []*schema.Column{EventsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -1828,6 +1838,40 @@ var (
 			},
 		},
 	}
+	// VotingEligibilitiesColumns holds the columns for the "voting_eligibilities" table.
+	VotingEligibilitiesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "account_id", Type: field.TypeInt},
+		{Name: "event_id", Type: field.TypeInt},
+	}
+	// VotingEligibilitiesTable holds the schema information for the "voting_eligibilities" table.
+	VotingEligibilitiesTable = &schema.Table{
+		Name:       "voting_eligibilities",
+		Columns:    VotingEligibilitiesColumns,
+		PrimaryKey: []*schema.Column{VotingEligibilitiesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "voting_eligibilities_accounts_voting_eligibilities",
+				Columns:    []*schema.Column{VotingEligibilitiesColumns[2]},
+				RefColumns: []*schema.Column{AccountsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "voting_eligibilities_events_voting_eligibilities",
+				Columns:    []*schema.Column{VotingEligibilitiesColumns[3]},
+				RefColumns: []*schema.Column{EventsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "votingeligibility_event_id_account_id",
+				Unique:  true,
+				Columns: []*schema.Column{VotingEligibilitiesColumns[3], VotingEligibilitiesColumns[2]},
+			},
+		},
+	}
 	// WebAuthnCredentialsColumns holds the columns for the "web_authn_credentials" table.
 	WebAuthnCredentialsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -2072,6 +2116,7 @@ var (
 		TrackDraftsTable,
 		TrackPublishedVersionsTable,
 		UploadLinksTable,
+		VotingEligibilitiesTable,
 		WebAuthnCredentialsTable,
 		SessionDraftLanesTable,
 		SessionDraftLocationsTable,
@@ -2089,8 +2134,9 @@ func init() {
 	AttachmentVersionsTable.ForeignKeys[0].RefTable = AttachmentsTable
 	AuditEntriesTable.ForeignKeys[0].RefTable = AccountsTable
 	CommandReceiptsTable.ForeignKeys[0].RefTable = AccountsTable
-	CompetitionEntriesTable.ForeignKeys[0].RefTable = EventsTable
-	CompetitionEntriesTable.ForeignKeys[1].RefTable = SessionsTable
+	CompetitionEntriesTable.ForeignKeys[0].RefTable = AccountsTable
+	CompetitionEntriesTable.ForeignKeys[1].RefTable = EventsTable
+	CompetitionEntriesTable.ForeignKeys[2].RefTable = SessionsTable
 	CompetitionResultStandingsTable.ForeignKeys[0].RefTable = CompetitionEntriesTable
 	CompetitionResultStandingsTable.ForeignKeys[1].RefTable = CompetitionResultsDraftsTable
 	CompetitionResultStandingsTable.ForeignKeys[2].RefTable = EventsTable
@@ -2157,6 +2203,8 @@ func init() {
 	TrackDraftsTable.ForeignKeys[0].RefTable = TracksTable
 	TrackPublishedVersionsTable.ForeignKeys[0].RefTable = TracksTable
 	UploadLinksTable.ForeignKeys[0].RefTable = EventsTable
+	VotingEligibilitiesTable.ForeignKeys[0].RefTable = AccountsTable
+	VotingEligibilitiesTable.ForeignKeys[1].RefTable = EventsTable
 	WebAuthnCredentialsTable.ForeignKeys[0].RefTable = AccountsTable
 	SessionDraftLanesTable.ForeignKeys[0].RefTable = SessionDraftsTable
 	SessionDraftLanesTable.ForeignKeys[1].RefTable = LanesTable

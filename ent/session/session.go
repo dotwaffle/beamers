@@ -48,6 +48,10 @@ const (
 	FieldCorrectedPublicDetails = "corrected_public_details"
 	// FieldRequireEntryReview holds the string denoting the require_entry_review field in the database.
 	FieldRequireEntryReview = "require_entry_review"
+	// FieldSubmissionEligibilityOverride holds the string denoting the submission_eligibility_override field in the database.
+	FieldSubmissionEligibilityOverride = "submission_eligibility_override"
+	// FieldSubmissionEligibilityRevision holds the string denoting the submission_eligibility_revision field in the database.
+	FieldSubmissionEligibilityRevision = "submission_eligibility_revision"
 	// FieldFileDeliveryRequired holds the string denoting the file_delivery_required field in the database.
 	FieldFileDeliveryRequired = "file_delivery_required"
 	// FieldReadinessRevision holds the string denoting the readiness_revision field in the database.
@@ -213,6 +217,8 @@ var Columns = []string{
 	FieldCorrectedSpeaker,
 	FieldCorrectedPublicDetails,
 	FieldRequireEntryReview,
+	FieldSubmissionEligibilityOverride,
+	FieldSubmissionEligibilityRevision,
 	FieldFileDeliveryRequired,
 	FieldReadinessRevision,
 	FieldEntryOrderPolicy,
@@ -266,6 +272,10 @@ var (
 	CorrectedPublicDetailsValidator func(string) error
 	// DefaultRequireEntryReview holds the default value on creation for the "require_entry_review" field.
 	DefaultRequireEntryReview bool
+	// DefaultSubmissionEligibilityRevision holds the default value on creation for the "submission_eligibility_revision" field.
+	DefaultSubmissionEligibilityRevision int
+	// SubmissionEligibilityRevisionValidator is a validator for the "submission_eligibility_revision" field. It is called by the builders before save.
+	SubmissionEligibilityRevisionValidator func(int) error
 	// DefaultReadinessRevision holds the default value on creation for the "readiness_revision" field.
 	DefaultReadinessRevision int
 	// ReadinessRevisionValidator is a validator for the "readiness_revision" field. It is called by the builders before save.
@@ -319,6 +329,29 @@ func LifecycleValidator(l Lifecycle) error {
 		return nil
 	default:
 		return fmt.Errorf("session: invalid enum value for lifecycle field: %q", l)
+	}
+}
+
+// SubmissionEligibilityOverride defines the type for the "submission_eligibility_override" enum field.
+type SubmissionEligibilityOverride string
+
+// SubmissionEligibilityOverride values.
+const (
+	SubmissionEligibilityOverrideAllAccounts            SubmissionEligibilityOverride = "AllAccounts"
+	SubmissionEligibilityOverrideVotingEligibleAccounts SubmissionEligibilityOverride = "VotingEligibleAccounts"
+)
+
+func (seo SubmissionEligibilityOverride) String() string {
+	return string(seo)
+}
+
+// SubmissionEligibilityOverrideValidator is a validator for the "submission_eligibility_override" field enum values. It is called by the builders before save.
+func SubmissionEligibilityOverrideValidator(seo SubmissionEligibilityOverride) error {
+	switch seo {
+	case SubmissionEligibilityOverrideAllAccounts, SubmissionEligibilityOverrideVotingEligibleAccounts:
+		return nil
+	default:
+		return fmt.Errorf("session: invalid enum value for submission_eligibility_override field: %q", seo)
 	}
 }
 
@@ -479,6 +512,16 @@ func ByCorrectedPublicDetails(opts ...sql.OrderTermOption) OrderOption {
 // ByRequireEntryReview orders the results by the require_entry_review field.
 func ByRequireEntryReview(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRequireEntryReview, opts...).ToFunc()
+}
+
+// BySubmissionEligibilityOverride orders the results by the submission_eligibility_override field.
+func BySubmissionEligibilityOverride(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSubmissionEligibilityOverride, opts...).ToFunc()
+}
+
+// BySubmissionEligibilityRevision orders the results by the submission_eligibility_revision field.
+func BySubmissionEligibilityRevision(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSubmissionEligibilityRevision, opts...).ToFunc()
 }
 
 // ByFileDeliveryRequired orders the results by the file_delivery_required field.

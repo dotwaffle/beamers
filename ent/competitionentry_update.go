@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/dotwaffle/beamers/ent/account"
 	"github.com/dotwaffle/beamers/ent/competitionentry"
 	"github.com/dotwaffle/beamers/ent/competitionresultstanding"
 	"github.com/dotwaffle/beamers/ent/predicate"
@@ -26,6 +27,26 @@ type CompetitionEntryUpdate struct {
 // Where appends a list predicates to the CompetitionEntryUpdate builder.
 func (_u *CompetitionEntryUpdate) Where(ps ...predicate.CompetitionEntry) *CompetitionEntryUpdate {
 	_u.mutation.Where(ps...)
+	return _u
+}
+
+// SetSubmitterAccountID sets the "submitter_account_id" field.
+func (_u *CompetitionEntryUpdate) SetSubmitterAccountID(v int) *CompetitionEntryUpdate {
+	_u.mutation.SetSubmitterAccountID(v)
+	return _u
+}
+
+// SetNillableSubmitterAccountID sets the "submitter_account_id" field if the given value is not nil.
+func (_u *CompetitionEntryUpdate) SetNillableSubmitterAccountID(v *int) *CompetitionEntryUpdate {
+	if v != nil {
+		_u.SetSubmitterAccountID(*v)
+	}
+	return _u
+}
+
+// ClearSubmitterAccountID clears the value of the "submitter_account_id" field.
+func (_u *CompetitionEntryUpdate) ClearSubmitterAccountID() *CompetitionEntryUpdate {
+	_u.mutation.ClearSubmitterAccountID()
 	return _u
 }
 
@@ -396,6 +417,25 @@ func (_u *CompetitionEntryUpdate) AddRevision(v int) *CompetitionEntryUpdate {
 	return _u
 }
 
+// SetSubmitterID sets the "submitter" edge to the Account entity by ID.
+func (_u *CompetitionEntryUpdate) SetSubmitterID(id int) *CompetitionEntryUpdate {
+	_u.mutation.SetSubmitterID(id)
+	return _u
+}
+
+// SetNillableSubmitterID sets the "submitter" edge to the Account entity by ID if the given value is not nil.
+func (_u *CompetitionEntryUpdate) SetNillableSubmitterID(id *int) *CompetitionEntryUpdate {
+	if id != nil {
+		_u = _u.SetSubmitterID(*id)
+	}
+	return _u
+}
+
+// SetSubmitter sets the "submitter" edge to the Account entity.
+func (_u *CompetitionEntryUpdate) SetSubmitter(v *Account) *CompetitionEntryUpdate {
+	return _u.SetSubmitterID(v.ID)
+}
+
 // AddResultStandingIDs adds the "result_standings" edge to the CompetitionResultStanding entity by IDs.
 func (_u *CompetitionEntryUpdate) AddResultStandingIDs(ids ...int) *CompetitionEntryUpdate {
 	_u.mutation.AddResultStandingIDs(ids...)
@@ -414,6 +454,12 @@ func (_u *CompetitionEntryUpdate) AddResultStandings(v ...*CompetitionResultStan
 // Mutation returns the CompetitionEntryMutation object of the builder.
 func (_u *CompetitionEntryUpdate) Mutation() *CompetitionEntryMutation {
 	return _u.mutation
+}
+
+// ClearSubmitter clears the "submitter" edge to the Account entity.
+func (_u *CompetitionEntryUpdate) ClearSubmitter() *CompetitionEntryUpdate {
+	_u.mutation.ClearSubmitter()
+	return _u
 }
 
 // ClearResultStandings clears all "result_standings" edges to the CompetitionResultStanding entity.
@@ -466,6 +512,11 @@ func (_u *CompetitionEntryUpdate) ExecX(ctx context.Context) {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *CompetitionEntryUpdate) check() error {
+	if v, ok := _u.mutation.SubmitterAccountID(); ok {
+		if err := competitionentry.SubmitterAccountIDValidator(v); err != nil {
+			return &ValidationError{Name: "submitter_account_id", err: fmt.Errorf(`ent: validator failed for field "CompetitionEntry.submitter_account_id": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Name(); ok {
 		if err := competitionentry.NameValidator(v); err != nil {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "CompetitionEntry.name": %w`, err)}
@@ -662,6 +713,35 @@ func (_u *CompetitionEntryUpdate) sqlSave(ctx context.Context) (_node int, err e
 	if value, ok := _u.mutation.AddedRevision(); ok {
 		_spec.AddField(competitionentry.FieldRevision, field.TypeInt, value)
 	}
+	if _u.mutation.SubmitterCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   competitionentry.SubmitterTable,
+			Columns: []string{competitionentry.SubmitterColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.SubmitterIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   competitionentry.SubmitterTable,
+			Columns: []string{competitionentry.SubmitterColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.ResultStandingsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -725,6 +805,26 @@ type CompetitionEntryUpdateOne struct {
 	fields   []string
 	hooks    []Hook
 	mutation *CompetitionEntryMutation
+}
+
+// SetSubmitterAccountID sets the "submitter_account_id" field.
+func (_u *CompetitionEntryUpdateOne) SetSubmitterAccountID(v int) *CompetitionEntryUpdateOne {
+	_u.mutation.SetSubmitterAccountID(v)
+	return _u
+}
+
+// SetNillableSubmitterAccountID sets the "submitter_account_id" field if the given value is not nil.
+func (_u *CompetitionEntryUpdateOne) SetNillableSubmitterAccountID(v *int) *CompetitionEntryUpdateOne {
+	if v != nil {
+		_u.SetSubmitterAccountID(*v)
+	}
+	return _u
+}
+
+// ClearSubmitterAccountID clears the value of the "submitter_account_id" field.
+func (_u *CompetitionEntryUpdateOne) ClearSubmitterAccountID() *CompetitionEntryUpdateOne {
+	_u.mutation.ClearSubmitterAccountID()
+	return _u
 }
 
 // SetName sets the "name" field.
@@ -1094,6 +1194,25 @@ func (_u *CompetitionEntryUpdateOne) AddRevision(v int) *CompetitionEntryUpdateO
 	return _u
 }
 
+// SetSubmitterID sets the "submitter" edge to the Account entity by ID.
+func (_u *CompetitionEntryUpdateOne) SetSubmitterID(id int) *CompetitionEntryUpdateOne {
+	_u.mutation.SetSubmitterID(id)
+	return _u
+}
+
+// SetNillableSubmitterID sets the "submitter" edge to the Account entity by ID if the given value is not nil.
+func (_u *CompetitionEntryUpdateOne) SetNillableSubmitterID(id *int) *CompetitionEntryUpdateOne {
+	if id != nil {
+		_u = _u.SetSubmitterID(*id)
+	}
+	return _u
+}
+
+// SetSubmitter sets the "submitter" edge to the Account entity.
+func (_u *CompetitionEntryUpdateOne) SetSubmitter(v *Account) *CompetitionEntryUpdateOne {
+	return _u.SetSubmitterID(v.ID)
+}
+
 // AddResultStandingIDs adds the "result_standings" edge to the CompetitionResultStanding entity by IDs.
 func (_u *CompetitionEntryUpdateOne) AddResultStandingIDs(ids ...int) *CompetitionEntryUpdateOne {
 	_u.mutation.AddResultStandingIDs(ids...)
@@ -1112,6 +1231,12 @@ func (_u *CompetitionEntryUpdateOne) AddResultStandings(v ...*CompetitionResultS
 // Mutation returns the CompetitionEntryMutation object of the builder.
 func (_u *CompetitionEntryUpdateOne) Mutation() *CompetitionEntryMutation {
 	return _u.mutation
+}
+
+// ClearSubmitter clears the "submitter" edge to the Account entity.
+func (_u *CompetitionEntryUpdateOne) ClearSubmitter() *CompetitionEntryUpdateOne {
+	_u.mutation.ClearSubmitter()
+	return _u
 }
 
 // ClearResultStandings clears all "result_standings" edges to the CompetitionResultStanding entity.
@@ -1177,6 +1302,11 @@ func (_u *CompetitionEntryUpdateOne) ExecX(ctx context.Context) {
 
 // check runs all checks and user-defined validators on the builder.
 func (_u *CompetitionEntryUpdateOne) check() error {
+	if v, ok := _u.mutation.SubmitterAccountID(); ok {
+		if err := competitionentry.SubmitterAccountIDValidator(v); err != nil {
+			return &ValidationError{Name: "submitter_account_id", err: fmt.Errorf(`ent: validator failed for field "CompetitionEntry.submitter_account_id": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Name(); ok {
 		if err := competitionentry.NameValidator(v); err != nil {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "CompetitionEntry.name": %w`, err)}
@@ -1389,6 +1519,35 @@ func (_u *CompetitionEntryUpdateOne) sqlSave(ctx context.Context) (_node *Compet
 	}
 	if value, ok := _u.mutation.AddedRevision(); ok {
 		_spec.AddField(competitionentry.FieldRevision, field.TypeInt, value)
+	}
+	if _u.mutation.SubmitterCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   competitionentry.SubmitterTable,
+			Columns: []string{competitionentry.SubmitterColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.SubmitterIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   competitionentry.SubmitterTable,
+			Columns: []string{competitionentry.SubmitterColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if _u.mutation.ResultStandingsCleared() {
 		edge := &sqlgraph.EdgeSpec{

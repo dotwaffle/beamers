@@ -47,6 +47,10 @@ const (
 	EdgeEventGrants = "event_grants"
 	// EdgeFavoriteSessions holds the string denoting the favorite_sessions edge name in mutations.
 	EdgeFavoriteSessions = "favorite_sessions"
+	// EdgeCompetitionEntries holds the string denoting the competition_entries edge name in mutations.
+	EdgeCompetitionEntries = "competition_entries"
+	// EdgeVotingEligibilities holds the string denoting the voting_eligibilities edge name in mutations.
+	EdgeVotingEligibilities = "voting_eligibilities"
 	// EdgeAuditEntries holds the string denoting the audit_entries edge name in mutations.
 	EdgeAuditEntries = "audit_entries"
 	// EdgeCommandReceipts holds the string denoting the command_receipts edge name in mutations.
@@ -125,6 +129,20 @@ const (
 	FavoriteSessionsInverseTable = "favorite_sessions"
 	// FavoriteSessionsColumn is the table column denoting the favorite_sessions relation/edge.
 	FavoriteSessionsColumn = "account_id"
+	// CompetitionEntriesTable is the table that holds the competition_entries relation/edge.
+	CompetitionEntriesTable = "competition_entries"
+	// CompetitionEntriesInverseTable is the table name for the CompetitionEntry entity.
+	// It exists in this package in order to avoid circular dependency with the "competitionentry" package.
+	CompetitionEntriesInverseTable = "competition_entries"
+	// CompetitionEntriesColumn is the table column denoting the competition_entries relation/edge.
+	CompetitionEntriesColumn = "submitter_account_id"
+	// VotingEligibilitiesTable is the table that holds the voting_eligibilities relation/edge.
+	VotingEligibilitiesTable = "voting_eligibilities"
+	// VotingEligibilitiesInverseTable is the table name for the VotingEligibility entity.
+	// It exists in this package in order to avoid circular dependency with the "votingeligibility" package.
+	VotingEligibilitiesInverseTable = "voting_eligibilities"
+	// VotingEligibilitiesColumn is the table column denoting the voting_eligibilities relation/edge.
+	VotingEligibilitiesColumn = "account_id"
 	// AuditEntriesTable is the table that holds the audit_entries relation/edge.
 	AuditEntriesTable = "audit_entries"
 	// AuditEntriesInverseTable is the table name for the AuditEntry entity.
@@ -337,6 +355,34 @@ func ByFavoriteSessions(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption 
 	}
 }
 
+// ByCompetitionEntriesCount orders the results by competition_entries count.
+func ByCompetitionEntriesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newCompetitionEntriesStep(), opts...)
+	}
+}
+
+// ByCompetitionEntries orders the results by competition_entries terms.
+func ByCompetitionEntries(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newCompetitionEntriesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByVotingEligibilitiesCount orders the results by voting_eligibilities count.
+func ByVotingEligibilitiesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newVotingEligibilitiesStep(), opts...)
+	}
+}
+
+// ByVotingEligibilities orders the results by voting_eligibilities terms.
+func ByVotingEligibilities(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newVotingEligibilitiesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByAuditEntriesCount orders the results by audit_entries count.
 func ByAuditEntriesCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -446,6 +492,20 @@ func newFavoriteSessionsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(FavoriteSessionsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, FavoriteSessionsTable, FavoriteSessionsColumn),
+	)
+}
+func newCompetitionEntriesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(CompetitionEntriesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, CompetitionEntriesTable, CompetitionEntriesColumn),
+	)
+}
+func newVotingEligibilitiesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(VotingEligibilitiesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, VotingEligibilitiesTable, VotingEligibilitiesColumn),
 	)
 }
 func newAuditEntriesStep() *sqlgraph.Step {

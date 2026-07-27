@@ -35,6 +35,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/track"
 	"github.com/dotwaffle/beamers/ent/uploadlink"
+	"github.com/dotwaffle/beamers/ent/votingeligibility"
 )
 
 // EventUpdate is the builder for updating Event entities.
@@ -198,6 +199,20 @@ func (_u *EventUpdate) SetEntryDefaultDisposition(v event.EntryDefaultDispositio
 func (_u *EventUpdate) SetNillableEntryDefaultDisposition(v *event.EntryDefaultDisposition) *EventUpdate {
 	if v != nil {
 		_u.SetEntryDefaultDisposition(*v)
+	}
+	return _u
+}
+
+// SetSubmissionEligibility sets the "submission_eligibility" field.
+func (_u *EventUpdate) SetSubmissionEligibility(v event.SubmissionEligibility) *EventUpdate {
+	_u.mutation.SetSubmissionEligibility(v)
+	return _u
+}
+
+// SetNillableSubmissionEligibility sets the "submission_eligibility" field if the given value is not nil.
+func (_u *EventUpdate) SetNillableSubmissionEligibility(v *event.SubmissionEligibility) *EventUpdate {
+	if v != nil {
+		_u.SetSubmissionEligibility(*v)
 	}
 	return _u
 }
@@ -633,6 +648,21 @@ func (_u *EventUpdate) AddUploadLinks(v ...*UploadLink) *EventUpdate {
 	return _u.AddUploadLinkIDs(ids...)
 }
 
+// AddVotingEligibilityIDs adds the "voting_eligibilities" edge to the VotingEligibility entity by IDs.
+func (_u *EventUpdate) AddVotingEligibilityIDs(ids ...int) *EventUpdate {
+	_u.mutation.AddVotingEligibilityIDs(ids...)
+	return _u
+}
+
+// AddVotingEligibilities adds the "voting_eligibilities" edges to the VotingEligibility entity.
+func (_u *EventUpdate) AddVotingEligibilities(v ...*VotingEligibility) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddVotingEligibilityIDs(ids...)
+}
+
 // AddDraftEditIDs adds the "draft_edits" edge to the DraftEdit entity by IDs.
 func (_u *EventUpdate) AddDraftEditIDs(ids ...int) *EventUpdate {
 	_u.mutation.AddDraftEditIDs(ids...)
@@ -1053,6 +1083,27 @@ func (_u *EventUpdate) RemoveUploadLinks(v ...*UploadLink) *EventUpdate {
 	return _u.RemoveUploadLinkIDs(ids...)
 }
 
+// ClearVotingEligibilities clears all "voting_eligibilities" edges to the VotingEligibility entity.
+func (_u *EventUpdate) ClearVotingEligibilities() *EventUpdate {
+	_u.mutation.ClearVotingEligibilities()
+	return _u
+}
+
+// RemoveVotingEligibilityIDs removes the "voting_eligibilities" edge to VotingEligibility entities by IDs.
+func (_u *EventUpdate) RemoveVotingEligibilityIDs(ids ...int) *EventUpdate {
+	_u.mutation.RemoveVotingEligibilityIDs(ids...)
+	return _u
+}
+
+// RemoveVotingEligibilities removes "voting_eligibilities" edges to VotingEligibility entities.
+func (_u *EventUpdate) RemoveVotingEligibilities(v ...*VotingEligibility) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveVotingEligibilityIDs(ids...)
+}
+
 // ClearDraftEdits clears all "draft_edits" edges to the DraftEdit entity.
 func (_u *EventUpdate) ClearDraftEdits() *EventUpdate {
 	_u.mutation.ClearDraftEdits()
@@ -1238,6 +1289,11 @@ func (_u *EventUpdate) check() error {
 			return &ValidationError{Name: "entry_default_disposition", err: fmt.Errorf(`ent: validator failed for field "Event.entry_default_disposition": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.SubmissionEligibility(); ok {
+		if err := event.SubmissionEligibilityValidator(v); err != nil {
+			return &ValidationError{Name: "submission_eligibility", err: fmt.Errorf(`ent: validator failed for field "Event.submission_eligibility": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.TargetAdjustmentPresets(); ok {
 		if err := event.TargetAdjustmentPresetsValidator(v); err != nil {
 			return &ValidationError{Name: "target_adjustment_presets", err: fmt.Errorf(`ent: validator failed for field "Event.target_adjustment_presets": %w`, err)}
@@ -1328,6 +1384,9 @@ func (_u *EventUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.EntryDefaultDisposition(); ok {
 		_spec.SetField(event.FieldEntryDefaultDisposition, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.SubmissionEligibility(); ok {
+		_spec.SetField(event.FieldSubmissionEligibility, field.TypeEnum, value)
 	}
 	if value, ok := _u.mutation.TargetAdjustmentPresets(); ok {
 		_spec.SetField(event.FieldTargetAdjustmentPresets, field.TypeString, value)
@@ -2084,6 +2143,51 @@ func (_u *EventUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.VotingEligibilitiesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.VotingEligibilitiesTable,
+			Columns: []string{event.VotingEligibilitiesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingeligibility.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedVotingEligibilitiesIDs(); len(nodes) > 0 && !_u.mutation.VotingEligibilitiesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.VotingEligibilitiesTable,
+			Columns: []string{event.VotingEligibilitiesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingeligibility.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.VotingEligibilitiesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.VotingEligibilitiesTable,
+			Columns: []string{event.VotingEligibilitiesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingeligibility.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.DraftEditsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -2506,6 +2610,20 @@ func (_u *EventUpdateOne) SetEntryDefaultDisposition(v event.EntryDefaultDisposi
 func (_u *EventUpdateOne) SetNillableEntryDefaultDisposition(v *event.EntryDefaultDisposition) *EventUpdateOne {
 	if v != nil {
 		_u.SetEntryDefaultDisposition(*v)
+	}
+	return _u
+}
+
+// SetSubmissionEligibility sets the "submission_eligibility" field.
+func (_u *EventUpdateOne) SetSubmissionEligibility(v event.SubmissionEligibility) *EventUpdateOne {
+	_u.mutation.SetSubmissionEligibility(v)
+	return _u
+}
+
+// SetNillableSubmissionEligibility sets the "submission_eligibility" field if the given value is not nil.
+func (_u *EventUpdateOne) SetNillableSubmissionEligibility(v *event.SubmissionEligibility) *EventUpdateOne {
+	if v != nil {
+		_u.SetSubmissionEligibility(*v)
 	}
 	return _u
 }
@@ -2941,6 +3059,21 @@ func (_u *EventUpdateOne) AddUploadLinks(v ...*UploadLink) *EventUpdateOne {
 	return _u.AddUploadLinkIDs(ids...)
 }
 
+// AddVotingEligibilityIDs adds the "voting_eligibilities" edge to the VotingEligibility entity by IDs.
+func (_u *EventUpdateOne) AddVotingEligibilityIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.AddVotingEligibilityIDs(ids...)
+	return _u
+}
+
+// AddVotingEligibilities adds the "voting_eligibilities" edges to the VotingEligibility entity.
+func (_u *EventUpdateOne) AddVotingEligibilities(v ...*VotingEligibility) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddVotingEligibilityIDs(ids...)
+}
+
 // AddDraftEditIDs adds the "draft_edits" edge to the DraftEdit entity by IDs.
 func (_u *EventUpdateOne) AddDraftEditIDs(ids ...int) *EventUpdateOne {
 	_u.mutation.AddDraftEditIDs(ids...)
@@ -3361,6 +3494,27 @@ func (_u *EventUpdateOne) RemoveUploadLinks(v ...*UploadLink) *EventUpdateOne {
 	return _u.RemoveUploadLinkIDs(ids...)
 }
 
+// ClearVotingEligibilities clears all "voting_eligibilities" edges to the VotingEligibility entity.
+func (_u *EventUpdateOne) ClearVotingEligibilities() *EventUpdateOne {
+	_u.mutation.ClearVotingEligibilities()
+	return _u
+}
+
+// RemoveVotingEligibilityIDs removes the "voting_eligibilities" edge to VotingEligibility entities by IDs.
+func (_u *EventUpdateOne) RemoveVotingEligibilityIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.RemoveVotingEligibilityIDs(ids...)
+	return _u
+}
+
+// RemoveVotingEligibilities removes "voting_eligibilities" edges to VotingEligibility entities.
+func (_u *EventUpdateOne) RemoveVotingEligibilities(v ...*VotingEligibility) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveVotingEligibilityIDs(ids...)
+}
+
 // ClearDraftEdits clears all "draft_edits" edges to the DraftEdit entity.
 func (_u *EventUpdateOne) ClearDraftEdits() *EventUpdateOne {
 	_u.mutation.ClearDraftEdits()
@@ -3559,6 +3713,11 @@ func (_u *EventUpdateOne) check() error {
 			return &ValidationError{Name: "entry_default_disposition", err: fmt.Errorf(`ent: validator failed for field "Event.entry_default_disposition": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.SubmissionEligibility(); ok {
+		if err := event.SubmissionEligibilityValidator(v); err != nil {
+			return &ValidationError{Name: "submission_eligibility", err: fmt.Errorf(`ent: validator failed for field "Event.submission_eligibility": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.TargetAdjustmentPresets(); ok {
 		if err := event.TargetAdjustmentPresetsValidator(v); err != nil {
 			return &ValidationError{Name: "target_adjustment_presets", err: fmt.Errorf(`ent: validator failed for field "Event.target_adjustment_presets": %w`, err)}
@@ -3666,6 +3825,9 @@ func (_u *EventUpdateOne) sqlSave(ctx context.Context) (_node *Event, err error)
 	}
 	if value, ok := _u.mutation.EntryDefaultDisposition(); ok {
 		_spec.SetField(event.FieldEntryDefaultDisposition, field.TypeEnum, value)
+	}
+	if value, ok := _u.mutation.SubmissionEligibility(); ok {
+		_spec.SetField(event.FieldSubmissionEligibility, field.TypeEnum, value)
 	}
 	if value, ok := _u.mutation.TargetAdjustmentPresets(); ok {
 		_spec.SetField(event.FieldTargetAdjustmentPresets, field.TypeString, value)
@@ -4415,6 +4577,51 @@ func (_u *EventUpdateOne) sqlSave(ctx context.Context) (_node *Event, err error)
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(uploadlink.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.VotingEligibilitiesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.VotingEligibilitiesTable,
+			Columns: []string{event.VotingEligibilitiesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingeligibility.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedVotingEligibilitiesIDs(); len(nodes) > 0 && !_u.mutation.VotingEligibilitiesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.VotingEligibilitiesTable,
+			Columns: []string{event.VotingEligibilitiesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingeligibility.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.VotingEligibilitiesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.VotingEligibilitiesTable,
+			Columns: []string{event.VotingEligibilitiesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingeligibility.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

@@ -16,6 +16,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/accountsession"
 	"github.com/dotwaffle/beamers/ent/auditentry"
 	"github.com/dotwaffle/beamers/ent/commandreceipt"
+	"github.com/dotwaffle/beamers/ent/competitionentry"
 	"github.com/dotwaffle/beamers/ent/draftedit"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/favoritesession"
@@ -23,6 +24,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/passwordcredential"
 	"github.com/dotwaffle/beamers/ent/recoverycode"
 	"github.com/dotwaffle/beamers/ent/recoverytoken"
+	"github.com/dotwaffle/beamers/ent/votingeligibility"
 	"github.com/dotwaffle/beamers/ent/webauthncredential"
 )
 
@@ -245,6 +247,36 @@ func (_c *AccountCreate) AddFavoriteSessions(v ...*FavoriteSession) *AccountCrea
 		ids[i] = v[i].ID
 	}
 	return _c.AddFavoriteSessionIDs(ids...)
+}
+
+// AddCompetitionEntryIDs adds the "competition_entries" edge to the CompetitionEntry entity by IDs.
+func (_c *AccountCreate) AddCompetitionEntryIDs(ids ...int) *AccountCreate {
+	_c.mutation.AddCompetitionEntryIDs(ids...)
+	return _c
+}
+
+// AddCompetitionEntries adds the "competition_entries" edges to the CompetitionEntry entity.
+func (_c *AccountCreate) AddCompetitionEntries(v ...*CompetitionEntry) *AccountCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddCompetitionEntryIDs(ids...)
+}
+
+// AddVotingEligibilityIDs adds the "voting_eligibilities" edge to the VotingEligibility entity by IDs.
+func (_c *AccountCreate) AddVotingEligibilityIDs(ids ...int) *AccountCreate {
+	_c.mutation.AddVotingEligibilityIDs(ids...)
+	return _c
+}
+
+// AddVotingEligibilities adds the "voting_eligibilities" edges to the VotingEligibility entity.
+func (_c *AccountCreate) AddVotingEligibilities(v ...*VotingEligibility) *AccountCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddVotingEligibilityIDs(ids...)
 }
 
 // AddAuditEntryIDs adds the "audit_entries" edge to the AuditEntry entity by IDs.
@@ -566,6 +598,38 @@ func (_c *AccountCreate) createSpec() (*Account, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(favoritesession.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.CompetitionEntriesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.CompetitionEntriesTable,
+			Columns: []string{account.CompetitionEntriesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(competitionentry.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.VotingEligibilitiesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   account.VotingEligibilitiesTable,
+			Columns: []string{account.VotingEligibilitiesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingeligibility.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

@@ -71,6 +71,7 @@ type Event struct {
 	EventDayBoundary               string `json:"event_day_boundary"`
 	Revision                       int    `json:"revision"`
 	EntryDefaultDisposition        string `json:"-"`
+	SubmissionEligibility          string `json:"-"`
 	TargetAdjustmentPresetsSeconds []int  `json:"-"`
 }
 
@@ -86,6 +87,7 @@ type CreateInput struct {
 	ContentLanguage                string `json:"content_language"`
 	EventDayBoundary               string `json:"event_day_boundary"`
 	EntryDefaultDisposition        string `json:"entry_default_disposition,omitempty"`
+	SubmissionEligibility          string `json:"submission_eligibility,omitempty"`
 	TargetAdjustmentPresetsSeconds []int  `json:"target_adjustment_presets_seconds,omitempty"`
 	CommandID                      string `json:"command_id"`
 	ExpectedRevision               int    `json:"expected_revision,omitempty"`
@@ -196,6 +198,7 @@ func (service *Service) Create(
 				Timezone: normalized.Timezone, EventLocale: normalized.EventLocale,
 				ContentLanguage: normalized.ContentLanguage, EventDayBoundary: normalized.EventDayBoundary,
 				EntryDefaultDisposition:        normalized.EntryDefaultDisposition,
+				SubmissionEligibility:          normalized.SubmissionEligibility,
 				TargetAdjustmentPresetsSeconds: normalized.TargetAdjustmentPresetsSeconds,
 				Now:                            identity.Now,
 				CommandID:                      input.CommandID,
@@ -462,6 +465,7 @@ func (service *Service) Update(
 				Timezone: normalized.Timezone, EventLocale: normalized.EventLocale,
 				ContentLanguage: normalized.ContentLanguage, EventDayBoundary: normalized.EventDayBoundary,
 				EntryDefaultDisposition:        normalized.EntryDefaultDisposition,
+				SubmissionEligibility:          normalized.SubmissionEligibility,
 				TargetAdjustmentPresetsSeconds: normalized.TargetAdjustmentPresetsSeconds,
 				Now:                            identity.Now,
 				CommandID:                      input.CommandID, PayloadHash: eventPayloadHash(normalized, input.ExpectedRevision),
@@ -675,6 +679,16 @@ func ValidateCreateInput(input CreateInput) (CreateInput, error) {
 	if input.EntryDefaultDisposition != "Pending" && input.EntryDefaultDisposition != "Included" {
 		return CreateInput{}, invalid("entry_default_disposition", "must be Pending or Included")
 	}
+	if input.SubmissionEligibility == "" {
+		input.SubmissionEligibility = "AllAccounts"
+	}
+	if input.SubmissionEligibility != "AllAccounts" &&
+		input.SubmissionEligibility != "VotingEligibleAccounts" {
+		return CreateInput{}, invalid(
+			"submission_eligibility",
+			"must be AllAccounts or VotingEligibleAccounts",
+		)
+	}
 	if len(input.TargetAdjustmentPresetsSeconds) > 12 {
 		return CreateInput{}, invalid("target_adjustment_presets_seconds", "must contain no more than 12 presets")
 	}
@@ -778,6 +792,7 @@ func event(found store.Event) (Event, error) {
 		Timezone: found.Timezone, EventLocale: found.EventLocale,
 		ContentLanguage: found.ContentLanguage, EventDayBoundary: found.EventDayBoundary,
 		Revision: found.Revision, EntryDefaultDisposition: found.EntryDefaultDisposition,
+		SubmissionEligibility:          found.SubmissionEligibility,
 		TargetAdjustmentPresetsSeconds: targetAdjustmentPresets,
 	}, nil
 }
@@ -932,6 +947,10 @@ func eventPayloadHash(input CreateInput, expectedRevision int) string {
 	}
 	if input.PublicSlug != "" {
 		parts = append(parts, "public_slug="+input.PublicSlug)
+	}
+	if input.SubmissionEligibility != "" &&
+		input.SubmissionEligibility != "AllAccounts" {
+		parts = append(parts, "submission_eligibility="+input.SubmissionEligibility)
 	}
 	return command.PayloadHash(parts...)
 }

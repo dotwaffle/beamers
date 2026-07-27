@@ -39,6 +39,9 @@ func (Event) Fields() []ent.Field {
 		field.String("content_language").Optional().MaxLen(100),
 		field.String("event_day_boundary").NotEmpty().MaxLen(5),
 		field.Enum("entry_default_disposition").Values("Pending", "Included").Default("Pending"),
+		field.Enum("submission_eligibility").
+			Values("AllAccounts", "VotingEligibleAccounts").
+			Default("AllAccounts"),
 		field.String("target_adjustment_presets").NotEmpty().MaxLen(256).Default("[-300,300,600]"),
 		field.String("display_configuration").NotEmpty().MaxLen(4096).Default(
 			`{"rotation_seconds":15,"theme":{"branding":"","foreground_color":"#ffffff","background_color":"#101828","accent_color":"#1d4ed8","background":"solid","scrim_color":"#000000","scrim_opacity":85,"font":"sans","transition":"fade"}}`,
@@ -76,6 +79,7 @@ func (Event) Edges() []ent.Edge {
 		edge.To("results_publications", ResultsPublication.Type),
 		edge.To("results_corrections", ResultsCorrection.Type),
 		edge.To("upload_links", UploadLink.Type),
+		edge.To("voting_eligibilities", VotingEligibility.Type),
 		edge.To("draft_edits", DraftEdit.Type),
 		edge.To("draft_changes", DraftChange.Type),
 		edge.To("import_references", ImportReference.Type),

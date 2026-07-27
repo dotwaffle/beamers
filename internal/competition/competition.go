@@ -31,6 +31,14 @@ var (
 	ErrEntryNotFound = store.ErrCompetitionEntryNotFound
 	// ErrEntryRevisionConflict means an Entry command used a stale revision.
 	ErrEntryRevisionConflict = store.ErrCompetitionEntryRevision
+	// ErrSubmissionIneligible means policy prevents a new Account Entry.
+	ErrSubmissionIneligible = store.ErrCompetitionSubmissionIneligible
+	// ErrSubmitterRequired hides unknown and differently owned Entries.
+	ErrSubmitterRequired = store.ErrCompetitionSubmitterRequired
+	// ErrEntryAssigned means a Crew Managed Entry already has a Submitter Account.
+	ErrEntryAssigned = store.ErrCompetitionEntryAssigned
+	// ErrSubmissionEligibilityRevision means policy configuration used stale state.
+	ErrSubmissionEligibilityRevision = store.ErrCompetitionSubmissionEligibilityRevision
 	// ErrReadinessRevisionConflict means policy configuration used stale state.
 	ErrReadinessRevisionConflict = store.ErrCompetitionReadinessRevision
 	// ErrAttachmentReadinessRevisionConflict means Attachment readiness used stale state.
@@ -73,6 +81,7 @@ const (
 type Entry struct {
 	ID                            int
 	CompetitionSessionID          int
+	SubmitterAccountID            int
 	Name                          string
 	PublicDetails                 string
 	CrewNotes                     string
@@ -94,18 +103,51 @@ type Entry struct {
 
 // State is current fixed Competition configuration and retained Entries.
 type State struct {
-	EventID                     int
-	SessionID                   int
-	SubmissionDeadline          time.Time
-	EffectiveDefaultDisposition Disposition
-	RequireEntryReview          bool
-	FileDeliveryRequired        bool
-	ReadinessRevision           int
-	EntryOrder                  EntryOrder
-	Entries                     []Entry
-	ResultsReady                bool
-	ReleaseReady                bool
+	EventID                        int
+	SessionID                      int
+	SubmissionDeadline             time.Time
+	EffectiveDefaultDisposition    Disposition
+	EffectiveSubmissionEligibility SubmissionEligibility
+	SubmissionEligibilityOverride  SubmissionEligibility
+	SubmissionEligibilityRevision  int
+	RequireEntryReview             bool
+	FileDeliveryRequired           bool
+	ReadinessRevision              int
+	EntryOrder                     EntryOrder
+	Entries                        []Entry
+	ResultsReady                   bool
+	ReleaseReady                   bool
 }
+
+// SubmissionEligibility gates only new Account Entry creation.
+type SubmissionEligibility string
+
+const (
+	// SubmissionAllAccounts permits every enabled Account.
+	SubmissionAllAccounts SubmissionEligibility = "AllAccounts"
+	// SubmissionVotingEligible requires Event-scoped Voting Eligibility.
+	SubmissionVotingEligible SubmissionEligibility = "VotingEligibleAccounts"
+)
+
+// SubmissionCompetition is one published Competition visible to an Account.
+type SubmissionCompetition struct {
+	EventID, SessionID             int
+	EventName, SessionTitle        string
+	Timezone, EventLocale          string
+	SubmissionDeadline             time.Time
+	EffectiveSubmissionEligibility SubmissionEligibility
+	CanCreate                      bool
+	Entries                        []SubmittedEntry
+}
+
+// SubmittedEntry is Account-safe Entry content.
+type SubmittedEntry struct {
+	ID, Revision        int
+	Name, PublicDetails string
+}
+
+// SubmissionAccount is one enabled Account selectable by a Producer.
+type SubmissionAccount = store.SubmissionAccount
 
 // EntryOrderPolicy selects the canonical Included Entry sequence.
 type EntryOrderPolicy string
@@ -175,6 +217,45 @@ type UpdateEntryInput struct {
 	ExpectedRevision            int
 	Name, PublicDetails         string
 	CrewNotes                   string
+}
+
+// CreateSubmissionInput contains one Account-owned Competition Entry.
+type CreateSubmissionInput struct {
+	EventID, SessionID  int
+	CommandID           string
+	Name, PublicDetails string
+}
+
+// UpdateSubmissionInput contains one Account-owned content change.
+type UpdateSubmissionInput struct {
+	EventID, SessionID, EntryID int
+	CommandID                   string
+	ExpectedRevision            int
+	Name, PublicDetails         string
+}
+
+// AssignSubmitterInput assigns one Crew Managed Entry to an Account.
+type AssignSubmitterInput struct {
+	EventID, SessionID, EntryID, AccountID int
+	CommandID                              string
+	ExpectedRevision                       int
+}
+
+// ConfigureSubmissionEligibilityInput changes one optional Competition override.
+type ConfigureSubmissionEligibilityInput struct {
+	EventID          int                   `json:"event_id"`
+	SessionID        int                   `json:"session_id"`
+	CommandID        string                `json:"command_id"`
+	ExpectedRevision int                   `json:"expected_revision"`
+	Eligibility      SubmissionEligibility `json:"eligibility"`
+	Override         bool                  `json:"override"`
+}
+
+// SubmissionEligibilityState is current Competition creation policy state.
+type SubmissionEligibilityState struct {
+	Effective SubmissionEligibility
+	Override  SubmissionEligibility
+	Revision  int
 }
 
 // ChangeDispositionInput contains one optimistic participation change.
@@ -297,6 +378,58 @@ func (service *Service) Get(ctx context.Context, actor auth.Account, eventID, se
 		return State{}, err
 	}
 	return state(stored), nil
+}
+
+// Submissions returns public Competitions and only the signed-in Account's Entries.
+func (service *Service) Submissions(
+	ctx context.Context,
+	actor auth.Account,
+) ([]SubmissionCompetition, error) {
+	if actor.ID <= 0 {
+		return nil, ErrSubmitterRequired
+	}
+	stored, err := service.storage.LoadAccountCompetitionSubmissions(
+		actor.Context(ctx),
+		actor.ID,
+		service.now().UTC(),
+	)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]SubmissionCompetition, 0, len(stored))
+	for _, found := range stored {
+		entries := make([]SubmittedEntry, 0, len(found.Entries))
+		for _, storedEntry := range found.Entries {
+			entries = append(entries, SubmittedEntry{
+				ID: storedEntry.ID, Revision: storedEntry.Revision,
+				Name: storedEntry.Name, PublicDetails: storedEntry.PublicDetails,
+			})
+		}
+		result = append(result, SubmissionCompetition{
+			EventID: found.EventID, SessionID: found.SessionID,
+			EventName: found.EventName, SessionTitle: found.SessionTitle,
+			Timezone: found.Timezone, EventLocale: found.EventLocale,
+			SubmissionDeadline: found.SubmissionDeadline,
+			EffectiveSubmissionEligibility: SubmissionEligibility(
+				found.EffectiveSubmissionEligibility,
+			),
+			CanCreate: found.CanCreate,
+			Entries:   entries,
+		})
+	}
+	return result, nil
+}
+
+// AssignableAccounts returns enabled Accounts to a Producer.
+func (service *Service) AssignableAccounts(
+	ctx context.Context,
+	actor auth.Account,
+	eventID int,
+) ([]SubmissionAccount, error) {
+	if !actor.CanProduceEvent(eventID) {
+		return nil, ErrProducerRequired
+	}
+	return service.storage.ListSubmissionAccounts(actor.Context(ctx))
 }
 
 // PreflightStart reports blockers from the configured readiness rules.
@@ -521,6 +654,74 @@ func (service *Service) ConfigureReadiness(
 	})
 }
 
+// ConfigureSubmissionEligibility changes one optional Competition creation policy.
+func (service *Service) ConfigureSubmissionEligibility(
+	ctx context.Context,
+	actor auth.Account,
+	input ConfigureSubmissionEligibilityInput,
+) (SubmissionEligibilityState, error) {
+	if err := command.ValidateID(input.CommandID); err != nil {
+		return SubmissionEligibilityState{}, err
+	}
+	if input.EventID <= 0 || input.SessionID <= 0 || input.ExpectedRevision < 0 ||
+		(input.Eligibility != SubmissionAllAccounts &&
+			input.Eligibility != SubmissionVotingEligible) {
+		return SubmissionEligibilityState{}, ErrInvalidInput
+	}
+	payload, err := json.Marshal(input)
+	if err != nil {
+		return SubmissionEligibilityState{}, errors.New("encode Submission Eligibility command")
+	}
+	identity := store.CommandIdentity{
+		ActorAccountID: actor.ID, CommandID: input.CommandID,
+		PayloadHash: command.PayloadHash(string(payload)),
+		Action:      "ConfigureCompetitionSubmissionEligibility",
+		TargetType:  "Competition", TargetID: strconv.Itoa(input.SessionID),
+		Now: service.now().UTC(),
+	}
+	return command.Execute(actor.Context(ctx), command.Plan[SubmissionEligibilityState]{
+		Storage: service.storage, Identity: identity,
+		Replay: func(outcome string) (SubmissionEligibilityState, error) {
+			var stored store.SubmissionEligibility
+			if err := decodeCompetitionReceipt(outcome, &stored); err != nil {
+				return SubmissionEligibilityState{}, err
+			}
+			return submissionEligibility(stored), nil
+		},
+		Apply: func(transaction *store.CommandTx) (
+			command.Execution[SubmissionEligibilityState],
+			error,
+		) {
+			if !actor.CanProduceEvent(input.EventID) {
+				return auditCompetitionRejection(
+					command.Execution[SubmissionEligibilityState]{},
+					ErrProducerRequired,
+				)
+			}
+			stored, applyErr := transaction.ConfigureCompetitionSubmissionEligibility(
+				actor.Context(ctx),
+				store.ConfigureSubmissionEligibilityParams{
+					EventID: input.EventID, SessionID: input.SessionID,
+					ExpectedRevision: input.ExpectedRevision,
+					Eligibility:      string(input.Eligibility), Override: input.Override,
+				},
+			)
+			if applyErr != nil {
+				return auditCompetitionRejection(
+					command.Execution[SubmissionEligibilityState]{},
+					applyErr,
+				)
+			}
+			outcome, marshalErr := json.Marshal(stored)
+			if marshalErr != nil {
+				return command.Execution[SubmissionEligibilityState]{},
+					errors.New("encode Submission Eligibility outcome")
+			}
+			return command.Success(submissionEligibility(stored), string(outcome)), nil
+		},
+	})
+}
+
 // CreateEntry creates one retained Entry before the fixed Deadline.
 func (service *Service) CreateEntry(ctx context.Context, actor auth.Account, input CreateEntryInput) (Entry, error) {
 	input.Name = strings.TrimSpace(input.Name)
@@ -533,6 +734,47 @@ func (service *Service) CreateEntry(ctx context.Context, actor auth.Account, inp
 				EventID: input.EventID, SessionID: input.SessionID, Name: input.Name,
 				PublicDetails: input.PublicDetails, CrewNotes: input.CrewNotes, Now: now,
 			})
+		},
+	)
+}
+
+// CreateSubmission creates one Account-owned Entry before the fixed Deadline.
+func (service *Service) CreateSubmission(
+	ctx context.Context,
+	actor auth.Account,
+	input CreateSubmissionInput,
+) (Entry, error) {
+	input.Name = strings.TrimSpace(input.Name)
+	if err := validateEntryCommand(
+		input.EventID,
+		input.SessionID,
+		0,
+		0,
+		input.CommandID,
+		input.Name,
+		input.PublicDetails,
+		"",
+	); err != nil {
+		return Entry{}, err
+	}
+	return service.executeEntryCommand(
+		ctx,
+		actor,
+		input.EventID,
+		input.CommandID,
+		"CreateSubmittedCompetitionEntry",
+		"unidentified",
+		input,
+		func(int) bool { return actor.ID > 0 },
+		ErrSubmitterRequired,
+		func(transaction *store.CommandTx, now time.Time) (store.CompetitionEntry, error) {
+			return transaction.CreateSubmittedCompetitionEntry(
+				actor.Context(ctx),
+				store.CreateSubmittedCompetitionEntryParams{
+					EventID: input.EventID, SessionID: input.SessionID, AccountID: actor.ID,
+					Name: input.Name, PublicDetails: input.PublicDetails, Now: now,
+				},
+			)
 		},
 	)
 }
@@ -553,6 +795,88 @@ func (service *Service) UpdateEntry(ctx context.Context, actor auth.Account, inp
 				ExpectedRevision: input.ExpectedRevision, Name: input.Name,
 				PublicDetails: input.PublicDetails, CrewNotes: input.CrewNotes, Now: now,
 			})
+		},
+	)
+}
+
+// UpdateSubmission changes one Account-owned Entry during submission access.
+func (service *Service) UpdateSubmission(
+	ctx context.Context,
+	actor auth.Account,
+	input UpdateSubmissionInput,
+) (Entry, error) {
+	input.Name = strings.TrimSpace(input.Name)
+	if err := validateEntryCommand(
+		input.EventID,
+		input.SessionID,
+		input.EntryID,
+		input.ExpectedRevision,
+		input.CommandID,
+		input.Name,
+		input.PublicDetails,
+		"",
+	); err != nil {
+		return Entry{}, err
+	}
+	return service.executeEntryCommand(
+		ctx,
+		actor,
+		input.EventID,
+		input.CommandID,
+		"UpdateSubmittedCompetitionEntry",
+		strconv.Itoa(input.EntryID),
+		input,
+		func(int) bool { return actor.ID > 0 },
+		ErrSubmitterRequired,
+		func(transaction *store.CommandTx, now time.Time) (store.CompetitionEntry, error) {
+			return transaction.UpdateSubmittedCompetitionEntry(
+				actor.Context(ctx),
+				store.UpdateSubmittedCompetitionEntryParams{
+					EventID: input.EventID, SessionID: input.SessionID,
+					EntryID: input.EntryID, AccountID: actor.ID,
+					ExpectedRevision: input.ExpectedRevision,
+					Name:             input.Name, PublicDetails: input.PublicDetails, Now: now,
+				},
+			)
+		},
+	)
+}
+
+// AssignSubmitter assigns one Crew Managed Entry to an enabled Account.
+func (service *Service) AssignSubmitter(
+	ctx context.Context,
+	actor auth.Account,
+	input AssignSubmitterInput,
+) (Entry, error) {
+	if err := validateExceptionCommand(
+		input.EventID,
+		input.SessionID,
+		input.EntryID,
+		input.ExpectedRevision,
+		input.CommandID,
+	); err != nil || input.AccountID <= 0 {
+		if err != nil {
+			return Entry{}, err
+		}
+		return Entry{}, ErrInvalidInput
+	}
+	return service.execute(
+		ctx,
+		actor,
+		input.EventID,
+		input.CommandID,
+		"AssignCompetitionEntrySubmitter",
+		strconv.Itoa(input.EntryID),
+		input,
+		func(transaction *store.CommandTx, _ time.Time) (store.CompetitionEntry, error) {
+			return transaction.AssignCompetitionEntrySubmitter(
+				actor.Context(ctx),
+				store.AssignCompetitionEntrySubmitterParams{
+					EventID: input.EventID, SessionID: input.SessionID,
+					EntryID: input.EntryID, AccountID: input.AccountID,
+					ExpectedRevision: input.ExpectedRevision,
+				},
+			)
 		},
 	)
 }
@@ -833,18 +1157,24 @@ func (service *Service) executeEntryCommand(
 		Storage: service.storage, Identity: identity,
 		Replay: func(outcome string) (Entry, error) {
 			var stored store.CompetitionEntry
-			if err := store.DecodeCommandReceipt(outcome, &stored); err != nil {
+			if err := decodeCompetitionReceipt(outcome, &stored); err != nil {
 				return Entry{}, err
 			}
 			return entry(stored), nil
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[Entry], error) {
 			if !authorized(eventID) {
-				return command.Execution[Entry]{}, authorizationError
+				return auditCompetitionRejection(
+					command.Execution[Entry]{},
+					authorizationError,
+				)
 			}
 			stored, applyErr := apply(transaction, identity.Now)
 			if applyErr != nil {
-				return command.Execution[Entry]{}, applyErr
+				return auditCompetitionRejection(
+					command.Execution[Entry]{},
+					applyErr,
+				)
 			}
 			outcome, marshalErr := json.Marshal(stored)
 			if marshalErr != nil {
@@ -854,6 +1184,83 @@ func (service *Service) executeEntryCommand(
 				WithTargetID(strconv.Itoa(stored.ID)), nil
 		},
 	})
+}
+
+func auditCompetitionRejection[T any](
+	execution command.Execution[T],
+	err error,
+) (command.Execution[T], error) {
+	rejection, rejected := competitionRejection(err)
+	if !rejected {
+		return execution, err
+	}
+	var zero T
+	return command.Reject(zero, rejection, err), nil
+}
+
+func competitionRejection(err error) (store.CommandRejection, bool) {
+	var code string
+	switch {
+	case errors.Is(err, ErrProducerRequired):
+		code = "producer_required"
+	case errors.Is(err, ErrOperatorRequired):
+		code = "operator_required"
+	case errors.Is(err, ErrCompetitionNotFound):
+		code = "competition_not_found"
+	case errors.Is(err, ErrSubmissionClosed):
+		code = "submission_closed"
+	case errors.Is(err, ErrEntryNotFound):
+		code = "entry_not_found"
+	case errors.Is(err, ErrEntryRevisionConflict):
+		code = "stale_entry_revision"
+	case errors.Is(err, ErrSubmissionIneligible):
+		code = "submission_ineligible"
+	case errors.Is(err, ErrSubmitterRequired):
+		code = "submitter_required"
+	case errors.Is(err, ErrEntryAssigned):
+		code = "entry_already_assigned"
+	case errors.Is(err, ErrSubmissionEligibilityRevision):
+		code = "stale_submission_eligibility"
+	case errors.Is(err, ErrPresentedEntryDisposition):
+		code = "presented_entry"
+	default:
+		return store.CommandRejection{}, false
+	}
+	return store.CommandRejection{Code: code}, true
+}
+
+func decodeCompetitionReceipt(outcome string, target any) error {
+	err := store.DecodeCommandReceipt(outcome, target)
+	var rejected *store.RejectedCommandError
+	if !errors.As(err, &rejected) {
+		return err
+	}
+	switch rejected.Rejection.Code {
+	case "producer_required":
+		return ErrProducerRequired
+	case "operator_required":
+		return ErrOperatorRequired
+	case "competition_not_found":
+		return ErrCompetitionNotFound
+	case "submission_closed":
+		return ErrSubmissionClosed
+	case "entry_not_found":
+		return ErrEntryNotFound
+	case "stale_entry_revision":
+		return ErrEntryRevisionConflict
+	case "submission_ineligible":
+		return ErrSubmissionIneligible
+	case "submitter_required":
+		return ErrSubmitterRequired
+	case "entry_already_assigned":
+		return ErrEntryAssigned
+	case "stale_submission_eligibility":
+		return ErrSubmissionEligibilityRevision
+	case "presented_entry":
+		return ErrPresentedEntryDisposition
+	default:
+		return err
+	}
 }
 
 func validateExceptionCommand(
@@ -910,13 +1317,20 @@ func state(stored store.CompetitionState) State {
 		EventID: stored.EventID, SessionID: stored.SessionID,
 		SubmissionDeadline:          stored.SubmissionDeadline,
 		EffectiveDefaultDisposition: Disposition(stored.EffectiveDefaultDisposition),
-		RequireEntryReview:          stored.RequireEntryReview,
-		FileDeliveryRequired:        stored.FileDeliveryRequired,
-		ReadinessRevision:           stored.ReadinessRevision,
-		EntryOrder:                  entryOrder(stored.EntryOrder),
-		ResultsReady:                stored.ResultsReady,
-		ReleaseReady:                stored.ReleaseReady,
-		Entries:                     make([]Entry, 0, len(stored.Entries)),
+		EffectiveSubmissionEligibility: SubmissionEligibility(
+			stored.EffectiveSubmissionEligibility,
+		),
+		SubmissionEligibilityOverride: SubmissionEligibility(
+			stored.SubmissionEligibilityOverride,
+		),
+		SubmissionEligibilityRevision: stored.SubmissionEligibilityRevision,
+		RequireEntryReview:            stored.RequireEntryReview,
+		FileDeliveryRequired:          stored.FileDeliveryRequired,
+		ReadinessRevision:             stored.ReadinessRevision,
+		EntryOrder:                    entryOrder(stored.EntryOrder),
+		ResultsReady:                  stored.ResultsReady,
+		ReleaseReady:                  stored.ReleaseReady,
+		Entries:                       make([]Entry, 0, len(stored.Entries)),
 	}
 	for _, storedEntry := range stored.Entries {
 		result.Entries = append(result.Entries, entry(storedEntry))
@@ -934,7 +1348,8 @@ func entryOrder(stored store.EntryOrderState) EntryOrder {
 func entry(stored store.CompetitionEntry) Entry {
 	return Entry{
 		ID: stored.ID, CompetitionSessionID: stored.CompetitionSessionID,
-		Name: stored.Name, PublicDetails: stored.PublicDetails, CrewNotes: stored.CrewNotes,
+		SubmitterAccountID: stored.SubmitterAccountID,
+		Name:               stored.Name, PublicDetails: stored.PublicDetails, CrewNotes: stored.CrewNotes,
 		Disposition: Disposition(stored.Disposition), Revision: stored.Revision,
 		ContentRevision: stored.ContentRevision, ReviewCurrent: stored.ReviewCurrent,
 		PresentationStatus:            stored.PresentationStatus,
@@ -947,6 +1362,14 @@ func entry(stored store.CompetitionEntry) Entry {
 		ReleaseHold:                   stored.ReleaseHold,
 		FirstPresentedAt:              stored.FirstPresentedAt,
 		CreatedAt:                     stored.CreatedAt,
+	}
+}
+
+func submissionEligibility(stored store.SubmissionEligibility) SubmissionEligibilityState {
+	return SubmissionEligibilityState{
+		Effective: SubmissionEligibility(stored.Effective),
+		Override:  SubmissionEligibility(stored.Override),
+		Revision:  stored.Revision,
 	}
 }
 

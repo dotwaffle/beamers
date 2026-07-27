@@ -48,6 +48,7 @@ type Event struct {
 	ContentLanguage         string `json:"content_language,omitempty"`
 	EventDayBoundary        string `json:"event_day_boundary"`
 	EntryDefaultDisposition string `json:"entry_default_disposition"`
+	SubmissionEligibility   string `json:"submission_eligibility"`
 	TargetAdjustmentPresets string `json:"target_adjustment_presets"`
 	Revision                int    `json:"revision"`
 }
@@ -88,6 +89,7 @@ type CreateEventParams struct {
 	ContentLanguage                string
 	EventDayBoundary               string
 	EntryDefaultDisposition        string
+	SubmissionEligibility          string
 	TargetAdjustmentPresetsSeconds []int
 	Now                            time.Time
 	CommandID                      string
@@ -132,6 +134,7 @@ type UpdateEventParams struct {
 	ContentLanguage                string
 	EventDayBoundary               string
 	EntryDefaultDisposition        string
+	SubmissionEligibility          string
 	TargetAdjustmentPresetsSeconds []int
 	Now                            time.Time
 	CommandID                      string
@@ -161,6 +164,9 @@ func (transaction *CommandTx) CreateEvent(ctx context.Context, params CreateEven
 		SetCreatedAt(params.Now)
 	if params.EntryDefaultDisposition != "" {
 		create.SetEntryDefaultDisposition(event.EntryDefaultDisposition(params.EntryDefaultDisposition))
+	}
+	if params.SubmissionEligibility != "" {
+		create.SetSubmissionEligibility(event.SubmissionEligibility(params.SubmissionEligibility))
 	}
 	if params.ContentLanguage != "" {
 		create.SetContentLanguage(params.ContentLanguage)
@@ -463,6 +469,10 @@ func (transaction *CommandTx) UpdateEvent(ctx context.Context, params UpdateEven
 	if entryDefaultDisposition == "" {
 		entryDefaultDisposition = "Pending"
 	}
+	submissionEligibility := params.SubmissionEligibility
+	if submissionEligibility == "" {
+		submissionEligibility = "AllAccounts"
+	}
 	update := transaction.transaction.Event.UpdateOneID(params.EventID).
 		Where(event.RevisionEQ(params.ExpectedRevision)).
 		SetName(params.Name).
@@ -473,6 +483,7 @@ func (transaction *CommandTx) UpdateEvent(ctx context.Context, params UpdateEven
 		SetEventLocale(params.EventLocale).
 		SetEventDayBoundary(params.EventDayBoundary).
 		SetEntryDefaultDisposition(event.EntryDefaultDisposition(entryDefaultDisposition)).
+		SetSubmissionEligibility(event.SubmissionEligibility(submissionEligibility)).
 		SetTargetAdjustmentPresets(string(presets)).
 		AddRevision(1)
 	if publicSlug != "" {

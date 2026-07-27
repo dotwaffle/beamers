@@ -10,6 +10,7 @@ import (
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/dotwaffle/beamers/ent/account"
 	"github.com/dotwaffle/beamers/ent/competitionentry"
 	"github.com/dotwaffle/beamers/ent/competitionresultstanding"
 	"github.com/dotwaffle/beamers/ent/event"
@@ -32,6 +33,20 @@ func (_c *CompetitionEntryCreate) SetEventID(v int) *CompetitionEntryCreate {
 // SetCompetitionSessionID sets the "competition_session_id" field.
 func (_c *CompetitionEntryCreate) SetCompetitionSessionID(v int) *CompetitionEntryCreate {
 	_c.mutation.SetCompetitionSessionID(v)
+	return _c
+}
+
+// SetSubmitterAccountID sets the "submitter_account_id" field.
+func (_c *CompetitionEntryCreate) SetSubmitterAccountID(v int) *CompetitionEntryCreate {
+	_c.mutation.SetSubmitterAccountID(v)
+	return _c
+}
+
+// SetNillableSubmitterAccountID sets the "submitter_account_id" field if the given value is not nil.
+func (_c *CompetitionEntryCreate) SetNillableSubmitterAccountID(v *int) *CompetitionEntryCreate {
+	if v != nil {
+		_c.SetSubmitterAccountID(*v)
+	}
 	return _c
 }
 
@@ -315,6 +330,25 @@ func (_c *CompetitionEntryCreate) SetCompetition(v *Session) *CompetitionEntryCr
 	return _c.SetCompetitionID(v.ID)
 }
 
+// SetSubmitterID sets the "submitter" edge to the Account entity by ID.
+func (_c *CompetitionEntryCreate) SetSubmitterID(id int) *CompetitionEntryCreate {
+	_c.mutation.SetSubmitterID(id)
+	return _c
+}
+
+// SetNillableSubmitterID sets the "submitter" edge to the Account entity by ID if the given value is not nil.
+func (_c *CompetitionEntryCreate) SetNillableSubmitterID(id *int) *CompetitionEntryCreate {
+	if id != nil {
+		_c = _c.SetSubmitterID(*id)
+	}
+	return _c
+}
+
+// SetSubmitter sets the "submitter" edge to the Account entity.
+func (_c *CompetitionEntryCreate) SetSubmitter(v *Account) *CompetitionEntryCreate {
+	return _c.SetSubmitterID(v.ID)
+}
+
 // AddResultStandingIDs adds the "result_standings" edge to the CompetitionResultStanding entity by IDs.
 func (_c *CompetitionEntryCreate) AddResultStandingIDs(ids ...int) *CompetitionEntryCreate {
 	_c.mutation.AddResultStandingIDs(ids...)
@@ -408,6 +442,11 @@ func (_c *CompetitionEntryCreate) check() error {
 	}
 	if _, ok := _c.mutation.CompetitionSessionID(); !ok {
 		return &ValidationError{Name: "competition_session_id", err: errors.New(`ent: missing required field "CompetitionEntry.competition_session_id"`)}
+	}
+	if v, ok := _c.mutation.SubmitterAccountID(); ok {
+		if err := competitionentry.SubmitterAccountIDValidator(v); err != nil {
+			return &ValidationError{Name: "submitter_account_id", err: fmt.Errorf(`ent: validator failed for field "CompetitionEntry.submitter_account_id": %w`, err)}
+		}
 	}
 	if _, ok := _c.mutation.Name(); !ok {
 		return &ValidationError{Name: "name", err: errors.New(`ent: missing required field "CompetitionEntry.name"`)}
@@ -650,6 +689,23 @@ func (_c *CompetitionEntryCreate) createSpec() (*CompetitionEntry, *sqlgraph.Cre
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.CompetitionSessionID = nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.SubmitterIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   competitionentry.SubmitterTable,
+			Columns: []string{competitionentry.SubmitterColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.SubmitterAccountID = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := _c.mutation.ResultStandingsIDs(); len(nodes) > 0 {

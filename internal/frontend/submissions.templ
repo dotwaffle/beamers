@@ -1,0 +1,128 @@
+package frontend
+
+import (
+	"strconv"
+
+	"github.com/dotwaffle/beamers/internal/attachments"
+	"github.com/dotwaffle/beamers/internal/competition"
+)
+
+type SubmissionsPage struct {
+	AccountName    string
+	CSRFToken      string
+	ReducedEffects bool
+	Backstage      bool
+	CommandID      string
+	Competitions   []competition.SubmissionCompetition
+	Attachments    attachments.AccountState
+	Error          string
+}
+
+func submittedVersions(values []attachments.AccountVersion, entryID int) []attachments.AccountVersion {
+	result := make([]attachments.AccountVersion, 0)
+	for _, value := range values {
+		if value.OwnerID == entryID {
+			result = append(result, value)
+		}
+	}
+	return result
+}
+
+func submittedReopenWindows(values []attachments.AccountReopenWindow, entryID int) []attachments.AccountReopenWindow {
+	result := make([]attachments.AccountReopenWindow, 0)
+	for _, value := range values {
+		if value.TargetID == entryID {
+			result = append(result, value)
+		}
+	}
+	return result
+}
+
+templ Submissions(page SubmissionsPage) {
+	<!doctype html>
+	<html lang="en">
+		@Head("Competition submissions · Beamers")
+		<body data-reduced-effects={ strconv.FormatBool(page.ReducedEffects) }>
+			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, page.Backstage)
+			<main>
+				<h1>Competition submissions</h1>
+				if page.Error != "" {
+					<p class="error" role="alert">{ page.Error }</p>
+				}
+				if len(page.Competitions) == 0 {
+					<p>No published Competitions are accepting submissions.</p>
+				}
+				for _, found := range page.Competitions {
+					<section>
+						<h2>{ found.EventName } — { found.SessionTitle }</h2>
+						<p>
+							Submission Deadline:
+							@EventTime(found.SubmissionDeadline, found.Timezone, found.EventLocale)
+						</p>
+						<p>Submission Eligibility: { string(found.EffectiveSubmissionEligibility) }</p>
+						if found.CanCreate {
+							<form class="stack" method="post">
+								<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+								<input type="hidden" name="action" value="create"/>
+								<input type="hidden" name="command_id" value={ page.CommandID }/>
+								<input type="hidden" name="event_id" value={ strconv.Itoa(found.EventID) }/>
+								<input type="hidden" name="session_id" value={ strconv.Itoa(found.SessionID) }/>
+								<label>Entry name <input name="entry_name" required/></label>
+								<label>Public details <textarea name="public_details"></textarea></label>
+								<button type="submit">Create Entry</button>
+							</form>
+						}
+						for _, entry := range found.Entries {
+							<article>
+								<h3>{ entry.Name }</h3>
+								<p>{ entry.PublicDetails }</p>
+								<form class="stack" method="post">
+									<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+									<input type="hidden" name="action" value="update"/>
+									<input type="hidden" name="command_id" value={ page.CommandID }/>
+									<input type="hidden" name="event_id" value={ strconv.Itoa(found.EventID) }/>
+									<input type="hidden" name="session_id" value={ strconv.Itoa(found.SessionID) }/>
+									<input type="hidden" name="entry_id" value={ strconv.Itoa(entry.ID) }/>
+									<input type="hidden" name="expected_revision" value={ strconv.Itoa(entry.Revision) }/>
+									<label>Entry name <input name="entry_name" value={ entry.Name } required/></label>
+									<label>Public details <textarea name="public_details">{ entry.PublicDetails }</textarea></label>
+									<button type="submit">Update Entry</button>
+								</form>
+								<form class="stack" method="post" enctype="multipart/form-data" action={ templ.SafeURL("/submissions/" + strconv.Itoa(found.EventID) + "/entries/" + strconv.Itoa(entry.ID) + "/upload") }>
+									<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+									<input type="hidden" name="command_id" value={ page.CommandID }/>
+									<label>Attachment name <input name="name" required/></label>
+									<label>File <input type="file" name="file" required/></label>
+									<label>
+										<input type="checkbox" name="crew_only" value="true"/>
+										Crew Only Release Eligibility
+									</label>
+									<button type="submit">Upload immutable Version</button>
+								</form>
+								<h4>Attachment Versions</h4>
+								if len(submittedVersions(page.Attachments.Versions, entry.ID)) == 0 {
+									<p>No Attachment Versions.</p>
+								}
+								for _, version := range submittedVersions(page.Attachments.Versions, entry.ID) {
+									<p>
+										{ version.Name } — Version { strconv.Itoa(version.Version) }:
+										{ version.OriginalFilename } · SHA-256 { version.SHA256 }
+									</p>
+								}
+								for _, window := range submittedReopenWindows(page.Attachments.ReopenWindows, entry.ID) {
+									if window.ClosedAt.IsZero() {
+										<p>
+											Submission access reopened until
+											@EventTime(window.ExpiresAt, found.Timezone, found.EventLocale)
+										</p>
+									}
+								}
+							</article>
+						}
+					</section>
+				}
+			</main>
+			<script src={ EventTimePath } defer></script>
+		</body>
+	</html>
+}

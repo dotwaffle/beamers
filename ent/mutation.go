@@ -71,6 +71,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/trackdraft"
 	"github.com/dotwaffle/beamers/ent/trackpublishedversion"
 	"github.com/dotwaffle/beamers/ent/uploadlink"
+	"github.com/dotwaffle/beamers/ent/votingeligibility"
 	"github.com/dotwaffle/beamers/ent/webauthncredential"
 	"github.com/dotwaffle/beamers/internal/awardvalue"
 	"github.com/dotwaffle/beamers/internal/prizegivingvalue"
@@ -145,6 +146,7 @@ const (
 	TypeTrackDraft                  = "TrackDraft"
 	TypeTrackPublishedVersion       = "TrackPublishedVersion"
 	TypeUploadLink                  = "UploadLink"
+	TypeVotingEligibility           = "VotingEligibility"
 	TypeWebAuthnCredential          = "WebAuthnCredential"
 )
 
@@ -188,6 +190,12 @@ type AccountMutation struct {
 	favorite_sessions           map[int]struct{}
 	removedfavorite_sessions    map[int]struct{}
 	clearedfavorite_sessions    bool
+	competition_entries         map[int]struct{}
+	removedcompetition_entries  map[int]struct{}
+	clearedcompetition_entries  bool
+	voting_eligibilities        map[int]struct{}
+	removedvoting_eligibilities map[int]struct{}
+	clearedvoting_eligibilities bool
 	audit_entries               map[int]struct{}
 	removedaudit_entries        map[int]struct{}
 	clearedaudit_entries        bool
@@ -1037,6 +1045,114 @@ func (m *AccountMutation) ResetFavoriteSessions() {
 	m.removedfavorite_sessions = nil
 }
 
+// AddCompetitionEntryIDs adds the "competition_entries" edge to the CompetitionEntry entity by ids.
+func (m *AccountMutation) AddCompetitionEntryIDs(ids ...int) {
+	if m.competition_entries == nil {
+		m.competition_entries = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.competition_entries[ids[i]] = struct{}{}
+	}
+}
+
+// ClearCompetitionEntries clears the "competition_entries" edge to the CompetitionEntry entity.
+func (m *AccountMutation) ClearCompetitionEntries() {
+	m.clearedcompetition_entries = true
+}
+
+// CompetitionEntriesCleared reports if the "competition_entries" edge to the CompetitionEntry entity was cleared.
+func (m *AccountMutation) CompetitionEntriesCleared() bool {
+	return m.clearedcompetition_entries
+}
+
+// RemoveCompetitionEntryIDs removes the "competition_entries" edge to the CompetitionEntry entity by IDs.
+func (m *AccountMutation) RemoveCompetitionEntryIDs(ids ...int) {
+	if m.removedcompetition_entries == nil {
+		m.removedcompetition_entries = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.competition_entries, ids[i])
+		m.removedcompetition_entries[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedCompetitionEntries returns the removed IDs of the "competition_entries" edge to the CompetitionEntry entity.
+func (m *AccountMutation) RemovedCompetitionEntriesIDs() (ids []int) {
+	for id := range m.removedcompetition_entries {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// CompetitionEntriesIDs returns the "competition_entries" edge IDs in the mutation.
+func (m *AccountMutation) CompetitionEntriesIDs() (ids []int) {
+	for id := range m.competition_entries {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetCompetitionEntries resets all changes to the "competition_entries" edge.
+func (m *AccountMutation) ResetCompetitionEntries() {
+	m.competition_entries = nil
+	m.clearedcompetition_entries = false
+	m.removedcompetition_entries = nil
+}
+
+// AddVotingEligibilityIDs adds the "voting_eligibilities" edge to the VotingEligibility entity by ids.
+func (m *AccountMutation) AddVotingEligibilityIDs(ids ...int) {
+	if m.voting_eligibilities == nil {
+		m.voting_eligibilities = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.voting_eligibilities[ids[i]] = struct{}{}
+	}
+}
+
+// ClearVotingEligibilities clears the "voting_eligibilities" edge to the VotingEligibility entity.
+func (m *AccountMutation) ClearVotingEligibilities() {
+	m.clearedvoting_eligibilities = true
+}
+
+// VotingEligibilitiesCleared reports if the "voting_eligibilities" edge to the VotingEligibility entity was cleared.
+func (m *AccountMutation) VotingEligibilitiesCleared() bool {
+	return m.clearedvoting_eligibilities
+}
+
+// RemoveVotingEligibilityIDs removes the "voting_eligibilities" edge to the VotingEligibility entity by IDs.
+func (m *AccountMutation) RemoveVotingEligibilityIDs(ids ...int) {
+	if m.removedvoting_eligibilities == nil {
+		m.removedvoting_eligibilities = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.voting_eligibilities, ids[i])
+		m.removedvoting_eligibilities[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedVotingEligibilities returns the removed IDs of the "voting_eligibilities" edge to the VotingEligibility entity.
+func (m *AccountMutation) RemovedVotingEligibilitiesIDs() (ids []int) {
+	for id := range m.removedvoting_eligibilities {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// VotingEligibilitiesIDs returns the "voting_eligibilities" edge IDs in the mutation.
+func (m *AccountMutation) VotingEligibilitiesIDs() (ids []int) {
+	for id := range m.voting_eligibilities {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetVotingEligibilities resets all changes to the "voting_eligibilities" edge.
+func (m *AccountMutation) ResetVotingEligibilities() {
+	m.voting_eligibilities = nil
+	m.clearedvoting_eligibilities = false
+	m.removedvoting_eligibilities = nil
+}
+
 // AddAuditEntryIDs adds the "audit_entries" edge to the AuditEntry entity by ids.
 func (m *AccountMutation) AddAuditEntryIDs(ids ...int) {
 	if m.audit_entries == nil {
@@ -1432,7 +1548,7 @@ func (m *AccountMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *AccountMutation) AddedEdges() []string {
-	edges := make([]string, 0, 13)
+	edges := make([]string, 0, 15)
 	if m.password_credential != nil {
 		edges = append(edges, account.EdgePasswordCredential)
 	}
@@ -1462,6 +1578,12 @@ func (m *AccountMutation) AddedEdges() []string {
 	}
 	if m.favorite_sessions != nil {
 		edges = append(edges, account.EdgeFavoriteSessions)
+	}
+	if m.competition_entries != nil {
+		edges = append(edges, account.EdgeCompetitionEntries)
+	}
+	if m.voting_eligibilities != nil {
+		edges = append(edges, account.EdgeVotingEligibilities)
 	}
 	if m.audit_entries != nil {
 		edges = append(edges, account.EdgeAuditEntries)
@@ -1533,6 +1655,18 @@ func (m *AccountMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case account.EdgeCompetitionEntries:
+		ids := make([]ent.Value, 0, len(m.competition_entries))
+		for id := range m.competition_entries {
+			ids = append(ids, id)
+		}
+		return ids
+	case account.EdgeVotingEligibilities:
+		ids := make([]ent.Value, 0, len(m.voting_eligibilities))
+		for id := range m.voting_eligibilities {
+			ids = append(ids, id)
+		}
+		return ids
 	case account.EdgeAuditEntries:
 		ids := make([]ent.Value, 0, len(m.audit_entries))
 		for id := range m.audit_entries {
@@ -1557,7 +1691,7 @@ func (m *AccountMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *AccountMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 13)
+	edges := make([]string, 0, 15)
 	if m.removedwebauthn_credentials != nil {
 		edges = append(edges, account.EdgeWebauthnCredentials)
 	}
@@ -1578,6 +1712,12 @@ func (m *AccountMutation) RemovedEdges() []string {
 	}
 	if m.removedfavorite_sessions != nil {
 		edges = append(edges, account.EdgeFavoriteSessions)
+	}
+	if m.removedcompetition_entries != nil {
+		edges = append(edges, account.EdgeCompetitionEntries)
+	}
+	if m.removedvoting_eligibilities != nil {
+		edges = append(edges, account.EdgeVotingEligibilities)
 	}
 	if m.removedaudit_entries != nil {
 		edges = append(edges, account.EdgeAuditEntries)
@@ -1637,6 +1777,18 @@ func (m *AccountMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case account.EdgeCompetitionEntries:
+		ids := make([]ent.Value, 0, len(m.removedcompetition_entries))
+		for id := range m.removedcompetition_entries {
+			ids = append(ids, id)
+		}
+		return ids
+	case account.EdgeVotingEligibilities:
+		ids := make([]ent.Value, 0, len(m.removedvoting_eligibilities))
+		for id := range m.removedvoting_eligibilities {
+			ids = append(ids, id)
+		}
+		return ids
 	case account.EdgeAuditEntries:
 		ids := make([]ent.Value, 0, len(m.removedaudit_entries))
 		for id := range m.removedaudit_entries {
@@ -1661,7 +1813,7 @@ func (m *AccountMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *AccountMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 13)
+	edges := make([]string, 0, 15)
 	if m.clearedpassword_credential {
 		edges = append(edges, account.EdgePasswordCredential)
 	}
@@ -1691,6 +1843,12 @@ func (m *AccountMutation) ClearedEdges() []string {
 	}
 	if m.clearedfavorite_sessions {
 		edges = append(edges, account.EdgeFavoriteSessions)
+	}
+	if m.clearedcompetition_entries {
+		edges = append(edges, account.EdgeCompetitionEntries)
+	}
+	if m.clearedvoting_eligibilities {
+		edges = append(edges, account.EdgeVotingEligibilities)
 	}
 	if m.clearedaudit_entries {
 		edges = append(edges, account.EdgeAuditEntries)
@@ -1728,6 +1886,10 @@ func (m *AccountMutation) EdgeCleared(name string) bool {
 		return m.clearedevent_grants
 	case account.EdgeFavoriteSessions:
 		return m.clearedfavorite_sessions
+	case account.EdgeCompetitionEntries:
+		return m.clearedcompetition_entries
+	case account.EdgeVotingEligibilities:
+		return m.clearedvoting_eligibilities
 	case account.EdgeAuditEntries:
 		return m.clearedaudit_entries
 	case account.EdgeCommandReceipts:
@@ -1788,6 +1950,12 @@ func (m *AccountMutation) ResetEdge(name string) error {
 		return nil
 	case account.EdgeFavoriteSessions:
 		m.ResetFavoriteSessions()
+		return nil
+	case account.EdgeCompetitionEntries:
+		m.ResetCompetitionEntries()
+		return nil
+	case account.EdgeVotingEligibilities:
+		m.ResetVotingEligibilities()
 		return nil
 	case account.EdgeAuditEntries:
 		m.ResetAuditEntries()
@@ -8080,6 +8248,8 @@ type CompetitionEntryMutation struct {
 	clearedevent                    bool
 	competition                     *int
 	clearedcompetition              bool
+	submitter                       *int
+	clearedsubmitter                bool
 	result_standings                map[int]struct{}
 	removedresult_standings         map[int]struct{}
 	clearedresult_standings         bool
@@ -8256,6 +8426,55 @@ func (m *CompetitionEntryMutation) OldCompetitionSessionID(ctx context.Context) 
 // ResetCompetitionSessionID resets all changes to the "competition_session_id" field.
 func (m *CompetitionEntryMutation) ResetCompetitionSessionID() {
 	m.competition = nil
+}
+
+// SetSubmitterAccountID sets the "submitter_account_id" field.
+func (m *CompetitionEntryMutation) SetSubmitterAccountID(i int) {
+	m.submitter = &i
+}
+
+// SubmitterAccountID returns the value of the "submitter_account_id" field in the mutation.
+func (m *CompetitionEntryMutation) SubmitterAccountID() (r int, exists bool) {
+	v := m.submitter
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSubmitterAccountID returns the old "submitter_account_id" field's value of the CompetitionEntry entity.
+// If the CompetitionEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompetitionEntryMutation) OldSubmitterAccountID(ctx context.Context) (v *int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSubmitterAccountID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSubmitterAccountID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSubmitterAccountID: %w", err)
+	}
+	return oldValue.SubmitterAccountID, nil
+}
+
+// ClearSubmitterAccountID clears the value of the "submitter_account_id" field.
+func (m *CompetitionEntryMutation) ClearSubmitterAccountID() {
+	m.submitter = nil
+	m.clearedFields[competitionentry.FieldSubmitterAccountID] = struct{}{}
+}
+
+// SubmitterAccountIDCleared returns if the "submitter_account_id" field was cleared in this mutation.
+func (m *CompetitionEntryMutation) SubmitterAccountIDCleared() bool {
+	_, ok := m.clearedFields[competitionentry.FieldSubmitterAccountID]
+	return ok
+}
+
+// ResetSubmitterAccountID resets all changes to the "submitter_account_id" field.
+func (m *CompetitionEntryMutation) ResetSubmitterAccountID() {
+	m.submitter = nil
+	delete(m.clearedFields, competitionentry.FieldSubmitterAccountID)
 }
 
 // SetName sets the "name" field.
@@ -9291,6 +9510,46 @@ func (m *CompetitionEntryMutation) ResetCompetition() {
 	m.clearedcompetition = false
 }
 
+// SetSubmitterID sets the "submitter" edge to the Account entity by id.
+func (m *CompetitionEntryMutation) SetSubmitterID(id int) {
+	m.submitter = &id
+}
+
+// ClearSubmitter clears the "submitter" edge to the Account entity.
+func (m *CompetitionEntryMutation) ClearSubmitter() {
+	m.clearedsubmitter = true
+	m.clearedFields[competitionentry.FieldSubmitterAccountID] = struct{}{}
+}
+
+// SubmitterCleared reports if the "submitter" edge to the Account entity was cleared.
+func (m *CompetitionEntryMutation) SubmitterCleared() bool {
+	return m.SubmitterAccountIDCleared() || m.clearedsubmitter
+}
+
+// SubmitterID returns the "submitter" edge ID in the mutation.
+func (m *CompetitionEntryMutation) SubmitterID() (id int, exists bool) {
+	if m.submitter != nil {
+		return *m.submitter, true
+	}
+	return
+}
+
+// SubmitterIDs returns the "submitter" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// SubmitterID instead. It exists only for internal usage by the builders.
+func (m *CompetitionEntryMutation) SubmitterIDs() (ids []int) {
+	if id := m.submitter; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetSubmitter resets all changes to the "submitter" edge.
+func (m *CompetitionEntryMutation) ResetSubmitter() {
+	m.submitter = nil
+	m.clearedsubmitter = false
+}
+
 // AddResultStandingIDs adds the "result_standings" edge to the CompetitionResultStanding entity by ids.
 func (m *CompetitionEntryMutation) AddResultStandingIDs(ids ...int) {
 	if m.result_standings == nil {
@@ -9379,12 +9638,15 @@ func (m *CompetitionEntryMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *CompetitionEntryMutation) Fields() []string {
-	fields := make([]string, 0, 22)
+	fields := make([]string, 0, 23)
 	if m.event != nil {
 		fields = append(fields, competitionentry.FieldEventID)
 	}
 	if m.competition != nil {
 		fields = append(fields, competitionentry.FieldCompetitionSessionID)
+	}
+	if m.submitter != nil {
+		fields = append(fields, competitionentry.FieldSubmitterAccountID)
 	}
 	if m.name != nil {
 		fields = append(fields, competitionentry.FieldName)
@@ -9458,6 +9720,8 @@ func (m *CompetitionEntryMutation) Field(name string) (ent.Value, bool) {
 		return m.EventID()
 	case competitionentry.FieldCompetitionSessionID:
 		return m.CompetitionSessionID()
+	case competitionentry.FieldSubmitterAccountID:
+		return m.SubmitterAccountID()
 	case competitionentry.FieldName:
 		return m.Name()
 	case competitionentry.FieldPublicDetails:
@@ -9511,6 +9775,8 @@ func (m *CompetitionEntryMutation) OldField(ctx context.Context, name string) (e
 		return m.OldEventID(ctx)
 	case competitionentry.FieldCompetitionSessionID:
 		return m.OldCompetitionSessionID(ctx)
+	case competitionentry.FieldSubmitterAccountID:
+		return m.OldSubmitterAccountID(ctx)
 	case competitionentry.FieldName:
 		return m.OldName(ctx)
 	case competitionentry.FieldPublicDetails:
@@ -9573,6 +9839,13 @@ func (m *CompetitionEntryMutation) SetField(name string, value ent.Value) error 
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetCompetitionSessionID(v)
+		return nil
+	case competitionentry.FieldSubmitterAccountID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSubmitterAccountID(v)
 		return nil
 	case competitionentry.FieldName:
 		v, ok := value.(string)
@@ -9807,6 +10080,9 @@ func (m *CompetitionEntryMutation) AddField(name string, value ent.Value) error 
 // mutation.
 func (m *CompetitionEntryMutation) ClearedFields() []string {
 	var fields []string
+	if m.FieldCleared(competitionentry.FieldSubmitterAccountID) {
+		fields = append(fields, competitionentry.FieldSubmitterAccountID)
+	}
 	if m.FieldCleared(competitionentry.FieldPublicDetails) {
 		fields = append(fields, competitionentry.FieldPublicDetails)
 	}
@@ -9854,6 +10130,9 @@ func (m *CompetitionEntryMutation) FieldCleared(name string) bool {
 // error if the field is not defined in the schema.
 func (m *CompetitionEntryMutation) ClearField(name string) error {
 	switch name {
+	case competitionentry.FieldSubmitterAccountID:
+		m.ClearSubmitterAccountID()
+		return nil
 	case competitionentry.FieldPublicDetails:
 		m.ClearPublicDetails()
 		return nil
@@ -9900,6 +10179,9 @@ func (m *CompetitionEntryMutation) ResetField(name string) error {
 		return nil
 	case competitionentry.FieldCompetitionSessionID:
 		m.ResetCompetitionSessionID()
+		return nil
+	case competitionentry.FieldSubmitterAccountID:
+		m.ResetSubmitterAccountID()
 		return nil
 	case competitionentry.FieldName:
 		m.ResetName()
@@ -9967,12 +10249,15 @@ func (m *CompetitionEntryMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *CompetitionEntryMutation) AddedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.event != nil {
 		edges = append(edges, competitionentry.EdgeEvent)
 	}
 	if m.competition != nil {
 		edges = append(edges, competitionentry.EdgeCompetition)
+	}
+	if m.submitter != nil {
+		edges = append(edges, competitionentry.EdgeSubmitter)
 	}
 	if m.result_standings != nil {
 		edges = append(edges, competitionentry.EdgeResultStandings)
@@ -9992,6 +10277,10 @@ func (m *CompetitionEntryMutation) AddedIDs(name string) []ent.Value {
 		if id := m.competition; id != nil {
 			return []ent.Value{*id}
 		}
+	case competitionentry.EdgeSubmitter:
+		if id := m.submitter; id != nil {
+			return []ent.Value{*id}
+		}
 	case competitionentry.EdgeResultStandings:
 		ids := make([]ent.Value, 0, len(m.result_standings))
 		for id := range m.result_standings {
@@ -10004,7 +10293,7 @@ func (m *CompetitionEntryMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *CompetitionEntryMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.removedresult_standings != nil {
 		edges = append(edges, competitionentry.EdgeResultStandings)
 	}
@@ -10027,12 +10316,15 @@ func (m *CompetitionEntryMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *CompetitionEntryMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.clearedevent {
 		edges = append(edges, competitionentry.EdgeEvent)
 	}
 	if m.clearedcompetition {
 		edges = append(edges, competitionentry.EdgeCompetition)
+	}
+	if m.clearedsubmitter {
+		edges = append(edges, competitionentry.EdgeSubmitter)
 	}
 	if m.clearedresult_standings {
 		edges = append(edges, competitionentry.EdgeResultStandings)
@@ -10048,6 +10340,8 @@ func (m *CompetitionEntryMutation) EdgeCleared(name string) bool {
 		return m.clearedevent
 	case competitionentry.EdgeCompetition:
 		return m.clearedcompetition
+	case competitionentry.EdgeSubmitter:
+		return m.clearedsubmitter
 	case competitionentry.EdgeResultStandings:
 		return m.clearedresult_standings
 	}
@@ -10064,6 +10358,9 @@ func (m *CompetitionEntryMutation) ClearEdge(name string) error {
 	case competitionentry.EdgeCompetition:
 		m.ClearCompetition()
 		return nil
+	case competitionentry.EdgeSubmitter:
+		m.ClearSubmitter()
+		return nil
 	}
 	return fmt.Errorf("unknown CompetitionEntry unique edge %s", name)
 }
@@ -10077,6 +10374,9 @@ func (m *CompetitionEntryMutation) ResetEdge(name string) error {
 		return nil
 	case competitionentry.EdgeCompetition:
 		m.ResetCompetition()
+		return nil
+	case competitionentry.EdgeSubmitter:
+		m.ResetSubmitter()
 		return nil
 	case competitionentry.EdgeResultStandings:
 		m.ResetResultStandings()
@@ -21740,6 +22040,7 @@ type EventMutation struct {
 	content_language                          *string
 	event_day_boundary                        *string
 	entry_default_disposition                 *event.EntryDefaultDisposition
+	submission_eligibility                    *event.SubmissionEligibility
 	target_adjustment_presets                 *string
 	display_configuration                     *string
 	attachment_release_policy                 *event.AttachmentReleasePolicy
@@ -21804,6 +22105,9 @@ type EventMutation struct {
 	upload_links                              map[int]struct{}
 	removedupload_links                       map[int]struct{}
 	clearedupload_links                       bool
+	voting_eligibilities                      map[int]struct{}
+	removedvoting_eligibilities               map[int]struct{}
+	clearedvoting_eligibilities               bool
 	draft_edits                               map[int]struct{}
 	removeddraft_edits                        map[int]struct{}
 	cleareddraft_edits                        bool
@@ -22308,6 +22612,42 @@ func (m *EventMutation) OldEntryDefaultDisposition(ctx context.Context) (v event
 // ResetEntryDefaultDisposition resets all changes to the "entry_default_disposition" field.
 func (m *EventMutation) ResetEntryDefaultDisposition() {
 	m.entry_default_disposition = nil
+}
+
+// SetSubmissionEligibility sets the "submission_eligibility" field.
+func (m *EventMutation) SetSubmissionEligibility(ee event.SubmissionEligibility) {
+	m.submission_eligibility = &ee
+}
+
+// SubmissionEligibility returns the value of the "submission_eligibility" field in the mutation.
+func (m *EventMutation) SubmissionEligibility() (r event.SubmissionEligibility, exists bool) {
+	v := m.submission_eligibility
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSubmissionEligibility returns the old "submission_eligibility" field's value of the Event entity.
+// If the Event object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EventMutation) OldSubmissionEligibility(ctx context.Context) (v event.SubmissionEligibility, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSubmissionEligibility is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSubmissionEligibility requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSubmissionEligibility: %w", err)
+	}
+	return oldValue.SubmissionEligibility, nil
+}
+
+// ResetSubmissionEligibility resets all changes to the "submission_eligibility" field.
+func (m *EventMutation) ResetSubmissionEligibility() {
+	m.submission_eligibility = nil
 }
 
 // SetTargetAdjustmentPresets sets the "target_adjustment_presets" field.
@@ -23682,6 +24022,60 @@ func (m *EventMutation) ResetUploadLinks() {
 	m.removedupload_links = nil
 }
 
+// AddVotingEligibilityIDs adds the "voting_eligibilities" edge to the VotingEligibility entity by ids.
+func (m *EventMutation) AddVotingEligibilityIDs(ids ...int) {
+	if m.voting_eligibilities == nil {
+		m.voting_eligibilities = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.voting_eligibilities[ids[i]] = struct{}{}
+	}
+}
+
+// ClearVotingEligibilities clears the "voting_eligibilities" edge to the VotingEligibility entity.
+func (m *EventMutation) ClearVotingEligibilities() {
+	m.clearedvoting_eligibilities = true
+}
+
+// VotingEligibilitiesCleared reports if the "voting_eligibilities" edge to the VotingEligibility entity was cleared.
+func (m *EventMutation) VotingEligibilitiesCleared() bool {
+	return m.clearedvoting_eligibilities
+}
+
+// RemoveVotingEligibilityIDs removes the "voting_eligibilities" edge to the VotingEligibility entity by IDs.
+func (m *EventMutation) RemoveVotingEligibilityIDs(ids ...int) {
+	if m.removedvoting_eligibilities == nil {
+		m.removedvoting_eligibilities = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.voting_eligibilities, ids[i])
+		m.removedvoting_eligibilities[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedVotingEligibilities returns the removed IDs of the "voting_eligibilities" edge to the VotingEligibility entity.
+func (m *EventMutation) RemovedVotingEligibilitiesIDs() (ids []int) {
+	for id := range m.removedvoting_eligibilities {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// VotingEligibilitiesIDs returns the "voting_eligibilities" edge IDs in the mutation.
+func (m *EventMutation) VotingEligibilitiesIDs() (ids []int) {
+	for id := range m.voting_eligibilities {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetVotingEligibilities resets all changes to the "voting_eligibilities" edge.
+func (m *EventMutation) ResetVotingEligibilities() {
+	m.voting_eligibilities = nil
+	m.clearedvoting_eligibilities = false
+	m.removedvoting_eligibilities = nil
+}
+
 // AddDraftEditIDs adds the "draft_edits" edge to the DraftEdit entity by ids.
 func (m *EventMutation) AddDraftEditIDs(ids ...int) {
 	if m.draft_edits == nil {
@@ -24025,7 +24419,7 @@ func (m *EventMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *EventMutation) Fields() []string {
-	fields := make([]string, 0, 21)
+	fields := make([]string, 0, 22)
 	if m.name != nil {
 		fields = append(fields, event.FieldName)
 	}
@@ -24055,6 +24449,9 @@ func (m *EventMutation) Fields() []string {
 	}
 	if m.entry_default_disposition != nil {
 		fields = append(fields, event.FieldEntryDefaultDisposition)
+	}
+	if m.submission_eligibility != nil {
+		fields = append(fields, event.FieldSubmissionEligibility)
 	}
 	if m.target_adjustment_presets != nil {
 		fields = append(fields, event.FieldTargetAdjustmentPresets)
@@ -24117,6 +24514,8 @@ func (m *EventMutation) Field(name string) (ent.Value, bool) {
 		return m.EventDayBoundary()
 	case event.FieldEntryDefaultDisposition:
 		return m.EntryDefaultDisposition()
+	case event.FieldSubmissionEligibility:
+		return m.SubmissionEligibility()
 	case event.FieldTargetAdjustmentPresets:
 		return m.TargetAdjustmentPresets()
 	case event.FieldDisplayConfiguration:
@@ -24168,6 +24567,8 @@ func (m *EventMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldEventDayBoundary(ctx)
 	case event.FieldEntryDefaultDisposition:
 		return m.OldEntryDefaultDisposition(ctx)
+	case event.FieldSubmissionEligibility:
+		return m.OldSubmissionEligibility(ctx)
 	case event.FieldTargetAdjustmentPresets:
 		return m.OldTargetAdjustmentPresets(ctx)
 	case event.FieldDisplayConfiguration:
@@ -24268,6 +24669,13 @@ func (m *EventMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetEntryDefaultDisposition(v)
+		return nil
+	case event.FieldSubmissionEligibility:
+		v, ok := value.(event.SubmissionEligibility)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSubmissionEligibility(v)
 		return nil
 	case event.FieldTargetAdjustmentPresets:
 		v, ok := value.(string)
@@ -24515,6 +24923,9 @@ func (m *EventMutation) ResetField(name string) error {
 	case event.FieldEntryDefaultDisposition:
 		m.ResetEntryDefaultDisposition()
 		return nil
+	case event.FieldSubmissionEligibility:
+		m.ResetSubmissionEligibility()
+		return nil
 	case event.FieldTargetAdjustmentPresets:
 		m.ResetTargetAdjustmentPresets()
 		return nil
@@ -24554,7 +24965,7 @@ func (m *EventMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *EventMutation) AddedEdges() []string {
-	edges := make([]string, 0, 22)
+	edges := make([]string, 0, 23)
 	if m.grants != nil {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -24602,6 +25013,9 @@ func (m *EventMutation) AddedEdges() []string {
 	}
 	if m.upload_links != nil {
 		edges = append(edges, event.EdgeUploadLinks)
+	}
+	if m.voting_eligibilities != nil {
+		edges = append(edges, event.EdgeVotingEligibilities)
 	}
 	if m.draft_edits != nil {
 		edges = append(edges, event.EdgeDraftEdits)
@@ -24722,6 +25136,12 @@ func (m *EventMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case event.EdgeVotingEligibilities:
+		ids := make([]ent.Value, 0, len(m.voting_eligibilities))
+		for id := range m.voting_eligibilities {
+			ids = append(ids, id)
+		}
+		return ids
 	case event.EdgeDraftEdits:
 		ids := make([]ent.Value, 0, len(m.draft_edits))
 		for id := range m.draft_edits {
@@ -24762,7 +25182,7 @@ func (m *EventMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *EventMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 22)
+	edges := make([]string, 0, 23)
 	if m.removedgrants != nil {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -24807,6 +25227,9 @@ func (m *EventMutation) RemovedEdges() []string {
 	}
 	if m.removedupload_links != nil {
 		edges = append(edges, event.EdgeUploadLinks)
+	}
+	if m.removedvoting_eligibilities != nil {
+		edges = append(edges, event.EdgeVotingEligibilities)
 	}
 	if m.removeddraft_edits != nil {
 		edges = append(edges, event.EdgeDraftEdits)
@@ -24920,6 +25343,12 @@ func (m *EventMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case event.EdgeVotingEligibilities:
+		ids := make([]ent.Value, 0, len(m.removedvoting_eligibilities))
+		for id := range m.removedvoting_eligibilities {
+			ids = append(ids, id)
+		}
+		return ids
 	case event.EdgeDraftEdits:
 		ids := make([]ent.Value, 0, len(m.removeddraft_edits))
 		for id := range m.removeddraft_edits {
@@ -24956,7 +25385,7 @@ func (m *EventMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *EventMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 22)
+	edges := make([]string, 0, 23)
 	if m.clearedgrants {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -25004,6 +25433,9 @@ func (m *EventMutation) ClearedEdges() []string {
 	}
 	if m.clearedupload_links {
 		edges = append(edges, event.EdgeUploadLinks)
+	}
+	if m.clearedvoting_eligibilities {
+		edges = append(edges, event.EdgeVotingEligibilities)
 	}
 	if m.cleareddraft_edits {
 		edges = append(edges, event.EdgeDraftEdits)
@@ -25062,6 +25494,8 @@ func (m *EventMutation) EdgeCleared(name string) bool {
 		return m.clearedresults_corrections
 	case event.EdgeUploadLinks:
 		return m.clearedupload_links
+	case event.EdgeVotingEligibilities:
+		return m.clearedvoting_eligibilities
 	case event.EdgeDraftEdits:
 		return m.cleareddraft_edits
 	case event.EdgeDraftChanges:
@@ -25143,6 +25577,9 @@ func (m *EventMutation) ResetEdge(name string) error {
 		return nil
 	case event.EdgeUploadLinks:
 		m.ResetUploadLinks()
+		return nil
+	case event.EdgeVotingEligibilities:
+		m.ResetVotingEligibilities()
 		return nil
 	case event.EdgeDraftEdits:
 		m.ResetDraftEdits()
@@ -45129,6 +45566,9 @@ type SessionMutation struct {
 	corrected_speaker                     *string
 	corrected_public_details              *string
 	require_entry_review                  *bool
+	submission_eligibility_override       *session.SubmissionEligibilityOverride
+	submission_eligibility_revision       *int
+	addsubmission_eligibility_revision    *int
 	file_delivery_required                *bool
 	readiness_revision                    *int
 	addreadiness_revision                 *int
@@ -46072,6 +46512,111 @@ func (m *SessionMutation) OldRequireEntryReview(ctx context.Context) (v bool, er
 // ResetRequireEntryReview resets all changes to the "require_entry_review" field.
 func (m *SessionMutation) ResetRequireEntryReview() {
 	m.require_entry_review = nil
+}
+
+// SetSubmissionEligibilityOverride sets the "submission_eligibility_override" field.
+func (m *SessionMutation) SetSubmissionEligibilityOverride(seo session.SubmissionEligibilityOverride) {
+	m.submission_eligibility_override = &seo
+}
+
+// SubmissionEligibilityOverride returns the value of the "submission_eligibility_override" field in the mutation.
+func (m *SessionMutation) SubmissionEligibilityOverride() (r session.SubmissionEligibilityOverride, exists bool) {
+	v := m.submission_eligibility_override
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSubmissionEligibilityOverride returns the old "submission_eligibility_override" field's value of the Session entity.
+// If the Session object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionMutation) OldSubmissionEligibilityOverride(ctx context.Context) (v *session.SubmissionEligibilityOverride, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSubmissionEligibilityOverride is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSubmissionEligibilityOverride requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSubmissionEligibilityOverride: %w", err)
+	}
+	return oldValue.SubmissionEligibilityOverride, nil
+}
+
+// ClearSubmissionEligibilityOverride clears the value of the "submission_eligibility_override" field.
+func (m *SessionMutation) ClearSubmissionEligibilityOverride() {
+	m.submission_eligibility_override = nil
+	m.clearedFields[session.FieldSubmissionEligibilityOverride] = struct{}{}
+}
+
+// SubmissionEligibilityOverrideCleared returns if the "submission_eligibility_override" field was cleared in this mutation.
+func (m *SessionMutation) SubmissionEligibilityOverrideCleared() bool {
+	_, ok := m.clearedFields[session.FieldSubmissionEligibilityOverride]
+	return ok
+}
+
+// ResetSubmissionEligibilityOverride resets all changes to the "submission_eligibility_override" field.
+func (m *SessionMutation) ResetSubmissionEligibilityOverride() {
+	m.submission_eligibility_override = nil
+	delete(m.clearedFields, session.FieldSubmissionEligibilityOverride)
+}
+
+// SetSubmissionEligibilityRevision sets the "submission_eligibility_revision" field.
+func (m *SessionMutation) SetSubmissionEligibilityRevision(i int) {
+	m.submission_eligibility_revision = &i
+	m.addsubmission_eligibility_revision = nil
+}
+
+// SubmissionEligibilityRevision returns the value of the "submission_eligibility_revision" field in the mutation.
+func (m *SessionMutation) SubmissionEligibilityRevision() (r int, exists bool) {
+	v := m.submission_eligibility_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSubmissionEligibilityRevision returns the old "submission_eligibility_revision" field's value of the Session entity.
+// If the Session object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SessionMutation) OldSubmissionEligibilityRevision(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSubmissionEligibilityRevision is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSubmissionEligibilityRevision requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSubmissionEligibilityRevision: %w", err)
+	}
+	return oldValue.SubmissionEligibilityRevision, nil
+}
+
+// AddSubmissionEligibilityRevision adds i to the "submission_eligibility_revision" field.
+func (m *SessionMutation) AddSubmissionEligibilityRevision(i int) {
+	if m.addsubmission_eligibility_revision != nil {
+		*m.addsubmission_eligibility_revision += i
+	} else {
+		m.addsubmission_eligibility_revision = &i
+	}
+}
+
+// AddedSubmissionEligibilityRevision returns the value that was added to the "submission_eligibility_revision" field in this mutation.
+func (m *SessionMutation) AddedSubmissionEligibilityRevision() (r int, exists bool) {
+	v := m.addsubmission_eligibility_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetSubmissionEligibilityRevision resets all changes to the "submission_eligibility_revision" field.
+func (m *SessionMutation) ResetSubmissionEligibilityRevision() {
+	m.submission_eligibility_revision = nil
+	m.addsubmission_eligibility_revision = nil
 }
 
 // SetFileDeliveryRequired sets the "file_delivery_required" field.
@@ -47558,7 +48103,7 @@ func (m *SessionMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *SessionMutation) Fields() []string {
-	fields := make([]string, 0, 33)
+	fields := make([]string, 0, 35)
 	if m.event != nil {
 		fields = append(fields, session.FieldEventID)
 	}
@@ -47606,6 +48151,12 @@ func (m *SessionMutation) Fields() []string {
 	}
 	if m.require_entry_review != nil {
 		fields = append(fields, session.FieldRequireEntryReview)
+	}
+	if m.submission_eligibility_override != nil {
+		fields = append(fields, session.FieldSubmissionEligibilityOverride)
+	}
+	if m.submission_eligibility_revision != nil {
+		fields = append(fields, session.FieldSubmissionEligibilityRevision)
 	}
 	if m.file_delivery_required != nil {
 		fields = append(fields, session.FieldFileDeliveryRequired)
@@ -47698,6 +48249,10 @@ func (m *SessionMutation) Field(name string) (ent.Value, bool) {
 		return m.CorrectedPublicDetails()
 	case session.FieldRequireEntryReview:
 		return m.RequireEntryReview()
+	case session.FieldSubmissionEligibilityOverride:
+		return m.SubmissionEligibilityOverride()
+	case session.FieldSubmissionEligibilityRevision:
+		return m.SubmissionEligibilityRevision()
 	case session.FieldFileDeliveryRequired:
 		return m.FileDeliveryRequired()
 	case session.FieldReadinessRevision:
@@ -47773,6 +48328,10 @@ func (m *SessionMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldCorrectedPublicDetails(ctx)
 	case session.FieldRequireEntryReview:
 		return m.OldRequireEntryReview(ctx)
+	case session.FieldSubmissionEligibilityOverride:
+		return m.OldSubmissionEligibilityOverride(ctx)
+	case session.FieldSubmissionEligibilityRevision:
+		return m.OldSubmissionEligibilityRevision(ctx)
 	case session.FieldFileDeliveryRequired:
 		return m.OldFileDeliveryRequired(ctx)
 	case session.FieldReadinessRevision:
@@ -47928,6 +48487,20 @@ func (m *SessionMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetRequireEntryReview(v)
 		return nil
+	case session.FieldSubmissionEligibilityOverride:
+		v, ok := value.(session.SubmissionEligibilityOverride)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSubmissionEligibilityOverride(v)
+		return nil
+	case session.FieldSubmissionEligibilityRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSubmissionEligibilityRevision(v)
+		return nil
 	case session.FieldFileDeliveryRequired:
 		v, ok := value.(bool)
 		if !ok {
@@ -48058,6 +48631,9 @@ func (m *SessionMutation) AddedFields() []string {
 	if m.addlive_state_revision != nil {
 		fields = append(fields, session.FieldLiveStateRevision)
 	}
+	if m.addsubmission_eligibility_revision != nil {
+		fields = append(fields, session.FieldSubmissionEligibilityRevision)
+	}
 	if m.addreadiness_revision != nil {
 		fields = append(fields, session.FieldReadinessRevision)
 	}
@@ -48089,6 +48665,8 @@ func (m *SessionMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
 	case session.FieldLiveStateRevision:
 		return m.AddedLiveStateRevision()
+	case session.FieldSubmissionEligibilityRevision:
+		return m.AddedSubmissionEligibilityRevision()
 	case session.FieldReadinessRevision:
 		return m.AddedReadinessRevision()
 	case session.FieldEntryOrderSeed:
@@ -48118,6 +48696,13 @@ func (m *SessionMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddLiveStateRevision(v)
+		return nil
+	case session.FieldSubmissionEligibilityRevision:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSubmissionEligibilityRevision(v)
 		return nil
 	case session.FieldReadinessRevision:
 		v, ok := value.(int)
@@ -48212,6 +48797,9 @@ func (m *SessionMutation) ClearedFields() []string {
 	if m.FieldCleared(session.FieldCorrectedPublicDetails) {
 		fields = append(fields, session.FieldCorrectedPublicDetails)
 	}
+	if m.FieldCleared(session.FieldSubmissionEligibilityOverride) {
+		fields = append(fields, session.FieldSubmissionEligibilityOverride)
+	}
 	if m.FieldCleared(session.FieldFileDeliveryRequired) {
 		fields = append(fields, session.FieldFileDeliveryRequired)
 	}
@@ -48285,6 +48873,9 @@ func (m *SessionMutation) ClearField(name string) error {
 		return nil
 	case session.FieldCorrectedPublicDetails:
 		m.ClearCorrectedPublicDetails()
+		return nil
+	case session.FieldSubmissionEligibilityOverride:
+		m.ClearSubmissionEligibilityOverride()
 		return nil
 	case session.FieldFileDeliveryRequired:
 		m.ClearFileDeliveryRequired()
@@ -48365,6 +48956,12 @@ func (m *SessionMutation) ResetField(name string) error {
 		return nil
 	case session.FieldRequireEntryReview:
 		m.ResetRequireEntryReview()
+		return nil
+	case session.FieldSubmissionEligibilityOverride:
+		m.ResetSubmissionEligibilityOverride()
+		return nil
+	case session.FieldSubmissionEligibilityRevision:
+		m.ResetSubmissionEligibilityRevision()
 		return nil
 	case session.FieldFileDeliveryRequired:
 		m.ResetFileDeliveryRequired()
@@ -57010,6 +57607,543 @@ func (m *UploadLinkMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown UploadLink edge %s", name)
+}
+
+// VotingEligibilityMutation represents an operation that mutates the VotingEligibility nodes in the graph.
+type VotingEligibilityMutation struct {
+	config
+	op             Op
+	typ            string
+	id             *int
+	created_at     *time.Time
+	clearedFields  map[string]struct{}
+	event          *int
+	clearedevent   bool
+	account        *int
+	clearedaccount bool
+	done           bool
+	oldValue       func(context.Context) (*VotingEligibility, error)
+	predicates     []predicate.VotingEligibility
+}
+
+var _ ent.Mutation = (*VotingEligibilityMutation)(nil)
+
+// votingeligibilityOption allows management of the mutation configuration using functional options.
+type votingeligibilityOption func(*VotingEligibilityMutation)
+
+// newVotingEligibilityMutation creates new mutation for the VotingEligibility entity.
+func newVotingEligibilityMutation(c config, op Op, opts ...votingeligibilityOption) *VotingEligibilityMutation {
+	m := &VotingEligibilityMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeVotingEligibility,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withVotingEligibilityID sets the ID field of the mutation.
+func withVotingEligibilityID(id int) votingeligibilityOption {
+	return func(m *VotingEligibilityMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *VotingEligibility
+		)
+		m.oldValue = func(ctx context.Context) (*VotingEligibility, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().VotingEligibility.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withVotingEligibility sets the old VotingEligibility of the mutation.
+func withVotingEligibility(node *VotingEligibility) votingeligibilityOption {
+	return func(m *VotingEligibilityMutation) {
+		m.oldValue = func(context.Context) (*VotingEligibility, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m VotingEligibilityMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m VotingEligibilityMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *VotingEligibilityMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *VotingEligibilityMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().VotingEligibility.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetEventID sets the "event_id" field.
+func (m *VotingEligibilityMutation) SetEventID(i int) {
+	m.event = &i
+}
+
+// EventID returns the value of the "event_id" field in the mutation.
+func (m *VotingEligibilityMutation) EventID() (r int, exists bool) {
+	v := m.event
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEventID returns the old "event_id" field's value of the VotingEligibility entity.
+// If the VotingEligibility object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *VotingEligibilityMutation) OldEventID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEventID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEventID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEventID: %w", err)
+	}
+	return oldValue.EventID, nil
+}
+
+// ResetEventID resets all changes to the "event_id" field.
+func (m *VotingEligibilityMutation) ResetEventID() {
+	m.event = nil
+}
+
+// SetAccountID sets the "account_id" field.
+func (m *VotingEligibilityMutation) SetAccountID(i int) {
+	m.account = &i
+}
+
+// AccountID returns the value of the "account_id" field in the mutation.
+func (m *VotingEligibilityMutation) AccountID() (r int, exists bool) {
+	v := m.account
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAccountID returns the old "account_id" field's value of the VotingEligibility entity.
+// If the VotingEligibility object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *VotingEligibilityMutation) OldAccountID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAccountID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAccountID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAccountID: %w", err)
+	}
+	return oldValue.AccountID, nil
+}
+
+// ResetAccountID resets all changes to the "account_id" field.
+func (m *VotingEligibilityMutation) ResetAccountID() {
+	m.account = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *VotingEligibilityMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *VotingEligibilityMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the VotingEligibility entity.
+// If the VotingEligibility object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *VotingEligibilityMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *VotingEligibilityMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// ClearEvent clears the "event" edge to the Event entity.
+func (m *VotingEligibilityMutation) ClearEvent() {
+	m.clearedevent = true
+	m.clearedFields[votingeligibility.FieldEventID] = struct{}{}
+}
+
+// EventCleared reports if the "event" edge to the Event entity was cleared.
+func (m *VotingEligibilityMutation) EventCleared() bool {
+	return m.clearedevent
+}
+
+// EventIDs returns the "event" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// EventID instead. It exists only for internal usage by the builders.
+func (m *VotingEligibilityMutation) EventIDs() (ids []int) {
+	if id := m.event; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetEvent resets all changes to the "event" edge.
+func (m *VotingEligibilityMutation) ResetEvent() {
+	m.event = nil
+	m.clearedevent = false
+}
+
+// ClearAccount clears the "account" edge to the Account entity.
+func (m *VotingEligibilityMutation) ClearAccount() {
+	m.clearedaccount = true
+	m.clearedFields[votingeligibility.FieldAccountID] = struct{}{}
+}
+
+// AccountCleared reports if the "account" edge to the Account entity was cleared.
+func (m *VotingEligibilityMutation) AccountCleared() bool {
+	return m.clearedaccount
+}
+
+// AccountIDs returns the "account" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// AccountID instead. It exists only for internal usage by the builders.
+func (m *VotingEligibilityMutation) AccountIDs() (ids []int) {
+	if id := m.account; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetAccount resets all changes to the "account" edge.
+func (m *VotingEligibilityMutation) ResetAccount() {
+	m.account = nil
+	m.clearedaccount = false
+}
+
+// Where appends a list predicates to the VotingEligibilityMutation builder.
+func (m *VotingEligibilityMutation) Where(ps ...predicate.VotingEligibility) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the VotingEligibilityMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *VotingEligibilityMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.VotingEligibility, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *VotingEligibilityMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *VotingEligibilityMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (VotingEligibility).
+func (m *VotingEligibilityMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *VotingEligibilityMutation) Fields() []string {
+	fields := make([]string, 0, 3)
+	if m.event != nil {
+		fields = append(fields, votingeligibility.FieldEventID)
+	}
+	if m.account != nil {
+		fields = append(fields, votingeligibility.FieldAccountID)
+	}
+	if m.created_at != nil {
+		fields = append(fields, votingeligibility.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *VotingEligibilityMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case votingeligibility.FieldEventID:
+		return m.EventID()
+	case votingeligibility.FieldAccountID:
+		return m.AccountID()
+	case votingeligibility.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *VotingEligibilityMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case votingeligibility.FieldEventID:
+		return m.OldEventID(ctx)
+	case votingeligibility.FieldAccountID:
+		return m.OldAccountID(ctx)
+	case votingeligibility.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown VotingEligibility field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *VotingEligibilityMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case votingeligibility.FieldEventID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEventID(v)
+		return nil
+	case votingeligibility.FieldAccountID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAccountID(v)
+		return nil
+	case votingeligibility.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown VotingEligibility field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *VotingEligibilityMutation) AddedFields() []string {
+	var fields []string
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *VotingEligibilityMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *VotingEligibilityMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown VotingEligibility numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *VotingEligibilityMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *VotingEligibilityMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *VotingEligibilityMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown VotingEligibility nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *VotingEligibilityMutation) ResetField(name string) error {
+	switch name {
+	case votingeligibility.FieldEventID:
+		m.ResetEventID()
+		return nil
+	case votingeligibility.FieldAccountID:
+		m.ResetAccountID()
+		return nil
+	case votingeligibility.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown VotingEligibility field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *VotingEligibilityMutation) AddedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.event != nil {
+		edges = append(edges, votingeligibility.EdgeEvent)
+	}
+	if m.account != nil {
+		edges = append(edges, votingeligibility.EdgeAccount)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *VotingEligibilityMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case votingeligibility.EdgeEvent:
+		if id := m.event; id != nil {
+			return []ent.Value{*id}
+		}
+	case votingeligibility.EdgeAccount:
+		if id := m.account; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *VotingEligibilityMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 2)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *VotingEligibilityMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *VotingEligibilityMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.clearedevent {
+		edges = append(edges, votingeligibility.EdgeEvent)
+	}
+	if m.clearedaccount {
+		edges = append(edges, votingeligibility.EdgeAccount)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *VotingEligibilityMutation) EdgeCleared(name string) bool {
+	switch name {
+	case votingeligibility.EdgeEvent:
+		return m.clearedevent
+	case votingeligibility.EdgeAccount:
+		return m.clearedaccount
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *VotingEligibilityMutation) ClearEdge(name string) error {
+	switch name {
+	case votingeligibility.EdgeEvent:
+		m.ClearEvent()
+		return nil
+	case votingeligibility.EdgeAccount:
+		m.ClearAccount()
+		return nil
+	}
+	return fmt.Errorf("unknown VotingEligibility unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *VotingEligibilityMutation) ResetEdge(name string) error {
+	switch name {
+	case votingeligibility.EdgeEvent:
+		m.ResetEvent()
+		return nil
+	case votingeligibility.EdgeAccount:
+		m.ResetAccount()
+		return nil
+	}
+	return fmt.Errorf("unknown VotingEligibility edge %s", name)
 }
 
 // WebAuthnCredentialMutation represents an operation that mutates the WebAuthnCredential nodes in the graph.

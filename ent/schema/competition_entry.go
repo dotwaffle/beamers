@@ -33,6 +33,7 @@ func (CompetitionEntry) Fields() []ent.Field {
 	return []ent.Field{
 		field.Int("event_id").Immutable(),
 		field.Int("competition_session_id").Immutable(),
+		field.Int("submitter_account_id").Optional().Nillable().Positive(),
 		field.String("name").NotEmpty().MaxLen(200),
 		field.String("public_details").Optional().MaxLen(10000),
 		field.String("crew_notes").Optional().MaxLen(10000),
@@ -75,6 +76,10 @@ func (CompetitionEntry) Edges() []ent.Edge {
 			Unique().
 			Immutable().
 			Required(),
+		edge.From("submitter", Account.Type).
+			Ref("competition_entries").
+			Field("submitter_account_id").
+			Unique(),
 		edge.To("result_standings", CompetitionResultStanding.Type),
 	}
 }

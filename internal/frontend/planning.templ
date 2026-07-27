@@ -147,6 +147,13 @@ templ Planning(page PlanningPage) {
 								</select>
 							</label>
 							<label>
+								New Competition Submission Eligibility
+								<select name="submission_eligibility">
+									<option value="AllAccounts" selected?={ page.Event.SubmissionEligibility == "AllAccounts" }>All Accounts</option>
+									<option value="VotingEligibleAccounts" selected?={ page.Event.SubmissionEligibility == "VotingEligibleAccounts" }>Voting Eligible Accounts</option>
+								</select>
+							</label>
+							<label>
 								Target adjustment presets in seconds
 								<input name="target_adjustment_presets_seconds" value={ planningPresets(page.Event.TargetAdjustmentPresetsSeconds) }/>
 							</label>
@@ -666,6 +673,12 @@ templ NewEvent(page NewEventPage) {
 						<label>New Competition Entry disposition
 							<select name="entry_default_disposition">
 								<option>Pending</option><option>Included</option>
+							</select>
+						</label>
+						<label>New Competition Submission Eligibility
+							<select name="submission_eligibility">
+								<option value="AllAccounts">All Accounts</option>
+								<option value="VotingEligibleAccounts">Voting Eligible Accounts</option>
 							</select>
 						</label>
 						<label>Target adjustment presets in seconds

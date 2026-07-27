@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/dotwaffle/beamers/ent/account"
 	"github.com/dotwaffle/beamers/ent/competitionentry"
 	"github.com/dotwaffle/beamers/ent/competitionresultstanding"
 	"github.com/dotwaffle/beamers/ent/event"
@@ -29,6 +30,7 @@ type CompetitionEntryQuery struct {
 	predicates          []predicate.CompetitionEntry
 	withEvent           *EventQuery
 	withCompetition     *SessionQuery
+	withSubmitter       *AccountQuery
 	withResultStandings *CompetitionResultStandingQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
@@ -103,6 +105,28 @@ func (_q *CompetitionEntryQuery) QueryCompetition() *SessionQuery {
 			sqlgraph.From(competitionentry.Table, competitionentry.FieldID, selector),
 			sqlgraph.To(session.Table, session.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, competitionentry.CompetitionTable, competitionentry.CompetitionColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QuerySubmitter chains the current query on the "submitter" edge.
+func (_q *CompetitionEntryQuery) QuerySubmitter() *AccountQuery {
+	query := (&AccountClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(competitionentry.Table, competitionentry.FieldID, selector),
+			sqlgraph.To(account.Table, account.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, competitionentry.SubmitterTable, competitionentry.SubmitterColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -326,6 +350,7 @@ func (_q *CompetitionEntryQuery) Clone() *CompetitionEntryQuery {
 		predicates:          append([]predicate.CompetitionEntry{}, _q.predicates...),
 		withEvent:           _q.withEvent.Clone(),
 		withCompetition:     _q.withCompetition.Clone(),
+		withSubmitter:       _q.withSubmitter.Clone(),
 		withResultStandings: _q.withResultStandings.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
@@ -352,6 +377,17 @@ func (_q *CompetitionEntryQuery) WithCompetition(opts ...func(*SessionQuery)) *C
 		opt(query)
 	}
 	_q.withCompetition = query
+	return _q
+}
+
+// WithSubmitter tells the query-builder to eager-load the nodes that are connected to
+// the "submitter" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *CompetitionEntryQuery) WithSubmitter(opts ...func(*AccountQuery)) *CompetitionEntryQuery {
+	query := (&AccountClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withSubmitter = query
 	return _q
 }
 
@@ -450,9 +486,10 @@ func (_q *CompetitionEntryQuery) sqlAll(ctx context.Context, hooks ...queryHook)
 	var (
 		nodes       = []*CompetitionEntry{}
 		_spec       = _q.querySpec()
-		loadedTypes = [3]bool{
+		loadedTypes = [4]bool{
 			_q.withEvent != nil,
 			_q.withCompetition != nil,
+			_q.withSubmitter != nil,
 			_q.withResultStandings != nil,
 		}
 	)
@@ -483,6 +520,12 @@ func (_q *CompetitionEntryQuery) sqlAll(ctx context.Context, hooks ...queryHook)
 	if query := _q.withCompetition; query != nil {
 		if err := _q.loadCompetition(ctx, query, nodes, nil,
 			func(n *CompetitionEntry, e *Session) { n.Edges.Competition = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withSubmitter; query != nil {
+		if err := _q.loadSubmitter(ctx, query, nodes, nil,
+			func(n *CompetitionEntry, e *Account) { n.Edges.Submitter = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -556,6 +599,38 @@ func (_q *CompetitionEntryQuery) loadCompetition(ctx context.Context, query *Ses
 	}
 	return nil
 }
+func (_q *CompetitionEntryQuery) loadSubmitter(ctx context.Context, query *AccountQuery, nodes []*CompetitionEntry, init func(*CompetitionEntry), assign func(*CompetitionEntry, *Account)) error {
+	ids := make([]int, 0, len(nodes))
+	nodeids := make(map[int][]*CompetitionEntry)
+	for i := range nodes {
+		if nodes[i].SubmitterAccountID == nil {
+			continue
+		}
+		fk := *nodes[i].SubmitterAccountID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(account.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "submitter_account_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
 func (_q *CompetitionEntryQuery) loadResultStandings(ctx context.Context, query *CompetitionResultStandingQuery, nodes []*CompetitionEntry, init func(*CompetitionEntry), assign func(*CompetitionEntry, *CompetitionResultStanding)) error {
 	fks := make([]driver.Value, 0, len(nodes))
 	nodeids := make(map[int]*CompetitionEntry)
@@ -617,6 +692,9 @@ func (_q *CompetitionEntryQuery) querySpec() *sqlgraph.QuerySpec {
 		}
 		if _q.withCompetition != nil {
 			_spec.Node.AddColumnOnce(competitionentry.FieldCompetitionSessionID)
+		}
+		if _q.withSubmitter != nil {
+			_spec.Node.AddColumnOnce(competitionentry.FieldSubmitterAccountID)
 		}
 	}
 	if ps := _q.predicates; len(ps) > 0 {

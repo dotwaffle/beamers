@@ -130,6 +130,22 @@ type CrewState struct {
 	CompetitionRelease store.CompetitionAttachmentReleaseConfiguration
 }
 
+// AccountState is private metadata for only one Account's submitted Entries.
+type AccountState struct {
+	Versions      []AccountVersion
+	ReopenWindows []AccountReopenWindow
+}
+
+// AccountVersion is submitter-visible immutable file metadata.
+type AccountVersion struct {
+	OwnerID, Version       int
+	Name, OriginalFilename string
+	SHA256                 string
+}
+
+// AccountReopenWindow is submitter-visible access state without Crew reasons.
+type AccountReopenWindow = store.AccountReopenWindow
+
 // UploadInput contains one bounded file stream and logical owner.
 type UploadInput struct {
 	Token, CommandID, Name, OriginalFilename, MediaType string
@@ -141,6 +157,14 @@ type UploadInput struct {
 type CrewUploadInput struct {
 	EventID, TargetID                            int
 	TargetType                                   TargetKind
+	CommandID, Name, OriginalFilename, MediaType string
+	Body                                         io.Reader
+	CrewOnly                                     bool
+}
+
+// AccountUploadInput identifies one upload owned by the signed-in Submitter Account.
+type AccountUploadInput struct {
+	EventID, EntryID                             int
 	CommandID, Name, OriginalFilename, MediaType string
 	Body                                         io.Reader
 	CrewOnly                                     bool
@@ -258,6 +282,25 @@ func New(
 	return service, nil
 }
 
+// AuthorizeAccountUpload confirms exact ownership before a large body is parsed.
+func (service *Service) AuthorizeAccountUpload(
+	ctx context.Context,
+	actor auth.Account,
+	eventID, entryID int,
+) error {
+	if actor.ID <= 0 || eventID <= 0 || entryID <= 0 {
+		return ErrUploadTargetNotFound
+	}
+	owned, err := service.storage.AccountOwnsEntry(actor.Context(ctx), eventID, entryID, actor.ID)
+	if err != nil {
+		return err
+	}
+	if !owned {
+		return ErrUploadTargetNotFound
+	}
+	return nil
+}
+
 // IssueUploadLink rotates and returns one target-scoped credential.
 func (service *Service) IssueUploadLink(
 	ctx context.Context,
@@ -368,6 +411,35 @@ func (service *Service) UploadForCrew(
 	)
 }
 
+// UploadForAccount stores one file for an Account-owned Entry.
+func (service *Service) UploadForAccount(
+	ctx context.Context,
+	actor auth.Account,
+	input AccountUploadInput,
+) (Version, error) {
+	if actor.ID <= 0 || input.EventID <= 0 || input.EntryID <= 0 ||
+		!validAttachmentInput(input.Name, input.OriginalFilename, input.Body) {
+		return Version{}, ErrInvalidInput
+	}
+	if err := command.ValidateID(input.CommandID); err != nil {
+		return Version{}, err
+	}
+	return service.storeVersion(
+		actor.Context(ctx),
+		store.UploadAuthorization{
+			EventID: input.EventID, TargetType: TargetEntry, TargetID: input.EntryID,
+		},
+		input.CommandID,
+		input.Name,
+		input.OriginalFilename,
+		input.MediaType,
+		input.Body,
+		"Account",
+		actor.ID,
+		input.CrewOnly,
+	)
+}
+
 func (service *Service) storeVersion(
 	ctx context.Context,
 	authorization store.UploadAuthorization,
@@ -436,7 +508,7 @@ func (service *Service) storeVersion(
 		Storage: service.storage, Identity: identity,
 		Replay: func(outcome string) (Version, error) {
 			var stored Version
-			if err := store.DecodeCommandReceipt(outcome, &stored); err != nil {
+			if err := decodeAttachmentUploadReceipt(outcome, &stored); err != nil {
 				return Version{}, err
 			}
 			return stored, nil
@@ -447,6 +519,10 @@ func (service *Service) storeVersion(
 			params.Now = service.now().UTC()
 			stored, saveErr := transaction.SaveAttachmentVersion(ctx, params)
 			if saveErr != nil {
+				rejection, rejected := attachmentUploadRejection(saveErr)
+				if rejected {
+					return command.Reject(Version{}, rejection, saveErr), nil
+				}
 				return command.Execution[Version]{}, saveErr
 			}
 			result := version(stored)
@@ -466,6 +542,39 @@ func (service *Service) storeVersion(
 	}
 	cleanupErr := service.removeIfUnreferenced(context.WithoutCancel(ctx), storedFile.key)
 	return created, errors.Join(executeErr, cleanupErr)
+}
+
+func attachmentUploadRejection(err error) (store.CommandRejection, bool) {
+	var code string
+	switch {
+	case errors.Is(err, ErrUploadTargetNotFound):
+		code = "attachment_target_not_found"
+	case errors.Is(err, ErrUploadLinkInvalid):
+		code = "upload_link_invalid"
+	case errors.Is(err, ErrUploadClosed):
+		code = "upload_closed"
+	default:
+		return store.CommandRejection{}, false
+	}
+	return store.CommandRejection{Code: code}, true
+}
+
+func decodeAttachmentUploadReceipt(outcome string, target any) error {
+	err := store.DecodeCommandReceipt(outcome, target)
+	var rejected *store.RejectedCommandError
+	if !errors.As(err, &rejected) {
+		return err
+	}
+	switch rejected.Rejection.Code {
+	case "attachment_target_not_found":
+		return ErrUploadTargetNotFound
+	case "upload_link_invalid":
+		return ErrUploadLinkInvalid
+	case "upload_closed":
+		return ErrUploadClosed
+	default:
+		return err
+	}
 }
 
 type storedFile struct {
@@ -678,6 +787,32 @@ func (service *Service) CompetitionCrewState(
 	}
 	for _, found := range stored.Versions {
 		result.Versions = append(result.Versions, version(found))
+	}
+	return result, nil
+}
+
+// SubmittedEntryState returns only the signed-in Account's private file metadata.
+func (service *Service) SubmittedEntryState(
+	ctx context.Context,
+	actor auth.Account,
+) (AccountState, error) {
+	if actor.ID <= 0 {
+		return AccountState{}, ErrUploadTargetNotFound
+	}
+	stored, err := service.storage.LoadAccountAttachmentState(actor.Context(ctx), actor.ID)
+	if err != nil {
+		return AccountState{}, err
+	}
+	result := AccountState{
+		Versions:      make([]AccountVersion, 0, len(stored.Versions)),
+		ReopenWindows: stored.ReopenWindows,
+	}
+	for _, found := range stored.Versions {
+		result.Versions = append(result.Versions, AccountVersion{
+			OwnerID: found.OwnerID, Version: found.Version,
+			Name: found.Name, OriginalFilename: found.OriginalFilename,
+			SHA256: found.SHA256,
+		})
 	}
 	return result, nil
 }

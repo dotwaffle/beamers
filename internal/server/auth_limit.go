@@ -183,6 +183,18 @@ func uploadLimitKeys(request *http.Request, token string) (authFailureKey, authF
 		}
 }
 
+func accountUploadLimitKeys(
+	request *http.Request,
+	accountID int,
+) (authFailureKey, authFailureKey) {
+	client := authClientAddress(request)
+	return authFailureKey{value: "upload-client|" + client, limit: 60},
+		authFailureKey{
+			value: fmt.Sprintf("account-upload|%d", accountID),
+			limit: 20,
+		}
+}
+
 func authClientAddress(request *http.Request) string {
 	return requestClientAddress(request)
 }

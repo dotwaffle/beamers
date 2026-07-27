@@ -176,6 +176,14 @@ var migrationContracts = map[int]migrationContract{
 		minimumWriter: 56,
 		consequence:   "adds provider-and-subject Federated Identity Credentials",
 	},
+	57: {
+		name:          "account_submissions",
+		checksum:      "775e4215cf1192329fbbd5f3a62548e1ce4f45778ad3e7f20908e7de45fec4ba",
+		safety:        MigrationNonDestructive,
+		minimumReader: 57,
+		minimumWriter: 57,
+		consequence:   "adds Account-owned Competition Entries and Submission Eligibility",
+	},
 }
 
 // MigrationStep is one exact committed migration in an upgrade plan.

@@ -48,6 +48,11 @@ func (Session) Fields() []ent.Field {
 		field.String("corrected_speaker").Optional().Nillable().MaxLen(200),
 		field.String("corrected_public_details").Optional().Nillable().MaxLen(10000),
 		field.Bool("require_entry_review").Default(false),
+		field.Enum("submission_eligibility_override").
+			Values("AllAccounts", "VotingEligibleAccounts").
+			Optional().
+			Nillable(),
+		field.Int("submission_eligibility_revision").Default(0).NonNegative(),
 		field.Bool("file_delivery_required").Optional().Nillable(),
 		field.Int("readiness_revision").Default(0).NonNegative(),
 		field.Enum("entry_order_policy").

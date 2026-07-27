@@ -120,6 +120,11 @@ func RequireEntryReview(v bool) predicate.Session {
 	return predicate.Session(sql.FieldEQ(FieldRequireEntryReview, v))
 }
 
+// SubmissionEligibilityRevision applies equality check predicate on the "submission_eligibility_revision" field. It's identical to SubmissionEligibilityRevisionEQ.
+func SubmissionEligibilityRevision(v int) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldSubmissionEligibilityRevision, v))
+}
+
 // FileDeliveryRequired applies equality check predicate on the "file_delivery_required" field. It's identical to FileDeliveryRequiredEQ.
 func FileDeliveryRequired(v bool) predicate.Session {
 	return predicate.Session(sql.FieldEQ(FieldFileDeliveryRequired, v))
@@ -908,6 +913,76 @@ func RequireEntryReviewEQ(v bool) predicate.Session {
 // RequireEntryReviewNEQ applies the NEQ predicate on the "require_entry_review" field.
 func RequireEntryReviewNEQ(v bool) predicate.Session {
 	return predicate.Session(sql.FieldNEQ(FieldRequireEntryReview, v))
+}
+
+// SubmissionEligibilityOverrideEQ applies the EQ predicate on the "submission_eligibility_override" field.
+func SubmissionEligibilityOverrideEQ(v SubmissionEligibilityOverride) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldSubmissionEligibilityOverride, v))
+}
+
+// SubmissionEligibilityOverrideNEQ applies the NEQ predicate on the "submission_eligibility_override" field.
+func SubmissionEligibilityOverrideNEQ(v SubmissionEligibilityOverride) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldSubmissionEligibilityOverride, v))
+}
+
+// SubmissionEligibilityOverrideIn applies the In predicate on the "submission_eligibility_override" field.
+func SubmissionEligibilityOverrideIn(vs ...SubmissionEligibilityOverride) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldSubmissionEligibilityOverride, vs...))
+}
+
+// SubmissionEligibilityOverrideNotIn applies the NotIn predicate on the "submission_eligibility_override" field.
+func SubmissionEligibilityOverrideNotIn(vs ...SubmissionEligibilityOverride) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldSubmissionEligibilityOverride, vs...))
+}
+
+// SubmissionEligibilityOverrideIsNil applies the IsNil predicate on the "submission_eligibility_override" field.
+func SubmissionEligibilityOverrideIsNil() predicate.Session {
+	return predicate.Session(sql.FieldIsNull(FieldSubmissionEligibilityOverride))
+}
+
+// SubmissionEligibilityOverrideNotNil applies the NotNil predicate on the "submission_eligibility_override" field.
+func SubmissionEligibilityOverrideNotNil() predicate.Session {
+	return predicate.Session(sql.FieldNotNull(FieldSubmissionEligibilityOverride))
+}
+
+// SubmissionEligibilityRevisionEQ applies the EQ predicate on the "submission_eligibility_revision" field.
+func SubmissionEligibilityRevisionEQ(v int) predicate.Session {
+	return predicate.Session(sql.FieldEQ(FieldSubmissionEligibilityRevision, v))
+}
+
+// SubmissionEligibilityRevisionNEQ applies the NEQ predicate on the "submission_eligibility_revision" field.
+func SubmissionEligibilityRevisionNEQ(v int) predicate.Session {
+	return predicate.Session(sql.FieldNEQ(FieldSubmissionEligibilityRevision, v))
+}
+
+// SubmissionEligibilityRevisionIn applies the In predicate on the "submission_eligibility_revision" field.
+func SubmissionEligibilityRevisionIn(vs ...int) predicate.Session {
+	return predicate.Session(sql.FieldIn(FieldSubmissionEligibilityRevision, vs...))
+}
+
+// SubmissionEligibilityRevisionNotIn applies the NotIn predicate on the "submission_eligibility_revision" field.
+func SubmissionEligibilityRevisionNotIn(vs ...int) predicate.Session {
+	return predicate.Session(sql.FieldNotIn(FieldSubmissionEligibilityRevision, vs...))
+}
+
+// SubmissionEligibilityRevisionGT applies the GT predicate on the "submission_eligibility_revision" field.
+func SubmissionEligibilityRevisionGT(v int) predicate.Session {
+	return predicate.Session(sql.FieldGT(FieldSubmissionEligibilityRevision, v))
+}
+
+// SubmissionEligibilityRevisionGTE applies the GTE predicate on the "submission_eligibility_revision" field.
+func SubmissionEligibilityRevisionGTE(v int) predicate.Session {
+	return predicate.Session(sql.FieldGTE(FieldSubmissionEligibilityRevision, v))
+}
+
+// SubmissionEligibilityRevisionLT applies the LT predicate on the "submission_eligibility_revision" field.
+func SubmissionEligibilityRevisionLT(v int) predicate.Session {
+	return predicate.Session(sql.FieldLT(FieldSubmissionEligibilityRevision, v))
+}
+
+// SubmissionEligibilityRevisionLTE applies the LTE predicate on the "submission_eligibility_revision" field.
+func SubmissionEligibilityRevisionLTE(v int) predicate.Session {
+	return predicate.Session(sql.FieldLTE(FieldSubmissionEligibilityRevision, v))
 }
 
 // FileDeliveryRequiredEQ applies the EQ predicate on the "file_delivery_required" field.

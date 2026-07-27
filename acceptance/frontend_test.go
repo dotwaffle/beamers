@@ -3,8 +3,10 @@ package acceptance_test
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -3836,6 +3838,373 @@ func TestBrowserManagesCompetitionEntries(t *testing.T) {
 		t, authenticatedClient(t), server.publicAddress, path,
 	); public.status != http.StatusNotFound {
 		t.Fatalf("public-listener Entries = %d, want 404", public.status)
+	}
+	server.stop(t)
+}
+
+func TestAccountSubmissionsHonorPolicyOwnershipAndReopenWindows(t *testing.T) {
+	administrator, server := startAuthenticatedAdministratorWithPublicListener(t)
+	administrator.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	prepareActiveSchedule(t, administrator, server)
+	competitionID, _ := addCompetitionSession(t, administrator, server)
+	entriesPath := "/backstage/events/1/competitions/" +
+		strconv.FormatInt(competitionID, 10) + "/entries"
+
+	planningPath := "/backstage/events/1/planning"
+	planning := getFrontendPage(t, administrator, server.address, planningPath)
+	eventRevision := frontendNamedValues(planning.body, "expected_event_revision").
+		Get("expected_event_revision")
+	published := postFrontendForm(t, administrator, server.address, planningPath, url.Values{
+		"csrf_token":                        {requireFrontendCSRF(t, planning)},
+		"action":                            {"event"},
+		"command_id":                        {"publish-submission-event"},
+		"expected_event_revision":           {eventRevision},
+		"event_name":                        {"Revision 2099"},
+		"public":                            {"true"},
+		"planned_start_date":                {"2099-08-21"},
+		"planned_end_date":                  {"2099-08-23"},
+		"timezone":                          {"Europe/Berlin"},
+		"event_locale":                      {"en-GB"},
+		"content_language":                  {"en-GB"},
+		"event_day_boundary":                {"06:00"},
+		"entry_default_disposition":         {"Pending"},
+		"submission_eligibility":            {"AllAccounts"},
+		"target_adjustment_presets_seconds": {"-300,300,600"},
+	})
+	if published.status != http.StatusSeeOther {
+		t.Fatalf("publish submission Event = %d %q", published.status, published.body)
+	}
+
+	const password = "submission correct horse battery staple"
+	for id, name := range []string{"Alex Submitter", "Blair Submitter"} {
+		assertJSONRequest(
+			t,
+			administrator,
+			server.address,
+			"/admin/accounts",
+			map[string]string{
+				"name": name, "password": password,
+				"command_id": "create-submitter-" + strconv.Itoa(id+2),
+			},
+			http.StatusCreated,
+			"{\"id\":"+strconv.Itoa(id+2)+",\"name\":\""+name+"\",\"administrator\":false}\n",
+		)
+	}
+	signIn := func(name string) *http.Client {
+		t.Helper()
+		client := authenticatedClient(t)
+		client.CheckRedirect = administrator.CheckRedirect
+		assertJSONRequest(
+			t,
+			client,
+			server.address,
+			"/auth/sign-in",
+			map[string]string{"name": name, "password": password},
+			http.StatusNoContent,
+			"",
+		)
+		return client
+	}
+	alex := signIn("Alex Submitter")
+	blair := signIn("Blair Submitter")
+
+	submissionsPath := "/submissions"
+	alexPage := getFrontendPage(t, alex, server.address, submissionsPath)
+	if alexPage.status != http.StatusOK ||
+		!strings.Contains(alexPage.body, "Demo Competition") {
+		t.Fatalf("Account submission listing = %d %q", alexPage.status, alexPage.body)
+	}
+	created := postFrontendForm(t, alex, server.address, submissionsPath, url.Values{
+		"csrf_token":     {requireFrontendCSRF(t, alexPage)},
+		"action":         {"create"},
+		"command_id":     {"account-create-first"},
+		"event_id":       {"1"},
+		"session_id":     {strconv.FormatInt(competitionID, 10)},
+		"entry_name":     {"Alex Public Credit"},
+		"public_details": {"First public abstract"},
+	})
+	if created.status != http.StatusSeeOther {
+		t.Fatalf("All Accounts submission = %d %q", created.status, created.body)
+	}
+
+	entriesPage := getFrontendPage(t, administrator, server.address, entriesPath)
+	policyRevision := frontendNamedValues(
+		entriesPage.body,
+		"expected_submission_eligibility_revision",
+	).Get("expected_submission_eligibility_revision")
+	tightened := postFrontendForm(t, administrator, server.address, entriesPath, url.Values{
+		"csrf_token": {requireFrontendCSRF(t, entriesPage)},
+		"action":     {"configure-submission-eligibility"},
+		"command_id": {"require-voting-eligibility"},
+		"expected_submission_eligibility_revision": {policyRevision},
+		"override":               {"true"},
+		"submission_eligibility": {"VotingEligibleAccounts"},
+	})
+	if tightened.status != http.StatusSeeOther {
+		t.Fatalf("tighten Submission Eligibility = %d %q", tightened.status, tightened.body)
+	}
+
+	alexPage = getFrontendPage(t, alex, server.address, submissionsPath)
+	updated := postFrontendForm(t, alex, server.address, submissionsPath, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, alexPage)},
+		"action":            {"update"},
+		"command_id":        {"account-update-after-tightening"},
+		"event_id":          {"1"},
+		"session_id":        {strconv.FormatInt(competitionID, 10)},
+		"entry_id":          {"1"},
+		"expected_revision": {frontendEntryRevision(t, alexPage.body, 1)},
+		"entry_name":        {"Alex Revised Credit"},
+		"public_details":    {"Revised public abstract"},
+	})
+	if updated.status != http.StatusSeeOther {
+		t.Fatalf("existing submission after tightening = %d %q", updated.status, updated.body)
+	}
+	alexPage = getFrontendPage(t, alex, server.address, submissionsPath)
+	ineligibleForm := url.Values{
+		"csrf_token": {requireFrontendCSRF(t, alexPage)},
+		"action":     {"create"},
+		"command_id": {"account-create-ineligible"},
+		"event_id":   {"1"}, "session_id": {strconv.FormatInt(competitionID, 10)},
+		"entry_name": {"Blocked Entry"},
+	}
+	ineligible := postFrontendForm(t, alex, server.address, submissionsPath, ineligibleForm)
+	if ineligible.status != http.StatusForbidden {
+		t.Fatalf("Voting Eligible submission = %d %q", ineligible.status, ineligible.body)
+	}
+	replayedIneligible := postFrontendForm(
+		t,
+		alex,
+		server.address,
+		submissionsPath,
+		ineligibleForm,
+	)
+	if replayedIneligible.status != http.StatusForbidden {
+		t.Fatalf(
+			"replayed Voting Eligible submission = %d %q",
+			replayedIneligible.status,
+			replayedIneligible.body,
+		)
+	}
+	audit := get(t, administrator, server.address, "/admin/audit")
+	auditBody, err := io.ReadAll(audit.Body)
+	_ = audit.Body.Close()
+	if err != nil ||
+		bytes.Count(auditBody, []byte(`"action":"CreateSubmittedCompetitionEntry"`)) != 2 ||
+		!bytes.Contains(auditBody, []byte(`"reason":"submission_ineligible"`)) {
+		t.Fatalf("Account submission rejection Audit evidence = %s (%v)", auditBody, err)
+	}
+
+	entriesPage = getFrontendPage(t, administrator, server.address, entriesPath)
+	policyRevision = frontendNamedValues(
+		entriesPage.body,
+		"expected_submission_eligibility_revision",
+	).Get("expected_submission_eligibility_revision")
+	opened := postFrontendForm(t, administrator, server.address, entriesPath, url.Values{
+		"csrf_token": {requireFrontendCSRF(t, entriesPage)},
+		"action":     {"configure-submission-eligibility"},
+		"command_id": {"allow-all-accounts"},
+		"expected_submission_eligibility_revision": {policyRevision},
+		"override":               {"true"},
+		"submission_eligibility": {"AllAccounts"},
+	})
+	if opened.status != http.StatusSeeOther {
+		t.Fatalf("open Submission Eligibility = %d %q", opened.status, opened.body)
+	}
+	alexPage = getFrontendPage(t, alex, server.address, submissionsPath)
+	second := postFrontendForm(t, alex, server.address, submissionsPath, url.Values{
+		"csrf_token": {requireFrontendCSRF(t, alexPage)},
+		"action":     {"create"},
+		"command_id": {"account-create-second"},
+		"event_id":   {"1"}, "session_id": {strconv.FormatInt(competitionID, 10)},
+		"entry_name": {"Alex Second Entry"},
+	})
+	if second.status != http.StatusSeeOther {
+		t.Fatalf("Competition All Accounts override = %d %q", second.status, second.body)
+	}
+
+	entriesPage = getFrontendPage(t, administrator, server.address, entriesPath)
+	crewManaged := postFrontendForm(t, administrator, server.address, entriesPath, url.Values{
+		"csrf_token": {requireFrontendCSRF(t, entriesPage)},
+		"action":     {"create-entry"},
+		"command_id": {"create-crew-managed-submission"},
+		"entry_name": {"Crew Assigned Credit"},
+	})
+	if crewManaged.status != http.StatusSeeOther {
+		t.Fatalf("create Crew Managed Entry = %d %q", crewManaged.status, crewManaged.body)
+	}
+	entriesPage = getFrontendPage(t, administrator, server.address, entriesPath)
+	assigned := postFrontendForm(t, administrator, server.address, entriesPath, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, entriesPage)},
+		"action":            {"assign-submitter"},
+		"command_id":        {"assign-crew-managed-submission"},
+		"entry_id":          {"3"},
+		"expected_revision": {frontendEntryRevision(t, entriesPage.body, 3)},
+		"account_id":        {"3"},
+	})
+	if assigned.status != http.StatusSeeOther {
+		t.Fatalf("assign Crew Managed Entry = %d %q", assigned.status, assigned.body)
+	}
+
+	entriesPage = getFrontendPage(t, administrator, server.address, entriesPath)
+	reviewed := postFrontendForm(t, administrator, server.address, entriesPath, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, entriesPage)},
+		"action":            {"review-entry"},
+		"command_id":        {"review-account-submission"},
+		"entry_id":          {"1"},
+		"expected_revision": {frontendEntryRevision(t, entriesPage.body, 1)},
+	})
+	if reviewed.status != http.StatusSeeOther {
+		t.Fatalf("review Account submission = %d %q", reviewed.status, reviewed.body)
+	}
+	alexPage = getFrontendPage(t, alex, server.address, submissionsPath)
+	invalidated := postFrontendForm(t, alex, server.address, submissionsPath, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, alexPage)},
+		"action":            {"update"},
+		"command_id":        {"account-invalidate-review"},
+		"event_id":          {"1"},
+		"session_id":        {strconv.FormatInt(competitionID, 10)},
+		"entry_id":          {"1"},
+		"expected_revision": {frontendEntryRevision(t, alexPage.body, 1)},
+		"entry_name":        {"Alex Final Credit"},
+	})
+	if invalidated.status != http.StatusSeeOther {
+		t.Fatalf("Account review invalidation = %d %q", invalidated.status, invalidated.body)
+	}
+	entriesPage = getFrontendPage(t, administrator, server.address, entriesPath)
+	if !strings.Contains(entriesPage.body, "review current: false") {
+		t.Fatalf("Account update retained stale review: %q", entriesPage.body)
+	}
+
+	setCompetitionSubmissionDeadline(
+		t,
+		administrator,
+		server,
+		competitionID,
+		time.Now().UTC().Add(-time.Minute),
+	)
+	alexPage = getFrontendPage(t, alex, server.address, submissionsPath)
+	closed := postFrontendForm(t, alex, server.address, submissionsPath, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, alexPage)},
+		"action":            {"update"},
+		"command_id":        {"account-update-after-deadline"},
+		"event_id":          {"1"},
+		"session_id":        {strconv.FormatInt(competitionID, 10)},
+		"entry_id":          {"1"},
+		"expected_revision": {frontendEntryRevision(t, alexPage.body, 1)},
+		"entry_name":        {"Too Late"},
+	})
+	if closed.status != http.StatusGone {
+		t.Fatalf("Account fixed Submission Deadline = %d %q", closed.status, closed.body)
+	}
+	for attempt := range 2 {
+		closedUpload := requestMultipart(
+			t.Context(),
+			alex,
+			server.address,
+			"/submissions/1/entries/1/upload",
+			map[string]string{
+				"csrf_token": requireFrontendCSRF(t, alexPage),
+				"command_id": "account-upload-closed",
+				"name":       "closed",
+			},
+			"closed.zip",
+			"application/zip",
+			[]byte("must not persist"),
+		)
+		if closedUpload.status != http.StatusGone {
+			t.Fatalf(
+				"closed Account upload attempt %d = %d %q",
+				attempt+1,
+				closedUpload.status,
+				closedUpload.body,
+			)
+		}
+	}
+	audit = get(t, administrator, server.address, "/admin/audit")
+	auditBody, err = io.ReadAll(audit.Body)
+	_ = audit.Body.Close()
+	if err != nil ||
+		bytes.Count(auditBody, []byte(`"action":"UploadAttachment"`)) != 1 ||
+		!bytes.Contains(auditBody, []byte(`"reason":"upload_closed"`)) {
+		t.Fatalf("Account upload rejection Audit evidence = %s (%v)", auditBody, err)
+	}
+
+	entriesPage = getFrontendPage(t, administrator, server.address, entriesPath)
+	reopened := postFrontendForm(t, administrator, server.address, entriesPath, url.Values{
+		"csrf_token": {requireFrontendCSRF(t, entriesPage)},
+		"action":     {"create-reopen-window"},
+		"command_id": {"reopen-account-submission"},
+		"entry_id":   {"1"},
+		"reason":     {"Submitter correction"},
+		"expires_at": {time.Now().UTC().Add(3 * time.Hour).Format("2006-01-02T15:04")},
+	})
+	if reopened.status != http.StatusSeeOther {
+		t.Fatalf("reopen Account submission = %d %q", reopened.status, reopened.body)
+	}
+	alexPage = getFrontendPage(t, alex, server.address, submissionsPath)
+	reopenedUpdate := postFrontendForm(t, alex, server.address, submissionsPath, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, alexPage)},
+		"action":            {"update"},
+		"command_id":        {"account-update-reopened"},
+		"event_id":          {"1"},
+		"session_id":        {strconv.FormatInt(competitionID, 10)},
+		"entry_id":          {"1"},
+		"expected_revision": {frontendEntryRevision(t, alexPage.body, 1)},
+		"entry_name":        {"Alex Reopened Credit"},
+	})
+	if reopenedUpdate.status != http.StatusSeeOther {
+		t.Fatalf("update in Reopen Window = %d %q", reopenedUpdate.status, reopenedUpdate.body)
+	}
+	entriesPage = getFrontendPage(t, administrator, server.address, entriesPath)
+	reviewed = postFrontendForm(t, administrator, server.address, entriesPath, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, entriesPage)},
+		"action":            {"review-entry"},
+		"command_id":        {"review-before-account-upload"},
+		"entry_id":          {"1"},
+		"expected_revision": {frontendEntryRevision(t, entriesPage.body, 1)},
+	})
+	if reviewed.status != http.StatusSeeOther {
+		t.Fatalf("review before Account upload = %d %q", reviewed.status, reviewed.body)
+	}
+
+	content := []byte("immutable Account submission")
+	alexPage = getFrontendPage(t, alex, server.address, submissionsPath)
+	uploaded := requestMultipart(
+		t.Context(),
+		alex,
+		server.address,
+		"/submissions/1/entries/1/upload",
+		map[string]string{
+			"csrf_token": requireFrontendCSRF(t, alexPage),
+			"command_id": "account-upload-reopened",
+			"name":       "archive",
+		},
+		"entry.zip",
+		"application/zip",
+		content,
+	)
+	if uploaded.status != http.StatusSeeOther {
+		t.Fatalf("Account upload in Reopen Window = %d %q", uploaded.status, uploaded.body)
+	}
+	digest := sha256.Sum256(content)
+	hash := hex.EncodeToString(digest[:])
+	alexPage = getFrontendPage(t, alex, server.address, submissionsPath)
+	if !strings.Contains(alexPage.body, "entry.zip") ||
+		!strings.Contains(alexPage.body, hash) {
+		t.Fatalf("Account upload integrity metadata missing: %q", alexPage.body)
+	}
+	entriesPage = getFrontendPage(t, administrator, server.address, entriesPath)
+	if !strings.Contains(entriesPage.body, "review current: false") {
+		t.Fatalf("Account upload retained stale review: %q", entriesPage.body)
+	}
+	blairPage := getFrontendPage(t, blair, server.address, submissionsPath)
+	if !strings.Contains(blairPage.body, "Crew Assigned Credit") ||
+		strings.Contains(blairPage.body, "Alex Reopened Credit") ||
+		strings.Contains(blairPage.body, "entry.zip") ||
+		strings.Contains(blairPage.body, hash) {
+		t.Fatalf("Account submission privacy/assignment = %d %q", blairPage.status, blairPage.body)
 	}
 	server.stop(t)
 }

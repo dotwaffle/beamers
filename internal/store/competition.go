@@ -8,11 +8,13 @@ import (
 	"time"
 
 	"github.com/dotwaffle/beamers/ent"
+	"github.com/dotwaffle/beamers/ent/account"
 	"github.com/dotwaffle/beamers/ent/attachment"
 	"github.com/dotwaffle/beamers/ent/attachmentversion"
 	"github.com/dotwaffle/beamers/ent/competitionentry"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
+	"github.com/dotwaffle/beamers/ent/votingeligibility"
 )
 
 var (
@@ -24,6 +26,14 @@ var (
 	ErrCompetitionEntryNotFound = errors.New("competition entry not found")
 	// ErrCompetitionEntryRevision means an Entry command used a stale revision.
 	ErrCompetitionEntryRevision = errors.New("competition entry revision conflict")
+	// ErrCompetitionSubmissionIneligible means policy prevents a new Account Entry.
+	ErrCompetitionSubmissionIneligible = errors.New("account is not eligible to submit")
+	// ErrCompetitionSubmitterRequired hides unknown and differently owned Entries.
+	ErrCompetitionSubmitterRequired = errors.New("competition Entry submitter required")
+	// ErrCompetitionEntryAssigned means a Crew Managed Entry already has a Submitter Account.
+	ErrCompetitionEntryAssigned = errors.New("competition Entry already has a Submitter Account")
+	// ErrCompetitionSubmissionEligibilityRevision means policy configuration used stale state.
+	ErrCompetitionSubmissionEligibilityRevision = errors.New("submission eligibility revision conflict")
 	// ErrLiveDispositionConfirmation means a live change lacked explicit confirmation.
 	ErrLiveDispositionConfirmation = errors.New("live Competition disposition change requires confirmation")
 	// ErrCompetitionPreflightBlocked means configured readiness rules are not satisfied.
@@ -38,6 +48,7 @@ var (
 type CompetitionEntry struct {
 	ID                            int       `json:"id"`
 	CompetitionSessionID          int       `json:"competition_session_id"`
+	SubmitterAccountID            int       `json:"submitter_account_id,omitempty"`
 	Name                          string    `json:"name"`
 	PublicDetails                 string    `json:"public_details,omitempty"`
 	CrewNotes                     string    `json:"crew_notes,omitempty"`
@@ -59,17 +70,44 @@ type CompetitionEntry struct {
 
 // CompetitionState is the current fixed configuration and retained Entries.
 type CompetitionState struct {
-	EventID                     int
-	SessionID                   int
-	SubmissionDeadline          time.Time
-	EffectiveDefaultDisposition string
-	RequireEntryReview          bool
-	FileDeliveryRequired        bool
-	ReadinessRevision           int
-	EntryOrder                  EntryOrderState
-	Entries                     []CompetitionEntry
-	ResultsReady                bool
-	ReleaseReady                bool
+	EventID                        int
+	SessionID                      int
+	SubmissionDeadline             time.Time
+	EffectiveDefaultDisposition    string
+	EffectiveSubmissionEligibility string
+	SubmissionEligibilityOverride  string
+	SubmissionEligibilityRevision  int
+	AccountSubmissionPublished     bool
+	RequireEntryReview             bool
+	FileDeliveryRequired           bool
+	ReadinessRevision              int
+	EntryOrder                     EntryOrderState
+	Entries                        []CompetitionEntry
+	ResultsReady                   bool
+	ReleaseReady                   bool
+}
+
+// SubmissionCompetition is one published Competition visible to an Account.
+type SubmissionCompetition struct {
+	EventID, SessionID             int
+	EventName, SessionTitle        string
+	Timezone, EventLocale          string
+	SubmissionDeadline             time.Time
+	EffectiveSubmissionEligibility string
+	CanCreate                      bool
+	Entries                        []SubmittedCompetitionEntry
+}
+
+// SubmittedCompetitionEntry is Account-safe Entry content.
+type SubmittedCompetitionEntry struct {
+	ID, Revision        int
+	Name, PublicDetails string
+}
+
+// SubmissionAccount is one enabled Account selectable by a Producer.
+type SubmissionAccount struct {
+	ID           int
+	Name, Handle string
 }
 
 // CompetitionPreflightCode is the closed vocabulary of Start blockers.
@@ -126,6 +164,13 @@ type CreateCompetitionEntryParams struct {
 	Now                 time.Time
 }
 
+// CreateSubmittedCompetitionEntryParams contains one Account-owned Entry.
+type CreateSubmittedCompetitionEntryParams struct {
+	EventID, SessionID, AccountID int
+	Name, PublicDetails           string
+	Now                           time.Time
+}
+
 // UpdateCompetitionEntryParams contains one optimistic Entry content change.
 type UpdateCompetitionEntryParams struct {
 	EventID, SessionID, EntryID int
@@ -133,6 +178,35 @@ type UpdateCompetitionEntryParams struct {
 	Name, PublicDetails         string
 	CrewNotes                   string
 	Now                         time.Time
+}
+
+// UpdateSubmittedCompetitionEntryParams contains one Account-owned content change.
+type UpdateSubmittedCompetitionEntryParams struct {
+	EventID, SessionID, EntryID, AccountID int
+	ExpectedRevision                       int
+	Name, PublicDetails                    string
+	Now                                    time.Time
+}
+
+// AssignCompetitionEntrySubmitterParams assigns one Crew Managed Entry.
+type AssignCompetitionEntrySubmitterParams struct {
+	EventID, SessionID, EntryID, AccountID int
+	ExpectedRevision                       int
+}
+
+// ConfigureSubmissionEligibilityParams changes one optional Competition override.
+type ConfigureSubmissionEligibilityParams struct {
+	EventID, SessionID int
+	ExpectedRevision   int
+	Eligibility        string
+	Override           bool
+}
+
+// SubmissionEligibility is current Competition creation policy state.
+type SubmissionEligibility struct {
+	Effective string `json:"effective"`
+	Override  string `json:"override,omitempty"`
+	Revision  int    `json:"revision"`
 }
 
 // ChangeCompetitionEntryDispositionParams contains one participation change.
@@ -224,6 +298,121 @@ func (installation *SQLite) LoadCompetition(ctx context.Context, eventID, sessio
 		return CompetitionState{}, err
 	}
 	return state, nil
+}
+
+// LoadAccountCompetitionSubmissions returns public Competitions and only the Account's Entries.
+func (installation *SQLite) LoadAccountCompetitionSubmissions(
+	ctx context.Context,
+	accountID int,
+	now time.Time,
+) ([]SubmissionCompetition, error) {
+	internalContext := systemContext(ctx)
+	enabled, err := installation.client.Account.Query().
+		Where(account.IDEQ(accountID), account.DisabledAtIsNil()).
+		Exist(internalContext)
+	if err != nil {
+		return nil, opaqueError("load submission Account", err)
+	}
+	if !enabled {
+		return nil, ErrCompetitionSubmitterRequired
+	}
+	entries, err := installation.client.CompetitionEntry.Query().
+		Where(competitionentry.SubmitterAccountIDEQ(accountID)).
+		Order(ent.Asc(competitionentry.FieldCreatedAt), ent.Asc(competitionentry.FieldID)).
+		All(internalContext)
+	if err != nil {
+		return nil, opaqueError("load Account Competition Entries", err)
+	}
+	entriesBySession := make(map[int][]SubmittedCompetitionEntry)
+	for _, found := range entries {
+		entriesBySession[found.CompetitionSessionID] = append(
+			entriesBySession[found.CompetitionSessionID],
+			SubmittedCompetitionEntry{
+				ID: found.ID, Revision: found.Revision,
+				Name: found.Name, PublicDetails: found.PublicDetails,
+			},
+		)
+	}
+	versions, err := installation.client.SessionPublishedVersion.Query().
+		Where(sessionpublishedversion.TypeEQ(sessionpublishedversion.TypeCompetition)).
+		WithSession(func(query *ent.SessionQuery) {
+			query.WithEvent()
+		}).
+		Order(
+			ent.Asc(sessionpublishedversion.FieldSessionID),
+			ent.Desc(sessionpublishedversion.FieldPublishedRevision),
+		).
+		All(internalContext)
+	if err != nil {
+		return nil, opaqueError("load published submission Competitions", err)
+	}
+	seen := make(map[int]struct{})
+	result := make([]SubmissionCompetition, 0)
+	for _, version := range versions {
+		if _, exists := seen[version.SessionID]; exists {
+			continue
+		}
+		seen[version.SessionID] = struct{}{}
+		foundSession, edgeErr := version.Edges.SessionOrErr()
+		if edgeErr != nil {
+			return nil, opaqueError("load submission Competition", edgeErr)
+		}
+		foundEvent, edgeErr := foundSession.Edges.EventOrErr()
+		if edgeErr != nil {
+			return nil, opaqueError("load submission Event", edgeErr)
+		}
+		owned := entriesBySession[foundSession.ID]
+		publicCompetition := foundEvent.Public &&
+			version.AudienceVisibility == sessionpublishedversion.AudienceVisibilityPublic
+		if !publicCompetition && len(owned) == 0 {
+			continue
+		}
+		eligibility := effectiveSubmissionEligibility(foundEvent, foundSession)
+		eligible, eligibilityErr := accountSubmissionEligible(
+			internalContext,
+			installation.client,
+			foundEvent.ID,
+			accountID,
+			eligibility,
+		)
+		if eligibilityErr != nil {
+			return nil, eligibilityErr
+		}
+		result = append(result, SubmissionCompetition{
+			EventID: foundEvent.ID, SessionID: foundSession.ID,
+			EventName: foundEvent.Name, SessionTitle: version.Title,
+			Timezone: foundEvent.Timezone, EventLocale: foundEvent.EventLocale,
+			SubmissionDeadline:             version.SubmissionDeadline,
+			EffectiveSubmissionEligibility: eligibility,
+			CanCreate:                      publicCompetition && now.Before(version.SubmissionDeadline) && eligible,
+			Entries:                        owned,
+		})
+	}
+	return result, nil
+}
+
+// ListSubmissionAccounts returns enabled Accounts for Producer assignment.
+func (installation *SQLite) ListSubmissionAccounts(ctx context.Context) ([]SubmissionAccount, error) {
+	found, err := installation.client.Account.Query().
+		Where(account.DisabledAtIsNil()).
+		WithProfile().
+		Order(ent.Asc(account.FieldID)).
+		All(systemContext(ctx))
+	if err != nil {
+		return nil, opaqueError("list submission Accounts", err)
+	}
+	result := make([]SubmissionAccount, 0, len(found))
+	for _, item := range found {
+		handle := item.NormalizedName
+		profile, profileErr := item.Edges.ProfileOrErr()
+		if profileErr == nil {
+			handle = profile.NormalizedHandle
+		}
+		result = append(result, SubmissionAccount{
+			ID: item.ID, Name: item.Name, Handle: handle,
+		})
+	}
+	return result, nil
 }
 
 // PreflightCompetitionStart previews unambiguous readiness automation and reports blockers.
@@ -386,15 +575,71 @@ func (transaction *CommandTx) CreateCompetitionEntry(ctx context.Context, params
 	if !params.Now.Before(state.SubmissionDeadline) {
 		return CompetitionEntry{}, ErrCompetitionSubmissionClosed
 	}
-	created, err := transaction.transaction.CompetitionEntry.Create().
+	return transaction.createCompetitionEntry(ctx, params, 0, state.EffectiveDefaultDisposition)
+}
+
+// CreateSubmittedCompetitionEntry creates one Account-owned Entry under current policy.
+func (transaction *CommandTx) CreateSubmittedCompetitionEntry(
+	ctx context.Context,
+	params CreateSubmittedCompetitionEntryParams,
+) (CompetitionEntry, error) {
+	internalContext := systemContext(ctx)
+	state, _, err := transaction.competitionConfiguration(
+		internalContext,
+		params.EventID,
+		params.SessionID,
+	)
+	if err != nil {
+		return CompetitionEntry{}, err
+	}
+	if !state.AccountSubmissionPublished {
+		return CompetitionEntry{}, ErrCompetitionSubmitterRequired
+	}
+	if !params.Now.Before(state.SubmissionDeadline) {
+		return CompetitionEntry{}, ErrCompetitionSubmissionClosed
+	}
+	eligible, err := accountSubmissionEligible(
+		internalContext,
+		transaction.transaction.Client(),
+		params.EventID,
+		params.AccountID,
+		state.EffectiveSubmissionEligibility,
+	)
+	if err != nil {
+		return CompetitionEntry{}, err
+	}
+	if !eligible {
+		return CompetitionEntry{}, ErrCompetitionSubmissionIneligible
+	}
+	return transaction.createCompetitionEntry(
+		internalContext,
+		CreateCompetitionEntryParams{
+			EventID: params.EventID, SessionID: params.SessionID,
+			Name: params.Name, PublicDetails: params.PublicDetails, Now: params.Now,
+		},
+		params.AccountID,
+		state.EffectiveDefaultDisposition,
+	)
+}
+
+func (transaction *CommandTx) createCompetitionEntry(
+	ctx context.Context,
+	params CreateCompetitionEntryParams,
+	submitterAccountID int,
+	disposition string,
+) (CompetitionEntry, error) {
+	create := transaction.transaction.CompetitionEntry.Create().
 		SetEventID(params.EventID).
 		SetCompetitionSessionID(params.SessionID).
 		SetName(params.Name).
 		SetPublicDetails(params.PublicDetails).
 		SetCrewNotes(params.CrewNotes).
-		SetDisposition(competitionentry.Disposition(state.EffectiveDefaultDisposition)).
-		SetCreatedAt(params.Now).
-		Save(ctx)
+		SetDisposition(competitionentry.Disposition(disposition)).
+		SetCreatedAt(params.Now)
+	if submitterAccountID > 0 {
+		create.SetSubmitterAccountID(submitterAccountID)
+	}
+	created, err := create.Save(ctx)
 	if err != nil {
 		return CompetitionEntry{}, opaqueError("create Competition Entry", err)
 	}
@@ -441,6 +686,149 @@ func (transaction *CommandTx) UpdateCompetitionEntry(ctx context.Context, params
 		return CompetitionEntry{}, err
 	}
 	return competitionEntry(updated), nil
+}
+
+// UpdateSubmittedCompetitionEntry changes only Account-maintained public content.
+func (transaction *CommandTx) UpdateSubmittedCompetitionEntry(
+	ctx context.Context,
+	params UpdateSubmittedCompetitionEntryParams,
+) (CompetitionEntry, error) {
+	internalContext := systemContext(ctx)
+	if _, _, err := transaction.competitionConfiguration(
+		internalContext,
+		params.EventID,
+		params.SessionID,
+	); err != nil {
+		return CompetitionEntry{}, err
+	}
+	entry, err := transaction.competitionEntry(
+		internalContext,
+		params.EventID,
+		params.SessionID,
+		params.EntryID,
+	)
+	if err != nil || entry.SubmitterAccountID == nil ||
+		*entry.SubmitterAccountID != params.AccountID {
+		return CompetitionEntry{}, ErrCompetitionSubmitterRequired
+	}
+	if entry.Revision != params.ExpectedRevision {
+		return competitionEntry(entry), ErrCompetitionEntryRevision
+	}
+	open, err := uploadTargetOpen(
+		internalContext,
+		transaction.transaction.Client(),
+		UploadAuthorization{
+			EventID: params.EventID, TargetType: UploadTargetEntry, TargetID: params.EntryID,
+		},
+		params.Now,
+	)
+	if err != nil {
+		return CompetitionEntry{}, err
+	}
+	if !open {
+		return CompetitionEntry{}, ErrCompetitionSubmissionClosed
+	}
+	if !entry.FirstPresentedAt.IsZero() {
+		return competitionEntry(entry), ErrPresentedEntryDisposition
+	}
+	updated, err := transaction.transaction.CompetitionEntry.UpdateOne(entry).
+		SetName(params.Name).
+		SetPublicDetails(params.PublicDetails).
+		AddContentRevision(1).
+		AddRevision(1).
+		Save(internalContext)
+	if err != nil {
+		return CompetitionEntry{}, opaqueError("update submitted Competition Entry", err)
+	}
+	if err := transaction.SupersedeCompetitionResultsDraft(
+		internalContext,
+		params.EventID,
+		params.SessionID,
+		params.Now,
+	); err != nil {
+		return CompetitionEntry{}, err
+	}
+	return competitionEntry(updated), nil
+}
+
+// AssignCompetitionEntrySubmitter assigns one enabled Account to a Crew Managed Entry.
+func (transaction *CommandTx) AssignCompetitionEntrySubmitter(
+	ctx context.Context,
+	params AssignCompetitionEntrySubmitterParams,
+) (CompetitionEntry, error) {
+	internalContext := systemContext(ctx)
+	entry, err := transaction.competitionEntry(
+		internalContext,
+		params.EventID,
+		params.SessionID,
+		params.EntryID,
+	)
+	if err != nil {
+		return CompetitionEntry{}, err
+	}
+	if entry.Revision != params.ExpectedRevision {
+		return competitionEntry(entry), ErrCompetitionEntryRevision
+	}
+	if entry.SubmitterAccountID != nil {
+		return competitionEntry(entry), ErrCompetitionEntryAssigned
+	}
+	enabled, err := transaction.transaction.Account.Query().
+		Where(account.IDEQ(params.AccountID), account.DisabledAtIsNil()).
+		Exist(internalContext)
+	if err != nil {
+		return CompetitionEntry{}, opaqueError("load assigned Submitter Account", err)
+	}
+	if !enabled {
+		return CompetitionEntry{}, ErrCompetitionSubmitterRequired
+	}
+	updated, err := entry.Update().
+		SetSubmitterAccountID(params.AccountID).
+		AddRevision(1).
+		Save(internalContext)
+	if err != nil {
+		return CompetitionEntry{}, opaqueError("assign Competition Entry Submitter", err)
+	}
+	return competitionEntry(updated), nil
+}
+
+// ConfigureCompetitionSubmissionEligibility changes one optional Competition override.
+func (transaction *CommandTx) ConfigureCompetitionSubmissionEligibility(
+	ctx context.Context,
+	params ConfigureSubmissionEligibilityParams,
+) (SubmissionEligibility, error) {
+	internalContext := systemContext(ctx)
+	state, found, err := transaction.competitionConfiguration(
+		internalContext,
+		params.EventID,
+		params.SessionID,
+	)
+	if err != nil {
+		return SubmissionEligibility{}, err
+	}
+	if found.SubmissionEligibilityRevision != params.ExpectedRevision {
+		return submissionEligibility(state), ErrCompetitionSubmissionEligibilityRevision
+	}
+	update := found.Update().AddSubmissionEligibilityRevision(1)
+	if params.Override {
+		update.SetSubmissionEligibilityOverride(
+			session.SubmissionEligibilityOverride(params.Eligibility),
+		)
+	} else {
+		update.ClearSubmissionEligibilityOverride()
+	}
+	updated, err := update.Save(internalContext)
+	if err != nil {
+		return SubmissionEligibility{}, opaqueError("configure Submission Eligibility", err)
+	}
+	event, err := transaction.transaction.Event.Get(internalContext, params.EventID)
+	if err != nil {
+		return SubmissionEligibility{}, opaqueError("load Submission Eligibility Event", err)
+	}
+	return SubmissionEligibility{
+		Effective: effectiveSubmissionEligibility(event, updated),
+		Override:  submissionEligibilityOverride(updated),
+		Revision:  updated.SubmissionEligibilityRevision,
+	}, nil
 }
 
 // ConfigureCompetitionReadiness updates independent Competition Start policies.
@@ -681,8 +1069,10 @@ func loadCompetitionConfiguration(
 	}
 	state := competitionState(
 		eventID, sessionID, version.SubmissionDeadline, string(version.EntryDefaultDisposition),
-		string(event.EntryDefaultDisposition), nil,
+		string(event.EntryDefaultDisposition), effectiveSubmissionEligibility(event, found), found, nil,
 	)
+	state.AccountSubmissionPublished = event.Public &&
+		version.AudienceVisibility == sessionpublishedversion.AudienceVisibilityPublic
 	readiness := competitionReadiness(found)
 	state.RequireEntryReview = readiness.RequireEntryReview
 	state.FileDeliveryRequired = readiness.FileDeliveryRequired
@@ -712,6 +1102,8 @@ func competitionState(
 	eventID, sessionID int,
 	deadline time.Time,
 	override, eventDefault string,
+	effectiveEligibility string,
+	found *ent.Session,
 	entries []*ent.CompetitionEntry,
 ) CompetitionState {
 	effective := override
@@ -720,8 +1112,11 @@ func competitionState(
 	}
 	state := CompetitionState{
 		EventID: eventID, SessionID: sessionID, SubmissionDeadline: deadline,
-		EffectiveDefaultDisposition: effective,
-		Entries:                     make([]CompetitionEntry, 0, len(entries)),
+		EffectiveDefaultDisposition:    effective,
+		EffectiveSubmissionEligibility: effectiveEligibility,
+		SubmissionEligibilityOverride:  submissionEligibilityOverride(found),
+		SubmissionEligibilityRevision:  found.SubmissionEligibilityRevision,
+		Entries:                        make([]CompetitionEntry, 0, len(entries)),
 	}
 	for _, entry := range entries {
 		state.Entries = append(state.Entries, competitionEntry(entry))
@@ -730,9 +1125,14 @@ func competitionState(
 }
 
 func competitionEntry(entry *ent.CompetitionEntry) CompetitionEntry {
+	submitterAccountID := 0
+	if entry.SubmitterAccountID != nil {
+		submitterAccountID = *entry.SubmitterAccountID
+	}
 	return CompetitionEntry{
 		ID: entry.ID, CompetitionSessionID: entry.CompetitionSessionID,
-		Name: entry.Name, PublicDetails: entry.PublicDetails, CrewNotes: entry.CrewNotes,
+		SubmitterAccountID: submitterAccountID,
+		Name:               entry.Name, PublicDetails: entry.PublicDetails, CrewNotes: entry.CrewNotes,
 		Disposition: string(entry.Disposition), Revision: entry.Revision,
 		ContentRevision:               entry.ContentRevision,
 		ReviewCurrent:                 entry.ReviewedContentRevision == entry.ContentRevision,
@@ -747,6 +1147,61 @@ func competitionEntry(entry *ent.CompetitionEntry) CompetitionEntry {
 		FirstPresentedAt:              entry.FirstPresentedAt,
 		CreatedAt:                     entry.CreatedAt,
 	}
+}
+
+func effectiveSubmissionEligibility(foundEvent *ent.Event, foundSession *ent.Session) string {
+	if foundSession.SubmissionEligibilityOverride != nil {
+		return foundSession.SubmissionEligibilityOverride.String()
+	}
+	return foundEvent.SubmissionEligibility.String()
+}
+
+func submissionEligibilityOverride(found *ent.Session) string {
+	if found.SubmissionEligibilityOverride == nil {
+		return ""
+	}
+	return found.SubmissionEligibilityOverride.String()
+}
+
+func submissionEligibility(state CompetitionState) SubmissionEligibility {
+	return SubmissionEligibility{
+		Effective: state.EffectiveSubmissionEligibility,
+		Override:  state.SubmissionEligibilityOverride,
+		Revision:  state.SubmissionEligibilityRevision,
+	}
+}
+
+func accountSubmissionEligible(
+	ctx context.Context,
+	client *ent.Client,
+	eventID, accountID int,
+	eligibility string,
+) (bool, error) {
+	enabled, err := client.Account.Query().
+		Where(account.IDEQ(accountID), account.DisabledAtIsNil()).
+		Exist(ctx)
+	if err != nil {
+		return false, opaqueError("load submission Account", err)
+	}
+	if !enabled {
+		return false, nil
+	}
+	if eligibility == "AllAccounts" {
+		return true, nil
+	}
+	if eligibility != "VotingEligibleAccounts" {
+		return false, ErrCompetitionSubmissionIneligible
+	}
+	eligible, err := client.VotingEligibility.Query().
+		Where(
+			votingeligibility.EventIDEQ(eventID),
+			votingeligibility.AccountIDEQ(accountID),
+		).
+		Exist(ctx)
+	if err != nil {
+		return false, opaqueError("load Voting Eligibility", err)
+	}
+	return eligible, nil
 }
 
 func competitionReadiness(found *ent.Session) CompetitionReadiness {

@@ -106,6 +106,24 @@ type SaveAttachmentVersionParams struct {
 	Now                               time.Time
 }
 
+// AccountOwnsEntry reports exact Account ownership without exposing the target.
+func (installation *SQLite) AccountOwnsEntry(
+	ctx context.Context,
+	eventID, entryID, accountID int,
+) (bool, error) {
+	found, err := installation.client.CompetitionEntry.Query().
+		Where(
+			competitionentry.IDEQ(entryID),
+			competitionentry.EventIDEQ(eventID),
+			competitionentry.SubmitterAccountIDEQ(accountID),
+		).
+		Exist(systemContext(ctx))
+	if err != nil {
+		return false, opaqueError("authorize Account Attachment target", err)
+	}
+	return found, nil
+}
+
 // ReopenWindow is one bounded target-specific upload exception.
 type ReopenWindow struct {
 	ID                 int              `json:"id"`
@@ -126,6 +144,25 @@ type CompetitionAttachmentCrewState struct {
 	ReopenWindows      []ReopenWindow
 	EventRelease       AttachmentReleaseConfiguration
 	CompetitionRelease CompetitionAttachmentReleaseConfiguration
+}
+
+// AccountAttachmentState contains only submitter-visible file metadata.
+type AccountAttachmentState struct {
+	Versions      []AccountAttachmentVersion
+	ReopenWindows []AccountReopenWindow
+}
+
+// AccountAttachmentVersion is submitter-visible immutable file metadata.
+type AccountAttachmentVersion struct {
+	OwnerID, Version       int
+	Name, OriginalFilename string
+	SHA256                 string
+}
+
+// AccountReopenWindow is submitter-visible access state without Crew reasons.
+type AccountReopenWindow struct {
+	TargetID            int
+	ExpiresAt, ClosedAt time.Time
 }
 
 // IssueUploadLink revokes prior target credentials and creates a replacement.
@@ -355,7 +392,8 @@ func (transaction *CommandTx) SaveAttachmentVersion(
 	params SaveAttachmentVersionParams,
 ) (AttachmentVersion, error) {
 	internalContext := systemContext(ctx)
-	if params.UploaderType == "UploadLink" {
+	switch params.UploaderType {
+	case "UploadLink":
 		link, err := transaction.transaction.UploadLink.Query().Where(
 			uploadlink.IDEQ(params.UploaderID),
 			uploadlink.EventIDEQ(params.Authorization.EventID),
@@ -381,11 +419,46 @@ func (transaction *CommandTx) SaveAttachmentVersion(
 		if !open {
 			return AttachmentVersion{}, ErrUploadClosed
 		}
-	} else if err := transaction.validateUploadTarget(
-		internalContext, params.Authorization.EventID,
-		params.Authorization.TargetType, params.Authorization.TargetID,
-	); err != nil {
-		return AttachmentVersion{}, err
+	case "Account":
+		if params.Authorization.TargetType != UploadTargetEntry {
+			return AttachmentVersion{}, ErrUploadTargetNotFound
+		}
+		entry, err := transaction.transaction.CompetitionEntry.Query().Where(
+			competitionentry.IDEQ(params.Authorization.TargetID),
+			competitionentry.EventIDEQ(params.Authorization.EventID),
+			competitionentry.SubmitterAccountIDEQ(params.UploaderID),
+		).Only(internalContext)
+		if ent.IsNotFound(err) {
+			return AttachmentVersion{}, ErrUploadTargetNotFound
+		}
+		if err != nil {
+			return AttachmentVersion{}, opaqueError("authorize Account Attachment upload", err)
+		}
+		open, err := uploadTargetOpen(
+			internalContext,
+			transaction.transaction.Client(),
+			UploadAuthorization{
+				EventID:    params.Authorization.EventID,
+				TargetType: UploadTargetEntry,
+				TargetID:   entry.ID,
+			},
+			params.Now,
+		)
+		if err != nil {
+			return AttachmentVersion{}, err
+		}
+		if !open {
+			return AttachmentVersion{}, ErrUploadClosed
+		}
+	case "Crew":
+		if err := transaction.validateUploadTarget(
+			internalContext, params.Authorization.EventID,
+			params.Authorization.TargetType, params.Authorization.TargetID,
+		); err != nil {
+			return AttachmentVersion{}, err
+		}
+	default:
+		return AttachmentVersion{}, ErrUploadTargetNotFound
 	}
 	logical, err := transaction.transaction.Attachment.Query().Where(
 		attachment.EventIDEQ(params.Authorization.EventID),
@@ -560,6 +633,82 @@ func (installation *SQLite) LoadCompetitionAttachmentCrewState(
 	result.ReopenWindows = make([]ReopenWindow, 0, len(windows))
 	for _, window := range windows {
 		result.ReopenWindows = append(result.ReopenWindows, reopenWindow(window))
+	}
+	return result, nil
+}
+
+// LoadAccountAttachmentState returns file metadata for only one Account's Entries.
+func (installation *SQLite) LoadAccountAttachmentState(
+	ctx context.Context,
+	accountID int,
+) (AccountAttachmentState, error) {
+	internalContext := systemContext(ctx)
+	entries, err := installation.client.CompetitionEntry.Query().
+		Where(competitionentry.SubmitterAccountIDEQ(accountID)).
+		Order(ent.Asc(competitionentry.FieldID)).
+		All(internalContext)
+	if err != nil {
+		return AccountAttachmentState{}, opaqueError(
+			"load Account Attachment owners",
+			err,
+		)
+	}
+	entryIDs := make([]int, 0, len(entries))
+	for _, entry := range entries {
+		entryIDs = append(entryIDs, entry.ID)
+	}
+	if len(entryIDs) == 0 {
+		return AccountAttachmentState{}, nil
+	}
+	versions, err := installation.client.AttachmentVersion.Query().
+		Where(attachmentversion.HasAttachmentWith(
+			attachment.OwnerTypeEQ(attachment.OwnerTypeEntry),
+			attachment.OwnerIDIn(entryIDs...),
+		)).
+		WithAttachment().
+		Order(ent.Asc(attachmentversion.FieldID)).
+		All(internalContext)
+	if err != nil {
+		return AccountAttachmentState{}, opaqueError(
+			"load Account Attachment Versions",
+			err,
+		)
+	}
+	result := AccountAttachmentState{
+		Versions: make([]AccountAttachmentVersion, 0, len(versions)),
+	}
+	for _, version := range versions {
+		logical, edgeErr := version.Edges.AttachmentOrErr()
+		if edgeErr != nil {
+			return AccountAttachmentState{}, opaqueError(
+				"load Account Attachment owner",
+				edgeErr,
+			)
+		}
+		result.Versions = append(result.Versions, AccountAttachmentVersion{
+			OwnerID: logical.OwnerID, Version: version.Version,
+			Name: logical.Name, OriginalFilename: version.OriginalFilename,
+			SHA256: version.Sha256,
+		})
+	}
+	windows, err := installation.client.ReopenWindow.Query().
+		Where(
+			reopenwindow.TargetTypeEQ(reopenwindow.TargetTypeEntry),
+			reopenwindow.TargetIDIn(entryIDs...),
+		).
+		Order(ent.Asc(reopenwindow.FieldID)).
+		All(internalContext)
+	if err != nil {
+		return AccountAttachmentState{}, opaqueError(
+			"load Account Reopen Windows",
+			err,
+		)
+	}
+	result.ReopenWindows = make([]AccountReopenWindow, 0, len(windows))
+	for _, window := range windows {
+		result.ReopenWindows = append(result.ReopenWindows, AccountReopenWindow{
+			TargetID: window.TargetID, ExpiresAt: window.ExpiresAt, ClosedAt: window.ClosedAt,
+		})
 	}
 	return result, nil
 }

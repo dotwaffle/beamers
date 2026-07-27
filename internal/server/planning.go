@@ -461,6 +461,7 @@ func eventConfigurationFormInput(request *http.Request) (events.CreateInput, err
 		ContentLanguage:                request.Form.Get("content_language"),
 		EventDayBoundary:               request.Form.Get("event_day_boundary"),
 		EntryDefaultDisposition:        request.Form.Get("entry_default_disposition"),
+		SubmissionEligibility:          request.Form.Get("submission_eligibility"),
 		TargetAdjustmentPresetsSeconds: presets,
 		CommandID:                      request.Form.Get("command_id"),
 	}, nil

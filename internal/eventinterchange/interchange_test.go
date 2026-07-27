@@ -113,7 +113,7 @@ func TestImportRejectsForwardVersionBeforeMutation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("export source Event: %v", err)
 	}
-	forward := bytes.Replace(exported.Document, []byte(`"version":1`), []byte(`"version":2`), 1)
+	forward := bytes.Replace(exported.Document, []byte(`"version":2`), []byte(`"version":3`), 1)
 
 	if _, err = service.ReviewImport(t.Context(), actor, forward); !errors.Is(err, eventinterchange.ErrUnsupportedVersion) {
 		t.Fatalf("forward-version Review error = %v, want %v", err, eventinterchange.ErrUnsupportedVersion)
@@ -135,6 +135,50 @@ func TestImportRejectsForwardVersionBeforeMutation(t *testing.T) {
 	})
 	if err != nil || imported.EventID <= sourceEventID {
 		t.Fatalf("valid Import after rejection = %+v, %v", imported, err)
+	}
+}
+
+func TestVersionOneImportDefaultsSubmissionEligibility(t *testing.T) {
+	storage, actor, sourceEventID := publishedSourceEvent(t)
+	now := func() time.Time { return time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC) }
+	service, err := eventinterchange.New(storage, now)
+	if err != nil {
+		t.Fatalf("create Event Interchange service: %v", err)
+	}
+	exported, err := service.Export(t.Context(), actor, eventinterchange.ExportInput{
+		EventID: sourceEventID, CommandID: "export-for-version-one",
+	})
+	if err != nil {
+		t.Fatalf("export source Event: %v", err)
+	}
+	versionOne := bytes.Replace(exported.Document, []byte(`"version":2`), []byte(`"version":1`), 1)
+	versionOne = bytes.Replace(
+		versionOne,
+		[]byte(`,"submission_eligibility":"VotingEligibleAccounts"`),
+		nil,
+		1,
+	)
+	review, err := service.ReviewImport(t.Context(), actor, versionOne)
+	if err != nil {
+		t.Fatalf("review version 1 import: %v", err)
+	}
+	imported, err := service.Import(t.Context(), actor, eventinterchange.ImportInput{
+		Document: versionOne, ReviewFingerprint: review.Fingerprint,
+		CommandID: "import-version-one",
+	})
+	if err != nil {
+		t.Fatalf("import version 1 Event: %v", err)
+	}
+	eventService, err := events.New(storage, now)
+	if err != nil {
+		t.Fatalf("create Event service: %v", err)
+	}
+	importedActor := actor
+	importedActor.EventRoles = cloneRoles(actor.EventRoles)
+	importedActor.EventRoles[imported.EventID] = viewer.Producer
+	found, err := eventService.CrewEvent(t.Context(), importedActor, imported.EventID)
+	if err != nil || found.SubmissionEligibility != "AllAccounts" {
+		t.Fatalf("version 1 Submission Eligibility = %q, %v", found.SubmissionEligibility, err)
 	}
 }
 
@@ -310,6 +354,7 @@ func publishedSourceEvent(t *testing.T) (*store.SQLite, auth.Account, int) {
 		Name: "Révision 日本 2026", PlannedStartDate: "2026-10-24", PlannedEndDate: "2026-10-26",
 		Timezone: "Europe/Berlin", EventLocale: "fr-FR", ContentLanguage: "ja",
 		EventDayBoundary: "06:00", EntryDefaultDisposition: "Included",
+		SubmissionEligibility:          "VotingEligibleAccounts",
 		TargetAdjustmentPresetsSeconds: []int{-120, 180}, CommandID: "create-interchange-source",
 	})
 	if err != nil {

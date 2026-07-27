@@ -720,6 +720,26 @@ func EntryDefaultDispositionNotIn(vs ...EntryDefaultDisposition) predicate.Event
 	return predicate.Event(sql.FieldNotIn(FieldEntryDefaultDisposition, vs...))
 }
 
+// SubmissionEligibilityEQ applies the EQ predicate on the "submission_eligibility" field.
+func SubmissionEligibilityEQ(v SubmissionEligibility) predicate.Event {
+	return predicate.Event(sql.FieldEQ(FieldSubmissionEligibility, v))
+}
+
+// SubmissionEligibilityNEQ applies the NEQ predicate on the "submission_eligibility" field.
+func SubmissionEligibilityNEQ(v SubmissionEligibility) predicate.Event {
+	return predicate.Event(sql.FieldNEQ(FieldSubmissionEligibility, v))
+}
+
+// SubmissionEligibilityIn applies the In predicate on the "submission_eligibility" field.
+func SubmissionEligibilityIn(vs ...SubmissionEligibility) predicate.Event {
+	return predicate.Event(sql.FieldIn(FieldSubmissionEligibility, vs...))
+}
+
+// SubmissionEligibilityNotIn applies the NotIn predicate on the "submission_eligibility" field.
+func SubmissionEligibilityNotIn(vs ...SubmissionEligibility) predicate.Event {
+	return predicate.Event(sql.FieldNotIn(FieldSubmissionEligibility, vs...))
+}
+
 // TargetAdjustmentPresetsEQ applies the EQ predicate on the "target_adjustment_presets" field.
 func TargetAdjustmentPresetsEQ(v string) predicate.Event {
 	return predicate.Event(sql.FieldEQ(FieldTargetAdjustmentPresets, v))
@@ -1595,6 +1615,29 @@ func HasUploadLinks() predicate.Event {
 func HasUploadLinksWith(preds ...predicate.UploadLink) predicate.Event {
 	return predicate.Event(func(s *sql.Selector) {
 		step := newUploadLinksStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasVotingEligibilities applies the HasEdge predicate on the "voting_eligibilities" edge.
+func HasVotingEligibilities() predicate.Event {
+	return predicate.Event(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, VotingEligibilitiesTable, VotingEligibilitiesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasVotingEligibilitiesWith applies the HasEdge predicate on the "voting_eligibilities" edge with a given conditions (other predicates).
+func HasVotingEligibilitiesWith(preds ...predicate.VotingEligibility) predicate.Event {
+	return predicate.Event(func(s *sql.Selector) {
+		step := newVotingEligibilitiesStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

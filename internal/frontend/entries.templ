@@ -24,6 +24,7 @@ type CompetitionEntriesPage struct {
 	Preflight     competition.Preflight
 	Attachments   attachments.CrewState
 	Program       programcontrol.State
+	SubmissionAccounts []competition.SubmissionAccount
 	Error         string
 }
 
@@ -85,6 +86,7 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 				<main>
 					<h1>Competition Entries and Attachments</h1>
 					<p><strong>Submission Deadline:</strong> @EventTime(page.State.SubmissionDeadline, page.Event.Timezone, page.Event.EventLocale)</p>
+					<p><strong>Submission Eligibility:</strong> { string(page.State.EffectiveSubmissionEligibility) }</p>
 					<p>Forecast Time is managed independently in Program Control.</p>
 					if page.Error != "" {
 						<p class="error" role="alert">{ page.Error }</p>
@@ -121,6 +123,28 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 							</form>
 						}
 					</section>
+					if page.Producer {
+						<section>
+							<h2>Submission Eligibility</h2>
+							<form method="post">
+								<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+								<input type="hidden" name="action" value="configure-submission-eligibility"/>
+								<input type="hidden" name="command_id" value={ page.CommandID }/>
+								<input type="hidden" name="expected_submission_eligibility_revision" value={ strconv.Itoa(page.State.SubmissionEligibilityRevision) }/>
+								<label>
+									<input type="checkbox" name="override" value="true" checked?={ page.State.SubmissionEligibilityOverride != "" }/>
+									Override Event policy
+								</label>
+								<label>Eligibility
+									<select name="submission_eligibility">
+										<option value="AllAccounts" selected?={ page.State.EffectiveSubmissionEligibility == competition.SubmissionAllAccounts }>All Accounts</option>
+										<option value="VotingEligibleAccounts" selected?={ page.State.EffectiveSubmissionEligibility == competition.SubmissionVotingEligible }>Voting Eligible Accounts</option>
+									</select>
+								</label>
+								<button type="submit">Configure Submission Eligibility</button>
+							</form>
+						</section>
+					}
 					<section>
 						<h2>Entry order</h2>
 						<p>
@@ -234,6 +258,11 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 									revision { strconv.Itoa(entry.Revision) };
 									review current: { strconv.FormatBool(entry.ReviewCurrent) }
 								</p>
+								if entry.SubmitterAccountID == 0 {
+									<p><strong>Submitter:</strong> Crew Managed</p>
+								} else {
+									<p><strong>Submitter Account:</strong> #{ strconv.Itoa(entry.SubmitterAccountID) }</p>
+								}
 								<p>
 									Presentation: { entry.PresentationStatus };
 									Result: { entry.ResultDisposition };
@@ -243,6 +272,23 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 									<p><strong>Technical Failure:</strong> { entry.TechnicalFailureReason }</p>
 								}
 								if page.Producer {
+									if entry.SubmitterAccountID == 0 {
+										<form method="post">
+											<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+											<input type="hidden" name="action" value="assign-submitter"/>
+											<input type="hidden" name="command_id" value={ page.CommandID }/>
+											<input type="hidden" name="entry_id" value={ strconv.Itoa(entry.ID) }/>
+											<input type="hidden" name="expected_revision" value={ strconv.Itoa(entry.Revision) }/>
+											<label>Submitter Account
+												<select name="account_id" required>
+													for _, account := range page.SubmissionAccounts {
+														<option value={ strconv.Itoa(account.ID) }>{ "@" + account.Handle + " — " + account.Name }</option>
+													}
+												</select>
+											</label>
+											<button type="submit">Assign Submitter Account</button>
+										</form>
+									}
 									<form class="stack" method="post">
 										<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
 										<input type="hidden" name="action" value="update-entry"/>

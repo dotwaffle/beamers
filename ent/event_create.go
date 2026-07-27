@@ -33,6 +33,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/track"
 	"github.com/dotwaffle/beamers/ent/uploadlink"
+	"github.com/dotwaffle/beamers/ent/votingeligibility"
 )
 
 // EventCreate is the builder for creating a Event entity.
@@ -130,6 +131,20 @@ func (_c *EventCreate) SetEntryDefaultDisposition(v event.EntryDefaultDispositio
 func (_c *EventCreate) SetNillableEntryDefaultDisposition(v *event.EntryDefaultDisposition) *EventCreate {
 	if v != nil {
 		_c.SetEntryDefaultDisposition(*v)
+	}
+	return _c
+}
+
+// SetSubmissionEligibility sets the "submission_eligibility" field.
+func (_c *EventCreate) SetSubmissionEligibility(v event.SubmissionEligibility) *EventCreate {
+	_c.mutation.SetSubmissionEligibility(v)
+	return _c
+}
+
+// SetNillableSubmissionEligibility sets the "submission_eligibility" field if the given value is not nil.
+func (_c *EventCreate) SetNillableSubmissionEligibility(v *event.SubmissionEligibility) *EventCreate {
+	if v != nil {
+		_c.SetSubmissionEligibility(*v)
 	}
 	return _c
 }
@@ -532,6 +547,21 @@ func (_c *EventCreate) AddUploadLinks(v ...*UploadLink) *EventCreate {
 	return _c.AddUploadLinkIDs(ids...)
 }
 
+// AddVotingEligibilityIDs adds the "voting_eligibilities" edge to the VotingEligibility entity by IDs.
+func (_c *EventCreate) AddVotingEligibilityIDs(ids ...int) *EventCreate {
+	_c.mutation.AddVotingEligibilityIDs(ids...)
+	return _c
+}
+
+// AddVotingEligibilities adds the "voting_eligibilities" edges to the VotingEligibility entity.
+func (_c *EventCreate) AddVotingEligibilities(v ...*VotingEligibility) *EventCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddVotingEligibilityIDs(ids...)
+}
+
 // AddDraftEditIDs adds the "draft_edits" edge to the DraftEdit entity by IDs.
 func (_c *EventCreate) AddDraftEditIDs(ids ...int) *EventCreate {
 	_c.mutation.AddDraftEditIDs(ids...)
@@ -671,6 +701,10 @@ func (_c *EventCreate) defaults() error {
 		v := event.DefaultEntryDefaultDisposition
 		_c.mutation.SetEntryDefaultDisposition(v)
 	}
+	if _, ok := _c.mutation.SubmissionEligibility(); !ok {
+		v := event.DefaultSubmissionEligibility
+		_c.mutation.SetSubmissionEligibility(v)
+	}
 	if _, ok := _c.mutation.TargetAdjustmentPresets(); !ok {
 		v := event.DefaultTargetAdjustmentPresets
 		_c.mutation.SetTargetAdjustmentPresets(v)
@@ -782,6 +816,14 @@ func (_c *EventCreate) check() error {
 	if v, ok := _c.mutation.EntryDefaultDisposition(); ok {
 		if err := event.EntryDefaultDispositionValidator(v); err != nil {
 			return &ValidationError{Name: "entry_default_disposition", err: fmt.Errorf(`ent: validator failed for field "Event.entry_default_disposition": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.SubmissionEligibility(); !ok {
+		return &ValidationError{Name: "submission_eligibility", err: errors.New(`ent: missing required field "Event.submission_eligibility"`)}
+	}
+	if v, ok := _c.mutation.SubmissionEligibility(); ok {
+		if err := event.SubmissionEligibilityValidator(v); err != nil {
+			return &ValidationError{Name: "submission_eligibility", err: fmt.Errorf(`ent: validator failed for field "Event.submission_eligibility": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.TargetAdjustmentPresets(); !ok {
@@ -916,6 +958,10 @@ func (_c *EventCreate) createSpec() (*Event, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.EntryDefaultDisposition(); ok {
 		_spec.SetField(event.FieldEntryDefaultDisposition, field.TypeEnum, value)
 		_node.EntryDefaultDisposition = value
+	}
+	if value, ok := _c.mutation.SubmissionEligibility(); ok {
+		_spec.SetField(event.FieldSubmissionEligibility, field.TypeEnum, value)
+		_node.SubmissionEligibility = value
 	}
 	if value, ok := _c.mutation.TargetAdjustmentPresets(); ok {
 		_spec.SetField(event.FieldTargetAdjustmentPresets, field.TypeString, value)
@@ -1210,6 +1256,22 @@ func (_c *EventCreate) createSpec() (*Event, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(uploadlink.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.VotingEligibilitiesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.VotingEligibilitiesTable,
+			Columns: []string{event.VotingEligibilitiesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingeligibility.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

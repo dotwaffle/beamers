@@ -60,6 +60,10 @@ type AccountEdges struct {
 	EventGrants []*EventGrant `json:"event_grants,omitempty"`
 	// FavoriteSessions holds the value of the favorite_sessions edge.
 	FavoriteSessions []*FavoriteSession `json:"favorite_sessions,omitempty"`
+	// CompetitionEntries holds the value of the competition_entries edge.
+	CompetitionEntries []*CompetitionEntry `json:"competition_entries,omitempty"`
+	// VotingEligibilities holds the value of the voting_eligibilities edge.
+	VotingEligibilities []*VotingEligibility `json:"voting_eligibilities,omitempty"`
 	// AuditEntries holds the value of the audit_entries edge.
 	AuditEntries []*AuditEntry `json:"audit_entries,omitempty"`
 	// CommandReceipts holds the value of the command_receipts edge.
@@ -68,7 +72,7 @@ type AccountEdges struct {
 	DraftEdits []*DraftEdit `json:"draft_edits,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [13]bool
+	loadedTypes [15]bool
 }
 
 // PasswordCredentialOrErr returns the PasswordCredential value or an error if the edge
@@ -167,10 +171,28 @@ func (e AccountEdges) FavoriteSessionsOrErr() ([]*FavoriteSession, error) {
 	return nil, &NotLoadedError{edge: "favorite_sessions"}
 }
 
+// CompetitionEntriesOrErr returns the CompetitionEntries value or an error if the edge
+// was not loaded in eager-loading.
+func (e AccountEdges) CompetitionEntriesOrErr() ([]*CompetitionEntry, error) {
+	if e.loadedTypes[10] {
+		return e.CompetitionEntries, nil
+	}
+	return nil, &NotLoadedError{edge: "competition_entries"}
+}
+
+// VotingEligibilitiesOrErr returns the VotingEligibilities value or an error if the edge
+// was not loaded in eager-loading.
+func (e AccountEdges) VotingEligibilitiesOrErr() ([]*VotingEligibility, error) {
+	if e.loadedTypes[11] {
+		return e.VotingEligibilities, nil
+	}
+	return nil, &NotLoadedError{edge: "voting_eligibilities"}
+}
+
 // AuditEntriesOrErr returns the AuditEntries value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) AuditEntriesOrErr() ([]*AuditEntry, error) {
-	if e.loadedTypes[10] {
+	if e.loadedTypes[12] {
 		return e.AuditEntries, nil
 	}
 	return nil, &NotLoadedError{edge: "audit_entries"}
@@ -179,7 +201,7 @@ func (e AccountEdges) AuditEntriesOrErr() ([]*AuditEntry, error) {
 // CommandReceiptsOrErr returns the CommandReceipts value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) CommandReceiptsOrErr() ([]*CommandReceipt, error) {
-	if e.loadedTypes[11] {
+	if e.loadedTypes[13] {
 		return e.CommandReceipts, nil
 	}
 	return nil, &NotLoadedError{edge: "command_receipts"}
@@ -188,7 +210,7 @@ func (e AccountEdges) CommandReceiptsOrErr() ([]*CommandReceipt, error) {
 // DraftEditsOrErr returns the DraftEdits value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) DraftEditsOrErr() ([]*DraftEdit, error) {
-	if e.loadedTypes[12] {
+	if e.loadedTypes[14] {
 		return e.DraftEdits, nil
 	}
 	return nil, &NotLoadedError{edge: "draft_edits"}
@@ -328,6 +350,16 @@ func (_m *Account) QueryEventGrants() *EventGrantQuery {
 // QueryFavoriteSessions queries the "favorite_sessions" edge of the Account entity.
 func (_m *Account) QueryFavoriteSessions() *FavoriteSessionQuery {
 	return NewAccountClient(_m.config).QueryFavoriteSessions(_m)
+}
+
+// QueryCompetitionEntries queries the "competition_entries" edge of the Account entity.
+func (_m *Account) QueryCompetitionEntries() *CompetitionEntryQuery {
+	return NewAccountClient(_m.config).QueryCompetitionEntries(_m)
+}
+
+// QueryVotingEligibilities queries the "voting_eligibilities" edge of the Account entity.
+func (_m *Account) QueryVotingEligibilities() *VotingEligibilityQuery {
+	return NewAccountClient(_m.config).QueryVotingEligibilities(_m)
 }
 
 // QueryAuditEntries queries the "audit_entries" edge of the Account entity.

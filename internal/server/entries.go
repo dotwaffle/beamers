@@ -41,11 +41,13 @@ func registerEntryRoutes(
 	notifyDisplays func(),
 	notifySchedule func(),
 	logger *slog.Logger,
+	uploadLimiter *authFailureLimiter,
 ) {
 	handlers := entryHandlers{
 		browser: frontendHandlers{
 			authentication: authentication,
 			logger:         logger,
+			limiter:        uploadLimiter,
 			random:         rand.Reader,
 		},
 		competition:    competitionService,
@@ -70,6 +72,17 @@ func registerEntryRoutes(
 		"/backstage/events/{eventID}/competitions/{sessionID}/entries/upload",
 		uploadRoute,
 		handlers.upload,
+	)
+	submissionRoute := browserPageRoute()
+	submissionRoute.maxBodyBytes = defaultRequestBytes
+	mux.HandleFunc("/submissions", submissionRoute, handlers.submissions)
+	submissionUploadRoute := browserPageRoute()
+	submissionUploadRoute.timeout = uploadRequestTimeout
+	submissionUploadRoute.maxBodyBytes = maxUploadRequestBytes
+	mux.HandleFunc(
+		"/submissions/{eventID}/entries/{entryID}/upload",
+		submissionUploadRoute,
+		handlers.submissionUpload,
 	)
 }
 
@@ -155,7 +168,8 @@ func (handlers entryHandlers) submitEntryAction(
 ) error {
 	switch request.Form.Get("action") {
 	case "create-entry", "update-entry", "change-disposition", "review-entry",
-		"configure-readiness", "configure-order":
+		"configure-readiness", "configure-order", "configure-submission-eligibility",
+		"assign-submitter":
 		return handlers.submitEntryConfiguration(request, actor, eventID, sessionID)
 	case "attachment-readiness", "version-release-hold",
 		"competition-release-policy", "create-reopen-window":
@@ -250,6 +264,47 @@ func (handlers entryHandlers) submitEntryConfiguration(
 		return err
 	case "configure-order":
 		return handlers.configureEntryOrder(request, actor, eventID, sessionID)
+	case "configure-submission-eligibility":
+		revision, err := entryFormNonnegativeInt(
+			request,
+			"expected_submission_eligibility_revision",
+		)
+		if err != nil {
+			return err
+		}
+		_, err = handlers.competition.ConfigureSubmissionEligibility(
+			request.Context(),
+			actor,
+			competition.ConfigureSubmissionEligibilityInput{
+				EventID: eventID, SessionID: sessionID,
+				CommandID:        request.Form.Get("command_id"),
+				ExpectedRevision: revision,
+				Eligibility: competition.SubmissionEligibility(
+					request.Form.Get("submission_eligibility"),
+				),
+				Override: request.Form.Get("override") == "true",
+			},
+		)
+		return err
+	case "assign-submitter":
+		entryID, revision, err := entryFormTarget(request)
+		if err != nil {
+			return err
+		}
+		accountID, err := entryFormPositiveInt(request, "account_id")
+		if err != nil {
+			return err
+		}
+		_, err = handlers.competition.AssignSubmitter(
+			request.Context(),
+			actor,
+			competition.AssignSubmitterInput{
+				EventID: eventID, SessionID: sessionID, EntryID: entryID,
+				AccountID: accountID, ExpectedRevision: revision,
+				CommandID: request.Form.Get("command_id"),
+			},
+		)
+		return err
 	default:
 		return competition.ErrInvalidInput
 	}
@@ -706,6 +761,23 @@ func (handlers entryHandlers) render(
 		handlers.browser.frontendError(response, request, "read Competition Program control", err)
 		return
 	}
+	var submissionAccounts []competition.SubmissionAccount
+	if actor.CanProduceEvent(eventID) {
+		submissionAccounts, err = handlers.competition.AssignableAccounts(
+			request.Context(),
+			actor,
+			eventID,
+		)
+		if err != nil {
+			handlers.browser.frontendError(
+				response,
+				request,
+				"list Submitter Accounts",
+				err,
+			)
+			return
+		}
+	}
 	commandID, err := planningCommandID(handlers.browser.random)
 	if err != nil {
 		handlers.browser.frontendError(response, request, "create Entry command identity", err)
@@ -718,6 +790,7 @@ func (handlers entryHandlers) render(
 			ReducedEffects: reducedEffectsCookie(request), Navigation: backstageNavigation(actor),
 			CommandID: commandID, Event: event, State: state, Preflight: preflight,
 			Attachments: attachmentState, Program: programState, Error: message,
+			SubmissionAccounts: submissionAccounts,
 		},
 	))
 }
@@ -729,18 +802,24 @@ func entryError(err error) (int, string) {
 	case errors.Is(err, competition.ErrSubmissionClosed):
 		return http.StatusGone, "The fixed Submission Deadline has passed."
 	case errors.Is(err, competition.ErrEntryRevisionConflict),
+		errors.Is(err, competition.ErrSubmissionEligibilityRevision),
 		errors.Is(err, competition.ErrReadinessRevisionConflict),
 		errors.Is(err, competition.ErrAttachmentReadinessRevisionConflict),
 		errors.Is(err, competition.ErrEntryOrderRevisionConflict),
 		errors.Is(err, competition.ErrCommandConflict):
 		return http.StatusConflict, "Competition state changed. Reload and try again."
 	case errors.Is(err, competition.ErrEntryResolution),
+		errors.Is(err, competition.ErrEntryAssigned),
 		errors.Is(err, competition.ErrCrewReasonRequired),
 		errors.Is(err, competition.ErrEntryOrderInvalid),
 		errors.Is(err, competition.ErrEntryOrderLocked),
 		errors.Is(err, competition.ErrPresentedEntryDisposition),
 		errors.Is(err, competition.ErrLiveDispositionConfirmation):
 		return http.StatusUnprocessableEntity, "The Entry cannot take that transition."
+	case errors.Is(err, competition.ErrSubmissionIneligible):
+		return http.StatusForbidden, "Submission Eligibility does not permit a new Entry."
+	case errors.Is(err, competition.ErrSubmitterRequired):
+		return http.StatusNotFound, "Entry not found."
 	case errors.Is(err, competition.ErrProducerRequired),
 		errors.Is(err, competition.ErrCompetitionNotFound):
 		return http.StatusNotFound, "Competition not found."

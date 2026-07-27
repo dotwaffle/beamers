@@ -71,6 +71,61 @@ func DowngradeBeforeUpgradeContracts(ctx context.Context, path string) error {
 	return mutateSchema(path, func(database *sql.DB) error {
 		const statement = `
 PRAGMA foreign_keys = off;
+DROP TABLE voting_eligibilities;
+CREATE TABLE competition_entries_before_submissions (
+	id integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+	name text NOT NULL,
+	public_details text NULL,
+	crew_notes text NULL,
+	disposition text NOT NULL,
+	upload_closed_at datetime NULL,
+	content_revision integer NOT NULL DEFAULT 1,
+	reviewed_content_revision integer NULL,
+	reviewed_by_account_id integer NULL,
+	reviewed_at datetime NULL,
+	first_presented_at datetime NULL,
+	presentation_status text NOT NULL DEFAULT 'Scheduled',
+	deferred_sequence integer NULL,
+	resolution_required bool NOT NULL DEFAULT false,
+	result_disposition text NOT NULL DEFAULT 'Eligible',
+	technical_failure_reason text NULL,
+	resolution_crew_reason text NULL,
+	public_disqualification_message text NULL,
+	release_hold bool NOT NULL DEFAULT false,
+	revision integer NOT NULL DEFAULT 1,
+	created_at datetime NOT NULL,
+	event_id integer NOT NULL,
+	competition_session_id integer NOT NULL,
+	CONSTRAINT competition_entries_sessions_competition_entries
+		FOREIGN KEY (competition_session_id) REFERENCES sessions (id)
+		ON UPDATE NO ACTION ON DELETE NO ACTION,
+	CONSTRAINT competition_entries_events_competition_entries
+		FOREIGN KEY (event_id) REFERENCES events (id)
+		ON UPDATE NO ACTION ON DELETE NO ACTION
+);
+INSERT INTO competition_entries_before_submissions (
+	id, name, public_details, crew_notes, disposition, upload_closed_at,
+	content_revision, reviewed_content_revision, reviewed_by_account_id,
+	reviewed_at, first_presented_at, presentation_status, deferred_sequence,
+	resolution_required, result_disposition, technical_failure_reason,
+	resolution_crew_reason, public_disqualification_message, release_hold,
+	revision, created_at, event_id, competition_session_id
+)
+SELECT
+	id, name, public_details, crew_notes, disposition, upload_closed_at,
+	content_revision, reviewed_content_revision, reviewed_by_account_id,
+	reviewed_at, first_presented_at, presentation_status, deferred_sequence,
+	resolution_required, result_disposition, technical_failure_reason,
+	resolution_crew_reason, public_disqualification_message, release_hold,
+	revision, created_at, event_id, competition_session_id
+FROM competition_entries;
+DROP TABLE competition_entries;
+ALTER TABLE competition_entries_before_submissions RENAME TO competition_entries;
+CREATE INDEX competitionentry_competition_session_id_created_at
+	ON competition_entries (competition_session_id, created_at);
+ALTER TABLE sessions DROP COLUMN submission_eligibility_revision;
+ALTER TABLE sessions DROP COLUMN submission_eligibility_override;
+ALTER TABLE events DROP COLUMN submission_eligibility;
 DROP TABLE federated_identities;
 DROP TABLE web_authn_credentials;
 DROP INDEX accounts_webauthn_user_handle_key;

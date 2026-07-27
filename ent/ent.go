@@ -71,6 +71,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/trackdraft"
 	"github.com/dotwaffle/beamers/ent/trackpublishedversion"
 	"github.com/dotwaffle/beamers/ent/uploadlink"
+	"github.com/dotwaffle/beamers/ent/votingeligibility"
 	"github.com/dotwaffle/beamers/ent/webauthncredential"
 )
 
@@ -191,6 +192,7 @@ func checkColumn(t, c string) error {
 			trackdraft.Table:                  trackdraft.ValidColumn,
 			trackpublishedversion.Table:       trackpublishedversion.ValidColumn,
 			uploadlink.Table:                  uploadlink.ValidColumn,
+			votingeligibility.Table:           votingeligibility.ValidColumn,
 			webauthncredential.Table:          webauthncredential.ValidColumn,
 		})
 	})

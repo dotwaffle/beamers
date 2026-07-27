@@ -65,6 +65,11 @@ func CompetitionSessionID(v int) predicate.CompetitionEntry {
 	return predicate.CompetitionEntry(sql.FieldEQ(FieldCompetitionSessionID, v))
 }
 
+// SubmitterAccountID applies equality check predicate on the "submitter_account_id" field. It's identical to SubmitterAccountIDEQ.
+func SubmitterAccountID(v int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldEQ(FieldSubmitterAccountID, v))
+}
+
 // Name applies equality check predicate on the "name" field. It's identical to NameEQ.
 func Name(v string) predicate.CompetitionEntry {
 	return predicate.CompetitionEntry(sql.FieldEQ(FieldName, v))
@@ -188,6 +193,36 @@ func CompetitionSessionIDIn(vs ...int) predicate.CompetitionEntry {
 // CompetitionSessionIDNotIn applies the NotIn predicate on the "competition_session_id" field.
 func CompetitionSessionIDNotIn(vs ...int) predicate.CompetitionEntry {
 	return predicate.CompetitionEntry(sql.FieldNotIn(FieldCompetitionSessionID, vs...))
+}
+
+// SubmitterAccountIDEQ applies the EQ predicate on the "submitter_account_id" field.
+func SubmitterAccountIDEQ(v int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldEQ(FieldSubmitterAccountID, v))
+}
+
+// SubmitterAccountIDNEQ applies the NEQ predicate on the "submitter_account_id" field.
+func SubmitterAccountIDNEQ(v int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNEQ(FieldSubmitterAccountID, v))
+}
+
+// SubmitterAccountIDIn applies the In predicate on the "submitter_account_id" field.
+func SubmitterAccountIDIn(vs ...int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldIn(FieldSubmitterAccountID, vs...))
+}
+
+// SubmitterAccountIDNotIn applies the NotIn predicate on the "submitter_account_id" field.
+func SubmitterAccountIDNotIn(vs ...int) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNotIn(FieldSubmitterAccountID, vs...))
+}
+
+// SubmitterAccountIDIsNil applies the IsNil predicate on the "submitter_account_id" field.
+func SubmitterAccountIDIsNil() predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldIsNull(FieldSubmitterAccountID))
+}
+
+// SubmitterAccountIDNotNil applies the NotNil predicate on the "submitter_account_id" field.
+func SubmitterAccountIDNotNil() predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(sql.FieldNotNull(FieldSubmitterAccountID))
 }
 
 // NameEQ applies the EQ predicate on the "name" field.
@@ -1168,6 +1203,29 @@ func HasCompetition() predicate.CompetitionEntry {
 func HasCompetitionWith(preds ...predicate.Session) predicate.CompetitionEntry {
 	return predicate.CompetitionEntry(func(s *sql.Selector) {
 		step := newCompetitionStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasSubmitter applies the HasEdge predicate on the "submitter" edge.
+func HasSubmitter() predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, SubmitterTable, SubmitterColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasSubmitterWith applies the HasEdge predicate on the "submitter" edge with a given conditions (other predicates).
+func HasSubmitterWith(preds ...predicate.Account) predicate.CompetitionEntry {
+	return predicate.CompetitionEntry(func(s *sql.Selector) {
+		step := newSubmitterStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

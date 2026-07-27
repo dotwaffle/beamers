@@ -139,6 +139,7 @@ type UploaderType string
 const (
 	UploaderTypeUploadLink UploaderType = "UploadLink"
 	UploaderTypeCrew       UploaderType = "Crew"
+	UploaderTypeAccount    UploaderType = "Account"
 )
 
 func (ut UploaderType) String() string {
@@ -148,7 +149,7 @@ func (ut UploaderType) String() string {
 // UploaderTypeValidator is a validator for the "uploader_type" field enum values. It is called by the builders before save.
 func UploaderTypeValidator(ut UploaderType) error {
 	switch ut {
-	case UploaderTypeUploadLink, UploaderTypeCrew:
+	case UploaderTypeUploadLink, UploaderTypeCrew, UploaderTypeAccount:
 		return nil
 	default:
 		return fmt.Errorf("attachmentversion: invalid enum value for uploader_type field: %q", ut)

@@ -20,6 +20,8 @@ const (
 	FieldEventID = "event_id"
 	// FieldCompetitionSessionID holds the string denoting the competition_session_id field in the database.
 	FieldCompetitionSessionID = "competition_session_id"
+	// FieldSubmitterAccountID holds the string denoting the submitter_account_id field in the database.
+	FieldSubmitterAccountID = "submitter_account_id"
 	// FieldName holds the string denoting the name field in the database.
 	FieldName = "name"
 	// FieldPublicDetails holds the string denoting the public_details field in the database.
@@ -64,6 +66,8 @@ const (
 	EdgeEvent = "event"
 	// EdgeCompetition holds the string denoting the competition edge name in mutations.
 	EdgeCompetition = "competition"
+	// EdgeSubmitter holds the string denoting the submitter edge name in mutations.
+	EdgeSubmitter = "submitter"
 	// EdgeResultStandings holds the string denoting the result_standings edge name in mutations.
 	EdgeResultStandings = "result_standings"
 	// Table holds the table name of the competitionentry in the database.
@@ -82,6 +86,13 @@ const (
 	CompetitionInverseTable = "sessions"
 	// CompetitionColumn is the table column denoting the competition relation/edge.
 	CompetitionColumn = "competition_session_id"
+	// SubmitterTable is the table that holds the submitter relation/edge.
+	SubmitterTable = "competition_entries"
+	// SubmitterInverseTable is the table name for the Account entity.
+	// It exists in this package in order to avoid circular dependency with the "account" package.
+	SubmitterInverseTable = "accounts"
+	// SubmitterColumn is the table column denoting the submitter relation/edge.
+	SubmitterColumn = "submitter_account_id"
 	// ResultStandingsTable is the table that holds the result_standings relation/edge.
 	ResultStandingsTable = "competition_result_standings"
 	// ResultStandingsInverseTable is the table name for the CompetitionResultStanding entity.
@@ -96,6 +107,7 @@ var Columns = []string{
 	FieldID,
 	FieldEventID,
 	FieldCompetitionSessionID,
+	FieldSubmitterAccountID,
 	FieldName,
 	FieldPublicDetails,
 	FieldCrewNotes,
@@ -136,6 +148,8 @@ func ValidColumn(column string) bool {
 var (
 	Hooks  [1]ent.Hook
 	Policy ent.Policy
+	// SubmitterAccountIDValidator is a validator for the "submitter_account_id" field. It is called by the builders before save.
+	SubmitterAccountIDValidator func(int) error
 	// NameValidator is a validator for the "name" field. It is called by the builders before save.
 	NameValidator func(string) error
 	// PublicDetailsValidator is a validator for the "public_details" field. It is called by the builders before save.
@@ -267,6 +281,11 @@ func ByCompetitionSessionID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldCompetitionSessionID, opts...).ToFunc()
 }
 
+// BySubmitterAccountID orders the results by the submitter_account_id field.
+func BySubmitterAccountID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSubmitterAccountID, opts...).ToFunc()
+}
+
 // ByName orders the results by the name field.
 func ByName(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldName, opts...).ToFunc()
@@ -381,6 +400,13 @@ func ByCompetitionField(field string, opts ...sql.OrderTermOption) OrderOption {
 	}
 }
 
+// BySubmitterField orders the results by submitter field.
+func BySubmitterField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newSubmitterStep(), sql.OrderByField(field, opts...))
+	}
+}
+
 // ByResultStandingsCount orders the results by result_standings count.
 func ByResultStandingsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -406,6 +432,13 @@ func newCompetitionStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(CompetitionInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, CompetitionTable, CompetitionColumn),
+	)
+}
+func newSubmitterStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(SubmitterInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, true, SubmitterTable, SubmitterColumn),
 	)
 }
 func newResultStandingsStep() *sqlgraph.Step {

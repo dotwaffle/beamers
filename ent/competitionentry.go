@@ -9,6 +9,7 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
+	"github.com/dotwaffle/beamers/ent/account"
 	"github.com/dotwaffle/beamers/ent/competitionentry"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/session"
@@ -23,6 +24,8 @@ type CompetitionEntry struct {
 	EventID int `json:"event_id,omitempty"`
 	// CompetitionSessionID holds the value of the "competition_session_id" field.
 	CompetitionSessionID int `json:"competition_session_id,omitempty"`
+	// SubmitterAccountID holds the value of the "submitter_account_id" field.
+	SubmitterAccountID *int `json:"submitter_account_id,omitempty"`
 	// Name holds the value of the "name" field.
 	Name string `json:"name,omitempty"`
 	// PublicDetails holds the value of the "public_details" field.
@@ -75,11 +78,13 @@ type CompetitionEntryEdges struct {
 	Event *Event `json:"event,omitempty"`
 	// Competition holds the value of the competition edge.
 	Competition *Session `json:"competition,omitempty"`
+	// Submitter holds the value of the submitter edge.
+	Submitter *Account `json:"submitter,omitempty"`
 	// ResultStandings holds the value of the result_standings edge.
 	ResultStandings []*CompetitionResultStanding `json:"result_standings,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [3]bool
+	loadedTypes [4]bool
 }
 
 // EventOrErr returns the Event value or an error if the edge
@@ -104,10 +109,21 @@ func (e CompetitionEntryEdges) CompetitionOrErr() (*Session, error) {
 	return nil, &NotLoadedError{edge: "competition"}
 }
 
+// SubmitterOrErr returns the Submitter value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e CompetitionEntryEdges) SubmitterOrErr() (*Account, error) {
+	if e.Submitter != nil {
+		return e.Submitter, nil
+	} else if e.loadedTypes[2] {
+		return nil, &NotFoundError{label: account.Label}
+	}
+	return nil, &NotLoadedError{edge: "submitter"}
+}
+
 // ResultStandingsOrErr returns the ResultStandings value or an error if the edge
 // was not loaded in eager-loading.
 func (e CompetitionEntryEdges) ResultStandingsOrErr() ([]*CompetitionResultStanding, error) {
-	if e.loadedTypes[2] {
+	if e.loadedTypes[3] {
 		return e.ResultStandings, nil
 	}
 	return nil, &NotLoadedError{edge: "result_standings"}
@@ -120,7 +136,7 @@ func (*CompetitionEntry) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case competitionentry.FieldResolutionRequired, competitionentry.FieldReleaseHold:
 			values[i] = new(sql.NullBool)
-		case competitionentry.FieldID, competitionentry.FieldEventID, competitionentry.FieldCompetitionSessionID, competitionentry.FieldContentRevision, competitionentry.FieldReviewedContentRevision, competitionentry.FieldReviewedByAccountID, competitionentry.FieldDeferredSequence, competitionentry.FieldRevision:
+		case competitionentry.FieldID, competitionentry.FieldEventID, competitionentry.FieldCompetitionSessionID, competitionentry.FieldSubmitterAccountID, competitionentry.FieldContentRevision, competitionentry.FieldReviewedContentRevision, competitionentry.FieldReviewedByAccountID, competitionentry.FieldDeferredSequence, competitionentry.FieldRevision:
 			values[i] = new(sql.NullInt64)
 		case competitionentry.FieldName, competitionentry.FieldPublicDetails, competitionentry.FieldCrewNotes, competitionentry.FieldDisposition, competitionentry.FieldPresentationStatus, competitionentry.FieldResultDisposition, competitionentry.FieldTechnicalFailureReason, competitionentry.FieldResolutionCrewReason, competitionentry.FieldPublicDisqualificationMessage:
 			values[i] = new(sql.NullString)
@@ -158,6 +174,13 @@ func (_m *CompetitionEntry) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field competition_session_id", values[i])
 			} else if value.Valid {
 				_m.CompetitionSessionID = int(value.Int64)
+			}
+		case competitionentry.FieldSubmitterAccountID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field submitter_account_id", values[i])
+			} else if value.Valid {
+				_m.SubmitterAccountID = new(int)
+				*_m.SubmitterAccountID = int(value.Int64)
 			}
 		case competitionentry.FieldName:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -302,6 +325,11 @@ func (_m *CompetitionEntry) QueryCompetition() *SessionQuery {
 	return NewCompetitionEntryClient(_m.config).QueryCompetition(_m)
 }
 
+// QuerySubmitter queries the "submitter" edge of the CompetitionEntry entity.
+func (_m *CompetitionEntry) QuerySubmitter() *AccountQuery {
+	return NewCompetitionEntryClient(_m.config).QuerySubmitter(_m)
+}
+
 // QueryResultStandings queries the "result_standings" edge of the CompetitionEntry entity.
 func (_m *CompetitionEntry) QueryResultStandings() *CompetitionResultStandingQuery {
 	return NewCompetitionEntryClient(_m.config).QueryResultStandings(_m)
@@ -335,6 +363,11 @@ func (_m *CompetitionEntry) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("competition_session_id=")
 	builder.WriteString(fmt.Sprintf("%v", _m.CompetitionSessionID))
+	builder.WriteString(", ")
+	if v := _m.SubmitterAccountID; v != nil {
+		builder.WriteString("submitter_account_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteString(", ")
 	builder.WriteString("name=")
 	builder.WriteString(_m.Name)

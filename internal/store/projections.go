@@ -15,6 +15,7 @@ func eventProjection(found *ent.Event) Event {
 		ContentLanguage:         found.ContentLanguage,
 		EventDayBoundary:        found.EventDayBoundary,
 		EntryDefaultDisposition: string(found.EntryDefaultDisposition),
+		SubmissionEligibility:   string(found.SubmissionEligibility),
 		TargetAdjustmentPresets: found.TargetAdjustmentPresets,
 		Revision:                found.Revision,
 	}

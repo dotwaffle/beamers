@@ -26,7 +26,8 @@ import (
 
 const (
 	format          = "beamers.event"
-	version         = 1
+	version         = 2
+	minimumVersion  = 1
 	maxDocumentSize = 64 << 20
 )
 
@@ -238,6 +239,7 @@ func (service *Service) Import(
 				ContentLanguage:                plan.event.ContentLanguage,
 				EventDayBoundary:               plan.event.EventDayBoundary,
 				EntryDefaultDisposition:        plan.event.EntryDefaultDisposition,
+				SubmissionEligibility:          plan.event.SubmissionEligibility,
 				TargetAdjustmentPresetsSeconds: plan.event.TargetAdjustmentPresetsSeconds,
 				Now:                            identity.Now,
 				CommandID:                      input.CommandID,
@@ -304,6 +306,7 @@ type eventDocument struct {
 	ContentLanguage                string `json:"content_language,omitempty"`
 	EventDayBoundary               string `json:"event_day_boundary"`
 	EntryDefaultDisposition        string `json:"entry_default_disposition"`
+	SubmissionEligibility          string `json:"submission_eligibility,omitempty"`
 	TargetAdjustmentPresetsSeconds []int  `json:"target_adjustment_presets_seconds"`
 }
 
@@ -381,6 +384,7 @@ func encodeState(state store.EventInterchangeState) ([]byte, error) {
 			ContentLanguage:                state.Event.ContentLanguage,
 			EventDayBoundary:               state.Event.EventDayBoundary,
 			EntryDefaultDisposition:        state.Event.EntryDefaultDisposition,
+			SubmissionEligibility:          state.Event.SubmissionEligibility,
 			TargetAdjustmentPresetsSeconds: presets,
 		},
 		Locations: []namedDocument{},
@@ -488,8 +492,17 @@ func decodePlan(ctx context.Context, encoded []byte) (importPlan, error) {
 	if source.Format != format {
 		return importPlan{}, invalid("format", "must be "+format)
 	}
-	if source.Version != version {
+	if source.Version < minimumVersion || source.Version > version {
 		return importPlan{}, ErrUnsupportedVersion
+	}
+	if source.Version == 1 && source.Event.SubmissionEligibility != "" {
+		return importPlan{}, invalid(
+			"event.submission_eligibility",
+			"is not part of Event interchange version 1",
+		)
+	}
+	if source.Version == 2 && source.Event.SubmissionEligibility == "" {
+		return importPlan{}, invalid("event.submission_eligibility", "must be present")
 	}
 	proposedEvent := events.CreateInput{
 		Name:                           source.Event.Name,
@@ -500,7 +513,11 @@ func decodePlan(ctx context.Context, encoded []byte) (importPlan, error) {
 		ContentLanguage:                source.Event.ContentLanguage,
 		EventDayBoundary:               source.Event.EventDayBoundary,
 		EntryDefaultDisposition:        source.Event.EntryDefaultDisposition,
+		SubmissionEligibility:          source.Event.SubmissionEligibility,
 		TargetAdjustmentPresetsSeconds: source.Event.TargetAdjustmentPresetsSeconds,
+	}
+	if source.Version == 1 {
+		proposedEvent.SubmissionEligibility = "AllAccounts"
 	}
 	eventInput, err := events.ValidateCreateInput(proposedEvent)
 	if err != nil {
@@ -553,6 +570,7 @@ func sameEventInput(left, right events.CreateInput) bool {
 		left.ContentLanguage == right.ContentLanguage &&
 		left.EventDayBoundary == right.EventDayBoundary &&
 		left.EntryDefaultDisposition == right.EntryDefaultDisposition &&
+		left.SubmissionEligibility == right.SubmissionEligibility &&
 		slices.Equal(left.TargetAdjustmentPresetsSeconds, right.TargetAdjustmentPresetsSeconds)
 }
 

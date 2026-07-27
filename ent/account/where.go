@@ -595,6 +595,52 @@ func HasFavoriteSessionsWith(preds ...predicate.FavoriteSession) predicate.Accou
 	})
 }
 
+// HasCompetitionEntries applies the HasEdge predicate on the "competition_entries" edge.
+func HasCompetitionEntries() predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, CompetitionEntriesTable, CompetitionEntriesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasCompetitionEntriesWith applies the HasEdge predicate on the "competition_entries" edge with a given conditions (other predicates).
+func HasCompetitionEntriesWith(preds ...predicate.CompetitionEntry) predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := newCompetitionEntriesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasVotingEligibilities applies the HasEdge predicate on the "voting_eligibilities" edge.
+func HasVotingEligibilities() predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, VotingEligibilitiesTable, VotingEligibilitiesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasVotingEligibilitiesWith applies the HasEdge predicate on the "voting_eligibilities" edge with a given conditions (other predicates).
+func HasVotingEligibilitiesWith(preds ...predicate.VotingEligibility) predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := newVotingEligibilitiesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasAuditEntries applies the HasEdge predicate on the "audit_entries" edge.
 func HasAuditEntries() predicate.Account {
 	return predicate.Account(func(s *sql.Selector) {

@@ -29,7 +29,7 @@ func (AttachmentVersion) Fields() []ent.Field {
 		field.Int64("size_bytes").NonNegative().Immutable(),
 		field.String("sha256").NotEmpty().MaxLen(64).Immutable(),
 		field.String("storage_key").NotEmpty().MaxLen(200).Immutable(),
-		field.Enum("uploader_type").Values("UploadLink", "Crew").Immutable(),
+		field.Enum("uploader_type").Values("UploadLink", "Crew", "Account").Immutable(),
 		field.Int("uploader_id").Positive().Immutable(),
 		field.Bool("final").Default(false),
 		field.Bool("primary").Default(false),
