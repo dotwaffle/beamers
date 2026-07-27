@@ -44,7 +44,7 @@ description = "Run the complete test suite"
 run = """
 sh scripts/check-build-toolchain_test.sh
 sh scripts/check-release-evidence_test.sh
-go test -race -parallel 2 ./...
+go test -race ./...
 """
 
 [tasks.browser-test]
