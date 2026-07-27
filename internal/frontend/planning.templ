@@ -90,7 +90,7 @@ func planningContains(values []int, wanted int) bool {
 
 templ Planning(page PlanningPage) {
 	<!doctype html>
-	<html lang="en">
+		<html lang={ page.Event.EventLocale } data-locale={ page.Event.EventLocale }>
 		@Head("Plan and publish · Beamers")
 		<body data-reduced-effects={ strconv.FormatBool(page.ReducedEffects) }>
 			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, true)
@@ -147,6 +147,25 @@ templ Planning(page PlanningPage) {
 							}
 							for _, session := range page.Rundown.Sessions {
 								<li>Session #{ strconv.Itoa(session.ID) }: { session.Title }</li>
+							}
+						</ul>
+					</section>
+					<section id="competition-entries">
+						<h2>Competition Entries and Attachments</h2>
+						<ul>
+							for _, session := range page.Rundown.Sessions {
+								if session.Type == rundown.SessionCompetition {
+									<li>
+										<a href={ templ.SafeURL(
+											"/backstage/events/" + strconv.Itoa(page.Event.ID) +
+											"/competitions/" + strconv.Itoa(session.ID) + "/entries",
+										) }>
+											Manage { session.Title }
+										</a>
+										— Submission Deadline
+										@EventTime(session.SubmissionDeadline, page.Event.Timezone, page.Event.EventLocale)
+									</li>
+								}
 							}
 						</ul>
 					</section>
@@ -575,6 +594,7 @@ templ Planning(page PlanningPage) {
 					</section>
 				</main>
 			</div>
+			<script src={ EventTimePath } defer></script>
 		</body>
 	</html>
 }

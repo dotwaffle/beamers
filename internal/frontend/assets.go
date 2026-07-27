@@ -14,6 +14,7 @@ const (
 	OpenSansPath      = "/assets/open-sans.ttf"
 	HTMXPath          = "/assets/htmx-2.0.10.min.js"
 	SSEPath           = "/assets/htmx-ext-sse-2.2.4.min.js"
+	EventTimePath     = "/assets/event-time.js"
 )
 
 //go:embed frontend.css vendor/*.js vendor/fonts/*
@@ -35,6 +36,8 @@ func Asset(path string) ([]byte, error) {
 		name = "vendor/htmx-2.0.10.min.js"
 	case SSEPath:
 		name = "vendor/htmx-ext-sse-2.2.4.min.js"
+	case EventTimePath:
+		name = "vendor/event-time.js"
 	default:
 		return nil, errors.New("unknown Frontend asset")
 	}

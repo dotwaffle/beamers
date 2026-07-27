@@ -19,6 +19,7 @@ import (
 
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/frontend"
+	"github.com/dotwaffle/beamers/internal/rundown"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
@@ -34,12 +35,14 @@ type frontendHandlers struct {
 	logger         *slog.Logger
 	limiter        *authFailureLimiter
 	random         io.Reader
+	rundown        *rundown.Queries
 }
 
 func registerFrontendRoutes(
 	mux *routeMux,
 	authentication *auth.Service,
 	limiter *authFailureLimiter,
+	rundownQueries *rundown.Queries,
 	logger *slog.Logger,
 ) error {
 	handlers := frontendHandlers{
@@ -47,6 +50,7 @@ func registerFrontendRoutes(
 		logger:         logger,
 		limiter:        limiter,
 		random:         rand.Reader,
+		rundown:        rundownQueries,
 	}
 	formRoute := browserPageRoute()
 	formRoute.maxBodyBytes = maxAuthBodyBytes
@@ -69,6 +73,7 @@ func registerFrontendRoutes(
 		frontend.OpenSansPath,
 		frontend.HTMXPath,
 		frontend.SSEPath,
+		frontend.EventTimePath,
 	} {
 		handler, err := handlers.asset(path)
 		if err != nil {
@@ -312,6 +317,11 @@ func (handlers frontendHandlers) backstage(response http.ResponseWriter, request
 		http.NotFound(response, request)
 		return
 	}
+	navigation, err := handlers.backstageCompetitionNavigation(request, actor, navigation)
+	if err != nil {
+		handlers.frontendError(response, request, "read Competition navigation", err)
+		return
+	}
 	csrfToken, err := handlers.csrfToken(response, request)
 	if err != nil {
 		handlers.frontendError(response, request, "create CSRF proof", err)
@@ -332,6 +342,66 @@ func (handlers frontendHandlers) backstage(response http.ResponseWriter, request
 
 type backstageNavigationModel = frontend.BackstageNavigation
 type backstageEventNavigation = frontend.BackstageEvent
+
+func (handlers frontendHandlers) backstageCompetitionNavigation(
+	request *http.Request,
+	account auth.Account,
+	navigation backstageNavigationModel,
+) (backstageNavigationModel, error) {
+	for eventIndex := range navigation.Events {
+		event := &navigation.Events[eventIndex]
+		if account.EventRoles[event.ID] != viewer.Operator {
+			continue
+		}
+		sectionIndex := slices.IndexFunc(event.Sections, func(section frontend.BackstageSection) bool {
+			return section.ID == "event-"+strconv.Itoa(event.ID)+"-entries"
+		})
+		if sectionIndex < 0 {
+			continue
+		}
+		state, err := handlers.rundown.CrewRundown(request.Context(), account, event.ID)
+		if err != nil {
+			return backstageNavigationModel{}, err
+		}
+		sections := append([]frontend.BackstageSection(nil), event.Sections[:sectionIndex]...)
+		for _, session := range state.Sessions {
+			if session.Type != rundown.SessionCompetition ||
+				!canAccessCompetition(account, event.ID, session) {
+				continue
+			}
+			sections = append(sections, frontend.BackstageSection{
+				ID:    "event-" + strconv.Itoa(event.ID) + "-competition-" + strconv.Itoa(session.ID),
+				Label: session.Title + " Entries and Attachments",
+				Href:  competitionEntriesPath(event.ID, session.ID),
+			})
+		}
+		event.Sections = append(sections, event.Sections[sectionIndex+1:]...)
+	}
+	return navigation, nil
+}
+
+func canAccessCompetition(
+	account auth.Account,
+	eventID int,
+	session rundown.CrewSession,
+) bool {
+	identity := viewer.Identity{
+		EventRoles:  account.EventRoles,
+		EventScopes: account.EventScopes,
+	}
+	if identity.CanProduceEvent(eventID) {
+		return true
+	}
+	if len(session.LaneIDs) == 0 {
+		return false
+	}
+	for _, laneID := range session.LaneIDs {
+		if !identity.CanOperateLane(eventID, laneID) {
+			return false
+		}
+	}
+	return true
+}
 
 func backstageNavigation(account auth.Account) backstageNavigationModel {
 	eventIDs := make([]int, 0, len(account.EventRoles))
@@ -377,7 +447,8 @@ func backstageNavigation(account auth.Account) backstageNavigationModel {
 				backstageSection(eventID, "emergency", "Emergency Alerts"),
 			)
 		}
-		if role == viewer.Producer {
+		if role == viewer.Producer ||
+			role == viewer.Operator && len(scope.LaneIDs) != 0 {
 			sections = append(sections,
 				backstageSection(eventID, "entries", "Competition Entries and Attachments"),
 			)
@@ -401,6 +472,10 @@ func backstageSection(eventID int, fragment, label string) frontend.BackstageSec
 	href := "/backstage#" + id
 	if fragment == "planning" {
 		href = "/backstage/events/" + strconv.Itoa(eventID) + "/planning"
+	}
+	if fragment == "entries" {
+		href = "/backstage/events/" + strconv.Itoa(eventID) +
+			"/planning#competition-entries"
 	}
 	return frontend.BackstageSection{
 		ID:    id,
@@ -731,14 +806,36 @@ func (handlers frontendHandlers) validForm(
 		http.Error(response, "invalid form submission", http.StatusBadRequest)
 		return false
 	}
-	cookie, err := request.Cookie(csrfCookieName)
-	provided := request.Form.Get("csrf_token")
-	if err != nil || !validCSRFToken(cookie.Value) || !validCSRFToken(provided) ||
-		subtle.ConstantTimeCompare([]byte(cookie.Value), []byte(provided)) != 1 {
+	if !validCSRFProof(request) {
 		http.Error(response, "invalid CSRF proof", http.StatusForbidden)
 		return false
 	}
 	return true
+}
+
+func (handlers frontendHandlers) validMultipartForm(
+	response http.ResponseWriter,
+	request *http.Request,
+) bool {
+	mediaType, _, err := mime.ParseMediaType(request.Header.Get("Content-Type"))
+	if err != nil || mediaType != "multipart/form-data" ||
+		!sameOrigin(request) ||
+		request.ParseMultipartForm(64<<20) != nil { //nolint:gosec // Route bytes are bounded.
+		http.Error(response, "invalid form submission", http.StatusBadRequest)
+		return false
+	}
+	if !validCSRFProof(request) {
+		http.Error(response, "invalid CSRF proof", http.StatusForbidden)
+		return false
+	}
+	return true
+}
+
+func validCSRFProof(request *http.Request) bool {
+	cookie, err := request.Cookie(csrfCookieName)
+	provided := request.FormValue("csrf_token")
+	return err == nil && validCSRFToken(cookie.Value) && validCSRFToken(provided) &&
+		subtle.ConstantTimeCompare([]byte(cookie.Value), []byte(provided)) == 1
 }
 
 func (handlers frontendHandlers) csrfToken(

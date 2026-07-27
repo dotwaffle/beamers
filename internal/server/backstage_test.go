@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/rundown"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
@@ -59,6 +60,7 @@ func TestBackstageNavigationReflectsEffectiveAuthority(t *testing.T) {
 		"Sessions and Displays",
 		"Program Output and Overrides",
 		"Emergency Alerts",
+		"Competition Entries and Attachments",
 		"Results and Prizegiving",
 	}) {
 		t.Fatalf("scoped Operator sections = %v", got)
@@ -75,6 +77,23 @@ func TestBackstageNavigationReflectsEffectiveAuthority(t *testing.T) {
 	}
 }
 
+func TestCompetitionAccessRequiresEverySessionLane(t *testing.T) {
+	account := auth.Account{
+		EventRoles: map[int]viewer.Role{1: viewer.Operator},
+		EventScopes: map[int]viewer.EventScope{
+			1: {LaneIDs: map[int]struct{}{7: {}}},
+		},
+	}
+	session := rundown.CrewSession{LaneIDs: []int{7, 8}}
+	if canAccessCompetition(account, 1, session) {
+		t.Fatal("Operator with partial Competition Lane scope received access")
+	}
+	account.EventScopes[1].LaneIDs[8] = struct{}{}
+	if !canAccessCompetition(account, 1, session) {
+		t.Fatal("Operator with complete Competition Lane scope denied access")
+	}
+}
+
 func TestBackstageNavigationRejectsAttendeeAndSeparatesRouteInterfaces(t *testing.T) {
 	if navigation := backstageNavigation(auth.Account{}); navigation.Administrator ||
 		len(navigation.Events) != 0 {
@@ -82,7 +101,7 @@ func TestBackstageNavigationRejectsAttendeeAndSeparatesRouteInterfaces(t *testin
 	}
 
 	routes := newRouteMux()
-	if err := registerFrontendRoutes(routes, nil, nil, nil); err != nil {
+	if err := registerFrontendRoutes(routes, nil, nil, nil, nil); err != nil {
 		t.Fatalf("register Frontend routes: %v", err)
 	}
 	registerPlanningRoutes(routes, nil, nil, nil, nil, nil, nil)

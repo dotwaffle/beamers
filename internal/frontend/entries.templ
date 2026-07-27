@@ -1,0 +1,423 @@
+package frontend
+
+import (
+	"strconv"
+	"time"
+
+	"github.com/dotwaffle/beamers/internal/attachments"
+	"github.com/dotwaffle/beamers/internal/competition"
+	"github.com/dotwaffle/beamers/internal/events"
+	"github.com/dotwaffle/beamers/internal/programcontrol"
+	"github.com/dotwaffle/beamers/internal/store"
+)
+
+type CompetitionEntriesPage struct {
+	AccountID      int
+	AccountName    string
+	Producer       bool
+	CSRFToken     string
+	ReducedEffects bool
+	Navigation    BackstageNavigation
+	CommandID     string
+	Event         events.Event
+	State         competition.State
+	Preflight     competition.Preflight
+	Attachments   attachments.CrewState
+	Program       programcontrol.State
+	Error         string
+}
+
+func entriesTime(value time.Time, timezone string) string {
+	location, err := time.LoadLocation(timezone)
+	if err != nil {
+		location = time.UTC
+	}
+	return value.In(location).Format("2006-01-02 15:04 MST")
+}
+
+templ EventTime(value time.Time, timezone, locale string) {
+	<time
+		data-event-time
+		datetime={ value.UTC().Format(time.RFC3339) }
+		data-timezone={ timezone }
+		data-locale={ locale }
+	>{ entriesTime(value, timezone) }</time>
+}
+
+func entryAttachmentVersions(values []attachments.Version, entryID int) []attachments.Version {
+	result := make([]attachments.Version, 0)
+	for _, value := range values {
+		if value.OwnerID == entryID {
+			result = append(result, value)
+		}
+	}
+	return result
+}
+
+func entryReopenWindows(values []store.ReopenWindow, entryID int) []store.ReopenWindow {
+	result := make([]store.ReopenWindow, 0)
+	for _, value := range values {
+		if value.TargetID == entryID {
+			result = append(result, value)
+		}
+	}
+	return result
+}
+
+func entryUploadPath(eventID, sessionID int) string {
+	return "/backstage/events/" + strconv.Itoa(eventID) +
+		"/competitions/" + strconv.Itoa(sessionID) + "/entries/upload"
+}
+
+func entryVersionPath(eventID, versionID int) string {
+	return "/crew/events/" + strconv.Itoa(eventID) +
+		"/attachment-versions/" + strconv.Itoa(versionID)
+}
+
+templ CompetitionEntries(page CompetitionEntriesPage) {
+	<!doctype html>
+	<html lang={ page.Event.EventLocale } data-locale={ page.Event.EventLocale }>
+		@Head("Competition Entries and Attachments · Beamers")
+		<body data-reduced-effects={ strconv.FormatBool(page.ReducedEffects) }>
+			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, true)
+			<div class="backstage-layout">
+				@BackstageNavigationViews(page.Navigation)
+				<main>
+					<h1>Competition Entries and Attachments</h1>
+					<p><strong>Submission Deadline:</strong> @EventTime(page.State.SubmissionDeadline, page.Event.Timezone, page.Event.EventLocale)</p>
+					<p>Forecast Time is managed independently in Program Control.</p>
+					if page.Error != "" {
+						<p class="error" role="alert">{ page.Error }</p>
+					}
+					<section aria-labelledby="start-preflight">
+						<h2 id="start-preflight">Start preflight</h2>
+						if len(page.Preflight.Blockers) == 0 {
+							<p>Ready to start.</p>
+						} else {
+							for _, blocker := range page.Preflight.Blockers {
+								<p class="error" role="alert">
+									if blocker.EntryID > 0 {
+										Entry #{ strconv.Itoa(blocker.EntryID) }:
+									}
+									{ blocker.Code }: { blocker.Message }
+								</p>
+							}
+						}
+						if page.Producer {
+							<form method="post">
+								<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+								<input type="hidden" name="action" value="configure-readiness"/>
+								<input type="hidden" name="command_id" value={ page.CommandID }/>
+								<input type="hidden" name="expected_readiness_revision" value={ strconv.Itoa(page.State.ReadinessRevision) }/>
+								<label>
+									<input type="checkbox" name="require_entry_review" value="true" checked?={ page.State.RequireEntryReview }/>
+									Require current Entry review
+								</label>
+								<label>
+									<input type="checkbox" name="file_delivery_required" value="true" checked?={ page.State.FileDeliveryRequired }/>
+									File Delivery Required
+								</label>
+								<button type="submit">Configure readiness</button>
+							</form>
+						}
+					</section>
+					<section>
+						<h2>Entry order</h2>
+						<p>
+							Policy: { string(page.State.EntryOrder.Policy) }.
+							Canonical order:
+							if len(page.State.EntryOrder.EntryIDs) == 0 {
+								{ "none" }
+							} else {
+								for index, id := range page.State.EntryOrder.EntryIDs {
+									if index > 0 {
+										{ ", " }
+									}
+									{ strconv.Itoa(id) }
+								}
+							}
+						</p>
+						if page.Producer {
+							<form method="post">
+								<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+								<input type="hidden" name="action" value="configure-order"/>
+								<input type="hidden" name="command_id" value={ page.CommandID }/>
+								<input type="hidden" name="expected_order_revision" value={ strconv.Itoa(page.State.EntryOrder.Revision) }/>
+								<label>Order policy
+									<select name="order_policy">
+										<option>SubmissionOrder</option>
+										<option>ManualOrder</option>
+										<option>DeterministicShuffle</option>
+									</select>
+								</label>
+								<label>Shuffle seed <input type="number" name="order_seed" value={ strconv.FormatInt(page.State.EntryOrder.Seed, 10) }/></label>
+								<label>Manual Entry IDs, comma-separated <input name="manual_entry_ids"/></label>
+								<button type="submit">Configure Entry order</button>
+							</form>
+						}
+					</section>
+					<section>
+						<h2>Program Control</h2>
+						if page.Program.Owner == nil {
+							<p>No Control Owner.</p>
+							<form method="post">
+								<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+								<input type="hidden" name="action" value="claim-control"/>
+								<input type="hidden" name="command_id" value={ page.CommandID }/>
+								<input type="hidden" name="expected_control_revision" value={ strconv.Itoa(page.Program.ControlRevision) }/>
+								<button type="submit">Claim Control to defer Entries</button>
+							</form>
+						} else {
+							<p>Control Owner: { page.Program.Owner.Name }</p>
+						}
+						<p>
+							Current: { page.Program.Channel.Current.Title };
+							Next: { page.Program.Channel.Next.Title };
+							Program revision { strconv.Itoa(page.Program.Channel.Revision) }
+						</p>
+					</section>
+					<section>
+						<h2>Attachment Release Policy</h2>
+						<p>Event default: { string(page.Attachments.EventRelease.Policy) }</p>
+						if page.Attachments.CompetitionRelease.Override {
+							<p>Competition override: { string(page.Attachments.CompetitionRelease.Policy) }</p>
+						} else {
+							<p>Competition override: none</p>
+						}
+						if page.Producer {
+							<form method="post">
+								<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+								<input type="hidden" name="action" value="competition-release-policy"/>
+								<input type="hidden" name="command_id" value={ page.CommandID }/>
+								<input type="hidden" name="expected_revision" value={ strconv.Itoa(page.Attachments.CompetitionRelease.Revision) }/>
+								<label>
+									<input type="checkbox" name="override" value="true" checked?={ page.Attachments.CompetitionRelease.Override }/>
+									Override Event policy
+								</label>
+								<label>Release Policy
+									<select name="release_policy">
+										<option>OnLive</option>
+										<option>OnEnded</option>
+										<option>OnEventReleaseCue</option>
+									</select>
+								</label>
+								<button type="submit">Configure release policy</button>
+							</form>
+						}
+					</section>
+					if page.Producer {
+						<section>
+							<h2>Create Entry</h2>
+							<form class="stack" method="post">
+								<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+								<input type="hidden" name="action" value="create-entry"/>
+								<input type="hidden" name="command_id" value={ page.CommandID }/>
+								<label>Entry name <input name="entry_name" required/></label>
+								<label>Public details <textarea name="public_details"></textarea></label>
+								<label>Crew notes <textarea name="crew_notes"></textarea></label>
+								<button type="submit">Create Entry</button>
+							</form>
+						</section>
+					}
+					<section>
+						<h2>Entries</h2>
+						if len(page.State.Entries) == 0 {
+							<p>No Entries yet.</p>
+						}
+						for _, entry := range page.State.Entries {
+							<article>
+								<h3>{ entry.Name }</h3>
+								<p>{ entry.PublicDetails }</p>
+								<p><strong>Crew notes:</strong> { entry.CrewNotes }</p>
+								<p>
+									Disposition: { string(entry.Disposition) };
+									revision { strconv.Itoa(entry.Revision) };
+									review current: { strconv.FormatBool(entry.ReviewCurrent) }
+								</p>
+								<p>
+									Presentation: { entry.PresentationStatus };
+									Result: { entry.ResultDisposition };
+									Entry Release Hold: { strconv.FormatBool(entry.ReleaseHold) }
+								</p>
+								if entry.TechnicalFailureReason != "" {
+									<p><strong>Technical Failure:</strong> { entry.TechnicalFailureReason }</p>
+								}
+								if page.Producer {
+									<form class="stack" method="post">
+										<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+										<input type="hidden" name="action" value="update-entry"/>
+										<input type="hidden" name="command_id" value={ page.CommandID }/>
+										<input type="hidden" name="entry_id" value={ strconv.Itoa(entry.ID) }/>
+										<input type="hidden" name="expected_revision" value={ strconv.Itoa(entry.Revision) }/>
+										<label>Entry name <input name="entry_name" value={ entry.Name } required/></label>
+										<label>Public details <textarea name="public_details">{ entry.PublicDetails }</textarea></label>
+										<label>Crew notes <textarea name="crew_notes">{ entry.CrewNotes }</textarea></label>
+										<button type="submit">Update Entry</button>
+									</form>
+									<form method="post">
+										<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+										<input type="hidden" name="action" value="review-entry"/>
+										<input type="hidden" name="command_id" value={ page.CommandID }/>
+										<input type="hidden" name="entry_id" value={ strconv.Itoa(entry.ID) }/>
+										<input type="hidden" name="expected_revision" value={ strconv.Itoa(entry.Revision) }/>
+										<button type="submit">Review Entry</button>
+									</form>
+									<form method="post">
+										<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+										<input type="hidden" name="action" value="change-disposition"/>
+										<input type="hidden" name="command_id" value={ page.CommandID }/>
+										<input type="hidden" name="entry_id" value={ strconv.Itoa(entry.ID) }/>
+										<input type="hidden" name="expected_revision" value={ strconv.Itoa(entry.Revision) }/>
+										<label>Disposition
+											<select name="disposition">
+												<option>Pending</option>
+												<option>Included</option>
+												<option>Rejected</option>
+											</select>
+										</label>
+										<button type="submit">Change disposition</button>
+									</form>
+								}
+								<form method="post">
+									<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+									<input type="hidden" name="action" value="record-technical-failure"/>
+									<input type="hidden" name="command_id" value={ page.CommandID }/>
+									<input type="hidden" name="entry_id" value={ strconv.Itoa(entry.ID) }/>
+									<input type="hidden" name="expected_revision" value={ strconv.Itoa(entry.Revision) }/>
+									<label>Technical Failure Crew Reason <input name="crew_reason" required/></label>
+									<button type="submit">Record Technical Failure</button>
+								</form>
+								if page.Producer {
+									<form method="post">
+										<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+										<input type="hidden" name="action" value="resolve-entry"/>
+										<input type="hidden" name="command_id" value={ page.CommandID }/>
+										<input type="hidden" name="entry_id" value={ strconv.Itoa(entry.ID) }/>
+										<input type="hidden" name="expected_revision" value={ strconv.Itoa(entry.Revision) }/>
+										<label>Final resolution
+											<select name="result_disposition">
+												<option>Eligible</option>
+												<option>Disqualified</option>
+												<option>Withheld</option>
+											</select>
+										</label>
+										<label>Crew Reason <input name="crew_reason" required/></label>
+										<label>Public disqualification message <input name="public_disqualification_message"/></label>
+										<button type="submit">Resolve Entry</button>
+									</form>
+									<form method="post">
+										<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+										<input type="hidden" name="action" value="entry-release-hold"/>
+										<input type="hidden" name="command_id" value={ page.CommandID }/>
+										<input type="hidden" name="entry_id" value={ strconv.Itoa(entry.ID) }/>
+										<input type="hidden" name="expected_revision" value={ strconv.Itoa(entry.Revision) }/>
+										<label><input type="checkbox" name="hold" value="true" checked?={ entry.ReleaseHold }/> Entry Release Hold</label>
+										<label>Crew Reason <input name="crew_reason" required/></label>
+										<button type="submit">Set Entry Release Hold</button>
+									</form>
+								}
+								if page.Program.Owner != nil && page.Program.Owner.AccountID == page.AccountID {
+									<form method="post">
+										<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+										<input type="hidden" name="action" value="defer-entry"/>
+										<input type="hidden" name="command_id" value={ page.CommandID }/>
+										<input type="hidden" name="entry_id" value={ strconv.Itoa(entry.ID) }/>
+										<input type="hidden" name="expected_revision" value={ strconv.Itoa(entry.Revision) }/>
+										<input type="hidden" name="expected_program_revision" value={ strconv.Itoa(page.Program.Channel.Revision) }/>
+										<input type="hidden" name="expected_control_revision" value={ strconv.Itoa(page.Program.ControlRevision) }/>
+										<button type="submit">Defer Entry</button>
+									</form>
+								}
+								if page.Producer {
+									<form class="stack" method="post" enctype="multipart/form-data" action={ templ.SafeURL(entryUploadPath(page.State.EventID, page.State.SessionID)) }>
+										<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+										<input type="hidden" name="command_id" value={ page.CommandID }/>
+										<input type="hidden" name="entry_id" value={ strconv.Itoa(entry.ID) }/>
+										<label>Attachment name <input name="name" required/></label>
+										<label>File <input type="file" name="file" required/></label>
+										<label>
+											<input type="checkbox" name="crew_only" value="true"/>
+											Crew Only Release Eligibility
+										</label>
+										<button type="submit">Upload immutable Version</button>
+									</form>
+								}
+								<h4>Attachment Versions</h4>
+								if len(entryAttachmentVersions(page.Attachments.Versions, entry.ID)) == 0 {
+									<p>No Attachment Versions.</p>
+								}
+								for _, version := range entryAttachmentVersions(page.Attachments.Versions, entry.ID) {
+									<section>
+										<h5>{ version.Name } — Version { strconv.Itoa(version.Version) }</h5>
+										<p>
+											<a href={ templ.SafeURL(entryVersionPath(page.State.EventID, version.ID)) }>
+												{ version.OriginalFilename }
+											</a>
+										</p>
+										<p>SHA-256: { version.SHA256 }</p>
+										<p>
+											Final: { strconv.FormatBool(version.Final) };
+											Primary: { strconv.FormatBool(version.Primary) };
+											Release Eligibility: { string(version.ReleaseEligibility) };
+											Release Hold: { strconv.FormatBool(version.ReleaseHold) }
+										</p>
+										if page.Producer {
+											<form method="post">
+												<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+												<input type="hidden" name="action" value="attachment-readiness"/>
+												<input type="hidden" name="command_id" value={ page.CommandID }/>
+												<input type="hidden" name="entry_id" value={ strconv.Itoa(entry.ID) }/>
+												<input type="hidden" name="version_id" value={ strconv.Itoa(version.ID) }/>
+												<input type="hidden" name="expected_revision" value={ strconv.Itoa(version.ReadinessRevision) }/>
+												<label><input type="checkbox" name="final" value="true" checked?={ version.Final }/> Final Version</label>
+												<label><input type="checkbox" name="primary" value="true" checked?={ version.Primary }/> Primary Attachment</label>
+												<button type="submit">Set Final and Primary</button>
+											</form>
+											<form method="post">
+												<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+												<input type="hidden" name="action" value="version-release-hold"/>
+												<input type="hidden" name="command_id" value={ page.CommandID }/>
+												<input type="hidden" name="version_id" value={ strconv.Itoa(version.ID) }/>
+												<input type="hidden" name="expected_revision" value={ strconv.Itoa(version.ReleaseRevision) }/>
+												<label><input type="checkbox" name="hold" value="true" checked?={ version.ReleaseHold }/> Release Hold</label>
+												<button type="submit">Set Version Release Hold</button>
+											</form>
+										}
+									</section>
+								}
+								<h4>Reopen Windows</h4>
+								for _, window := range entryReopenWindows(page.Attachments.ReopenWindows, entry.ID) {
+									if window.ClosedAt.IsZero() {
+										<p>
+											Open until
+											@EventTime(window.ExpiresAt, page.Event.Timezone, page.Event.EventLocale)
+											: { window.Reason }
+										</p>
+									} else {
+										<p>
+											Closed
+											@EventTime(window.ClosedAt, page.Event.Timezone, page.Event.EventLocale)
+											: { window.Reason }
+										</p>
+									}
+								}
+								if page.Producer {
+									<form method="post">
+										<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+										<input type="hidden" name="action" value="create-reopen-window"/>
+										<input type="hidden" name="command_id" value={ page.CommandID }/>
+										<input type="hidden" name="entry_id" value={ strconv.Itoa(entry.ID) }/>
+										<label>Reopen reason <input name="reason" required/></label>
+										<label>Expires at ({ page.Event.Timezone }) <input type="datetime-local" name="expires_at" required/></label>
+										<button type="submit">Create bounded Reopen Window</button>
+									</form>
+								}
+							</article>
+						}
+					</section>
+				</main>
+			</div>
+			<script src={ EventTimePath } defer></script>
+		</body>
+	</html>
+}

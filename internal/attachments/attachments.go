@@ -122,6 +122,14 @@ type Version struct {
 	CreatedAt          time.Time          `json:"created_at"`
 }
 
+// CrewState is private Competition Attachment state safe for Backstage rendering.
+type CrewState struct {
+	Versions           []Version
+	ReopenWindows      []store.ReopenWindow
+	EventRelease       store.AttachmentReleaseConfiguration
+	CompetitionRelease store.CompetitionAttachmentReleaseConfiguration
+}
+
 // UploadInput contains one bounded file stream and logical owner.
 type UploadInput struct {
 	Token, CommandID, Name, OriginalFilename, MediaType string
@@ -642,6 +650,36 @@ func (service *Service) ReadVersion(
 		return Version{}, nil, errors.New("attachment integrity check failed")
 	}
 	return version(stored), content, nil
+}
+
+// CompetitionCrewState returns private metadata without storage paths or file bytes.
+func (service *Service) CompetitionCrewState(
+	ctx context.Context,
+	actor auth.Account,
+	eventID, sessionID int,
+) (CrewState, error) {
+	if eventID <= 0 || sessionID <= 0 {
+		return CrewState{}, ErrInvalidInput
+	}
+	if actor.EventRoles[eventID] == "" {
+		return CrewState{}, ErrProducerRequired
+	}
+	stored, err := service.storage.LoadCompetitionAttachmentCrewState(
+		actor.Context(ctx), eventID, sessionID,
+	)
+	if err != nil {
+		return CrewState{}, err
+	}
+	result := CrewState{
+		Versions:           make([]Version, 0, len(stored.Versions)),
+		ReopenWindows:      stored.ReopenWindows,
+		EventRelease:       stored.EventRelease,
+		CompetitionRelease: stored.CompetitionRelease,
+	}
+	for _, found := range stored.Versions {
+		result.Versions = append(result.Versions, version(found))
+	}
+	return result, nil
 }
 
 // ConfigureEventRelease changes the Event's default Attachment trigger.

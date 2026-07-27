@@ -12,6 +12,17 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
+
+	"connectrpc.com/connect"
+	"google.golang.org/protobuf/proto"
+
+	competitionv1 "github.com/dotwaffle/beamers/gen/beamers/competition/v1"
+	"github.com/dotwaffle/beamers/gen/beamers/competition/v1/competitionv1connect"
+	programv1 "github.com/dotwaffle/beamers/gen/beamers/program/v1"
+	"github.com/dotwaffle/beamers/gen/beamers/program/v1/programv1connect"
+	sessionv1 "github.com/dotwaffle/beamers/gen/beamers/session/v1"
+	"github.com/dotwaffle/beamers/gen/beamers/session/v1/sessionv1connect"
 )
 
 var frontendCSRFInput = regexp.MustCompile(`name="csrf_token" value="([^"]+)"`)
@@ -872,10 +883,718 @@ func TestBrowserPlansAndPublishesEvent(t *testing.T) {
 	server.stop(t)
 }
 
+func TestBrowserManagesCompetitionEntries(t *testing.T) {
+	administrator, server := startAuthenticatedAdministratorWithPublicListener(t)
+	administrator.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	prepareActiveSchedule(t, administrator, server)
+	competitionID, _ := addCompetitionSession(t, administrator, server)
+	path := "/backstage/events/1/competitions/" +
+		strconv.FormatInt(competitionID, 10) + "/entries"
+
+	page := getFrontendPage(t, administrator, server.address, path)
+	for _, want := range []string{
+		"Competition Entries and Attachments",
+		`<html lang="en-GB" data-locale="en-GB">`,
+		`href="/backstage/events/1/planning#competition-entries"`,
+		"Submission Deadline",
+		"2099-08-21 13:30 CEST",
+		`src="/assets/event-time.js"`,
+		"Start preflight",
+		`name="entry_name"`,
+	} {
+		if page.status != http.StatusOK || !strings.Contains(page.body, want) {
+			t.Fatalf("Competition Entries page lacks %q: %d %q", want, page.status, page.body)
+		}
+	}
+	planning := getFrontendPage(
+		t,
+		administrator,
+		server.address,
+		"/backstage/events/1/planning",
+	)
+	if !strings.Contains(planning.body, `href="`+path+`"`) ||
+		!strings.Contains(planning.body, "Manage Demo Competition") {
+		t.Fatalf("published Competition lacks Entries route: %d %q", planning.status, planning.body)
+	}
+	unscopedOperator := provisionOperatorWithLanes(t, administrator, server, nil)
+	if denied := getFrontendPage(
+		t, unscopedOperator, server.address, path,
+	); denied.status != http.StatusNotFound {
+		t.Fatalf("unscoped Operator Competition Entries = %d %q", denied.status, denied.body)
+	}
+
+	created := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":     {requireFrontendCSRF(t, page)},
+		"action":         {"create-entry"},
+		"command_id":     {"browser-create-entry"},
+		"entry_name":     {"Project Aurora"},
+		"public_details": {"A public abstract"},
+		"crew_notes":     {"Crew-only staging note"},
+	})
+	if created.status != http.StatusSeeOther || created.header.Get("Location") != path {
+		t.Fatalf("browser Entry creation = %d %q", created.status, created.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	for _, want := range []string{
+		"Project Aurora",
+		"A public abstract",
+		"Crew-only staging note",
+		`name="action" value="review-entry"`,
+		`name="action" value="change-disposition"`,
+	} {
+		if !strings.Contains(page.body, want) {
+			t.Fatalf("created Entry page lacks %q: %q", want, page.body)
+		}
+	}
+	if !strings.Contains(page.body, "missing_file_delivery") ||
+		!strings.Contains(page.body, `role="alert"`) {
+		t.Fatalf("accessible required-file preflight = %d %q", page.status, page.body)
+	}
+	if strings.Contains(page.body, "sha256/") {
+		t.Fatalf("Backstage exposed Attachment storage path: %q", page.body)
+	}
+
+	configured := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":                  {requireFrontendCSRF(t, page)},
+		"action":                      {"configure-readiness"},
+		"command_id":                  {"browser-configure-readiness"},
+		"expected_readiness_revision": {"0"},
+		"require_entry_review":        {"true"},
+	})
+	if configured.status != http.StatusSeeOther {
+		t.Fatalf("configure Competition readiness = %d %q", configured.status, configured.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	if !strings.Contains(page.body, "unresolved_entry_review") ||
+		!strings.Contains(page.body, `role="alert"`) {
+		t.Fatalf("accessible review preflight = %d %q", page.status, page.body)
+	}
+
+	reviewed := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, page)},
+		"action":            {"review-entry"},
+		"command_id":        {"browser-review-entry"},
+		"entry_id":          {"1"},
+		"expected_revision": {"1"},
+	})
+	if reviewed.status != http.StatusSeeOther {
+		t.Fatalf("review Entry = %d %q", reviewed.status, reviewed.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	if !strings.Contains(page.body, "review current: true") {
+		t.Fatalf("reviewed Entry projection = %d %q", page.status, page.body)
+	}
+
+	updated := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, page)},
+		"action":            {"update-entry"},
+		"command_id":        {"browser-update-entry"},
+		"entry_id":          {"1"},
+		"expected_revision": {"2"},
+		"entry_name":        {"Project Aurora Revised"},
+		"public_details":    {"A revised public abstract"},
+		"crew_notes":        {"Revised Crew-only note"},
+	})
+	if updated.status != http.StatusSeeOther {
+		t.Fatalf("edit Entry = %d %q", updated.status, updated.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	if !strings.Contains(page.body, "Project Aurora Revised") ||
+		!strings.Contains(page.body, "review current: false") {
+		t.Fatalf("Entry edit did not invalidate review = %d %q", page.status, page.body)
+	}
+
+	rejected := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, page)},
+		"action":            {"change-disposition"},
+		"command_id":        {"browser-reject-entry"},
+		"entry_id":          {"1"},
+		"expected_revision": {"3"},
+		"disposition":       {"Rejected"},
+	})
+	if rejected.status != http.StatusSeeOther {
+		t.Fatalf("reject Entry = %d %q", rejected.status, rejected.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	if !strings.Contains(page.body, "Disposition: Rejected") {
+		t.Fatalf("rejected Entry projection = %d %q", page.status, page.body)
+	}
+
+	included := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, page)},
+		"action":            {"change-disposition"},
+		"command_id":        {"browser-include-entry"},
+		"entry_id":          {"1"},
+		"expected_revision": {"4"},
+		"disposition":       {"Included"},
+	})
+	if included.status != http.StatusSeeOther {
+		t.Fatalf("include Entry = %d %q", included.status, included.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	second := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":     {requireFrontendCSRF(t, page)},
+		"action":         {"create-entry"},
+		"command_id":     {"browser-create-second-entry"},
+		"entry_name":     {"Project Borealis"},
+		"public_details": {"Second public abstract"},
+	})
+	if second.status != http.StatusSeeOther {
+		t.Fatalf("create second Entry = %d %q", second.status, second.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	orderRevision := frontendNamedValues(page.body, "expected_order_revision").
+		Get("expected_order_revision")
+	reordered := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":              {requireFrontendCSRF(t, page)},
+		"action":                  {"configure-order"},
+		"command_id":              {"browser-reorder-entries"},
+		"expected_order_revision": {orderRevision},
+		"order_policy":            {"ManualOrder"},
+		"manual_entry_ids":        {"2,1"},
+	})
+	if reordered.status != http.StatusSeeOther {
+		t.Fatalf("reorder Entries = %d %q", reordered.status, reordered.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	if !regexp.MustCompile(`Canonical order:\s+2,\s+1`).MatchString(page.body) {
+		t.Fatalf("manual Entry order projection = %d %q", page.status, page.body)
+	}
+	reviewedBeforeUpload := postFrontendForm(
+		t,
+		administrator,
+		server.address,
+		path,
+		url.Values{
+			"csrf_token":        {requireFrontendCSRF(t, page)},
+			"action":            {"review-entry"},
+			"command_id":        {"browser-review-before-upload"},
+			"entry_id":          {"1"},
+			"expected_revision": {frontendEntryRevision(t, page.body, 1)},
+		},
+	)
+	if reviewedBeforeUpload.status != http.StatusSeeOther {
+		t.Fatalf(
+			"review Entry before Attachment replacement = %d %q",
+			reviewedBeforeUpload.status,
+			reviewedBeforeUpload.body,
+		)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	if !strings.Contains(page.body, "review current: true") {
+		t.Fatalf("review before Attachment replacement = %d %q", page.status, page.body)
+	}
+
+	uploadPath := path + "/upload"
+	firstUpload := requestMultipart(
+		t.Context(),
+		administrator,
+		server.address,
+		uploadPath,
+		map[string]string{
+			"csrf_token": requireFrontendCSRF(t, page),
+			"command_id": "browser-upload-v1",
+			"entry_id":   "1",
+			"name":       "slides",
+		},
+		"slides-v1.txt",
+		"text/plain",
+		[]byte("first immutable version"),
+	)
+	if firstUpload.status != http.StatusSeeOther {
+		t.Fatalf("first browser Attachment upload = %d %q", firstUpload.status, firstUpload.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	if !strings.Contains(page.body, "review current: false") {
+		t.Fatalf("Attachment replacement did not invalidate Entry review: %q", page.body)
+	}
+	foreignVersion := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, page)},
+		"action":            {"version-release-hold"},
+		"command_id":        {"browser-foreign-version"},
+		"version_id":        {"999"},
+		"expected_revision": {"0"},
+		"hold":              {"true"},
+	})
+	if foreignVersion.status != http.StatusNotFound {
+		t.Fatalf(
+			"foreign Attachment Version target = %d %q",
+			foreignVersion.status,
+			foreignVersion.body,
+		)
+	}
+	downloaded := getFrontendPage(
+		t,
+		administrator,
+		server.address,
+		"/crew/events/1/attachment-versions/1",
+	)
+	if downloaded.status != http.StatusOK ||
+		downloaded.body != "first immutable version" {
+		t.Fatalf("verified immutable Attachment read = %d %q", downloaded.status, downloaded.body)
+	}
+	secondUpload := requestMultipart(
+		t.Context(),
+		administrator,
+		server.address,
+		uploadPath,
+		map[string]string{
+			"csrf_token": requireFrontendCSRF(t, page),
+			"command_id": "browser-upload-v2",
+			"entry_id":   "1",
+			"name":       "slides",
+		},
+		"slides-v2.txt",
+		"text/plain",
+		[]byte("second immutable version"),
+	)
+	if secondUpload.status != http.StatusSeeOther {
+		t.Fatalf("replacement browser Attachment upload = %d %q", secondUpload.status, secondUpload.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	for _, want := range []string{
+		"slides-v1.txt",
+		"slides-v2.txt",
+		"Version 1",
+		"Version 2",
+		"SHA-256",
+		"Release Eligibility: Public",
+	} {
+		if !strings.Contains(page.body, want) {
+			t.Fatalf("immutable Attachment history lacks %q: %q", want, page.body)
+		}
+	}
+	if strings.Contains(page.body, "sha256/") {
+		t.Fatalf("Attachment history exposed storage path: %q", page.body)
+	}
+
+	ready := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, page)},
+		"action":            {"attachment-readiness"},
+		"command_id":        {"browser-ready-v2"},
+		"entry_id":          {"1"},
+		"version_id":        {"2"},
+		"expected_revision": {"1"},
+		"final":             {"true"},
+		"primary":           {"true"},
+	})
+	if ready.status != http.StatusSeeOther {
+		t.Fatalf("set Final Primary Attachment = %d %q", ready.status, ready.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	if !strings.Contains(page.body, "Final: true") ||
+		!strings.Contains(page.body, "Primary: true") {
+		t.Fatalf("Attachment readiness projection = %d %q", page.status, page.body)
+	}
+
+	held := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, page)},
+		"action":            {"version-release-hold"},
+		"command_id":        {"browser-hold-v2"},
+		"version_id":        {"2"},
+		"expected_revision": {"0"},
+		"hold":              {"true"},
+	})
+	if held.status != http.StatusSeeOther {
+		t.Fatalf("hold Attachment Version release = %d %q", held.status, held.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	if !strings.Contains(page.body, "Release Hold: true") {
+		t.Fatalf("Attachment release hold projection = %d %q", page.status, page.body)
+	}
+
+	policy := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, page)},
+		"action":            {"competition-release-policy"},
+		"command_id":        {"browser-release-policy"},
+		"expected_revision": {"0"},
+		"override":          {"true"},
+		"release_policy":    {"OnEnded"},
+	})
+	if policy.status != http.StatusSeeOther {
+		t.Fatalf("configure Competition Attachment release = %d %q", policy.status, policy.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	if !strings.Contains(page.body, "Competition override: OnEnded") {
+		t.Fatalf("Competition Attachment release projection = %d %q", page.status, page.body)
+	}
+
+	expiresAt := time.Now().UTC().Add(3 * time.Hour).Format("2006-01-02T15:04")
+	reopened := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token": {requireFrontendCSRF(t, page)},
+		"action":     {"create-reopen-window"},
+		"command_id": {"browser-reopen-entry"},
+		"entry_id":   {"1"},
+		"reason":     {"Late corrected slides"},
+		"expires_at": {expiresAt},
+	})
+	if reopened.status != http.StatusSeeOther {
+		t.Fatalf("create Reopen Window = %d %q", reopened.status, reopened.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	if !strings.Contains(page.body, "Late corrected slides") ||
+		!strings.Contains(page.body, "Open until") {
+		t.Fatalf("bounded Reopen Window projection = %d %q", page.status, page.body)
+	}
+	failure := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, page)},
+		"action":            {"record-technical-failure"},
+		"command_id":        {"browser-record-failure"},
+		"entry_id":          {"1"},
+		"expected_revision": {frontendEntryRevision(t, page.body, 1)},
+		"crew_reason":       {"Projector lost signal"},
+	})
+	if failure.status != http.StatusSeeOther {
+		t.Fatalf("record browser Technical Failure = %d %q", failure.status, failure.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	heldEntry := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, page)},
+		"action":            {"entry-release-hold"},
+		"command_id":        {"browser-hold-entry"},
+		"entry_id":          {"1"},
+		"expected_revision": {frontendEntryRevision(t, page.body, 1)},
+		"hold":              {"true"},
+		"crew_reason":       {"Awaiting organizer approval"},
+	})
+	if heldEntry.status != http.StatusSeeOther {
+		t.Fatalf("hold Entry release = %d %q", heldEntry.status, heldEntry.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	if !strings.Contains(page.body, "Projector lost signal") ||
+		!strings.Contains(page.body, "Entry Release Hold: true") {
+		t.Fatalf("independent Entry exception state = %d %q", page.status, page.body)
+	}
+	setCompetitionSubmissionDeadline(
+		t,
+		administrator,
+		server,
+		competitionID,
+		time.Now().UTC().Add(-time.Minute),
+	)
+	page = getFrontendPage(t, administrator, server.address, path)
+	closed := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token": {requireFrontendCSRF(t, page)},
+		"action":     {"create-entry"},
+		"command_id": {"browser-after-deadline"},
+		"entry_name": {"Too late"},
+	})
+	if closed.status != http.StatusGone ||
+		!strings.Contains(closed.body, "fixed Submission Deadline") {
+		t.Fatalf("fixed browser Submission Deadline = %d %q", closed.status, closed.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	reopenedUpload := requestMultipart(
+		t.Context(),
+		administrator,
+		server.address,
+		uploadPath,
+		map[string]string{
+			"csrf_token": requireFrontendCSRF(t, page),
+			"command_id": "browser-upload-reopened",
+			"entry_id":   "1",
+			"name":       "slides",
+		},
+		"slides-v3.txt",
+		"text/plain",
+		[]byte("upload through bounded reopen window"),
+	)
+	if reopenedUpload.status != http.StatusSeeOther {
+		t.Fatalf("browser upload in Reopen Window = %d %q", reopenedUpload.status, reopenedUpload.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	if !strings.Contains(page.body, "slides-v3.txt") ||
+		!strings.Contains(page.body, "Version 3") {
+		t.Fatalf("reopened immutable Attachment Version = %d %q", page.status, page.body)
+	}
+	crewOnlyUpload := requestMultipart(
+		t.Context(),
+		administrator,
+		server.address,
+		uploadPath,
+		map[string]string{
+			"csrf_token": requireFrontendCSRF(t, page),
+			"command_id": "browser-upload-crew-only",
+			"entry_id":   "1",
+			"name":       "organizer notes",
+			"crew_only":  "true",
+		},
+		"organizer.txt",
+		"text/plain",
+		[]byte("crew-only file"),
+	)
+	if crewOnlyUpload.status != http.StatusSeeOther {
+		t.Fatalf("Crew Only Attachment upload = %d %q", crewOnlyUpload.status, crewOnlyUpload.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	if !strings.Contains(page.body, "Release Eligibility: CrewOnly") {
+		t.Fatalf("immutable Release Eligibility projection = %d %q", page.status, page.body)
+	}
+	if public := getFrontendPage(
+		t, authenticatedClient(t), server.publicAddress, path,
+	); public.status != http.StatusNotFound {
+		t.Fatalf("public-listener Entries = %d, want 404", public.status)
+	}
+	server.stop(t)
+}
+
+func TestBrowserDefersAndResolvesCompetitionEntries(t *testing.T) {
+	administrator, server := startAuthenticatedAdministratorWithPublicListener(t)
+	administrator.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	prepareActiveSchedule(t, administrator, server)
+	competitionID, _ := addCompetitionSession(t, administrator, server)
+	path := "/backstage/events/1/competitions/" +
+		strconv.FormatInt(competitionID, 10) + "/entries"
+
+	names := []string{"Aurora", "Beacon", "Comet"}
+	for index, name := range names {
+		page := getFrontendPage(t, administrator, server.address, path)
+		created := postFrontendForm(t, administrator, server.address, path, url.Values{
+			"csrf_token": {requireFrontendCSRF(t, page)},
+			"action":     {"create-entry"},
+			"command_id": {"browser-live-entry-" + strconv.Itoa(index)},
+			"entry_name": {name},
+			"crew_notes": {"private " + name},
+		})
+		if created.status != http.StatusSeeOther {
+			t.Fatalf("create live Entry %q = %d %q", name, created.status, created.body)
+		}
+	}
+	page := getFrontendPage(t, administrator, server.address, path)
+	if configured := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":                  {requireFrontendCSRF(t, page)},
+		"action":                      {"configure-readiness"},
+		"command_id":                  {"browser-live-readiness"},
+		"expected_readiness_revision": {"0"},
+	}); configured.status != http.StatusSeeOther {
+		t.Fatalf("disable live file delivery = %d %q", configured.status, configured.body)
+	}
+
+	sessionClient := sessionv1connect.NewSessionControlServiceClient(
+		administrator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	if _, err := sessionClient.StartSession(t.Context(), connect.NewRequest(
+		&sessionv1.StartSessionRequest{
+			EventId: 1, SessionId: competitionID, CommandId: "start-browser-competition",
+			ExpectedLiveStateRevision: proto.Int64(0),
+		},
+	)); err != nil {
+		t.Fatalf("start browser Competition: %v", err)
+	}
+	operator := provisionOperator(t, administrator, server)
+	operator.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	backstage := getFrontendPage(t, operator, server.address, "/backstage")
+	if backstage.status != http.StatusOK ||
+		!strings.Contains(backstage.body, `href="`+path+`"`) ||
+		!strings.Contains(backstage.body, "Demo Competition Entries and Attachments") {
+		t.Fatalf("Operator Competition Entry navigation = %d %q", backstage.status, backstage.body)
+	}
+	page = getFrontendPage(t, operator, server.address, path)
+	if page.status != http.StatusOK ||
+		!strings.Contains(page.body, `name="action" value="record-technical-failure"`) ||
+		strings.Contains(page.body, `name="action" value="create-entry"`) ||
+		strings.Contains(page.body, `name="action" value="resolve-entry"`) {
+		t.Fatalf("Operator Competition Entry controls = %d %q", page.status, page.body)
+	}
+	claimed := postFrontendForm(t, operator, server.address, path, url.Values{
+		"csrf_token":                {requireFrontendCSRF(t, page)},
+		"action":                    {"claim-control"},
+		"command_id":                {"browser-claim-control"},
+		"expected_control_revision": {"0"},
+	})
+	if claimed.status != http.StatusSeeOther {
+		t.Fatalf("claim browser Program Control = %d %q", claimed.status, claimed.body)
+	}
+
+	programClient := programv1connect.NewProgramControlServiceClient(
+		operator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	competitionClient := competitionv1connect.NewCompetitionServiceClient(
+		administrator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	current, err := programClient.GetProgramChannel(t.Context(), connect.NewRequest(
+		&programv1.GetProgramChannelRequest{EventId: 1, SessionId: competitionID},
+	))
+	if err != nil {
+		t.Fatalf("read claimed Program Channel: %v", err)
+	}
+	channel := current.Msg.GetChannel()
+	for _, commandID := range []string{"take-browser-upcoming", "take-browser-starting"} {
+		taken, takeErr := programClient.Take(t.Context(), connect.NewRequest(
+			&programv1.TakeRequest{
+				EventId: 1, SessionId: competitionID, CommandId: commandID,
+				ExpectedLiveStateRevision:    channel.GetLiveStateRevision(),
+				ExpectedControlStateRevision: channel.GetControlStateRevision(),
+				Preview:                      channel.GetPreview(),
+			},
+		))
+		if takeErr != nil {
+			t.Fatalf("advance browser Competition: %v", takeErr)
+		}
+		channel = taken.Msg.GetChannel()
+	}
+
+	firstDeferredID := channel.GetNext().GetEntryId()
+	page = getFrontendPage(t, operator, server.address, path)
+	deferred := postFrontendForm(t, operator, server.address, path, url.Values{
+		"csrf_token":                {requireFrontendCSRF(t, page)},
+		"action":                    {"defer-entry"},
+		"command_id":                {"browser-defer-first"},
+		"entry_id":                  {strconv.FormatInt(firstDeferredID, 10)},
+		"expected_revision":         {frontendEntryRevision(t, page.body, int(firstDeferredID))},
+		"expected_program_revision": {strconv.FormatInt(channel.GetLiveStateRevision(), 10)},
+		"expected_control_revision": {strconv.FormatInt(channel.GetControlStateRevision(), 10)},
+	})
+	if deferred.status != http.StatusSeeOther {
+		t.Fatalf("defer first browser Entry = %d %q", deferred.status, deferred.body)
+	}
+	current, err = programClient.GetProgramChannel(t.Context(), connect.NewRequest(
+		&programv1.GetProgramChannelRequest{EventId: 1, SessionId: competitionID},
+	))
+	if err != nil {
+		t.Fatalf("read deferred Program Channel: %v", err)
+	}
+	channel = current.Msg.GetChannel()
+	presentedID := channel.GetNext().GetEntryId()
+	order, err := competitionClient.PreviewEntryOrder(t.Context(), connect.NewRequest(
+		&competitionv1.PreviewEntryOrderRequest{EventId: 1, SessionId: competitionID},
+	))
+	if err != nil {
+		t.Fatalf("preview browser Entry Order: %v", err)
+	}
+	taken, err := programClient.Take(t.Context(), connect.NewRequest(
+		&programv1.TakeRequest{
+			EventId: 1, SessionId: competitionID, CommandId: "take-browser-presented",
+			ExpectedLiveStateRevision:    channel.GetLiveStateRevision(),
+			ExpectedControlStateRevision: channel.GetControlStateRevision(),
+			Preview:                      channel.GetPreview(),
+			ExpectedEntryOrderRevision:   order.Msg.GetEntryOrder().GetRevision(),
+			EntryOrderFingerprint:        order.Msg.GetFingerprint(),
+		},
+	))
+	if err != nil {
+		t.Fatalf("present browser Entry: %v", err)
+	}
+	channel = taken.Msg.GetChannel()
+	secondDeferredID := channel.GetNext().GetEntryId()
+	page = getFrontendPage(t, operator, server.address, path)
+	failed := postFrontendForm(t, operator, server.address, path, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, page)},
+		"action":            {"record-technical-failure"},
+		"command_id":        {"browser-live-failure"},
+		"entry_id":          {strconv.FormatInt(secondDeferredID, 10)},
+		"expected_revision": {frontendEntryRevision(t, page.body, int(secondDeferredID))},
+		"crew_reason":       {"Encoder unavailable"},
+	})
+	if failed.status != http.StatusSeeOther {
+		t.Fatalf("record live Technical Failure = %d %q", failed.status, failed.body)
+	}
+	page = getFrontendPage(t, operator, server.address, path)
+	deferred = postFrontendForm(t, operator, server.address, path, url.Values{
+		"csrf_token":                {requireFrontendCSRF(t, page)},
+		"action":                    {"defer-entry"},
+		"command_id":                {"browser-defer-second"},
+		"entry_id":                  {strconv.FormatInt(secondDeferredID, 10)},
+		"expected_revision":         {frontendEntryRevision(t, page.body, int(secondDeferredID))},
+		"expected_program_revision": {strconv.FormatInt(channel.GetLiveStateRevision(), 10)},
+		"expected_control_revision": {strconv.FormatInt(channel.GetControlStateRevision(), 10)},
+	})
+	if deferred.status != http.StatusSeeOther {
+		t.Fatalf("defer second browser Entry = %d %q", deferred.status, deferred.body)
+	}
+
+	preflight, err := competitionClient.PreflightEnd(t.Context(), connect.NewRequest(
+		&competitionv1.PreflightEndRequest{EventId: 1, SessionId: competitionID},
+	))
+	if err != nil || !preflight.Msg.GetRequiresConfirmation() {
+		t.Fatalf("browser Competition End preflight = %+v, %v", preflight, err)
+	}
+	if _, err = sessionClient.EndSession(t.Context(), connect.NewRequest(
+		&sessionv1.EndSessionRequest{
+			EventId: 1, SessionId: competitionID, CommandId: "end-browser-competition",
+			ExpectedLiveStateRevision:  proto.Int64(1),
+			ConfirmedDeferredEntries:   true,
+			DeferredEntriesFingerprint: preflight.Msg.GetFingerprint(),
+		},
+	)); err != nil {
+		t.Fatalf("end browser Competition: %v", err)
+	}
+
+	resolutions := []struct {
+		entryID     int64
+		disposition string
+		reason      string
+		public      string
+	}{
+		{firstDeferredID, "Withheld", "Organizer decision", ""},
+		{presentedID, "Disqualified", "Rules violation", "Disqualified after review"},
+		{secondDeferredID, "Eligible", "Technical failure accepted", ""},
+	}
+	for index, resolution := range resolutions {
+		page = getFrontendPage(t, administrator, server.address, path)
+		result := postFrontendForm(t, administrator, server.address, path, url.Values{
+			"csrf_token":                      {requireFrontendCSRF(t, page)},
+			"action":                          {"resolve-entry"},
+			"command_id":                      {"browser-resolve-" + strconv.Itoa(index)},
+			"entry_id":                        {strconv.FormatInt(resolution.entryID, 10)},
+			"expected_revision":               {frontendEntryRevision(t, page.body, int(resolution.entryID))},
+			"result_disposition":              {resolution.disposition},
+			"crew_reason":                     {resolution.reason},
+			"public_disqualification_message": {resolution.public},
+		})
+		if result.status != http.StatusSeeOther {
+			t.Fatalf(
+				"resolve browser Entry %d as %s = %d %q",
+				resolution.entryID, resolution.disposition, result.status, result.body,
+			)
+		}
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	for _, want := range []string{"Result: Withheld", "Result: Disqualified", "Result: Eligible"} {
+		if !strings.Contains(page.body, want) {
+			t.Fatalf("resolved browser Entries lack %q: %q", want, page.body)
+		}
+	}
+	public := getFrontendPage(
+		t,
+		authenticatedClient(t),
+		server.publicAddress,
+		"/schedule/sessions/"+strconv.FormatInt(competitionID, 10),
+	)
+	withheldName := names[firstDeferredID-1]
+	if strings.Contains(public.body, withheldName) ||
+		strings.Contains(public.body, "Organizer decision") ||
+		strings.Contains(public.body, "Encoder unavailable") ||
+		strings.Contains(public.body, "private ") ||
+		!strings.Contains(public.body, "Disqualified after review") {
+		t.Fatalf("public Competition resolution projection = %d %q", public.status, public.body)
+	}
+	server.stop(t)
+}
+
 type frontendResponse struct {
 	status int
 	header http.Header
 	body   string
+}
+
+func frontendEntryRevision(t *testing.T, body string, entryID int) string {
+	t.Helper()
+	expression := regexp.MustCompile(
+		`name="entry_id" value="` + strconv.Itoa(entryID) +
+			`">\s*<input type="hidden" name="expected_revision" value="([0-9]+)"`,
+	)
+	match := expression.FindStringSubmatch(body)
+	if len(match) != 2 {
+		t.Fatalf("Entry #%d revision not found in %q", entryID, body)
+	}
+	return match[1]
 }
 
 func frontendNamedValues(body string, names ...string) url.Values {

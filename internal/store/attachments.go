@@ -9,6 +9,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/attachment"
 	"github.com/dotwaffle/beamers/ent/attachmentversion"
 	"github.com/dotwaffle/beamers/ent/competitionentry"
+	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/reopenwindow"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
@@ -117,6 +118,14 @@ type ReopenWindow struct {
 	CreatedAt          time.Time        `json:"created_at"`
 	CreatedByAccountID int              `json:"created_by_account_id"`
 	Revision           int              `json:"revision"`
+}
+
+// CompetitionAttachmentCrewState is private Entry file and release state.
+type CompetitionAttachmentCrewState struct {
+	Versions           []AttachmentVersion
+	ReopenWindows      []ReopenWindow
+	EventRelease       AttachmentReleaseConfiguration
+	CompetitionRelease CompetitionAttachmentReleaseConfiguration
 }
 
 // IssueUploadLink revokes prior target credentials and creates a replacement.
@@ -465,6 +474,94 @@ func (installation *SQLite) LoadAttachmentVersion(
 		return AttachmentVersion{}, ErrUploadTargetNotFound
 	}
 	return attachmentVersion(logical, version), nil
+}
+
+// LoadCompetitionAttachmentCrewState returns private file state without file bytes.
+func (installation *SQLite) LoadCompetitionAttachmentCrewState(
+	ctx context.Context,
+	eventID, sessionID int,
+) (CompetitionAttachmentCrewState, error) {
+	internalContext := systemContext(ctx)
+	foundEvent, err := installation.client.Event.Query().
+		Where(event.IDEQ(eventID)).
+		Only(internalContext)
+	if ent.IsNotFound(err) {
+		return CompetitionAttachmentCrewState{}, ErrUploadTargetNotFound
+	}
+	if err != nil {
+		return CompetitionAttachmentCrewState{},
+			opaqueError("load Event Attachment crew state", err)
+	}
+	foundSession, err := installation.client.Session.Query().
+		Where(session.IDEQ(sessionID), session.EventIDEQ(eventID)).
+		Only(internalContext)
+	if ent.IsNotFound(err) {
+		return CompetitionAttachmentCrewState{}, ErrUploadTargetNotFound
+	}
+	if err != nil {
+		return CompetitionAttachmentCrewState{},
+			opaqueError("load Competition Attachment crew state", err)
+	}
+	entries, err := installation.client.CompetitionEntry.Query().
+		Where(
+			competitionentry.EventIDEQ(eventID),
+			competitionentry.CompetitionSessionIDEQ(sessionID),
+		).
+		All(internalContext)
+	if err != nil {
+		return CompetitionAttachmentCrewState{},
+			opaqueError("load Competition Attachment owners", err)
+	}
+	entryIDs := make([]int, 0, len(entries))
+	for _, entry := range entries {
+		entryIDs = append(entryIDs, entry.ID)
+	}
+	result := CompetitionAttachmentCrewState{
+		EventRelease:       eventAttachmentRelease(foundEvent),
+		CompetitionRelease: competitionAttachmentRelease(foundSession),
+	}
+	if len(entryIDs) == 0 {
+		return result, nil
+	}
+	versions, err := installation.client.AttachmentVersion.Query().
+		Where(attachmentversion.HasAttachmentWith(
+			attachment.EventIDEQ(eventID),
+			attachment.OwnerTypeEQ(attachment.OwnerTypeEntry),
+			attachment.OwnerIDIn(entryIDs...),
+		)).
+		WithAttachment().
+		Order(ent.Asc(attachmentversion.FieldID)).
+		All(internalContext)
+	if err != nil {
+		return CompetitionAttachmentCrewState{},
+			opaqueError("load Competition Attachment Versions", err)
+	}
+	result.Versions = make([]AttachmentVersion, 0, len(versions))
+	for _, version := range versions {
+		logical, edgeErr := version.Edges.AttachmentOrErr()
+		if edgeErr != nil {
+			return CompetitionAttachmentCrewState{},
+				opaqueError("load Competition Attachment owner", edgeErr)
+		}
+		result.Versions = append(result.Versions, attachmentVersion(logical, version))
+	}
+	windows, err := installation.client.ReopenWindow.Query().
+		Where(
+			reopenwindow.EventIDEQ(eventID),
+			reopenwindow.TargetTypeEQ(reopenwindow.TargetTypeEntry),
+			reopenwindow.TargetIDIn(entryIDs...),
+		).
+		Order(ent.Asc(reopenwindow.FieldID)).
+		All(internalContext)
+	if err != nil {
+		return CompetitionAttachmentCrewState{},
+			opaqueError("load Competition Reopen Windows", err)
+	}
+	result.ReopenWindows = make([]ReopenWindow, 0, len(windows))
+	for _, window := range windows {
+		result.ReopenWindows = append(result.ReopenWindows, reopenWindow(window))
+	}
+	return result, nil
 }
 
 // ReferencedAttachmentStorageKeys lists every committed immutable file key.

@@ -626,6 +626,7 @@ func (application *application) buildHandler(
 		mux,
 		installation.Authentication(),
 		authenticationLimiter,
+		installation.RundownQueries(),
 		application.config.Logger,
 	); err != nil {
 		return nil, err
@@ -637,6 +638,16 @@ func (application *application) buildHandler(
 		installation.RundownCommands(),
 		installation.RundownQueries(),
 		application.config.DisplayStream.Notify,
+		application.config.Logger,
+	)
+	registerEntryRoutes(
+		mux,
+		installation.Authentication(),
+		installation.Competition(),
+		installation.Attachments(),
+		installation.ProgramControl(),
+		installation.Events(),
+		installation.RundownQueries(),
 		application.config.Logger,
 	)
 	registerBackupRoutes(
