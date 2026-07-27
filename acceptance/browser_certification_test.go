@@ -913,7 +913,16 @@ func certifyOverrideConfirmation(
 		15*time.Second,
 		`return location.pathname === "/backstage/events/1/control";`,
 	); err != nil {
-		t.Fatalf("wait for Emergency Alert activation: %v", err)
+		details, detailErr := driver.evaluateString(
+			t.Context(),
+			`return JSON.stringify({url: location.href, body: document.body.innerText});`,
+		)
+		t.Fatalf(
+			"wait for Emergency Alert activation: %v; page = %s, %v",
+			err,
+			details,
+			detailErr,
+		)
 	}
 	for index := range displays {
 		if err = displays[index].driver.waitFor(
