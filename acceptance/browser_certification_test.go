@@ -752,7 +752,7 @@ func TestBrowserCertification(t *testing.T) {
 		"beamers_session",
 		"/",
 	))
-	controlEvidence, confirmationEvidence := certifyOverrideConfirmation(
+	controlEvidence, confirmationEvidence, programOutput := certifyOverrideConfirmation(
 		t,
 		overrideDriver,
 		origin,
@@ -761,6 +761,7 @@ func TestBrowserCertification(t *testing.T) {
 		prizegivingSessionID,
 	)
 	report.Pages = append(report.Pages, controlEvidence, confirmationEvidence)
+	report.ProgramOutput = programOutput
 	closeBrowserSession(t, overrideDriver)
 
 	for index := range displays {
@@ -861,7 +862,7 @@ func certifyOverrideConfirmation(
 	displays []browserDisplayCertification,
 	programClient programv1connect.ProgramControlServiceClient,
 	sessionID int64,
-) (browserPageEvidence, browserPageEvidence) {
+) (browserPageEvidence, browserPageEvidence, browserProgramOutputEvidence) {
 	t.Helper()
 	target := origin + "/backstage/events/1/control"
 	if err := driver.navigate(t.Context(), target); err != nil {
@@ -976,8 +977,8 @@ func certifyOverrideConfirmation(
 			t.Fatalf("Display %d did not clear Emergency Alert: %v", index+1, err)
 		}
 	}
-	waitForBrowserRevealCompletion(t, programClient, sessionID)
-	return controlEvidence, confirmationEvidence
+	programOutput := waitForBrowserRevealCompletion(t, programClient, sessionID)
+	return controlEvidence, confirmationEvidence, programOutput
 }
 
 func assertBrowserRevealPaused(
@@ -1010,7 +1011,7 @@ func waitForBrowserRevealCompletion(
 	t *testing.T,
 	client programv1connect.ProgramControlServiceClient,
 	sessionID int64,
-) {
+) browserProgramOutputEvidence {
 	t.Helper()
 	deadline := time.Now().Add(10 * time.Second)
 	for {
@@ -1023,7 +1024,15 @@ func waitForBrowserRevealCompletion(
 		if err == nil &&
 			channel.Msg.GetChannel().GetProgramOutput().GetResult().GetStatus() ==
 				programv1.ResultStageStatus_RESULT_STAGE_STATUS_REVEALED {
-			return
+			output := channel.Msg.GetChannel().GetProgramOutput()
+			entryID := ""
+			if output.GetEntryId() != 0 {
+				entryID = strconv.FormatInt(output.GetEntryId(), 10)
+			}
+			return browserProgramOutputEvidence{
+				Kind: output.GetKind().String(), EntryID: entryID, Title: output.GetTitle(),
+				Revision: strconv.FormatInt(channel.Msg.GetChannel().GetLiveStateRevision(), 10),
+			}
 		}
 		if time.Now().After(deadline) {
 			t.Fatalf("Result Reveal did not resume after Emergency clear: %+v, %v", channel, err)
