@@ -710,20 +710,22 @@ func TestBrowserPublishesEventsUnderCurrentSlugs(t *testing.T) {
 		return http.ErrUseLastResponse
 	}
 	for _, alias := range []string{"summer-showcase", "summer-stage"} {
-		redirect := getFrontendPage(
-			t,
-			publicClient,
-			server.publicAddress,
-			"/events/"+alias,
-		)
-		if redirect.status != http.StatusFound ||
-			redirect.header.Get("Location") != "/events/summer-final" {
-			t.Fatalf(
-				"Event Slug Alias %q = %d Location %q",
-				alias,
-				redirect.status,
-				redirect.header.Get("Location"),
+		for _, suffix := range []string{"", "/schedule", "/competitions", "/results"} {
+			redirect := getFrontendPage(
+				t,
+				publicClient,
+				server.publicAddress,
+				"/events/"+alias+suffix,
 			)
+			if redirect.status != http.StatusFound ||
+				redirect.header.Get("Location") != "/events/summer-final"+suffix {
+				t.Fatalf(
+					"Event Slug Alias %q = %d Location %q",
+					alias+suffix,
+					redirect.status,
+					redirect.header.Get("Location"),
+				)
+			}
 		}
 	}
 	collision := submitEvent(
@@ -853,6 +855,16 @@ func TestBrowserPublishesEventsUnderCurrentSlugs(t *testing.T) {
 	); hidden.status != http.StatusNotFound {
 		t.Fatalf("unlisted Active Event = %d %q", hidden.status, hidden.body)
 	}
+	for _, suffix := range []string{"/schedule", "/competitions", "/results"} {
+		if hidden := getFrontendPage(
+			t,
+			authenticatedClient(t),
+			server.publicAddress,
+			"/events/revision-2099"+suffix,
+		); hidden.status != http.StatusNotFound {
+			t.Fatalf("unlisted Active Event%s = %d %q", suffix, hidden.status, hidden.body)
+		}
+	}
 
 	dataDir, bin := server.dataDir, server.bin
 	server.stop(t)
@@ -877,6 +889,164 @@ func TestBrowserPublishesEventsUnderCurrentSlugs(t *testing.T) {
 				redirect.status,
 				redirect.header.Get("Location"),
 			)
+		}
+	}
+	server.stop(t)
+}
+
+func TestBrowserFollowsCanonicalPublicEventJourney(t *testing.T) {
+	administrator, server := startAuthenticatedAdministratorWithPublicListener(t)
+	prepareActiveSchedule(t, administrator, server)
+	administrator.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+
+	settings := getFrontendPage(
+		t,
+		administrator,
+		server.address,
+		"/backstage/events/1/settings",
+	)
+	values := frontendNamedValues(
+		settings.body,
+		"command_id",
+		"expected_event_revision",
+	)
+	values.Set("csrf_token", requireFrontendCSRF(t, settings))
+	values.Set("event_name", "Revision 2099")
+	values.Set("public_slug", "revision-2099")
+	values.Set("planned_start_date", "2099-08-21")
+	values.Set("planned_end_date", "2099-08-23")
+	values.Set("timezone", "Europe/Berlin")
+	values.Set("event_locale", "en-GB")
+	values.Set("content_language", "en-GB")
+	values.Set("event_day_boundary", "06:00")
+	values.Set("entry_default_disposition", "Pending")
+	values.Set("submission_eligibility", "AllAccounts")
+	values.Set("voting_method", "Range1To5")
+	values.Set("self_vote_policy", "Allowed")
+	values.Set("target_adjustment_presets_seconds", "-300,300,600")
+	values.Set("public", "true")
+	if published := postFrontendForm(
+		t,
+		administrator,
+		server.address,
+		"/backstage/events/1/settings",
+		values,
+	); published.status != http.StatusSeeOther {
+		t.Fatalf("publish Event = %d %q", published.status, published.body)
+	}
+
+	emptyCompetitions := getFrontendPage(
+		t,
+		authenticatedClient(t),
+		server.publicAddress,
+		"/events/revision-2099/competitions",
+	)
+	if emptyCompetitions.status != http.StatusOK ||
+		!strings.Contains(
+			emptyCompetitions.body,
+			"No public Competitions are available yet.",
+		) {
+		t.Fatalf(
+			"empty canonical Competitions = %d %q",
+			emptyCompetitions.status,
+			emptyCompetitions.body,
+		)
+	}
+	competitionID, _ := addCompetitionSession(t, administrator, server)
+
+	root := getFrontendPage(t, administrator, server.address, "/")
+	if !strings.Contains(root.body, `href="/events/revision-2099"`) {
+		t.Fatalf("root has no public Event journey: %q", root.body)
+	}
+	hub := getFrontendPage(
+		t,
+		administrator,
+		server.address,
+		"/events/revision-2099",
+	)
+	for _, want := range []string{
+		"Ada Admin",
+		"21 Aug 2099",
+		"23 Aug 2099",
+		`href="/events/revision-2099/schedule"`,
+		`href="/events/revision-2099/competitions"`,
+		`href="/events/revision-2099/results"`,
+	} {
+		if hub.status != http.StatusOK || !strings.Contains(hub.body, want) {
+			t.Fatalf("public Event hub lacks %q: %d %q", want, hub.status, hub.body)
+		}
+	}
+
+	publicClient := authenticatedClient(t)
+	schedule := getFrontendPage(
+		t,
+		publicClient,
+		server.publicAddress,
+		"/events/revision-2099/schedule",
+	)
+	if schedule.status != http.StatusOK ||
+		!strings.Contains(schedule.body, "Opening Keynote") ||
+		!strings.Contains(
+			schedule.body,
+			`href="/events/revision-2099/schedule/sessions/`,
+		) ||
+		strings.Contains(schedule.body, "Private Soundcheck") {
+		t.Fatalf("canonical Event Schedule = %d %q", schedule.status, schedule.body)
+	}
+	if got := schedule.header.Get("Cache-Control"); got != "public, max-age=15, must-revalidate" {
+		t.Errorf("canonical Event Schedule Cache-Control = %q", got)
+	}
+
+	competitions := getFrontendPage(
+		t,
+		publicClient,
+		server.publicAddress,
+		"/events/revision-2099/competitions",
+	)
+	if competitions.status != http.StatusOK ||
+		!strings.Contains(competitions.body, "Demo Competition") ||
+		!strings.Contains(competitions.body, "Projects presented by attendees") ||
+		strings.Contains(competitions.body, "Browser Certified Result") {
+		t.Fatalf("canonical Competitions index = %d %q", competitions.status, competitions.body)
+	}
+
+	results := getFrontendPage(
+		t,
+		publicClient,
+		server.publicAddress,
+		"/events/revision-2099/results",
+	)
+	if results.status != http.StatusOK ||
+		!strings.Contains(results.body, "Results have not been published yet.") {
+		t.Fatalf("canonical Event Results state = %d %q", results.status, results.body)
+	}
+	prepareReleasedBrowserResults(t, administrator, server, competitionID)
+	results = getFrontendPage(
+		t,
+		publicClient,
+		server.publicAddress,
+		"/events/revision-2099/results",
+	)
+	if results.status != http.StatusOK ||
+		!strings.Contains(results.body, "Browser Certified Result") ||
+		!strings.Contains(results.body, `href="/events/revision-2099/schedule"`) {
+		t.Fatalf("canonical published Event Results = %d %q", results.status, results.body)
+	}
+
+	for _, path := range []string{
+		"/events/unknown/schedule",
+		"/events/unknown/competitions",
+		"/events/unknown/results",
+	} {
+		if response := getFrontendPage(
+			t,
+			publicClient,
+			server.publicAddress,
+			path,
+		); response.status != http.StatusNotFound {
+			t.Errorf("%s = %d %q, want 404", path, response.status, response.body)
 		}
 	}
 	server.stop(t)

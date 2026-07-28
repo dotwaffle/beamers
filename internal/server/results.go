@@ -1024,6 +1024,7 @@ func backstageResultsError(err error) (int, string) {
 func registerResultsRoutes(
 	mux *routeMux,
 	authentication *auth.Service,
+	eventService *events.Service,
 	service *results.Service,
 	listenerAddress net.Addr,
 	tracerProvider trace.TracerProvider,
@@ -1048,12 +1049,19 @@ func registerResultsRoutes(
 		return err
 	}
 	registerPublicResultsRoutes(mux, service, logger)
+	registerCanonicalEventResultsRoute(mux, authentication, eventService, service, logger)
 	return nil
 }
 
 type publicResultsHandlers struct {
 	service publicResultsReader
 	logger  *slog.Logger
+}
+
+type canonicalEventResultsHandlers struct {
+	browser frontendHandlers
+	events  *events.Service
+	results publicResultsHandlers
 }
 
 type publicResultsReader interface {
@@ -1112,6 +1120,111 @@ func registerPublicResultsRoutes(
 		"/results/events/{eventID}/revisions/{revision}/results.json",
 		publicRoute(),
 		handlers.versionedEventJSON,
+	)
+}
+
+func registerCanonicalEventResultsRoute(
+	mux *routeMux,
+	authentication *auth.Service,
+	eventService *events.Service,
+	service publicResultsReader,
+	logger *slog.Logger,
+) {
+	handlers := canonicalEventResultsHandlers{
+		browser: frontendHandlers{
+			authentication: authentication,
+			logger:         logger,
+			random:         rand.Reader,
+		},
+		events:  eventService,
+		results: publicResultsHandlers{service: service, logger: logger},
+	}
+	mux.HandleFunc(
+		"/events/{slug}/results",
+		browserPageRoute(),
+		handlers.latest,
+	)
+}
+
+func (handlers canonicalEventResultsHandlers) latest(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	if !frontendReadAllowed(response, request) {
+		return
+	}
+	event, alias, err := handlers.events.PublicEvent(
+		request.Context(),
+		request.PathValue("slug"),
+	)
+	if errors.Is(err, events.ErrEventNotFound) {
+		http.NotFound(response, request)
+		return
+	}
+	if err != nil {
+		handlers.browser.frontendError(response, request, "read public Event", err)
+		return
+	}
+	if alias {
+		http.Redirect(
+			response,
+			request,
+			"/events/"+event.Slug+"/results",
+			http.StatusFound,
+		)
+		return
+	}
+	_, found, err := handlers.results.service.PublicArtifact(
+		request.Context(),
+		event.ID,
+		results.PublicationScopeEvent,
+		event.ID,
+		0,
+	)
+	if err != nil {
+		handlers.results.logger.ErrorContext(
+			request.Context(),
+			"read public Event Results",
+			"error",
+			err,
+		)
+		http.Error(response, "Results unavailable", http.StatusInternalServerError)
+		return
+	}
+	if found {
+		handlers.results.serveArtifact(
+			response,
+			request,
+			event.ID,
+			results.PublicationScopeEvent,
+			event.ID,
+			0,
+			"text/html; charset=utf-8",
+		)
+		return
+	}
+	shell, ok := handlers.browser.shell(response, request)
+	if !ok {
+		return
+	}
+	csrfToken, err := handlers.browser.csrfToken(response, request)
+	if err != nil {
+		handlers.browser.frontendError(response, request, "create CSRF proof", err)
+		return
+	}
+	handlers.browser.render(
+		response,
+		request,
+		http.StatusOK,
+		frontend.PublicEventUnavailable(
+			event,
+			shell.accountName,
+			csrfToken,
+			shell.reducedEffects,
+			shell.backstage,
+			"Results",
+			"Results have not been published yet.",
+		),
 	)
 }
 
@@ -1330,6 +1443,14 @@ func (handlers publicResultsHandlers) serveArtifact(
 			`<link rel="stylesheet" href="`+frontend.EventThemePath(eventID)+`"></head>`,
 			1,
 		)
+		if slug := request.PathValue("slug"); slug != "" {
+			content = strings.Replace(
+				content,
+				`href="/schedule"`,
+				`href="/events/`+slug+`/schedule"`,
+				1,
+			)
+		}
 		content = strings.Replace(
 			content,
 			"<body>",

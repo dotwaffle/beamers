@@ -3,6 +3,7 @@ package schedule
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/dotwaffle/beamers/internal/frontend"
 )
@@ -120,10 +121,62 @@ templ SessionPage(snapshot Snapshot, session Session) {
 	</html>
 }
 
+templ CompetitionsPage(snapshot Snapshot) {
+	<!doctype html>
+	<html lang={ snapshot.Language } data-locale={ snapshot.Locale }>
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<link rel="stylesheet" href="/assets/frontend.css"/>
+			<link rel="stylesheet" href="/assets/schedule.css"/>
+			<link rel="stylesheet" href={ frontend.EventThemePath(snapshot.EventID) }/>
+			<title>{ snapshot.EventName } Competitions</title>
+		</head>
+		<body data-reduced-effects={ strconv.FormatBool(snapshot.ReducedEffects) }>
+			@ScheduleNavigation(snapshot, "/events/" + snapshot.EventSlug + "/competitions")
+			<main>
+				<h1>{ snapshot.EventName } Competitions</h1>
+				if len(snapshot.Sessions) == 0 {
+					<p>No public Competitions are available yet.</p>
+				} else {
+					for _, session := range snapshot.Sessions {
+						<article>
+							<h2><a href={ session.Path() }>{ session.Title }</a></h2>
+							if session.PublicDetails != "" {
+								<p>{ session.PublicDetails }</p>
+							}
+						</article>
+					}
+				}
+			</main>
+		</body>
+	</html>
+}
+
+templ UnavailablePage(snapshot Snapshot, section string) {
+	<!doctype html>
+	<html lang={ snapshot.Language } data-locale={ snapshot.Locale }>
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<link rel="stylesheet" href="/assets/frontend.css"/>
+			<link rel="stylesheet" href={ frontend.EventThemePath(snapshot.EventID) }/>
+			<title>{ snapshot.EventName } { section }</title>
+		</head>
+		<body data-reduced-effects={ strconv.FormatBool(snapshot.ReducedEffects) }>
+			@ScheduleNavigation(snapshot, "/events/" + snapshot.EventSlug + "/" + strings.ToLower(section))
+			<main>
+				<h1>{ snapshot.EventName } { section }</h1>
+				<p>{ section } is unavailable.</p>
+			</main>
+		</body>
+	</html>
+}
+
 templ ScheduleNavigation(snapshot Snapshot, returnTo string) {
 	<nav aria-label="Schedule">
 		<a href="/">Beamers</a>
-		<a href="/schedule">Schedule</a>
+		<a href={ snapshot.SchedulePath() }>Schedule</a>
 		if snapshot.AccountName == "" {
 			<a href={ SignInPath(returnTo) }>Sign in</a>
 			<a href="/register">Register</a>

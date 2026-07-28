@@ -18,15 +18,17 @@ import (
 
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/displaystream"
+	"github.com/dotwaffle/beamers/internal/events"
 	"github.com/dotwaffle/beamers/internal/schedule"
 )
 
 type scheduleHandlers struct {
-	frontend frontendHandlers
-	schedule *schedule.Service
-	stream   *displaystream.Hub
-	metrics  *scheduleStreamMetrics
-	logger   *slog.Logger
+	frontend     frontendHandlers
+	eventService *events.Service
+	schedule     *schedule.Service
+	stream       *displaystream.Hub
+	metrics      *scheduleStreamMetrics
+	logger       *slog.Logger
 }
 
 type scheduleStreamMetrics struct {
@@ -61,6 +63,7 @@ func (metrics *scheduleStreamMetrics) snapshot() scheduleStreamMetricSnapshot {
 func registerScheduleRoutes(
 	mux *routeMux,
 	authentication *auth.Service,
+	eventService *events.Service,
 	service *schedule.Service,
 	stream *displaystream.Hub,
 	metrics *scheduleStreamMetrics,
@@ -70,9 +73,19 @@ func registerScheduleRoutes(
 		frontend: frontendHandlers{
 			authentication: authentication, logger: logger, random: rand.Reader,
 		},
-		schedule: service, stream: stream, metrics: metrics, logger: logger,
+		eventService: eventService,
+		schedule:     service,
+		stream:       stream,
+		metrics:      metrics,
+		logger:       logger,
 	}
 	mux.HandleFunc("/schedule", browserPageRoute(), handlers.list)
+	mux.HandleFunc("/events/{slug}/schedule", browserPageRoute(), handlers.eventSchedule)
+	mux.HandleFunc(
+		"/events/{slug}/competitions",
+		browserPageRoute(),
+		handlers.eventCompetitions,
+	)
 	mux.HandleFunc("/my-schedule", browserPageRoute(), handlers.mySchedule)
 	mux.HandleFunc(
 		"/schedule/events",
@@ -80,6 +93,11 @@ func registerScheduleRoutes(
 		handlers.events,
 	)
 	mux.HandleFunc("/schedule/sessions/{sessionID}", browserPageRoute(), handlers.session)
+	mux.HandleFunc(
+		"/events/{slug}/schedule/sessions/{sessionID}",
+		browserPageRoute(),
+		handlers.eventSession,
+	)
 	favoriteRoute := browserPageRoute()
 	favoriteRoute.maxBodyBytes = maxAuthBodyBytes
 	mux.HandleFunc(
@@ -92,17 +110,39 @@ func registerScheduleRoutes(
 }
 
 func (handlers scheduleHandlers) list(response http.ResponseWriter, request *http.Request) {
-	handlers.schedulePage(response, request, false)
+	handlers.schedulePage(response, request, false, nil, false)
 }
 
 func (handlers scheduleHandlers) mySchedule(response http.ResponseWriter, request *http.Request) {
-	handlers.schedulePage(response, request, true)
+	handlers.schedulePage(response, request, true, nil, false)
+}
+
+func (handlers scheduleHandlers) eventSchedule(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	event, ok := handlers.publicEvent(response, request, "/schedule")
+	if ok {
+		handlers.schedulePage(response, request, false, &event, false)
+	}
+}
+
+func (handlers scheduleHandlers) eventCompetitions(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	event, ok := handlers.publicEvent(response, request, "/competitions")
+	if ok {
+		handlers.schedulePage(response, request, false, &event, true)
+	}
 }
 
 func (handlers scheduleHandlers) schedulePage(
 	response http.ResponseWriter,
 	request *http.Request,
 	favoritesOnly bool,
+	event *events.PublicEvent,
+	competitions bool,
 ) {
 	if !publicMethodAllowed(response, request) {
 		return
@@ -111,10 +151,14 @@ func (handlers scheduleHandlers) schedulePage(
 	if !ok {
 		return
 	}
-	filter, err := publicScheduleFilter(request)
-	if err != nil {
-		http.Error(response, "invalid Schedule filters", http.StatusBadRequest)
-		return
+	filter := schedule.Filter{}
+	var err error
+	if !competitions {
+		filter, err = publicScheduleFilter(request)
+		if err != nil {
+			http.Error(response, "invalid Schedule filters", http.StatusBadRequest)
+			return
+		}
 	}
 	snapshot, err := currentScheduleSnapshot(
 		request.Context(),
@@ -139,6 +183,26 @@ func (handlers scheduleHandlers) schedulePage(
 		strings.Contains(request.Header.Get("Cache-Control"), "no-cache") {
 		handlers.metrics.resnapshots.Add(1)
 	}
+	unavailable := event != nil && snapshot.EventID != event.ID
+	if event != nil {
+		if unavailable {
+			snapshot = schedule.Snapshot{
+				EventID: event.ID, EventName: event.Name, EventSlug: event.Slug,
+				Language: event.EventLocale, Locale: event.EventLocale,
+				ETag: fmt.Sprintf(`"event-%d-schedule-unavailable"`, event.ID),
+			}
+		} else {
+			snapshot.EventSlug = event.Slug
+			for index := range snapshot.Sessions {
+				snapshot.Sessions[index].EventSlug = event.Slug
+			}
+			for dayIndex := range snapshot.Days {
+				for sessionIndex := range snapshot.Days[dayIndex].Sessions {
+					snapshot.Days[dayIndex].Sessions[sessionIndex].EventSlug = event.Slug
+				}
+			}
+		}
+	}
 	if signedIn {
 		snapshot.AccountName = account.Name
 		snapshot.CSRFToken, err = handlers.frontend.csrfToken(response, request)
@@ -148,13 +212,41 @@ func (handlers scheduleHandlers) schedulePage(
 		}
 	}
 	snapshot.ReducedEffects = reducedEffectsCookie(request)
+	if unavailable {
+		section := "Schedule"
+		if competitions {
+			section = "Competitions"
+		}
+		handlers.render(
+			response,
+			request,
+			snapshot.ETag,
+			signedIn || reducedEffectsPreferenceCookie(request),
+			schedule.UnavailablePage(snapshot, section), //nolint:contextcheck // Generated templ closures receive context when rendered.
+			"unavailable public Schedule",
+		)
+		return
+	}
+	component := schedule.Page(snapshot) //nolint:contextcheck // Generated templ closures receive context when rendered.
+	name := "public Schedule"
+	if competitions {
+		sessions := snapshot.Sessions[:0]
+		for _, session := range snapshot.Sessions {
+			if session.Type == "Competition" {
+				sessions = append(sessions, session)
+			}
+		}
+		snapshot.Sessions = sessions
+		component = schedule.CompetitionsPage(snapshot) //nolint:contextcheck // Generated templ closures receive context when rendered.
+		name = "public Competitions"
+	}
 	handlers.render(
 		response,
 		request,
 		snapshot.ETag,
 		signedIn || reducedEffectsPreferenceCookie(request),
-		schedule.Page(snapshot), //nolint:contextcheck // Generated templ closures receive context when rendered.
-		"public Schedule",
+		component,
+		name,
 	)
 }
 
@@ -258,6 +350,33 @@ func writeScheduleInvalidation(
 }
 
 func (handlers scheduleHandlers) session(response http.ResponseWriter, request *http.Request) {
+	handlers.sessionPage(response, request, nil)
+}
+
+func (handlers scheduleHandlers) eventSession(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	sessionID, err := positivePathID(request, "sessionID")
+	if err != nil {
+		publicSessionNotFound(response)
+		return
+	}
+	event, ok := handlers.publicEvent(
+		response,
+		request,
+		"/schedule/sessions/"+strconv.Itoa(sessionID),
+	)
+	if ok {
+		handlers.sessionPage(response, request, &event)
+	}
+}
+
+func (handlers scheduleHandlers) sessionPage(
+	response http.ResponseWriter,
+	request *http.Request,
+	event *events.PublicEvent,
+) {
 	if !publicMethodAllowed(response, request) {
 		return
 	}
@@ -303,6 +422,14 @@ func (handlers scheduleHandlers) session(response http.ResponseWriter, request *
 		publicSessionNotFound(response)
 		return
 	}
+	if event != nil {
+		if snapshot.EventID != event.ID {
+			publicSessionNotFound(response)
+			return
+		}
+		snapshot.EventSlug = event.Slug
+		session.EventSlug = event.Slug
+	}
 	if signedIn {
 		snapshot.AccountName = account.Name
 		snapshot.CSRFToken, err = handlers.frontend.csrfToken(response, request)
@@ -320,6 +447,43 @@ func (handlers scheduleHandlers) session(response http.ResponseWriter, request *
 		schedule.SessionPage(snapshot, session), //nolint:contextcheck // Generated templ closures receive context when rendered.
 		"public Session",
 	)
+}
+
+func (handlers scheduleHandlers) publicEvent(
+	response http.ResponseWriter,
+	request *http.Request,
+	suffix string,
+) (events.PublicEvent, bool) {
+	if !publicMethodAllowed(response, request) {
+		return events.PublicEvent{}, false
+	}
+	found, alias, err := handlers.eventService.PublicEvent(
+		request.Context(),
+		request.PathValue("slug"),
+	)
+	if errors.Is(err, events.ErrEventNotFound) {
+		http.NotFound(response, request)
+		return events.PublicEvent{}, false
+	}
+	if err != nil {
+		handlers.logger.ErrorContext(request.Context(), "read public Event", "error", err)
+		http.Error(response, "Schedule unavailable", http.StatusInternalServerError)
+		return events.PublicEvent{}, false
+	}
+	if alias {
+		location := "/events/" + found.Slug + suffix
+		if request.URL.RawQuery != "" {
+			location += "?" + request.URL.RawQuery
+		}
+		http.Redirect( //nolint:gosec // The Event Slug is validated and suffix is fixed or a parsed positive ID.
+			response,
+			request,
+			location,
+			http.StatusFound,
+		)
+		return events.PublicEvent{}, false
+	}
+	return found, true
 }
 
 func (handlers scheduleHandlers) favorite(response http.ResponseWriter, request *http.Request) {

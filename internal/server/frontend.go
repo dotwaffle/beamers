@@ -811,6 +811,45 @@ func positiveFormIDs(values []string) ([]int, error) {
 	return ids, nil
 }
 
+type frontendShell struct {
+	accountName    string
+	backstage      bool
+	reducedEffects bool
+}
+
+func (handlers frontendHandlers) shell(
+	response http.ResponseWriter,
+	request *http.Request,
+) (frontendShell, bool) {
+	shell := frontendShell{reducedEffects: reducedEffectsCookie(request)}
+	cookie, err := request.Cookie(sessionCookieName)
+	if err != nil {
+		return shell, true
+	}
+	account, err := handlers.authentication.Authenticate(request.Context(), cookie.Value)
+	switch {
+	case err == nil:
+		shell.accountName = account.Name
+		shell.backstage = backstageAccessible(request) &&
+			backstageAvailable(backstageNavigation(account))
+		shell.reducedEffects, err = handlers.authentication.ReducedEffects(
+			request.Context(),
+			cookie.Value,
+		)
+		if err != nil {
+			handlers.frontendError(response, request, "read Account Reduced Effects", err)
+			return frontendShell{}, false
+		}
+		setReducedEffectsCookie(response, request, shell.reducedEffects)
+	case errors.Is(err, auth.ErrInvalidSession):
+		clearSessionCookie(response, request)
+	default:
+		handlers.frontendError(response, request, "authenticate Frontend session", err)
+		return frontendShell{}, false
+	}
+	return shell, true
+}
+
 func (handlers frontendHandlers) root(response http.ResponseWriter, request *http.Request) {
 	if request.URL.Path != "/" {
 		http.NotFound(response, request)
@@ -824,39 +863,9 @@ func (handlers frontendHandlers) root(response http.ResponseWriter, request *htt
 		handlers.frontendError(response, request, "read setup state", err)
 		return
 	}
-	accountName := ""
-	backstage := false
-	reducedEffects := reducedEffectsCookie(request)
-	if cookie, cookieErr := request.Cookie(sessionCookieName); cookieErr == nil {
-		account, authenticateErr := handlers.authentication.Authenticate(
-			request.Context(),
-			cookie.Value,
-		)
-		switch {
-		case authenticateErr == nil:
-			accountName = account.Name
-			backstage = backstageAccessible(request) &&
-				backstageAvailable(backstageNavigation(account))
-			reducedEffects, authenticateErr = handlers.authentication.ReducedEffects(
-				request.Context(),
-				cookie.Value,
-			)
-			if authenticateErr != nil {
-				handlers.frontendError(
-					response,
-					request,
-					"read Account Reduced Effects",
-					authenticateErr,
-				)
-				return
-			}
-			setReducedEffectsCookie(response, request, reducedEffects)
-		case errors.Is(authenticateErr, auth.ErrInvalidSession):
-			clearSessionCookie(response, request)
-		default:
-			handlers.frontendError(response, request, "authenticate Frontend session", authenticateErr)
-			return
-		}
+	shell, ok := handlers.shell(response, request)
+	if !ok {
+		return
 	}
 	csrfToken, err := handlers.csrfToken(response, request)
 	if err != nil {
@@ -877,10 +886,10 @@ func (handlers frontendHandlers) root(response http.ResponseWriter, request *htt
 		http.StatusOK,
 		frontend.Root(
 			setupRequired,
-			accountName,
+			shell.accountName,
 			csrfToken,
-			reducedEffects,
-			backstage,
+			shell.reducedEffects,
+			shell.backstage,
 			publicEvents,
 		),
 	)
@@ -914,6 +923,10 @@ func (handlers frontendHandlers) publicEvent(
 		)
 		return
 	}
+	shell, ok := handlers.shell(response, request)
+	if !ok {
+		return
+	}
 	csrfToken, err := handlers.csrfToken(response, request)
 	if err != nil {
 		handlers.frontendError(response, request, "create CSRF proof", err)
@@ -923,7 +936,13 @@ func (handlers frontendHandlers) publicEvent(
 		response,
 		request,
 		http.StatusOK,
-		frontend.PublicEvent(found, csrfToken, reducedEffectsCookie(request)),
+		frontend.PublicEventHub(
+			found,
+			shell.accountName,
+			csrfToken,
+			shell.reducedEffects,
+			shell.backstage,
+		),
 	)
 }
 
