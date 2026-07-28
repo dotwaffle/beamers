@@ -13,6 +13,7 @@ type BackstageNavigation struct {
 
 type BackstageEvent struct {
 	ID       int
+	Name     string
 	Role     string
 	Sections []BackstageSection
 }
@@ -329,7 +330,7 @@ templ BackstageLinks(navigation BackstageNavigation) {
 		}
 		for _, event := range navigation.Events {
 			<section>
-				<h2>Event #{ strconv.Itoa(event.ID) }</h2>
+				<h2>{ event.Name }</h2>
 				<p>{ event.Role }</p>
 				<ul>
 					for _, section := range event.Sections {
@@ -373,7 +374,7 @@ templ Backstage(
 					}
 					for _, event := range navigation.Events {
 						<section>
-							<h2>Event #{ strconv.Itoa(event.ID) } · { event.Role }</h2>
+							<h2>{ event.Name } · { event.Role }</h2>
 							for _, section := range event.Sections {
 								<h3 id={ section.ID }>{ section.Label }</h3>
 							}

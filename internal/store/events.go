@@ -55,6 +55,13 @@ type Event struct {
 	Revision                int    `json:"revision"`
 }
 
+// CrewEventOverview is the Event status needed by its Backstage landing page.
+type CrewEventOverview struct {
+	Event             Event
+	Active            bool
+	AttachmentRelease AttachmentReleaseConfiguration
+}
+
 // PublicEvent is the attendee-safe persistence projection of a listed Event.
 type PublicEvent struct {
 	ID               int
@@ -660,15 +667,48 @@ func (installation *SQLite) FindCrewEvent(
 	accountID int,
 	eventID int,
 ) (Event, error) {
+	found, err := installation.findCrewEvent(ctx, accountID, eventID)
+	if err != nil {
+		return Event{}, err
+	}
+	return eventProjection(found), nil
+}
+
+// FindCrewEventOverview returns status only when the Account has an Event Grant.
+func (installation *SQLite) FindCrewEventOverview(
+	ctx context.Context,
+	accountID int,
+	eventID int,
+) (CrewEventOverview, error) {
+	found, err := installation.findCrewEvent(ctx, accountID, eventID)
+	if err != nil {
+		return CrewEventOverview{}, err
+	}
+	active, err := installation.LoadActiveEvent(systemContext(ctx))
+	if err != nil {
+		return CrewEventOverview{}, err
+	}
+	return CrewEventOverview{
+		Event:             eventProjection(found),
+		Active:            active.EventID == eventID,
+		AttachmentRelease: eventAttachmentRelease(found),
+	}, nil
+}
+
+func (installation *SQLite) findCrewEvent(
+	ctx context.Context,
+	accountID int,
+	eventID int,
+) (*ent.Event, error) {
 	found, err := installation.client.Event.Query().Where(
 		event.IDEQ(eventID),
 		event.HasGrantsWith(eventgrant.AccountIDEQ(accountID)),
 	).Only(ctx)
 	if ent.IsNotFound(err) || errors.Is(err, privacy.Deny) {
-		return Event{}, ErrEventAccessDenied
+		return nil, ErrEventAccessDenied
 	}
 	if err != nil {
-		return Event{}, opaqueError("read crew Event", err)
+		return nil, opaqueError("read crew Event", err)
 	}
-	return eventProjection(found), nil
+	return found, nil
 }

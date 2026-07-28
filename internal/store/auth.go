@@ -72,6 +72,7 @@ type AccountCredential struct {
 	WebAuthnUserHandle []byte                    `json:"-"`
 	Administrator      bool                      `json:"administrator"`
 	EventRoles         map[int]viewer.Role       `json:"-"`
+	EventNames         map[int]string            `json:"-"`
 	EventScopes        map[int]viewer.EventScope `json:"-"`
 	SessionExpiresAt   time.Time                 `json:"-"`
 }
@@ -1172,7 +1173,8 @@ func (installation *SQLite) FindAccountSession(
 		return AccountCredential{}, opaqueError("read session Account", err)
 	}
 	credential := accountCredential(found, "")
-	credential.EventRoles, credential.EventScopes, err = installation.findEventAccess(ctx, found.ID)
+	credential.EventRoles, credential.EventNames, credential.EventScopes, err =
+		installation.findEventAccess(ctx, found.ID)
 	if err != nil {
 		return AccountCredential{}, err
 	}
@@ -1183,17 +1185,24 @@ func (installation *SQLite) FindAccountSession(
 func (installation *SQLite) findEventAccess(
 	ctx context.Context,
 	accountID int,
-) (map[int]viewer.Role, map[int]viewer.EventScope, error) {
+) (map[int]viewer.Role, map[int]string, map[int]viewer.EventScope, error) {
 	found, err := installation.client.EventGrant.Query().
 		Where(eventgrant.AccountIDEQ(accountID)).
+		WithEvent().
 		All(systemContext(ctx))
 	if err != nil {
-		return nil, nil, opaqueError("read Account Event Grants", err)
+		return nil, nil, nil, opaqueError("read Account Event Grants", err)
 	}
 	roles := make(map[int]viewer.Role, len(found))
+	names := make(map[int]string, len(found))
 	scopes := make(map[int]viewer.EventScope, len(found))
 	for _, grant := range found {
+		grantedEvent, eventErr := grant.Edges.EventOrErr()
+		if eventErr != nil {
+			return nil, nil, nil, opaqueError("read granted Event", eventErr)
+		}
 		roles[grant.EventID] = viewer.Role(grant.Role)
+		names[grant.EventID] = grantedEvent.Name
 		scope := viewer.EventScope{
 			LaneIDs:          make(map[int]struct{}, len(grant.LaneIds)),
 			DisplayGroupKeys: make(map[string]struct{}, len(grant.DisplayGroupKeys)),
@@ -1210,7 +1219,7 @@ func (installation *SQLite) findEventAccess(
 		}
 		scopes[grant.EventID] = scope
 	}
-	return roles, scopes, nil
+	return roles, names, scopes, nil
 }
 
 // RevokeAccountSession makes a session durably unusable. Unknown and already

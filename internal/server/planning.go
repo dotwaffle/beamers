@@ -49,8 +49,126 @@ func registerPlanningRoutes(
 	}
 	route := backstagePageRoute()
 	route.maxBodyBytes = maxRundownRPCBodyBytes
+	mux.HandleFunc("/backstage/events/{eventID}", route, handlers.overview)
+	mux.HandleFunc("/backstage/events/{eventID}/settings", route, handlers.settings)
 	mux.HandleFunc("/backstage/events/{eventID}/planning", route, handlers.planning)
 	mux.HandleFunc("/backstage/events/new", route, handlers.newEvent)
+}
+
+func (handlers planningHandlers) overview(response http.ResponseWriter, request *http.Request) {
+	if !frontendReadAllowed(response, request) {
+		return
+	}
+	actor, ok := handlers.browser.browserAccount(response, request)
+	if !ok {
+		return
+	}
+	eventID, err := positivePathID(request, "eventID")
+	role, granted := actor.EventRoles[eventID]
+	if err != nil || !granted {
+		http.NotFound(response, request)
+		return
+	}
+	overview, err := handlers.events.CrewEventOverview(request.Context(), actor, eventID)
+	if err != nil {
+		handlers.browser.frontendError(response, request, "read Event overview", err)
+		return
+	}
+	preview, err := handlers.queries.PublishPreview(
+		request.Context(),
+		actor,
+		rundown.PublishPreviewInput{EventID: eventID},
+	)
+	if err != nil {
+		handlers.browser.frontendError(response, request, "read Rundown readiness", err)
+		return
+	}
+	csrfToken, err := handlers.browser.csrfToken(response, request)
+	if err != nil {
+		handlers.browser.frontendError(response, request, "create CSRF proof", err)
+		return
+	}
+	handlers.browser.render(response, request, http.StatusOK, frontend.EventOverview(
+		frontend.EventOverviewPage{
+			AccountName: actor.Name, CSRFToken: csrfToken,
+			ReducedEffects: reducedEffectsCookie(request), Navigation: backstageNavigation(actor),
+			Event: overview.Event, Active: overview.Active,
+			AttachmentRelease: overview.AttachmentRelease,
+			Rundown:           preview, Role: string(role),
+			Producer: actor.CanProduceEvent(eventID), Administrator: actor.Administrator,
+		},
+	))
+}
+
+func (handlers planningHandlers) settings(response http.ResponseWriter, request *http.Request) {
+	actor, ok := handlers.browser.browserAccount(response, request)
+	if !ok {
+		return
+	}
+	eventID, err := positivePathID(request, "eventID")
+	if err != nil || !actor.CanProduceEvent(eventID) {
+		http.NotFound(response, request)
+		return
+	}
+	csrfToken, err := handlers.browser.csrfToken(response, request)
+	if err != nil {
+		handlers.browser.frontendError(response, request, "create CSRF proof", err)
+		return
+	}
+	switch request.Method {
+	case http.MethodGet, http.MethodHead:
+		handlers.renderSettings(response, request, actor, eventID, csrfToken, http.StatusOK, "")
+	case http.MethodPost:
+		if !handlers.browser.validForm(response, request) {
+			return
+		}
+		input, inputErr := eventFormInput(request)
+		if inputErr == nil {
+			_, inputErr = handlers.events.Update(request.Context(), actor, eventID, input)
+		}
+		if inputErr != nil {
+			status, message := planningError(inputErr)
+			handlers.renderSettings(response, request, actor, eventID, csrfToken, status, message)
+			return
+		}
+		handlers.notifyDisplays()
+		http.Redirect(
+			response,
+			request,
+			"/backstage/events/"+strconv.Itoa(eventID)+"/settings",
+			http.StatusSeeOther,
+		)
+	default:
+		frontendMethodNotAllowed(response, http.MethodGet+", "+http.MethodHead+", "+http.MethodPost)
+	}
+}
+
+func (handlers planningHandlers) renderSettings(
+	response http.ResponseWriter,
+	request *http.Request,
+	actor auth.Account,
+	eventID int,
+	csrfToken string,
+	status int,
+	message string,
+) {
+	event, err := handlers.events.CrewEvent(request.Context(), actor, eventID)
+	if err != nil {
+		handlers.browser.frontendError(response, request, "read Event settings", err)
+		return
+	}
+	commandID, err := planningCommandID(handlers.browser.random)
+	if err != nil {
+		handlers.browser.frontendError(response, request, "create Event command identity", err)
+		return
+	}
+	handlers.browser.render(response, request, status, frontend.EventSettings(
+		frontend.EventSettingsPage{
+			AccountName: actor.Name, CSRFToken: csrfToken,
+			ReducedEffects: reducedEffectsCookie(request), Navigation: backstageNavigation(actor),
+			Event: event, CommandID: commandID, Error: message,
+		},
+	))
 }
 
 func (handlers planningHandlers) newEvent(response http.ResponseWriter, request *http.Request) {
@@ -192,16 +310,6 @@ func (handlers planningHandlers) submit(
 		mutated          bool
 	)
 	switch request.Form.Get("action") {
-	case "event":
-		var input events.CreateInput
-		input, err = eventFormInput(request)
-		if err == nil {
-			_, err = handlers.events.Update(request.Context(), actor, eventID, input)
-			mutated = err == nil
-			if mutated {
-				handlers.notifyDisplays()
-			}
-		}
 	case "draft":
 		var input rundown.EditDraftInput
 		var event events.Event

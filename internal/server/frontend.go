@@ -664,6 +664,7 @@ func backstageNavigation(account auth.Account) backstageNavigationModel {
 		}
 		if role == viewer.Producer {
 			sections = append(sections,
+				backstageSection(eventID, "settings", "Event settings"),
 				backstageSection(eventID, "planning", "Plan and publish"),
 				backstageSection(eventID, "theme", "Event Theme"),
 				backstageSection(eventID, "voting", "Voting Keys"),
@@ -707,7 +708,8 @@ func backstageNavigation(account auth.Account) backstageNavigationModel {
 			)
 		}
 		navigation.Events = append(navigation.Events, backstageEventNavigation{
-			ID: eventID, Role: string(role), Sections: sections,
+			ID: eventID, Name: account.EventNames[eventID],
+			Role: string(role), Sections: sections,
 		})
 	}
 	return navigation
@@ -716,6 +718,12 @@ func backstageNavigation(account auth.Account) backstageNavigationModel {
 func backstageSection(eventID int, fragment, label string) frontend.BackstageSection {
 	id := "event-" + strconv.Itoa(eventID) + "-" + fragment
 	href := "/backstage#" + id
+	if fragment == "overview" {
+		href = "/backstage/events/" + strconv.Itoa(eventID)
+	}
+	if fragment == "settings" {
+		href = "/backstage/events/" + strconv.Itoa(eventID) + "/settings"
+	}
 	if fragment == "planning" {
 		href = "/backstage/events/" + strconv.Itoa(eventID) + "/planning"
 	}

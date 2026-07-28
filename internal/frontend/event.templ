@@ -1,0 +1,200 @@
+package frontend
+
+import "strconv"
+
+import "github.com/dotwaffle/beamers/internal/events"
+import "github.com/dotwaffle/beamers/internal/rundown"
+
+type EventOverviewPage struct {
+	AccountName     string
+	CSRFToken       string
+	ReducedEffects  bool
+	Navigation      BackstageNavigation
+	Event           events.Event
+	Active          bool
+	AttachmentRelease events.AttachmentReleaseState
+	Rundown         rundown.PublishPreview
+	Role            string
+	Producer        bool
+	Administrator   bool
+}
+
+type EventSettingsPage struct {
+	AccountName     string
+	CSRFToken       string
+	ReducedEffects  bool
+	Navigation      BackstageNavigation
+	Event           events.Event
+	CommandID       string
+	Error           string
+}
+
+templ EventOverview(page EventOverviewPage) {
+	<!doctype html>
+	<html lang={ page.Event.EventLocale } data-locale={ page.Event.EventLocale }>
+		@Head(page.Event.Name + " · Backstage · Beamers")
+		<body data-reduced-effects={ strconv.FormatBool(page.ReducedEffects) }>
+			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, true)
+			<div class="backstage-layout">
+				@BackstageNavigationViews(page.Navigation)
+				<main>
+					<h1>{ page.Event.Name }</h1>
+					<p>{ page.Role }</p>
+					<section>
+						<h2>Status</h2>
+						<dl>
+							if page.Producer {
+								<dt><a href={ templ.SafeURL("/backstage/events/" + strconv.Itoa(page.Event.ID) + "/settings") }>Public visibility</a></dt>
+							} else {
+								<dt>Public visibility</dt>
+							}
+							if page.Event.Public {
+								<dd>Listed in the Public Event Listing.</dd>
+							} else {
+								<dd>Not listed.</dd>
+							}
+							if page.Administrator {
+								<dt><a href="/backstage/administration">Active Event</a></dt>
+							} else {
+								<dt>Active Event</dt>
+							}
+							if page.Active {
+								<dd>Active.</dd>
+							} else {
+								<dd>Not active.</dd>
+							}
+							<dt>Attachment release</dt>
+							if page.AttachmentRelease.Policy == events.AttachmentReleaseOnEnded {
+								<dd>On Ended.</dd>
+							} else if page.AttachmentRelease.Policy == events.AttachmentReleaseOnEventCue {
+								if page.AttachmentRelease.CueAt.IsZero() {
+									<dd>On Event Release Cue; cue not fired.</dd>
+								} else {
+									<dd>On Event Release Cue; cue fired.</dd>
+								}
+							} else {
+								<dd>On Live.</dd>
+							}
+						</dl>
+					</section>
+					<section>
+						<h2>Readiness</h2>
+						<dl>
+							if page.Producer {
+								<dt><a href={ templ.SafeURL("/backstage/events/" + strconv.Itoa(page.Event.ID) + "/planning") }>Rundown readiness</a></dt>
+							} else {
+								<dt>Rundown readiness</dt>
+							}
+							if page.Rundown.PublishedRevision == 0 {
+								<dd>No Rundown published.</dd>
+							} else if len(page.Rundown.ValidationFailures) != 0 {
+								<dd>Draft changes are blocked from publishing.</dd>
+							} else if len(page.Rundown.ChangeIDs) != 0 {
+								<dd>Draft changes await publishing.</dd>
+							} else {
+								<dd>Published Rundown is current.</dd>
+							}
+						</dl>
+					</section>
+					<section>
+						<h2>Next actions</h2>
+						if page.Producer {
+							<ul>
+								<li><a href={ templ.SafeURL("/backstage/events/" + strconv.Itoa(page.Event.ID) + "/settings") }>Event settings</a></li>
+								<li><a href={ templ.SafeURL("/backstage/events/" + strconv.Itoa(page.Event.ID) + "/planning") }>Plan and publish</a></li>
+								if page.Active && page.Rundown.PublishedRevision > 0 {
+									<li><a href={ templ.SafeURL("/backstage/events/" + strconv.Itoa(page.Event.ID) + "/operations") }>Open live operations</a></li>
+								}
+							</ul>
+						} else {
+							<p>This Event overview is read-only for your Event Grant.</p>
+						}
+					</section>
+				</main>
+			</div>
+		</body>
+	</html>
+}
+
+templ EventSettings(page EventSettingsPage) {
+	<!doctype html>
+	<html lang={ page.Event.EventLocale } data-locale={ page.Event.EventLocale }>
+		@Head("Event settings · " + page.Event.Name + " · Beamers")
+		<body data-reduced-effects={ strconv.FormatBool(page.ReducedEffects) }>
+			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, true)
+			<div class="backstage-layout">
+				@BackstageNavigationViews(page.Navigation)
+				<main>
+					<h1>Event settings</h1>
+					<p>{ page.Event.Name }</p>
+					if page.Error != "" {
+						<p class="error" role="alert">{ page.Error }</p>
+					}
+					<form class="stack" method="post">
+						<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+						<input type="hidden" name="command_id" value={ page.CommandID }/>
+						<input type="hidden" name="expected_event_revision" value={ strconv.Itoa(page.Event.Revision) }/>
+						<label>Event name <input name="event_name" value={ page.Event.Name } required/></label>
+						if page.Event.PublicSlug == "" {
+							<p>A current Event Slug will be assigned when this Event first joins the Public Event Listing.</p>
+						} else {
+							<p>
+								Current public URL:
+								<a href={ templ.SafeURL("/events/" + page.Event.PublicSlug) }>
+									/events/{ page.Event.PublicSlug }
+								</a>
+							</p>
+							<label>
+								Current Event Slug
+								<input name="public_slug" value={ page.Event.PublicSlug } required/>
+							</label>
+							<p>Previously public slugs are retained as redirects.</p>
+						}
+						<label>
+							<input type="checkbox" name="public" value="true" checked?={ page.Event.Public }/>
+							Include in the Public Event Listing
+						</label>
+						<label>Planned start <input type="date" name="planned_start_date" value={ page.Event.PlannedStartDate } required/></label>
+						<label>Planned end <input type="date" name="planned_end_date" value={ page.Event.PlannedEndDate } required/></label>
+						<label>Timezone <input name="timezone" value={ page.Event.Timezone } required/></label>
+						<label>Event locale <input name="event_locale" value={ page.Event.EventLocale } required/></label>
+						<label>Content language <input name="content_language" value={ page.Event.ContentLanguage }/></label>
+						<label>Event day boundary <input type="time" name="event_day_boundary" value={ page.Event.EventDayBoundary } required/></label>
+						<label>
+							New Competition Entry disposition
+							<select name="entry_default_disposition">
+								<option value="Pending" selected?={ page.Event.EntryDefaultDisposition == "Pending" }>Pending</option>
+								<option value="Included" selected?={ page.Event.EntryDefaultDisposition == "Included" }>Included</option>
+							</select>
+						</label>
+						<label>
+							New Competition Submission Eligibility
+							<select name="submission_eligibility">
+								<option value="AllAccounts" selected?={ page.Event.SubmissionEligibility == "AllAccounts" }>All Accounts</option>
+								<option value="VotingEligibleAccounts" selected?={ page.Event.SubmissionEligibility == "VotingEligibleAccounts" }>Voting Eligible Accounts</option>
+							</select>
+						</label>
+						<label>
+							Competition Voting Method
+							<select name="voting_method">
+								<option value="Range1To5">Range 1–5</option>
+							</select>
+						</label>
+						<label>
+							Competition Self-Vote Policy
+							<select name="self_vote_policy">
+								<option value="Allowed" selected?={ page.Event.SelfVotePolicy == "Allowed" }>Allowed</option>
+								<option value="Neutral" selected?={ page.Event.SelfVotePolicy == "Neutral" }>Neutral substitution</option>
+							</select>
+						</label>
+						<label>
+							Target adjustment presets in seconds
+							<input name="target_adjustment_presets_seconds" value={ planningPresets(page.Event.TargetAdjustmentPresetsSeconds) }/>
+						</label>
+						<button type="submit">Save Event settings</button>
+					</form>
+				</main>
+			</div>
+		</body>
+	</html>
+}

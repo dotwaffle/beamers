@@ -96,6 +96,7 @@ type Account struct {
 	Name          string
 	Administrator bool
 	EventRoles    map[int]viewer.Role
+	EventNames    map[int]string
 	EventScopes   map[int]viewer.EventScope
 }
 
@@ -1390,9 +1391,11 @@ func cloneAccount(source Account) Account {
 		ID: source.ID, Handle: source.Handle, Name: source.Name,
 		Administrator: source.Administrator,
 		EventRoles:    make(map[int]viewer.Role, len(source.EventRoles)),
+		EventNames:    make(map[int]string, len(source.EventNames)),
 		EventScopes:   make(map[int]viewer.EventScope, len(source.EventScopes)),
 	}
 	maps.Copy(cloned.EventRoles, source.EventRoles)
+	maps.Copy(cloned.EventNames, source.EventNames)
 	for eventID, scope := range source.EventScopes {
 		clonedScope := viewer.EventScope{
 			LaneIDs:          make(map[int]struct{}, len(scope.LaneIDs)),
@@ -1630,7 +1633,8 @@ func account(found store.AccountCredential) Account {
 	return Account{
 		ID: found.ID, Handle: found.Handle, Name: found.Name,
 		Administrator: found.Administrator,
-		EventRoles:    found.EventRoles, EventScopes: found.EventScopes,
+		EventRoles:    found.EventRoles, EventNames: found.EventNames,
+		EventScopes: found.EventScopes,
 	}
 }
 
