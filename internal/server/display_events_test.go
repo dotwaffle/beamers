@@ -132,6 +132,38 @@ func openTestDisplayStream(
 	}
 }
 
+type deadlineTrackingResponse struct {
+	*httptest.ResponseRecorder
+	deadlines []time.Time
+}
+
+func (response *deadlineTrackingResponse) SetWriteDeadline(deadline time.Time) error {
+	response.deadlines = append(response.deadlines, deadline)
+	return nil
+}
+
+func (response *deadlineTrackingResponse) FlushError() error {
+	response.Flush()
+	return nil
+}
+
+func TestDisplaySSEClearsWriteDeadline(t *testing.T) {
+	response := &deadlineTrackingResponse{ResponseRecorder: httptest.NewRecorder()}
+
+	if err := writeDisplaySSE(response, ": heartbeat\n\n"); err != nil {
+		t.Fatalf("write Display SSE: %v", err)
+	}
+	if len(response.deadlines) != 2 {
+		t.Fatalf("write deadlines = %d, want set and clear", len(response.deadlines))
+	}
+	if response.deadlines[0].IsZero() {
+		t.Error("Display SSE write deadline was not set")
+	}
+	if !response.deadlines[1].IsZero() {
+		t.Errorf("Display SSE write deadline was not cleared: %s", response.deadlines[1])
+	}
+}
+
 func TestDisplayInvalidationProjectionIsShared(t *testing.T) {
 	cache := &displayInvalidationCache{}
 	cursor := displaystream.Cursor{StreamID: "test", Position: 1}
