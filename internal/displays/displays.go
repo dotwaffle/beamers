@@ -16,6 +16,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -28,6 +29,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/publictime"
 	"github.com/dotwaffle/beamers/internal/stagetimer"
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/themevalue"
 )
 
 const (
@@ -98,6 +100,13 @@ type Service struct {
 	enrollmentTTL time.Duration
 	emergency     EmergencySnapshotProjector
 	eventThemes   *eventthemes.Service
+	themeMu       sync.RWMutex
+	themeCache    map[eventThemeCacheKey]themevalue.Config
+}
+
+type eventThemeCacheKey struct {
+	eventID int
+	variant string
 }
 
 // Enrollment is browser-held material for one pending Display claim.
@@ -381,7 +390,7 @@ func (service *Service) Current(ctx context.Context, credential string) (Snapsho
 		return Snapshot{}, errors.Join(errors.New("load Display configuration"), err)
 	}
 	if service.eventThemes != nil && found.ActiveEventID > 0 {
-		active, themeErr := service.eventThemes.Active(
+		resolved, themeErr := service.activeEventTheme(
 			ctx,
 			found.ActiveEventID,
 			displayThemeVariant(found.ViewKey, found.Standby),
@@ -389,7 +398,7 @@ func (service *Service) Current(ctx context.Context, credential string) (Snapsho
 		if themeErr != nil {
 			return Snapshot{}, errors.Join(errors.New("load active Event Theme"), themeErr)
 		}
-		configuration.Theme = eventDisplayTheme(active.Resolved, configuration.Theme.Branding)
+		configuration.Theme = eventDisplayTheme(resolved, configuration.Theme.Branding)
 	}
 	if configuration.ReducedEffects {
 		configuration.Theme.Transition = displayviews.TransitionNone
@@ -430,6 +439,41 @@ func (service *Service) Current(ctx context.Context, credential string) (Snapsho
 	completedAt := service.now().UTC()
 	result.ServerTime = now.Add(completedAt.Sub(now) / 2)
 	return result, nil
+}
+
+func (service *Service) activeEventTheme(
+	ctx context.Context,
+	eventID int,
+	variant string,
+) (themevalue.Config, error) {
+	key := eventThemeCacheKey{eventID: eventID, variant: variant}
+	service.themeMu.RLock()
+	cached, ok := service.themeCache[key]
+	service.themeMu.RUnlock()
+	if ok {
+		return cached, nil
+	}
+	service.themeMu.Lock()
+	defer service.themeMu.Unlock()
+	if cached, ok = service.themeCache[key]; ok {
+		return cached, nil
+	}
+	active, err := service.eventThemes.Active(ctx, eventID, variant)
+	if err != nil {
+		return themevalue.Config{}, err
+	}
+	if service.themeCache == nil {
+		service.themeCache = make(map[eventThemeCacheKey]themevalue.Config)
+	}
+	service.themeCache[key] = active.Resolved
+	return active.Resolved, nil
+}
+
+// InvalidateThemeCache makes the next Display Snapshot resolve active Themes.
+func (service *Service) InvalidateThemeCache() {
+	service.themeMu.Lock()
+	defer service.themeMu.Unlock()
+	clear(service.themeCache)
 }
 
 func displayOverride(found *store.DisplayOverride) *DisplayOverride {

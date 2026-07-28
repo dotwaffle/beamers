@@ -620,6 +620,10 @@ func (application *application) buildHandler(
 		application.config.DisplayStream.Notify()
 		application.config.ScheduleStream.Notify()
 	}
+	notifyThemeChange := func() {
+		installation.Displays().InvalidateThemeCache()
+		application.config.DisplayStream.Notify()
+	}
 	diagnostics := registerDiagnosticsRoutes(
 		mux,
 		installation.Authentication(),
@@ -670,7 +674,7 @@ func (application *application) buildHandler(
 		installation.Authentication(),
 		installation.Themes(),
 		installation.EventThemes(),
-		application.config.DisplayStream.Notify,
+		notifyThemeChange,
 		application.config.Logger,
 	)
 	registerPlanningRoutes(
