@@ -21,8 +21,12 @@ const (
 	FieldActiveEventID = "active_event_id"
 	// FieldActivationGeneration holds the string denoting the activation_generation field in the database.
 	FieldActivationGeneration = "activation_generation"
+	// FieldActiveThemeRevisionID holds the string denoting the active_theme_revision_id field in the database.
+	FieldActiveThemeRevisionID = "active_theme_revision_id"
 	// EdgeActiveEvent holds the string denoting the active_event edge name in mutations.
 	EdgeActiveEvent = "active_event"
+	// EdgeActiveThemeRevision holds the string denoting the active_theme_revision edge name in mutations.
+	EdgeActiveThemeRevision = "active_theme_revision"
 	// Table holds the table name of the installation in the database.
 	Table = "installations"
 	// ActiveEventTable is the table that holds the active_event relation/edge.
@@ -32,6 +36,13 @@ const (
 	ActiveEventInverseTable = "events"
 	// ActiveEventColumn is the table column denoting the active_event relation/edge.
 	ActiveEventColumn = "active_event_id"
+	// ActiveThemeRevisionTable is the table that holds the active_theme_revision relation/edge.
+	ActiveThemeRevisionTable = "installations"
+	// ActiveThemeRevisionInverseTable is the table name for the InstallationThemeRevision entity.
+	// It exists in this package in order to avoid circular dependency with the "installationthemerevision" package.
+	ActiveThemeRevisionInverseTable = "installation_theme_revisions"
+	// ActiveThemeRevisionColumn is the table column denoting the active_theme_revision relation/edge.
+	ActiveThemeRevisionColumn = "active_theme_revision_id"
 )
 
 // Columns holds all SQL columns for installation fields.
@@ -40,6 +51,7 @@ var Columns = []string{
 	FieldCreatedAt,
 	FieldActiveEventID,
 	FieldActivationGeneration,
+	FieldActiveThemeRevisionID,
 }
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -91,10 +103,22 @@ func ByActivationGeneration(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldActivationGeneration, opts...).ToFunc()
 }
 
+// ByActiveThemeRevisionID orders the results by the active_theme_revision_id field.
+func ByActiveThemeRevisionID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldActiveThemeRevisionID, opts...).ToFunc()
+}
+
 // ByActiveEventField orders the results by active_event field.
 func ByActiveEventField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
 		sqlgraph.OrderByNeighborTerms(s, newActiveEventStep(), sql.OrderByField(field, opts...))
+	}
+}
+
+// ByActiveThemeRevisionField orders the results by active_theme_revision field.
+func ByActiveThemeRevisionField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newActiveThemeRevisionStep(), sql.OrderByField(field, opts...))
 	}
 }
 func newActiveEventStep() *sqlgraph.Step {
@@ -102,5 +126,12 @@ func newActiveEventStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(ActiveEventInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, false, ActiveEventTable, ActiveEventColumn),
+	)
+}
+func newActiveThemeRevisionStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ActiveThemeRevisionInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, false, ActiveThemeRevisionTable, ActiveThemeRevisionColumn),
 	)
 }

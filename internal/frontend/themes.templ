@@ -1,0 +1,233 @@
+package frontend
+
+import "fmt"
+import "strconv"
+import "time"
+
+import "github.com/dotwaffle/beamers/internal/themevalue"
+
+// ThemeRevisionSummary identifies one immutable Revision in Backstage.
+type ThemeRevisionSummary struct {
+	ID        int
+	CreatedAt time.Time
+	Active    bool
+}
+
+// ThemePreview contains one exact Revision and its activation findings.
+type ThemePreview struct {
+	RevisionID int
+	Config     themevalue.Config
+	Findings   []themevalue.Finding
+}
+
+// ThemePage contains Installation Theme administration state.
+type ThemePage struct {
+	AccountName      string
+	CSRFToken        string
+	ReducedEffects   bool
+	Navigation       BackstageNavigation
+	ActiveRevisionID int
+	Revisions        []ThemeRevisionSummary
+	Preview          ThemePreview
+	CreateCommandID  string
+	ActivateCommandID string
+	Error            string
+}
+
+func themeRevisionLabel(id int) string {
+	if id == 0 {
+		return "Built-in base Theme"
+	}
+	return "Theme Revision #" + strconv.Itoa(id)
+}
+
+func themePreviewStyle(config themevalue.Config) templ.SafeCSS {
+	heading := `"Chakra Petch", sans-serif`
+	if config.Typeface == themevalue.TypefaceClean {
+		heading = `"Open Sans", system-ui, sans-serif`
+	}
+	backgroundImage := "radial-gradient(circle at 15% 10%, #172755 0, transparent 32rem)"
+	if config.Background == themevalue.BackgroundSolid {
+		backgroundImage = "none"
+	}
+	return templ.SafeCSS(fmt.Sprintf(
+		"--preview-background:%s;--preview-surface:%s;--preview-border:%s;"+
+			"--preview-text:%s;--preview-muted:%s;--preview-accent:%s;"+
+			"--preview-link:%s;--preview-focus:%s;--preview-background-image:%s;"+
+			"--preview-heading-font:%s;--preview-body-font:\"Open Sans\",system-ui,sans-serif",
+		config.BackgroundColor,
+		config.SurfaceColor,
+		config.BorderColor,
+		config.TextColor,
+		config.MutedColor,
+		config.AccentColor,
+		config.LinkColor,
+		config.FocusColor,
+		backgroundImage,
+		heading,
+	))
+}
+
+templ ThemeAdministration(page ThemePage) {
+	<!doctype html>
+	<html lang="en">
+		@Head("Installation Theme · Beamers")
+		<body data-reduced-effects={ strconv.FormatBool(page.ReducedEffects) }>
+			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, true)
+			<div class="backstage-layout">
+				@BackstageNavigationViews(page.Navigation)
+				<main>
+					<h1>Installation Theme</h1>
+					<p>Active: <strong>{ themeRevisionLabel(page.ActiveRevisionID) }</strong></p>
+					if page.Error != "" {
+						<p class="error" role="alert">{ page.Error }</p>
+					}
+					<section>
+						<h2>Edit a new Draft Theme Revision</h2>
+						<p>Only these documented controls are accepted. Saving always creates a new immutable Revision.</p>
+						<form class="stack" method="post" action="/backstage/themes">
+							<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+							<input type="hidden" name="action" value="create-draft"/>
+							<input type="hidden" name="command_id" value={ page.CreateCommandID }/>
+							<label>
+								Branding asset
+								<select name="brand_asset">
+									<option value="signal" selected?={ page.Preview.Config.BrandAsset == themevalue.BrandAssetSignal }>Signal mark</option>
+									<option value="wordmark" selected?={ page.Preview.Config.BrandAsset == themevalue.BrandAssetWordmark }>Wordmark only</option>
+								</select>
+							</label>
+							<label>Background color <input type="color" name="background_color" value={ page.Preview.Config.BackgroundColor } required/></label>
+							<label>Surface color <input type="color" name="surface_color" value={ page.Preview.Config.SurfaceColor } required/></label>
+							<label>Border color <input type="color" name="border_color" value={ page.Preview.Config.BorderColor } required/></label>
+							<label>Text color <input type="color" name="text_color" value={ page.Preview.Config.TextColor } required/></label>
+							<label>Muted text color <input type="color" name="muted_color" value={ page.Preview.Config.MutedColor } required/></label>
+							<label>Accent color <input type="color" name="accent_color" value={ page.Preview.Config.AccentColor } required/></label>
+							<label>Link color <input type="color" name="link_color" value={ page.Preview.Config.LinkColor } required/></label>
+							<label>Focus color <input type="color" name="focus_color" value={ page.Preview.Config.FocusColor } required/></label>
+							<label>
+								Background
+								<select name="background">
+									<option value="nebula" selected?={ page.Preview.Config.Background == themevalue.BackgroundNebula }>Built-in nebula</option>
+									<option value="solid" selected?={ page.Preview.Config.Background == themevalue.BackgroundSolid }>Solid</option>
+								</select>
+							</label>
+							<label>
+								Bundled type choice
+								<select name="typeface">
+									<option value="demoscene" selected?={ page.Preview.Config.Typeface == themevalue.TypefaceDemoscene }>Chakra Petch headings and Open Sans body</option>
+									<option value="clean" selected?={ page.Preview.Config.Typeface == themevalue.TypefaceClean }>Open Sans throughout</option>
+								</select>
+							</label>
+							<label>
+								Transition
+								<select name="transition">
+									<option value="fade" selected?={ page.Preview.Config.Transition == themevalue.TransitionFade }>Fade</option>
+									<option value="none" selected?={ page.Preview.Config.Transition == themevalue.TransitionNone }>None</option>
+								</select>
+							</label>
+							<label>
+								Effect
+								<select name="effect">
+									<option value="starfield" selected?={ page.Preview.Config.Effect == themevalue.EffectStarfield }>Built-in starfield</option>
+									<option value="none" selected?={ page.Preview.Config.Effect == themevalue.EffectNone }>None</option>
+								</select>
+							</label>
+							<label>
+								Motion level
+								<select name="motion">
+									<option value="still" selected?={ page.Preview.Config.Motion == themevalue.MotionStill }>Still</option>
+									<option value="subtle" selected?={ page.Preview.Config.Motion == themevalue.MotionSubtle }>Subtle</option>
+									<option value="full" selected?={ page.Preview.Config.Motion == themevalue.MotionFull }>Full</option>
+								</select>
+							</label>
+							<button type="submit">Save, preview, and validate Draft</button>
+						</form>
+					</section>
+					<section>
+						<h2>{ themeRevisionLabel(page.Preview.RevisionID) } preview</h2>
+						if len(page.Preview.Findings) == 0 {
+							<p role="status">This Revision passes known activation checks.</p>
+						} else {
+							<p role="alert">Activation blockers:</p>
+							<ul>
+								for _, finding := range page.Preview.Findings {
+									<li><code>{ finding.Field }</code>: { finding.Message }</li>
+								}
+							</ul>
+						}
+						<p class="theme-preview-controls">
+							Brand: { page.Preview.Config.BrandAsset } ·
+							Background: { page.Preview.Config.Background } ·
+							Transition: { page.Preview.Config.Transition } ·
+							Effect: { page.Preview.Config.Effect } ·
+							Motion: { page.Preview.Config.Motion }
+						</p>
+						<div
+							class="theme-preview-grid"
+							style={ themePreviewStyle(page.Preview.Config) }
+							data-brand-asset={ page.Preview.Config.BrandAsset }
+							data-background={ page.Preview.Config.Background }
+							data-transition={ page.Preview.Config.Transition }
+							data-effect={ page.Preview.Config.Effect }
+							data-motion={ page.Preview.Config.Motion }
+						>
+							<article class="theme-preview" data-theme-preview="public">
+								if page.Preview.Config.BrandAsset == themevalue.BrandAssetSignal {
+									<span aria-hidden="true">◆</span>
+								}
+								<h3>Public Profile</h3>
+								<p class="theme-preview-muted">Released work and public Event information.</p>
+								<a href="#">Public link</a>
+							</article>
+							<article class="theme-preview" data-theme-preview="account">
+								<h3>Account</h3>
+								<p class="theme-preview-muted">Sign-in, Profile, submissions, and voting.</p>
+								<a href="#">Account link</a>
+								<button type="button">Account action</button>
+							</article>
+							<article class="theme-preview" data-theme-preview="backstage">
+								<h3>Backstage</h3>
+								<p class="theme-preview-muted">Crew and installation administration.</p>
+								<a href="#">Backstage link</a>
+							</article>
+						</div>
+						if page.Preview.RevisionID != page.ActiveRevisionID {
+							<form method="post" action="/backstage/themes">
+								<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+								<input type="hidden" name="action" value="activate"/>
+								<input type="hidden" name="command_id" value={ page.ActivateCommandID }/>
+								<input type="hidden" name="revision_id" value={ strconv.Itoa(page.Preview.RevisionID) }/>
+								<input type="hidden" name="expected_active_revision_id" value={ strconv.Itoa(page.ActiveRevisionID) }/>
+								<button type="submit" disabled?={ len(page.Preview.Findings) != 0 }>
+									if page.Preview.RevisionID < page.ActiveRevisionID {
+										Roll back to this exact Revision
+									} else {
+										Activate this Revision
+									}
+								</button>
+							</form>
+						}
+					</section>
+					<section>
+						<h2>Immutable Revision history</h2>
+						<ul>
+							for _, revision := range page.Revisions {
+								<li>
+									<a href={ templ.SafeURL("/backstage/themes?revision=" + strconv.Itoa(revision.ID)) }>
+										{ themeRevisionLabel(revision.ID) }
+									</a>
+									if revision.Active {
+										<strong> — active</strong>
+									}
+									if !revision.CreatedAt.IsZero() {
+										<span> — { revision.CreatedAt.UTC().Format(time.RFC3339) }</span>
+									}
+								</li>
+							}
+						</ul>
+					</section>
+				</main>
+			</div>
+		</body>
+	</html>
+}

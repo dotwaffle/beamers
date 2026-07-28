@@ -478,7 +478,17 @@ func (handlers frontendHandlers) publicProfile(
 		http.NotFound(response, request)
 		return
 	}
-	handlers.render(response, request, http.StatusOK, frontend.PublicProfile(found))
+	csrfToken, err := handlers.csrfToken(response, request)
+	if err != nil {
+		handlers.frontendError(response, request, "create CSRF proof", err)
+		return
+	}
+	handlers.render(
+		response,
+		request,
+		http.StatusOK,
+		frontend.PublicProfile(found, csrfToken, reducedEffectsCookie(request)),
+	)
 }
 
 func (handlers frontendHandlers) registrationPolicy(
@@ -879,11 +889,16 @@ func (handlers frontendHandlers) publicEvent(
 		)
 		return
 	}
+	csrfToken, err := handlers.csrfToken(response, request)
+	if err != nil {
+		handlers.frontendError(response, request, "create CSRF proof", err)
+		return
+	}
 	handlers.render(
 		response,
 		request,
 		http.StatusOK,
-		frontend.PublicEvent(found),
+		frontend.PublicEvent(found, csrfToken, reducedEffectsCookie(request)),
 	)
 }
 

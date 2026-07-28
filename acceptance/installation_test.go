@@ -126,6 +126,251 @@ func TestAdministratorBootstrapAndSessionLifecycle(t *testing.T) {
 	runBeamersFails(t, bin, "bootstrap", "--data-dir", dataDir)
 }
 
+func TestAdministratorRevisesPreviewsActivatesAndRestoresInstallationTheme(t *testing.T) {
+	administrator, server := startAuthenticatedAdministrator(t)
+	guest := authenticatedClient(t)
+	guest.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	response := get(t, guest, server.address, "/backstage/themes")
+	_ = readResponseBody(t, response)
+	if response.StatusCode != http.StatusSeeOther ||
+		response.Header.Get("Location") != "/sign-in" {
+		t.Fatalf(
+			"unauthenticated Theme administration = %d location %q",
+			response.StatusCode,
+			response.Header.Get("Location"),
+		)
+	}
+	assertJSONRequest(
+		t,
+		administrator,
+		server.address,
+		"/admin/accounts",
+		map[string]string{
+			"name":       "Pat Producer",
+			"password":   "producer correct horse battery staple",
+			"command_id": "create-theme-observer",
+		},
+		http.StatusCreated,
+		"{\"id\":2,\"name\":\"Pat Producer\",\"administrator\":false}\n",
+	)
+	observer := authenticatedClient(t)
+	assertJSONRequest(
+		t,
+		observer,
+		server.address,
+		"/auth/sign-in",
+		map[string]string{
+			"name":     "Pat Producer",
+			"password": "producer correct horse battery staple",
+		},
+		http.StatusNoContent,
+		"",
+	)
+	assertGETResponse(
+		t,
+		observer,
+		server.address,
+		"/backstage/themes",
+		http.StatusForbidden,
+		"Administrator authority required\n",
+	)
+	csrf := browserCSRFToken(t, administrator, server.address, "/backstage/themes")
+	profileCSRF := browserCSRFToken(t, administrator, server.address, "/profile")
+	_, _ = postBrowserForm(
+		t,
+		administrator,
+		server.address,
+		"/profile",
+		url.Values{
+			"csrf_token":   {profileCSRF},
+			"display_name": {"Ada Admin"},
+			"published":    {"true"},
+		},
+	)
+
+	inaccessible := installationThemeForm(csrf, "create-draft", "create-inaccessible-theme")
+	inaccessible.Set("text_color", "#777777")
+	inaccessible.Set("surface_color", "#ffffff")
+	inaccessible.Set("background_color", "#ffffff")
+	_, body := postBrowserForm(
+		t,
+		administrator,
+		server.address,
+		"/backstage/themes",
+		inaccessible,
+	)
+	for _, want := range []string{
+		"Theme Revision #1",
+		"4.5:1",
+		`data-theme-preview="public"`,
+		`data-theme-preview="account"`,
+		`data-theme-preview="backstage"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("inaccessible Theme preview missing %q: %s", want, body)
+		}
+	}
+	assertGETContains(t, administrator, server.address, "/assets/installation-theme.css", "#080b15")
+
+	blocked := installationThemeForm(csrf, "activate", "activate-inaccessible-theme")
+	blocked.Set("revision_id", "1")
+	blocked.Set("expected_active_revision_id", "0")
+	status, body := postBrowserForm(
+		t,
+		administrator,
+		server.address,
+		"/backstage/themes",
+		blocked,
+	)
+	if status != http.StatusUnprocessableEntity ||
+		!strings.Contains(body, "Theme activation is blocked") {
+		t.Fatalf("blocked Theme activation = %d %q", status, body)
+	}
+
+	unknown := installationThemeForm(csrf, "create-draft", "create-arbitrary-theme")
+	unknown.Set("raw_css", "body { display: none }")
+	unknown.Set("raw_html", "<script>alert(1)</script>")
+	unknown.Set("javascript", "alert(1)")
+	unknown.Set("font_upload", "arbitrary.woff2")
+	status, body = postBrowserForm(
+		t,
+		administrator,
+		server.address,
+		"/backstage/themes",
+		unknown,
+	)
+	if status != http.StatusBadRequest ||
+		!strings.Contains(body, "undocumented Theme control") {
+		t.Fatalf("arbitrary Theme input = %d %q", status, body)
+	}
+
+	accessible := installationThemeForm(csrf, "create-draft", "create-accessible-theme")
+	accessible.Set("background_color", "#101828")
+	status, body = postBrowserForm(
+		t,
+		administrator,
+		server.address,
+		"/backstage/themes",
+		accessible,
+	)
+	if !strings.Contains(body, "Theme Revision #2") ||
+		!strings.Contains(body, "passes known activation checks") {
+		t.Fatalf("accessible Theme preview = %d %q", status, body)
+	}
+	assertGETContains(t, administrator, server.address, "/assets/installation-theme.css", "#080b15")
+
+	activate := installationThemeForm(csrf, "activate", "activate-accessible-theme")
+	activate.Set("revision_id", "2")
+	activate.Set("expected_active_revision_id", "0")
+	_, _ = postBrowserForm(
+		t,
+		administrator,
+		server.address,
+		"/backstage/themes",
+		activate,
+	)
+	assertGETContains(t, administrator, server.address, "/assets/installation-theme.css", "#101828")
+	assertGETContains(t, administrator, server.address, "/", "/assets/installation-theme.css")
+	assertGETContains(t, administrator, server.address, "/sign-in", "/assets/installation-theme.css")
+	assertGETContains(
+		t,
+		administrator,
+		server.address,
+		"/people/ada%20admin",
+		"/assets/installation-theme.css",
+	)
+	_, _ = postBrowserForm(
+		t,
+		administrator,
+		server.address,
+		"/effects",
+		url.Values{
+			"csrf_token":     {csrf},
+			"reduce_effects": {"true"},
+		},
+	)
+	assertGETContains(
+		t,
+		administrator,
+		server.address,
+		"/people/ada%20admin",
+		`data-reduced-effects="true"`,
+	)
+	assertGETContains(t, administrator, server.address, "/people/ada%20admin", "Resume effects")
+	for _, want := range []string{
+		`body[data-reduced-effects="true"]`,
+		"@media (prefers-reduced-motion: reduce)",
+		"@media (forced-colors: active)",
+	} {
+		assertGETContains(
+			t,
+			administrator,
+			server.address,
+			"/assets/installation-theme.css",
+			want,
+		)
+	}
+
+	rollback := installationThemeForm(csrf, "activate", "rollback-built-in-theme")
+	rollback.Set("revision_id", "0")
+	rollback.Set("expected_active_revision_id", "2")
+	_, _ = postBrowserForm(
+		t,
+		administrator,
+		server.address,
+		"/backstage/themes",
+		rollback,
+	)
+	assertGETContains(t, administrator, server.address, "/assets/installation-theme.css", "#080b15")
+
+	reactivate := installationThemeForm(csrf, "activate", "reactivate-accessible-theme")
+	reactivate.Set("revision_id", "2")
+	reactivate.Set("expected_active_revision_id", "0")
+	_, _ = postBrowserForm(
+		t,
+		administrator,
+		server.address,
+		"/backstage/themes",
+		reactivate,
+	)
+	assertGETContains(t, administrator, server.address, "/assets/installation-theme.css", "#101828")
+
+	server.stop(t)
+	restarted := startBeamers(t, server.bin, server.dataDir)
+	assertGETContains(t, authenticatedClient(t), restarted.address, "/assets/installation-theme.css", "#101828")
+	restarted.stop(t)
+
+	backupPath := filepath.Join(t.TempDir(), "theme-backup.zip")
+	runBeamers(t, server.bin, "backup", "--data-dir", server.dataDir, "--output", backupPath)
+	restoredDataDir := filepath.Join(t.TempDir(), "restored")
+	runBeamers(t, server.bin, "init", "--data-dir", restoredDataDir)
+	var plan struct {
+		JournalPath string `json:"journal_path"`
+	}
+	if err := json.Unmarshal([]byte(runBeamersOutput(
+		t,
+		server.bin,
+		"restore", "preview",
+		"--input", backupPath,
+		"--data-dir", restoredDataDir,
+	)), &plan); err != nil || plan.JournalPath == "" {
+		t.Fatalf("decode Theme Restore plan = %+v, %v", plan, err)
+	}
+	runBeamers(
+		t,
+		server.bin,
+		"restore", "apply",
+		"--journal", plan.JournalPath,
+		"--acknowledge-replacement",
+		"--acknowledge-configuration-differences",
+	)
+	restored := startBeamers(t, server.bin, restoredDataDir)
+	assertGETContains(t, authenticatedClient(t), restored.address, "/assets/installation-theme.css", "#101828")
+	restored.stop(t)
+}
+
 func TestUnenrolledDisplayPresentsEnrollmentCodeAndQR(t *testing.T) {
 	_, server := startAuthenticatedAdministrator(t)
 	displayClient := authenticatedClient(t)
@@ -8993,6 +9238,106 @@ func assertProbe(t *testing.T, address, path, wantBody string) {
 	t.Helper()
 	result := requestProbe(t.Context(), address, path, 5*time.Second)
 	assertProbeResult(t, path, result, http.StatusOK, wantBody)
+}
+
+func installationThemeForm(csrf, action, commandID string) url.Values {
+	return url.Values{
+		"csrf_token":       {csrf},
+		"action":           {action},
+		"command_id":       {commandID},
+		"brand_asset":      {"signal"},
+		"background_color": {"#080b15"},
+		"surface_color":    {"#141a2c"},
+		"border_color":     {"#7180aa"},
+		"text_color":       {"#f1f5ff"},
+		"muted_color":      {"#c2cbe0"},
+		"accent_color":     {"#62ebcb"},
+		"link_color":       {"#79d7ff"},
+		"focus_color":      {"#ffdf6e"},
+		"background":       {"nebula"},
+		"typeface":         {"demoscene"},
+		"transition":       {"fade"},
+		"effect":           {"starfield"},
+		"motion":           {"subtle"},
+	}
+}
+
+func browserCSRFToken(
+	t *testing.T,
+	client *http.Client,
+	address string,
+	path string,
+) string {
+	t.Helper()
+
+	response := get(t, client, address, path)
+	defer func() { _ = response.Body.Close() }()
+	_ = readResponseBody(t, response)
+	pageURL, err := url.Parse("http://" + address + path)
+	if err != nil {
+		t.Fatalf("parse browser page URL: %v", err)
+	}
+	for _, cookie := range client.Jar.Cookies(pageURL) {
+		if cookie.Name == "beamers_csrf" {
+			return cookie.Value
+		}
+	}
+	t.Fatal("browser page did not set a CSRF cookie")
+	return ""
+}
+
+func postBrowserForm(
+	t *testing.T,
+	client *http.Client,
+	address string,
+	path string,
+	values url.Values,
+) (int, string) {
+	t.Helper()
+
+	request, err := http.NewRequestWithContext(
+		t.Context(),
+		http.MethodPost,
+		"http://"+address+path,
+		strings.NewReader(values.Encode()),
+	)
+	if err != nil {
+		t.Fatalf("create browser form request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	response, err := client.Do(request)
+	if err != nil {
+		t.Fatalf("submit browser form: %v", err)
+	}
+	defer func() { _ = response.Body.Close() }()
+	return response.StatusCode, readResponseBody(t, response)
+}
+
+func readResponseBody(t *testing.T, response *http.Response) string {
+	t.Helper()
+
+	body, readErr := io.ReadAll(response.Body)
+	closeErr := response.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read response body: %v", err)
+	}
+	return string(body)
+}
+
+func assertGETContains(
+	t *testing.T,
+	client *http.Client,
+	address string,
+	path string,
+	want string,
+) {
+	t.Helper()
+
+	response := get(t, client, address, path)
+	body := readResponseBody(t, response)
+	if response.StatusCode != http.StatusOK || !strings.Contains(body, want) {
+		t.Fatalf("GET %s = %d %q, want %d containing %q", path, response.StatusCode, body, http.StatusOK, want)
+	}
 }
 
 func postForm(

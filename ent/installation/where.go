@@ -70,6 +70,11 @@ func ActivationGeneration(v int) predicate.Installation {
 	return predicate.Installation(sql.FieldEQ(FieldActivationGeneration, v))
 }
 
+// ActiveThemeRevisionID applies equality check predicate on the "active_theme_revision_id" field. It's identical to ActiveThemeRevisionIDEQ.
+func ActiveThemeRevisionID(v int) predicate.Installation {
+	return predicate.Installation(sql.FieldEQ(FieldActiveThemeRevisionID, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.Installation {
 	return predicate.Installation(sql.FieldEQ(FieldCreatedAt, v))
@@ -180,6 +185,36 @@ func ActivationGenerationLTE(v int) predicate.Installation {
 	return predicate.Installation(sql.FieldLTE(FieldActivationGeneration, v))
 }
 
+// ActiveThemeRevisionIDEQ applies the EQ predicate on the "active_theme_revision_id" field.
+func ActiveThemeRevisionIDEQ(v int) predicate.Installation {
+	return predicate.Installation(sql.FieldEQ(FieldActiveThemeRevisionID, v))
+}
+
+// ActiveThemeRevisionIDNEQ applies the NEQ predicate on the "active_theme_revision_id" field.
+func ActiveThemeRevisionIDNEQ(v int) predicate.Installation {
+	return predicate.Installation(sql.FieldNEQ(FieldActiveThemeRevisionID, v))
+}
+
+// ActiveThemeRevisionIDIn applies the In predicate on the "active_theme_revision_id" field.
+func ActiveThemeRevisionIDIn(vs ...int) predicate.Installation {
+	return predicate.Installation(sql.FieldIn(FieldActiveThemeRevisionID, vs...))
+}
+
+// ActiveThemeRevisionIDNotIn applies the NotIn predicate on the "active_theme_revision_id" field.
+func ActiveThemeRevisionIDNotIn(vs ...int) predicate.Installation {
+	return predicate.Installation(sql.FieldNotIn(FieldActiveThemeRevisionID, vs...))
+}
+
+// ActiveThemeRevisionIDIsNil applies the IsNil predicate on the "active_theme_revision_id" field.
+func ActiveThemeRevisionIDIsNil() predicate.Installation {
+	return predicate.Installation(sql.FieldIsNull(FieldActiveThemeRevisionID))
+}
+
+// ActiveThemeRevisionIDNotNil applies the NotNil predicate on the "active_theme_revision_id" field.
+func ActiveThemeRevisionIDNotNil() predicate.Installation {
+	return predicate.Installation(sql.FieldNotNull(FieldActiveThemeRevisionID))
+}
+
 // HasActiveEvent applies the HasEdge predicate on the "active_event" edge.
 func HasActiveEvent() predicate.Installation {
 	return predicate.Installation(func(s *sql.Selector) {
@@ -195,6 +230,29 @@ func HasActiveEvent() predicate.Installation {
 func HasActiveEventWith(preds ...predicate.Event) predicate.Installation {
 	return predicate.Installation(func(s *sql.Selector) {
 		step := newActiveEventStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasActiveThemeRevision applies the HasEdge predicate on the "active_theme_revision" edge.
+func HasActiveThemeRevision() predicate.Installation {
+	return predicate.Installation(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, ActiveThemeRevisionTable, ActiveThemeRevisionColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasActiveThemeRevisionWith applies the HasEdge predicate on the "active_theme_revision" edge with a given conditions (other predicates).
+func HasActiveThemeRevisionWith(preds ...predicate.InstallationThemeRevision) predicate.Installation {
+	return predicate.Installation(func(s *sql.Selector) {
+		step := newActiveThemeRevisionStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

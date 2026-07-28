@@ -35,6 +35,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/federatedidentity"
 	"github.com/dotwaffle/beamers/ent/importreference"
 	"github.com/dotwaffle/beamers/ent/installation"
+	"github.com/dotwaffle/beamers/ent/installationthemerevision"
 	"github.com/dotwaffle/beamers/ent/lane"
 	"github.com/dotwaffle/beamers/ent/lanedraft"
 	"github.com/dotwaffle/beamers/ent/lanepublishedversion"
@@ -1614,6 +1615,25 @@ func init() {
 	installation.DefaultActivationGeneration = installationDescActivationGeneration.Default.(int)
 	// installation.ActivationGenerationValidator is a validator for the "activation_generation" field. It is called by the builders before save.
 	installation.ActivationGenerationValidator = installationDescActivationGeneration.Validators[0].(func(int) error)
+	installationthemerevision.Policy = privacy.NewPolicies(schema.InstallationThemeRevision{})
+	installationthemerevision.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := installationthemerevision.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	installationthemerevisionFields := schema.InstallationThemeRevision{}.Fields()
+	_ = installationthemerevisionFields
+	// installationthemerevisionDescCreatedByAccountID is the schema descriptor for created_by_account_id field.
+	installationthemerevisionDescCreatedByAccountID := installationthemerevisionFields[1].Descriptor()
+	// installationthemerevision.CreatedByAccountIDValidator is a validator for the "created_by_account_id" field. It is called by the builders before save.
+	installationthemerevision.CreatedByAccountIDValidator = installationthemerevisionDescCreatedByAccountID.Validators[0].(func(int) error)
+	// installationthemerevisionDescCreatedAt is the schema descriptor for created_at field.
+	installationthemerevisionDescCreatedAt := installationthemerevisionFields[2].Descriptor()
+	// installationthemerevision.DefaultCreatedAt holds the default value on creation for the created_at field.
+	installationthemerevision.DefaultCreatedAt = installationthemerevisionDescCreatedAt.Default.(func() time.Time)
 	lane.Policy = privacy.NewPolicies(schema.Lane{})
 	lane.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {

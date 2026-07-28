@@ -357,6 +357,18 @@ func (f InstallationFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.InstallationMutation", m)
 }
 
+// The InstallationThemeRevisionFunc type is an adapter to allow the use of ordinary
+// function as InstallationThemeRevision mutator.
+type InstallationThemeRevisionFunc func(context.Context, *ent.InstallationThemeRevisionMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f InstallationThemeRevisionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.InstallationThemeRevisionMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.InstallationThemeRevisionMutation", m)
+}
+
 // The LaneFunc type is an adapter to allow the use of ordinary
 // function as Lane mutator.
 type LaneFunc func(context.Context, *ent.LaneMutation) (ent.Value, error)

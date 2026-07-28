@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/installation"
+	"github.com/dotwaffle/beamers/ent/installationthemerevision"
 	"github.com/dotwaffle/beamers/ent/predicate"
 )
 
@@ -69,9 +70,34 @@ func (_u *InstallationUpdate) AddActivationGeneration(v int) *InstallationUpdate
 	return _u
 }
 
+// SetActiveThemeRevisionID sets the "active_theme_revision_id" field.
+func (_u *InstallationUpdate) SetActiveThemeRevisionID(v int) *InstallationUpdate {
+	_u.mutation.SetActiveThemeRevisionID(v)
+	return _u
+}
+
+// SetNillableActiveThemeRevisionID sets the "active_theme_revision_id" field if the given value is not nil.
+func (_u *InstallationUpdate) SetNillableActiveThemeRevisionID(v *int) *InstallationUpdate {
+	if v != nil {
+		_u.SetActiveThemeRevisionID(*v)
+	}
+	return _u
+}
+
+// ClearActiveThemeRevisionID clears the value of the "active_theme_revision_id" field.
+func (_u *InstallationUpdate) ClearActiveThemeRevisionID() *InstallationUpdate {
+	_u.mutation.ClearActiveThemeRevisionID()
+	return _u
+}
+
 // SetActiveEvent sets the "active_event" edge to the Event entity.
 func (_u *InstallationUpdate) SetActiveEvent(v *Event) *InstallationUpdate {
 	return _u.SetActiveEventID(v.ID)
+}
+
+// SetActiveThemeRevision sets the "active_theme_revision" edge to the InstallationThemeRevision entity.
+func (_u *InstallationUpdate) SetActiveThemeRevision(v *InstallationThemeRevision) *InstallationUpdate {
+	return _u.SetActiveThemeRevisionID(v.ID)
 }
 
 // Mutation returns the InstallationMutation object of the builder.
@@ -82,6 +108,12 @@ func (_u *InstallationUpdate) Mutation() *InstallationMutation {
 // ClearActiveEvent clears the "active_event" edge to the Event entity.
 func (_u *InstallationUpdate) ClearActiveEvent() *InstallationUpdate {
 	_u.mutation.ClearActiveEvent()
+	return _u
+}
+
+// ClearActiveThemeRevision clears the "active_theme_revision" edge to the InstallationThemeRevision entity.
+func (_u *InstallationUpdate) ClearActiveThemeRevision() *InstallationUpdate {
+	_u.mutation.ClearActiveThemeRevision()
 	return _u
 }
 
@@ -169,6 +201,35 @@ func (_u *InstallationUpdate) sqlSave(ctx context.Context) (_node int, err error
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.ActiveThemeRevisionCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   installation.ActiveThemeRevisionTable,
+			Columns: []string{installation.ActiveThemeRevisionColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(installationthemerevision.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ActiveThemeRevisionIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   installation.ActiveThemeRevisionTable,
+			Columns: []string{installation.ActiveThemeRevisionColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(installationthemerevision.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{installation.Label}
@@ -230,9 +291,34 @@ func (_u *InstallationUpdateOne) AddActivationGeneration(v int) *InstallationUpd
 	return _u
 }
 
+// SetActiveThemeRevisionID sets the "active_theme_revision_id" field.
+func (_u *InstallationUpdateOne) SetActiveThemeRevisionID(v int) *InstallationUpdateOne {
+	_u.mutation.SetActiveThemeRevisionID(v)
+	return _u
+}
+
+// SetNillableActiveThemeRevisionID sets the "active_theme_revision_id" field if the given value is not nil.
+func (_u *InstallationUpdateOne) SetNillableActiveThemeRevisionID(v *int) *InstallationUpdateOne {
+	if v != nil {
+		_u.SetActiveThemeRevisionID(*v)
+	}
+	return _u
+}
+
+// ClearActiveThemeRevisionID clears the value of the "active_theme_revision_id" field.
+func (_u *InstallationUpdateOne) ClearActiveThemeRevisionID() *InstallationUpdateOne {
+	_u.mutation.ClearActiveThemeRevisionID()
+	return _u
+}
+
 // SetActiveEvent sets the "active_event" edge to the Event entity.
 func (_u *InstallationUpdateOne) SetActiveEvent(v *Event) *InstallationUpdateOne {
 	return _u.SetActiveEventID(v.ID)
+}
+
+// SetActiveThemeRevision sets the "active_theme_revision" edge to the InstallationThemeRevision entity.
+func (_u *InstallationUpdateOne) SetActiveThemeRevision(v *InstallationThemeRevision) *InstallationUpdateOne {
+	return _u.SetActiveThemeRevisionID(v.ID)
 }
 
 // Mutation returns the InstallationMutation object of the builder.
@@ -243,6 +329,12 @@ func (_u *InstallationUpdateOne) Mutation() *InstallationMutation {
 // ClearActiveEvent clears the "active_event" edge to the Event entity.
 func (_u *InstallationUpdateOne) ClearActiveEvent() *InstallationUpdateOne {
 	_u.mutation.ClearActiveEvent()
+	return _u
+}
+
+// ClearActiveThemeRevision clears the "active_theme_revision" edge to the InstallationThemeRevision entity.
+func (_u *InstallationUpdateOne) ClearActiveThemeRevision() *InstallationUpdateOne {
+	_u.mutation.ClearActiveThemeRevision()
 	return _u
 }
 
@@ -353,6 +445,35 @@ func (_u *InstallationUpdateOne) sqlSave(ctx context.Context) (_node *Installati
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(event.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.ActiveThemeRevisionCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   installation.ActiveThemeRevisionTable,
+			Columns: []string{installation.ActiveThemeRevisionColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(installationthemerevision.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ActiveThemeRevisionIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   installation.ActiveThemeRevisionTable,
+			Columns: []string{installation.ActiveThemeRevisionColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(installationthemerevision.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

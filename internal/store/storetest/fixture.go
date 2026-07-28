@@ -71,6 +71,23 @@ func DowngradeBeforeUpgradeContracts(ctx context.Context, path string) error {
 	return mutateSchema(path, func(database *sql.DB) error {
 		const statement = `
 PRAGMA foreign_keys = off;
+CREATE TABLE installations_before_themes (
+	id integer NOT NULL PRIMARY KEY AUTOINCREMENT,
+	created_at datetime NOT NULL,
+	activation_generation integer NOT NULL DEFAULT 0,
+	active_event_id integer NULL,
+	CONSTRAINT installations_events_active_event
+		FOREIGN KEY (active_event_id) REFERENCES events (id)
+		ON UPDATE NO ACTION ON DELETE SET NULL
+);
+INSERT INTO installations_before_themes (
+	id, created_at, activation_generation, active_event_id
+)
+SELECT id, created_at, activation_generation, active_event_id
+FROM installations;
+DROP TABLE installations;
+ALTER TABLE installations_before_themes RENAME TO installations;
+DROP TABLE installation_theme_revisions;
 DROP TABLE voting_tallies;
 DROP TABLE votes;
 DROP TABLE voting_keys;

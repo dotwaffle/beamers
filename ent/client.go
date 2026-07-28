@@ -44,6 +44,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/federatedidentity"
 	"github.com/dotwaffle/beamers/ent/importreference"
 	"github.com/dotwaffle/beamers/ent/installation"
+	"github.com/dotwaffle/beamers/ent/installationthemerevision"
 	"github.com/dotwaffle/beamers/ent/lane"
 	"github.com/dotwaffle/beamers/ent/lanedraft"
 	"github.com/dotwaffle/beamers/ent/lanepublishedversion"
@@ -145,6 +146,8 @@ type Client struct {
 	ImportReference *ImportReferenceClient
 	// Installation is the client for interacting with the Installation builders.
 	Installation *InstallationClient
+	// InstallationThemeRevision is the client for interacting with the InstallationThemeRevision builders.
+	InstallationThemeRevision *InstallationThemeRevisionClient
 	// Lane is the client for interacting with the Lane builders.
 	Lane *LaneClient
 	// LaneDraft is the client for interacting with the LaneDraft builders.
@@ -253,6 +256,7 @@ func (c *Client) init() {
 	c.FederatedIdentity = NewFederatedIdentityClient(c.config)
 	c.ImportReference = NewImportReferenceClient(c.config)
 	c.Installation = NewInstallationClient(c.config)
+	c.InstallationThemeRevision = NewInstallationThemeRevisionClient(c.config)
 	c.Lane = NewLaneClient(c.config)
 	c.LaneDraft = NewLaneDraftClient(c.config)
 	c.LanePublishedVersion = NewLanePublishedVersionClient(c.config)
@@ -408,6 +412,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		FederatedIdentity:           NewFederatedIdentityClient(cfg),
 		ImportReference:             NewImportReferenceClient(cfg),
 		Installation:                NewInstallationClient(cfg),
+		InstallationThemeRevision:   NewInstallationThemeRevisionClient(cfg),
 		Lane:                        NewLaneClient(cfg),
 		LaneDraft:                   NewLaneDraftClient(cfg),
 		LanePublishedVersion:        NewLanePublishedVersionClient(cfg),
@@ -490,6 +495,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		FederatedIdentity:           NewFederatedIdentityClient(cfg),
 		ImportReference:             NewImportReferenceClient(cfg),
 		Installation:                NewInstallationClient(cfg),
+		InstallationThemeRevision:   NewInstallationThemeRevisionClient(cfg),
 		Lane:                        NewLaneClient(cfg),
 		LaneDraft:                   NewLaneDraftClient(cfg),
 		LanePublishedVersion:        NewLanePublishedVersionClient(cfg),
@@ -560,11 +566,12 @@ func (c *Client) Use(hooks ...Hook) {
 		c.DisplayEnrollment, c.DisplayOverride, c.DisplayOverrideState, c.DraftChange,
 		c.DraftChangeDependency, c.DraftEdit, c.Event, c.EventAwardsDraft,
 		c.EventGrant, c.EventSlug, c.FavoriteSession, c.FederatedIdentity,
-		c.ImportReference, c.Installation, c.Lane, c.LaneDraft, c.LanePublishedVersion,
-		c.Location, c.LocationDraft, c.LocationPublishedVersion, c.Migration,
-		c.PasswordCredential, c.Prizegiving, c.PrizegivingCompetition,
-		c.PublicScheduleBaseline, c.PublicScheduleBaselineEntry, c.RecoveryCode,
-		c.RecoveryToken, c.RegistrationPolicy, c.ReleasedProfileEntry, c.ReopenWindow,
+		c.ImportReference, c.Installation, c.InstallationThemeRevision, c.Lane,
+		c.LaneDraft, c.LanePublishedVersion, c.Location, c.LocationDraft,
+		c.LocationPublishedVersion, c.Migration, c.PasswordCredential, c.Prizegiving,
+		c.PrizegivingCompetition, c.PublicScheduleBaseline,
+		c.PublicScheduleBaselineEntry, c.RecoveryCode, c.RecoveryToken,
+		c.RegistrationPolicy, c.ReleasedProfileEntry, c.ReopenWindow,
 		c.ResultsCorrection, c.ResultsPublication, c.Rundown, c.Session,
 		c.SessionCancellation, c.SessionDraft, c.SessionPublishedVersion, c.SessionRun,
 		c.SessionRunAmendment, c.Track, c.TrackDraft, c.TrackPublishedVersion, c.Vote,
@@ -585,11 +592,12 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.DisplayEnrollment, c.DisplayOverride, c.DisplayOverrideState, c.DraftChange,
 		c.DraftChangeDependency, c.DraftEdit, c.Event, c.EventAwardsDraft,
 		c.EventGrant, c.EventSlug, c.FavoriteSession, c.FederatedIdentity,
-		c.ImportReference, c.Installation, c.Lane, c.LaneDraft, c.LanePublishedVersion,
-		c.Location, c.LocationDraft, c.LocationPublishedVersion, c.Migration,
-		c.PasswordCredential, c.Prizegiving, c.PrizegivingCompetition,
-		c.PublicScheduleBaseline, c.PublicScheduleBaselineEntry, c.RecoveryCode,
-		c.RecoveryToken, c.RegistrationPolicy, c.ReleasedProfileEntry, c.ReopenWindow,
+		c.ImportReference, c.Installation, c.InstallationThemeRevision, c.Lane,
+		c.LaneDraft, c.LanePublishedVersion, c.Location, c.LocationDraft,
+		c.LocationPublishedVersion, c.Migration, c.PasswordCredential, c.Prizegiving,
+		c.PrizegivingCompetition, c.PublicScheduleBaseline,
+		c.PublicScheduleBaselineEntry, c.RecoveryCode, c.RecoveryToken,
+		c.RegistrationPolicy, c.ReleasedProfileEntry, c.ReopenWindow,
 		c.ResultsCorrection, c.ResultsPublication, c.Rundown, c.Session,
 		c.SessionCancellation, c.SessionDraft, c.SessionPublishedVersion, c.SessionRun,
 		c.SessionRunAmendment, c.Track, c.TrackDraft, c.TrackPublishedVersion, c.Vote,
@@ -660,6 +668,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.ImportReference.mutate(ctx, m)
 	case *InstallationMutation:
 		return c.Installation.mutate(ctx, m)
+	case *InstallationThemeRevisionMutation:
+		return c.InstallationThemeRevision.mutate(ctx, m)
 	case *LaneMutation:
 		return c.Lane.mutate(ctx, m)
 	case *LaneDraftMutation:
@@ -6065,6 +6075,22 @@ func (c *InstallationClient) QueryActiveEvent(_m *Installation) *EventQuery {
 	return query
 }
 
+// QueryActiveThemeRevision queries the active_theme_revision edge of a Installation.
+func (c *InstallationClient) QueryActiveThemeRevision(_m *Installation) *InstallationThemeRevisionQuery {
+	query := (&InstallationThemeRevisionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(installation.Table, installation.FieldID, id),
+			sqlgraph.To(installationthemerevision.Table, installationthemerevision.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, installation.ActiveThemeRevisionTable, installation.ActiveThemeRevisionColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *InstallationClient) Hooks() []Hook {
 	hooks := c.hooks.Installation
@@ -6088,6 +6114,140 @@ func (c *InstallationClient) mutate(ctx context.Context, m *InstallationMutation
 		return (&InstallationDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown Installation mutation op: %q", m.Op())
+	}
+}
+
+// InstallationThemeRevisionClient is a client for the InstallationThemeRevision schema.
+type InstallationThemeRevisionClient struct {
+	config
+}
+
+// NewInstallationThemeRevisionClient returns a client for the InstallationThemeRevision from the given config.
+func NewInstallationThemeRevisionClient(c config) *InstallationThemeRevisionClient {
+	return &InstallationThemeRevisionClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `installationthemerevision.Hooks(f(g(h())))`.
+func (c *InstallationThemeRevisionClient) Use(hooks ...Hook) {
+	c.hooks.InstallationThemeRevision = append(c.hooks.InstallationThemeRevision, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `installationthemerevision.Intercept(f(g(h())))`.
+func (c *InstallationThemeRevisionClient) Intercept(interceptors ...Interceptor) {
+	c.inters.InstallationThemeRevision = append(c.inters.InstallationThemeRevision, interceptors...)
+}
+
+// Create returns a builder for creating a InstallationThemeRevision entity.
+func (c *InstallationThemeRevisionClient) Create() *InstallationThemeRevisionCreate {
+	mutation := newInstallationThemeRevisionMutation(c.config, OpCreate)
+	return &InstallationThemeRevisionCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of InstallationThemeRevision entities.
+func (c *InstallationThemeRevisionClient) CreateBulk(builders ...*InstallationThemeRevisionCreate) *InstallationThemeRevisionCreateBulk {
+	return &InstallationThemeRevisionCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *InstallationThemeRevisionClient) MapCreateBulk(slice any, setFunc func(*InstallationThemeRevisionCreate, int)) *InstallationThemeRevisionCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &InstallationThemeRevisionCreateBulk{err: fmt.Errorf("calling to InstallationThemeRevisionClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*InstallationThemeRevisionCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &InstallationThemeRevisionCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for InstallationThemeRevision.
+func (c *InstallationThemeRevisionClient) Update() *InstallationThemeRevisionUpdate {
+	mutation := newInstallationThemeRevisionMutation(c.config, OpUpdate)
+	return &InstallationThemeRevisionUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *InstallationThemeRevisionClient) UpdateOne(_m *InstallationThemeRevision) *InstallationThemeRevisionUpdateOne {
+	mutation := newInstallationThemeRevisionMutation(c.config, OpUpdateOne, withInstallationThemeRevision(_m))
+	return &InstallationThemeRevisionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *InstallationThemeRevisionClient) UpdateOneID(id int) *InstallationThemeRevisionUpdateOne {
+	mutation := newInstallationThemeRevisionMutation(c.config, OpUpdateOne, withInstallationThemeRevisionID(id))
+	return &InstallationThemeRevisionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for InstallationThemeRevision.
+func (c *InstallationThemeRevisionClient) Delete() *InstallationThemeRevisionDelete {
+	mutation := newInstallationThemeRevisionMutation(c.config, OpDelete)
+	return &InstallationThemeRevisionDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *InstallationThemeRevisionClient) DeleteOne(_m *InstallationThemeRevision) *InstallationThemeRevisionDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *InstallationThemeRevisionClient) DeleteOneID(id int) *InstallationThemeRevisionDeleteOne {
+	builder := c.Delete().Where(installationthemerevision.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &InstallationThemeRevisionDeleteOne{builder}
+}
+
+// Query returns a query builder for InstallationThemeRevision.
+func (c *InstallationThemeRevisionClient) Query() *InstallationThemeRevisionQuery {
+	return &InstallationThemeRevisionQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeInstallationThemeRevision},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a InstallationThemeRevision entity by its id.
+func (c *InstallationThemeRevisionClient) Get(ctx context.Context, id int) (*InstallationThemeRevision, error) {
+	return c.Query().Where(installationthemerevision.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *InstallationThemeRevisionClient) GetX(ctx context.Context, id int) *InstallationThemeRevision {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *InstallationThemeRevisionClient) Hooks() []Hook {
+	hooks := c.hooks.InstallationThemeRevision
+	return append(hooks[:len(hooks):len(hooks)], installationthemerevision.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *InstallationThemeRevisionClient) Interceptors() []Interceptor {
+	return c.inters.InstallationThemeRevision
+}
+
+func (c *InstallationThemeRevisionClient) mutate(ctx context.Context, m *InstallationThemeRevisionMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&InstallationThemeRevisionCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&InstallationThemeRevisionUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&InstallationThemeRevisionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&InstallationThemeRevisionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown InstallationThemeRevision mutation op: %q", m.Op())
 	}
 }
 
@@ -11951,14 +12111,15 @@ type (
 		DisplayAssignment, DisplayCredential, DisplayEnrollment, DisplayOverride,
 		DisplayOverrideState, DraftChange, DraftChangeDependency, DraftEdit, Event,
 		EventAwardsDraft, EventGrant, EventSlug, FavoriteSession, FederatedIdentity,
-		ImportReference, Installation, Lane, LaneDraft, LanePublishedVersion, Location,
-		LocationDraft, LocationPublishedVersion, Migration, PasswordCredential,
-		Prizegiving, PrizegivingCompetition, PublicScheduleBaseline,
-		PublicScheduleBaselineEntry, RecoveryCode, RecoveryToken, RegistrationPolicy,
-		ReleasedProfileEntry, ReopenWindow, ResultsCorrection, ResultsPublication,
-		Rundown, Session, SessionCancellation, SessionDraft, SessionPublishedVersion,
-		SessionRun, SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
-		Vote, VotingEligibility, VotingKey, VotingTally, WebAuthnCredential []ent.Hook
+		ImportReference, Installation, InstallationThemeRevision, Lane, LaneDraft,
+		LanePublishedVersion, Location, LocationDraft, LocationPublishedVersion,
+		Migration, PasswordCredential, Prizegiving, PrizegivingCompetition,
+		PublicScheduleBaseline, PublicScheduleBaselineEntry, RecoveryCode,
+		RecoveryToken, RegistrationPolicy, ReleasedProfileEntry, ReopenWindow,
+		ResultsCorrection, ResultsPublication, Rundown, Session, SessionCancellation,
+		SessionDraft, SessionPublishedVersion, SessionRun, SessionRunAmendment, Track,
+		TrackDraft, TrackPublishedVersion, Vote, VotingEligibility, VotingKey,
+		VotingTally, WebAuthnCredential []ent.Hook
 	}
 	inters struct {
 		Account, AccountPreference, AccountProfile, AccountSession, Attachment,
@@ -11967,15 +12128,15 @@ type (
 		DisplayAssignment, DisplayCredential, DisplayEnrollment, DisplayOverride,
 		DisplayOverrideState, DraftChange, DraftChangeDependency, DraftEdit, Event,
 		EventAwardsDraft, EventGrant, EventSlug, FavoriteSession, FederatedIdentity,
-		ImportReference, Installation, Lane, LaneDraft, LanePublishedVersion, Location,
-		LocationDraft, LocationPublishedVersion, Migration, PasswordCredential,
-		Prizegiving, PrizegivingCompetition, PublicScheduleBaseline,
-		PublicScheduleBaselineEntry, RecoveryCode, RecoveryToken, RegistrationPolicy,
-		ReleasedProfileEntry, ReopenWindow, ResultsCorrection, ResultsPublication,
-		Rundown, Session, SessionCancellation, SessionDraft, SessionPublishedVersion,
-		SessionRun, SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
-		Vote, VotingEligibility, VotingKey, VotingTally,
-		WebAuthnCredential []ent.Interceptor
+		ImportReference, Installation, InstallationThemeRevision, Lane, LaneDraft,
+		LanePublishedVersion, Location, LocationDraft, LocationPublishedVersion,
+		Migration, PasswordCredential, Prizegiving, PrizegivingCompetition,
+		PublicScheduleBaseline, PublicScheduleBaselineEntry, RecoveryCode,
+		RecoveryToken, RegistrationPolicy, ReleasedProfileEntry, ReopenWindow,
+		ResultsCorrection, ResultsPublication, Rundown, Session, SessionCancellation,
+		SessionDraft, SessionPublishedVersion, SessionRun, SessionRunAmendment, Track,
+		TrackDraft, TrackPublishedVersion, Vote, VotingEligibility, VotingKey,
+		VotingTally, WebAuthnCredential []ent.Interceptor
 	}
 )
 

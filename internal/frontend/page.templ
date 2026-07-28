@@ -28,6 +28,7 @@ templ Head(title string) {
 		<meta charset="utf-8"/>
 		<meta name="viewport" content="width=device-width, initial-scale=1"/>
 		<link rel="stylesheet" href={ StylesheetPath }/>
+		<link rel="stylesheet" href={ InstallationThemePath }/>
 		<title>{ title }</title>
 	</head>
 }
@@ -243,11 +244,12 @@ templ ProfilePage(
 	</html>
 }
 
-templ PublicProfile(profile auth.Profile) {
+templ PublicProfile(profile auth.Profile, csrfToken string, reducedEffects bool) {
 	<!doctype html>
 	<html lang="en">
 		@Head(profile.DisplayName + " · Beamers")
-		<body>
+		<body data-reduced-effects={ strconv.FormatBool(reducedEffects) }>
+			@Navigation("", csrfToken, reducedEffects, false)
 			<main>
 				<h1>{ profile.DisplayName }</h1>
 				if len(profile.Entries) > 0 {
@@ -271,6 +273,7 @@ templ BackstageLinks(navigation BackstageNavigation) {
 					<ul>
 						<li><a href="/backstage/events/new">Create Event</a></li>
 						<li><a href="/backstage/administration">Accounts, Event Grants, and activation</a></li>
+						<li><a href="/backstage/themes">Installation Theme</a></li>
 					<li><a href="/admin/registration">Registration</a></li>
 					<li><a href="/backstage/installation">Backups and diagnostics</a></li>
 				</ul>
@@ -421,14 +424,16 @@ templ PublicEventSummary(event events.PublicEvent) {
 	</span>
 }
 
-templ PublicEvent(event events.PublicEvent) {
+templ PublicEvent(
+	event events.PublicEvent,
+	csrfToken string,
+	reducedEffects bool,
+) {
 	<!doctype html>
-	<html lang={ event.EventLocale }>
+		<html lang={ event.EventLocale }>
 		@Head(event.Name + " · Beamers")
-		<body>
-			<header>
-				<nav aria-label="Primary"><a href="/">Beamers</a></nav>
-			</header>
+		<body data-reduced-effects={ strconv.FormatBool(reducedEffects) }>
+			@Navigation("", csrfToken, reducedEffects, false)
 			<main>
 				<h1>{ event.Name }</h1>
 				<p>

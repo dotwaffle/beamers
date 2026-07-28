@@ -33,6 +33,7 @@ func (Installation) Fields() []ent.Field {
 		field.Time("created_at").Default(time.Now).Immutable(),
 		field.Int("active_event_id").Optional().Nillable(),
 		field.Int("activation_generation").Default(0).NonNegative(),
+		field.Int("active_theme_revision_id").Optional().Nillable(),
 	}
 }
 
@@ -41,6 +42,9 @@ func (Installation) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.To("active_event", Event.Type).
 			Field("active_event_id").
+			Unique(),
+		edge.To("active_theme_revision", InstallationThemeRevision.Type).
+			Field("active_theme_revision_id").
 			Unique(),
 	}
 }

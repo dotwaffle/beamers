@@ -14,17 +14,19 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/installation"
+	"github.com/dotwaffle/beamers/ent/installationthemerevision"
 	"github.com/dotwaffle/beamers/ent/predicate"
 )
 
 // InstallationQuery is the builder for querying Installation entities.
 type InstallationQuery struct {
 	config
-	ctx             *QueryContext
-	order           []installation.OrderOption
-	inters          []Interceptor
-	predicates      []predicate.Installation
-	withActiveEvent *EventQuery
+	ctx                     *QueryContext
+	order                   []installation.OrderOption
+	inters                  []Interceptor
+	predicates              []predicate.Installation
+	withActiveEvent         *EventQuery
+	withActiveThemeRevision *InstallationThemeRevisionQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -76,6 +78,28 @@ func (_q *InstallationQuery) QueryActiveEvent() *EventQuery {
 			sqlgraph.From(installation.Table, installation.FieldID, selector),
 			sqlgraph.To(event.Table, event.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, false, installation.ActiveEventTable, installation.ActiveEventColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryActiveThemeRevision chains the current query on the "active_theme_revision" edge.
+func (_q *InstallationQuery) QueryActiveThemeRevision() *InstallationThemeRevisionQuery {
+	query := (&InstallationThemeRevisionClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(installation.Table, installation.FieldID, selector),
+			sqlgraph.To(installationthemerevision.Table, installationthemerevision.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, installation.ActiveThemeRevisionTable, installation.ActiveThemeRevisionColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -270,12 +294,13 @@ func (_q *InstallationQuery) Clone() *InstallationQuery {
 		return nil
 	}
 	return &InstallationQuery{
-		config:          _q.config,
-		ctx:             _q.ctx.Clone(),
-		order:           append([]installation.OrderOption{}, _q.order...),
-		inters:          append([]Interceptor{}, _q.inters...),
-		predicates:      append([]predicate.Installation{}, _q.predicates...),
-		withActiveEvent: _q.withActiveEvent.Clone(),
+		config:                  _q.config,
+		ctx:                     _q.ctx.Clone(),
+		order:                   append([]installation.OrderOption{}, _q.order...),
+		inters:                  append([]Interceptor{}, _q.inters...),
+		predicates:              append([]predicate.Installation{}, _q.predicates...),
+		withActiveEvent:         _q.withActiveEvent.Clone(),
+		withActiveThemeRevision: _q.withActiveThemeRevision.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -290,6 +315,17 @@ func (_q *InstallationQuery) WithActiveEvent(opts ...func(*EventQuery)) *Install
 		opt(query)
 	}
 	_q.withActiveEvent = query
+	return _q
+}
+
+// WithActiveThemeRevision tells the query-builder to eager-load the nodes that are connected to
+// the "active_theme_revision" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *InstallationQuery) WithActiveThemeRevision(opts ...func(*InstallationThemeRevisionQuery)) *InstallationQuery {
+	query := (&InstallationThemeRevisionClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withActiveThemeRevision = query
 	return _q
 }
 
@@ -377,8 +413,9 @@ func (_q *InstallationQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]
 	var (
 		nodes       = []*Installation{}
 		_spec       = _q.querySpec()
-		loadedTypes = [1]bool{
+		loadedTypes = [2]bool{
 			_q.withActiveEvent != nil,
+			_q.withActiveThemeRevision != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -402,6 +439,12 @@ func (_q *InstallationQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]
 	if query := _q.withActiveEvent; query != nil {
 		if err := _q.loadActiveEvent(ctx, query, nodes, nil,
 			func(n *Installation, e *Event) { n.Edges.ActiveEvent = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withActiveThemeRevision; query != nil {
+		if err := _q.loadActiveThemeRevision(ctx, query, nodes, nil,
+			func(n *Installation, e *InstallationThemeRevision) { n.Edges.ActiveThemeRevision = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -440,6 +483,38 @@ func (_q *InstallationQuery) loadActiveEvent(ctx context.Context, query *EventQu
 	}
 	return nil
 }
+func (_q *InstallationQuery) loadActiveThemeRevision(ctx context.Context, query *InstallationThemeRevisionQuery, nodes []*Installation, init func(*Installation), assign func(*Installation, *InstallationThemeRevision)) error {
+	ids := make([]int, 0, len(nodes))
+	nodeids := make(map[int][]*Installation)
+	for i := range nodes {
+		if nodes[i].ActiveThemeRevisionID == nil {
+			continue
+		}
+		fk := *nodes[i].ActiveThemeRevisionID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(installationthemerevision.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "active_theme_revision_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
 
 func (_q *InstallationQuery) sqlCount(ctx context.Context) (int, error) {
 	_spec := _q.querySpec()
@@ -468,6 +543,9 @@ func (_q *InstallationQuery) querySpec() *sqlgraph.QuerySpec {
 		}
 		if _q.withActiveEvent != nil {
 			_spec.Node.AddColumnOnce(installation.FieldActiveEventID)
+		}
+		if _q.withActiveThemeRevision != nil {
+			_spec.Node.AddColumnOnce(installation.FieldActiveThemeRevisionID)
 		}
 	}
 	if ps := _q.predicates; len(ps) > 0 {

@@ -93,6 +93,9 @@ type ImportReference func(*sql.Selector)
 // Installation is the predicate function for installation builders.
 type Installation func(*sql.Selector)
 
+// InstallationThemeRevision is the predicate function for installationthemerevision builders.
+type InstallationThemeRevision func(*sql.Selector)
+
 // Lane is the predicate function for lane builders.
 type Lane func(*sql.Selector)
 

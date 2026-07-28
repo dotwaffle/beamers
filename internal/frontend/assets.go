@@ -8,14 +8,15 @@ import (
 
 // Embedded browser asset routes.
 const (
-	StylesheetPath    = "/assets/frontend.css"
-	ChakraRegularPath = "/assets/chakra-petch-regular.ttf"
-	ChakraBoldPath    = "/assets/chakra-petch-bold.ttf"
-	OpenSansPath      = "/assets/open-sans.ttf"
-	HTMXPath          = "/assets/htmx-2.0.10.min.js"
-	SSEPath           = "/assets/htmx-ext-sse-2.2.4.min.js"
-	EventTimePath     = "/assets/event-time.js"
-	WebAuthnPath      = "/assets/webauthn-v1.js"
+	StylesheetPath        = "/assets/frontend.css"
+	InstallationThemePath = "/assets/installation-theme.css"
+	ChakraRegularPath     = "/assets/chakra-petch-regular.ttf"
+	ChakraBoldPath        = "/assets/chakra-petch-bold.ttf"
+	OpenSansPath          = "/assets/open-sans.ttf"
+	HTMXPath              = "/assets/htmx-2.0.10.min.js"
+	SSEPath               = "/assets/htmx-ext-sse-2.2.4.min.js"
+	EventTimePath         = "/assets/event-time.js"
+	WebAuthnPath          = "/assets/webauthn-v1.js"
 )
 
 //go:embed frontend.css vendor/*.js vendor/fonts/*

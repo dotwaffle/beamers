@@ -72,6 +72,8 @@ type Tx struct {
 	ImportReference *ImportReferenceClient
 	// Installation is the client for interacting with the Installation builders.
 	Installation *InstallationClient
+	// InstallationThemeRevision is the client for interacting with the InstallationThemeRevision builders.
+	InstallationThemeRevision *InstallationThemeRevisionClient
 	// Lane is the client for interacting with the Lane builders.
 	Lane *LaneClient
 	// LaneDraft is the client for interacting with the LaneDraft builders.
@@ -300,6 +302,7 @@ func (tx *Tx) init() {
 	tx.FederatedIdentity = NewFederatedIdentityClient(tx.config)
 	tx.ImportReference = NewImportReferenceClient(tx.config)
 	tx.Installation = NewInstallationClient(tx.config)
+	tx.InstallationThemeRevision = NewInstallationThemeRevisionClient(tx.config)
 	tx.Lane = NewLaneClient(tx.config)
 	tx.LaneDraft = NewLaneDraftClient(tx.config)
 	tx.LanePublishedVersion = NewLanePublishedVersionClient(tx.config)

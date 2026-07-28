@@ -665,6 +665,12 @@ func (application *application) buildHandler(
 	); err != nil {
 		return nil, err
 	}
+	registerThemeRoutes(
+		mux,
+		installation.Authentication(),
+		installation.Themes(),
+		application.config.Logger,
+	)
 	registerPlanningRoutes(
 		mux,
 		installation.Authentication(),

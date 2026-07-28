@@ -960,6 +960,7 @@ var (
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "activation_generation", Type: field.TypeInt, Default: 0},
 		{Name: "active_event_id", Type: field.TypeInt, Nullable: true},
+		{Name: "active_theme_revision_id", Type: field.TypeInt, Nullable: true},
 	}
 	// InstallationsTable holds the schema information for the "installations" table.
 	InstallationsTable = &schema.Table{
@@ -973,7 +974,26 @@ var (
 				RefColumns: []*schema.Column{EventsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
+			{
+				Symbol:     "installations_installation_theme_revisions_active_theme_revision",
+				Columns:    []*schema.Column{InstallationsColumns[4]},
+				RefColumns: []*schema.Column{InstallationThemeRevisionsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
 		},
+	}
+	// InstallationThemeRevisionsColumns holds the columns for the "installation_theme_revisions" table.
+	InstallationThemeRevisionsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "config", Type: field.TypeJSON},
+		{Name: "created_by_account_id", Type: field.TypeInt},
+		{Name: "created_at", Type: field.TypeTime},
+	}
+	// InstallationThemeRevisionsTable holds the schema information for the "installation_theme_revisions" table.
+	InstallationThemeRevisionsTable = &schema.Table{
+		Name:       "installation_theme_revisions",
+		Columns:    InstallationThemeRevisionsColumns,
+		PrimaryKey: []*schema.Column{InstallationThemeRevisionsColumns[0]},
 	}
 	// LanesColumns holds the columns for the "lanes" table.
 	LanesColumns = []*schema.Column{
@@ -2225,6 +2245,7 @@ var (
 		FederatedIdentitiesTable,
 		ImportReferencesTable,
 		InstallationsTable,
+		InstallationThemeRevisionsTable,
 		LanesTable,
 		LaneDraftsTable,
 		LanePublishedVersionsTable,
@@ -2307,6 +2328,7 @@ func init() {
 	FederatedIdentitiesTable.ForeignKeys[0].RefTable = AccountsTable
 	ImportReferencesTable.ForeignKeys[0].RefTable = EventsTable
 	InstallationsTable.ForeignKeys[0].RefTable = EventsTable
+	InstallationsTable.ForeignKeys[1].RefTable = InstallationThemeRevisionsTable
 	LanesTable.ForeignKeys[0].RefTable = EventsTable
 	LaneDraftsTable.ForeignKeys[0].RefTable = LanesTable
 	LaneDraftsTable.ForeignKeys[1].RefTable = LocationsTable

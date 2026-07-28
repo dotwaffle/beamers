@@ -40,6 +40,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/federatedidentity"
 	"github.com/dotwaffle/beamers/ent/importreference"
 	"github.com/dotwaffle/beamers/ent/installation"
+	"github.com/dotwaffle/beamers/ent/installationthemerevision"
 	"github.com/dotwaffle/beamers/ent/lane"
 	"github.com/dotwaffle/beamers/ent/lanedraft"
 	"github.com/dotwaffle/beamers/ent/lanepublishedversion"
@@ -78,6 +79,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/awardvalue"
 	"github.com/dotwaffle/beamers/internal/prizegivingvalue"
 	"github.com/dotwaffle/beamers/internal/profilevalue"
+	"github.com/dotwaffle/beamers/internal/themevalue"
 	"github.com/dotwaffle/beamers/internal/votingvalue"
 )
 
@@ -119,6 +121,7 @@ const (
 	TypeFederatedIdentity           = "FederatedIdentity"
 	TypeImportReference             = "ImportReference"
 	TypeInstallation                = "Installation"
+	TypeInstallationThemeRevision   = "InstallationThemeRevision"
 	TypeLane                        = "Lane"
 	TypeLaneDraft                   = "LaneDraft"
 	TypeLanePublishedVersion        = "LanePublishedVersion"
@@ -30529,18 +30532,20 @@ func (m *ImportReferenceMutation) ResetEdge(name string) error {
 // InstallationMutation represents an operation that mutates the Installation nodes in the graph.
 type InstallationMutation struct {
 	config
-	op                       Op
-	typ                      string
-	id                       *int
-	created_at               *time.Time
-	activation_generation    *int
-	addactivation_generation *int
-	clearedFields            map[string]struct{}
-	active_event             *int
-	clearedactive_event      bool
-	done                     bool
-	oldValue                 func(context.Context) (*Installation, error)
-	predicates               []predicate.Installation
+	op                           Op
+	typ                          string
+	id                           *int
+	created_at                   *time.Time
+	activation_generation        *int
+	addactivation_generation     *int
+	clearedFields                map[string]struct{}
+	active_event                 *int
+	clearedactive_event          bool
+	active_theme_revision        *int
+	clearedactive_theme_revision bool
+	done                         bool
+	oldValue                     func(context.Context) (*Installation, error)
+	predicates                   []predicate.Installation
 }
 
 var _ ent.Mutation = (*InstallationMutation)(nil)
@@ -30782,6 +30787,55 @@ func (m *InstallationMutation) ResetActivationGeneration() {
 	m.addactivation_generation = nil
 }
 
+// SetActiveThemeRevisionID sets the "active_theme_revision_id" field.
+func (m *InstallationMutation) SetActiveThemeRevisionID(i int) {
+	m.active_theme_revision = &i
+}
+
+// ActiveThemeRevisionID returns the value of the "active_theme_revision_id" field in the mutation.
+func (m *InstallationMutation) ActiveThemeRevisionID() (r int, exists bool) {
+	v := m.active_theme_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActiveThemeRevisionID returns the old "active_theme_revision_id" field's value of the Installation entity.
+// If the Installation object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *InstallationMutation) OldActiveThemeRevisionID(ctx context.Context) (v *int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActiveThemeRevisionID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActiveThemeRevisionID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActiveThemeRevisionID: %w", err)
+	}
+	return oldValue.ActiveThemeRevisionID, nil
+}
+
+// ClearActiveThemeRevisionID clears the value of the "active_theme_revision_id" field.
+func (m *InstallationMutation) ClearActiveThemeRevisionID() {
+	m.active_theme_revision = nil
+	m.clearedFields[installation.FieldActiveThemeRevisionID] = struct{}{}
+}
+
+// ActiveThemeRevisionIDCleared returns if the "active_theme_revision_id" field was cleared in this mutation.
+func (m *InstallationMutation) ActiveThemeRevisionIDCleared() bool {
+	_, ok := m.clearedFields[installation.FieldActiveThemeRevisionID]
+	return ok
+}
+
+// ResetActiveThemeRevisionID resets all changes to the "active_theme_revision_id" field.
+func (m *InstallationMutation) ResetActiveThemeRevisionID() {
+	m.active_theme_revision = nil
+	delete(m.clearedFields, installation.FieldActiveThemeRevisionID)
+}
+
 // ClearActiveEvent clears the "active_event" edge to the Event entity.
 func (m *InstallationMutation) ClearActiveEvent() {
 	m.clearedactive_event = true
@@ -30807,6 +30861,33 @@ func (m *InstallationMutation) ActiveEventIDs() (ids []int) {
 func (m *InstallationMutation) ResetActiveEvent() {
 	m.active_event = nil
 	m.clearedactive_event = false
+}
+
+// ClearActiveThemeRevision clears the "active_theme_revision" edge to the InstallationThemeRevision entity.
+func (m *InstallationMutation) ClearActiveThemeRevision() {
+	m.clearedactive_theme_revision = true
+	m.clearedFields[installation.FieldActiveThemeRevisionID] = struct{}{}
+}
+
+// ActiveThemeRevisionCleared reports if the "active_theme_revision" edge to the InstallationThemeRevision entity was cleared.
+func (m *InstallationMutation) ActiveThemeRevisionCleared() bool {
+	return m.ActiveThemeRevisionIDCleared() || m.clearedactive_theme_revision
+}
+
+// ActiveThemeRevisionIDs returns the "active_theme_revision" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ActiveThemeRevisionID instead. It exists only for internal usage by the builders.
+func (m *InstallationMutation) ActiveThemeRevisionIDs() (ids []int) {
+	if id := m.active_theme_revision; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetActiveThemeRevision resets all changes to the "active_theme_revision" edge.
+func (m *InstallationMutation) ResetActiveThemeRevision() {
+	m.active_theme_revision = nil
+	m.clearedactive_theme_revision = false
 }
 
 // Where appends a list predicates to the InstallationMutation builder.
@@ -30843,7 +30924,7 @@ func (m *InstallationMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *InstallationMutation) Fields() []string {
-	fields := make([]string, 0, 3)
+	fields := make([]string, 0, 4)
 	if m.created_at != nil {
 		fields = append(fields, installation.FieldCreatedAt)
 	}
@@ -30852,6 +30933,9 @@ func (m *InstallationMutation) Fields() []string {
 	}
 	if m.activation_generation != nil {
 		fields = append(fields, installation.FieldActivationGeneration)
+	}
+	if m.active_theme_revision != nil {
+		fields = append(fields, installation.FieldActiveThemeRevisionID)
 	}
 	return fields
 }
@@ -30867,6 +30951,8 @@ func (m *InstallationMutation) Field(name string) (ent.Value, bool) {
 		return m.ActiveEventID()
 	case installation.FieldActivationGeneration:
 		return m.ActivationGeneration()
+	case installation.FieldActiveThemeRevisionID:
+		return m.ActiveThemeRevisionID()
 	}
 	return nil, false
 }
@@ -30882,6 +30968,8 @@ func (m *InstallationMutation) OldField(ctx context.Context, name string) (ent.V
 		return m.OldActiveEventID(ctx)
 	case installation.FieldActivationGeneration:
 		return m.OldActivationGeneration(ctx)
+	case installation.FieldActiveThemeRevisionID:
+		return m.OldActiveThemeRevisionID(ctx)
 	}
 	return nil, fmt.Errorf("unknown Installation field %s", name)
 }
@@ -30911,6 +30999,13 @@ func (m *InstallationMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetActivationGeneration(v)
+		return nil
+	case installation.FieldActiveThemeRevisionID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActiveThemeRevisionID(v)
 		return nil
 	}
 	return fmt.Errorf("unknown Installation field %s", name)
@@ -30960,6 +31055,9 @@ func (m *InstallationMutation) ClearedFields() []string {
 	if m.FieldCleared(installation.FieldActiveEventID) {
 		fields = append(fields, installation.FieldActiveEventID)
 	}
+	if m.FieldCleared(installation.FieldActiveThemeRevisionID) {
+		fields = append(fields, installation.FieldActiveThemeRevisionID)
+	}
 	return fields
 }
 
@@ -30976,6 +31074,9 @@ func (m *InstallationMutation) ClearField(name string) error {
 	switch name {
 	case installation.FieldActiveEventID:
 		m.ClearActiveEventID()
+		return nil
+	case installation.FieldActiveThemeRevisionID:
+		m.ClearActiveThemeRevisionID()
 		return nil
 	}
 	return fmt.Errorf("unknown Installation nullable field %s", name)
@@ -30994,15 +31095,21 @@ func (m *InstallationMutation) ResetField(name string) error {
 	case installation.FieldActivationGeneration:
 		m.ResetActivationGeneration()
 		return nil
+	case installation.FieldActiveThemeRevisionID:
+		m.ResetActiveThemeRevisionID()
+		return nil
 	}
 	return fmt.Errorf("unknown Installation field %s", name)
 }
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *InstallationMutation) AddedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
 	if m.active_event != nil {
 		edges = append(edges, installation.EdgeActiveEvent)
+	}
+	if m.active_theme_revision != nil {
+		edges = append(edges, installation.EdgeActiveThemeRevision)
 	}
 	return edges
 }
@@ -31015,13 +31122,17 @@ func (m *InstallationMutation) AddedIDs(name string) []ent.Value {
 		if id := m.active_event; id != nil {
 			return []ent.Value{*id}
 		}
+	case installation.EdgeActiveThemeRevision:
+		if id := m.active_theme_revision; id != nil {
+			return []ent.Value{*id}
+		}
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *InstallationMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
 	return edges
 }
 
@@ -31033,9 +31144,12 @@ func (m *InstallationMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *InstallationMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 1)
+	edges := make([]string, 0, 2)
 	if m.clearedactive_event {
 		edges = append(edges, installation.EdgeActiveEvent)
+	}
+	if m.clearedactive_theme_revision {
+		edges = append(edges, installation.EdgeActiveThemeRevision)
 	}
 	return edges
 }
@@ -31046,6 +31160,8 @@ func (m *InstallationMutation) EdgeCleared(name string) bool {
 	switch name {
 	case installation.EdgeActiveEvent:
 		return m.clearedactive_event
+	case installation.EdgeActiveThemeRevision:
+		return m.clearedactive_theme_revision
 	}
 	return false
 }
@@ -31056,6 +31172,9 @@ func (m *InstallationMutation) ClearEdge(name string) error {
 	switch name {
 	case installation.EdgeActiveEvent:
 		m.ClearActiveEvent()
+		return nil
+	case installation.EdgeActiveThemeRevision:
+		m.ClearActiveThemeRevision()
 		return nil
 	}
 	return fmt.Errorf("unknown Installation unique edge %s", name)
@@ -31068,8 +31187,481 @@ func (m *InstallationMutation) ResetEdge(name string) error {
 	case installation.EdgeActiveEvent:
 		m.ResetActiveEvent()
 		return nil
+	case installation.EdgeActiveThemeRevision:
+		m.ResetActiveThemeRevision()
+		return nil
 	}
 	return fmt.Errorf("unknown Installation edge %s", name)
+}
+
+// InstallationThemeRevisionMutation represents an operation that mutates the InstallationThemeRevision nodes in the graph.
+type InstallationThemeRevisionMutation struct {
+	config
+	op                       Op
+	typ                      string
+	id                       *int
+	_config                  *themevalue.Config
+	created_by_account_id    *int
+	addcreated_by_account_id *int
+	created_at               *time.Time
+	clearedFields            map[string]struct{}
+	done                     bool
+	oldValue                 func(context.Context) (*InstallationThemeRevision, error)
+	predicates               []predicate.InstallationThemeRevision
+}
+
+var _ ent.Mutation = (*InstallationThemeRevisionMutation)(nil)
+
+// installationthemerevisionOption allows management of the mutation configuration using functional options.
+type installationthemerevisionOption func(*InstallationThemeRevisionMutation)
+
+// newInstallationThemeRevisionMutation creates new mutation for the InstallationThemeRevision entity.
+func newInstallationThemeRevisionMutation(c config, op Op, opts ...installationthemerevisionOption) *InstallationThemeRevisionMutation {
+	m := &InstallationThemeRevisionMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeInstallationThemeRevision,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withInstallationThemeRevisionID sets the ID field of the mutation.
+func withInstallationThemeRevisionID(id int) installationthemerevisionOption {
+	return func(m *InstallationThemeRevisionMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *InstallationThemeRevision
+		)
+		m.oldValue = func(ctx context.Context) (*InstallationThemeRevision, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().InstallationThemeRevision.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withInstallationThemeRevision sets the old InstallationThemeRevision of the mutation.
+func withInstallationThemeRevision(node *InstallationThemeRevision) installationthemerevisionOption {
+	return func(m *InstallationThemeRevisionMutation) {
+		m.oldValue = func(context.Context) (*InstallationThemeRevision, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m InstallationThemeRevisionMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m InstallationThemeRevisionMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *InstallationThemeRevisionMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *InstallationThemeRevisionMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().InstallationThemeRevision.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetConfig sets the "config" field.
+func (m *InstallationThemeRevisionMutation) SetConfig(t themevalue.Config) {
+	m._config = &t
+}
+
+// Config returns the value of the "config" field in the mutation.
+func (m *InstallationThemeRevisionMutation) Config() (r themevalue.Config, exists bool) {
+	v := m._config
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldConfig returns the old "config" field's value of the InstallationThemeRevision entity.
+// If the InstallationThemeRevision object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *InstallationThemeRevisionMutation) OldConfig(ctx context.Context) (v themevalue.Config, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldConfig is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldConfig requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldConfig: %w", err)
+	}
+	return oldValue.Config, nil
+}
+
+// ResetConfig resets all changes to the "config" field.
+func (m *InstallationThemeRevisionMutation) ResetConfig() {
+	m._config = nil
+}
+
+// SetCreatedByAccountID sets the "created_by_account_id" field.
+func (m *InstallationThemeRevisionMutation) SetCreatedByAccountID(i int) {
+	m.created_by_account_id = &i
+	m.addcreated_by_account_id = nil
+}
+
+// CreatedByAccountID returns the value of the "created_by_account_id" field in the mutation.
+func (m *InstallationThemeRevisionMutation) CreatedByAccountID() (r int, exists bool) {
+	v := m.created_by_account_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedByAccountID returns the old "created_by_account_id" field's value of the InstallationThemeRevision entity.
+// If the InstallationThemeRevision object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *InstallationThemeRevisionMutation) OldCreatedByAccountID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedByAccountID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedByAccountID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedByAccountID: %w", err)
+	}
+	return oldValue.CreatedByAccountID, nil
+}
+
+// AddCreatedByAccountID adds i to the "created_by_account_id" field.
+func (m *InstallationThemeRevisionMutation) AddCreatedByAccountID(i int) {
+	if m.addcreated_by_account_id != nil {
+		*m.addcreated_by_account_id += i
+	} else {
+		m.addcreated_by_account_id = &i
+	}
+}
+
+// AddedCreatedByAccountID returns the value that was added to the "created_by_account_id" field in this mutation.
+func (m *InstallationThemeRevisionMutation) AddedCreatedByAccountID() (r int, exists bool) {
+	v := m.addcreated_by_account_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetCreatedByAccountID resets all changes to the "created_by_account_id" field.
+func (m *InstallationThemeRevisionMutation) ResetCreatedByAccountID() {
+	m.created_by_account_id = nil
+	m.addcreated_by_account_id = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *InstallationThemeRevisionMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *InstallationThemeRevisionMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the InstallationThemeRevision entity.
+// If the InstallationThemeRevision object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *InstallationThemeRevisionMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *InstallationThemeRevisionMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// Where appends a list predicates to the InstallationThemeRevisionMutation builder.
+func (m *InstallationThemeRevisionMutation) Where(ps ...predicate.InstallationThemeRevision) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the InstallationThemeRevisionMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *InstallationThemeRevisionMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.InstallationThemeRevision, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *InstallationThemeRevisionMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *InstallationThemeRevisionMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (InstallationThemeRevision).
+func (m *InstallationThemeRevisionMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *InstallationThemeRevisionMutation) Fields() []string {
+	fields := make([]string, 0, 3)
+	if m._config != nil {
+		fields = append(fields, installationthemerevision.FieldConfig)
+	}
+	if m.created_by_account_id != nil {
+		fields = append(fields, installationthemerevision.FieldCreatedByAccountID)
+	}
+	if m.created_at != nil {
+		fields = append(fields, installationthemerevision.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *InstallationThemeRevisionMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case installationthemerevision.FieldConfig:
+		return m.Config()
+	case installationthemerevision.FieldCreatedByAccountID:
+		return m.CreatedByAccountID()
+	case installationthemerevision.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *InstallationThemeRevisionMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case installationthemerevision.FieldConfig:
+		return m.OldConfig(ctx)
+	case installationthemerevision.FieldCreatedByAccountID:
+		return m.OldCreatedByAccountID(ctx)
+	case installationthemerevision.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown InstallationThemeRevision field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *InstallationThemeRevisionMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case installationthemerevision.FieldConfig:
+		v, ok := value.(themevalue.Config)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetConfig(v)
+		return nil
+	case installationthemerevision.FieldCreatedByAccountID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedByAccountID(v)
+		return nil
+	case installationthemerevision.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown InstallationThemeRevision field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *InstallationThemeRevisionMutation) AddedFields() []string {
+	var fields []string
+	if m.addcreated_by_account_id != nil {
+		fields = append(fields, installationthemerevision.FieldCreatedByAccountID)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *InstallationThemeRevisionMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case installationthemerevision.FieldCreatedByAccountID:
+		return m.AddedCreatedByAccountID()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *InstallationThemeRevisionMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case installationthemerevision.FieldCreatedByAccountID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddCreatedByAccountID(v)
+		return nil
+	}
+	return fmt.Errorf("unknown InstallationThemeRevision numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *InstallationThemeRevisionMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *InstallationThemeRevisionMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *InstallationThemeRevisionMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown InstallationThemeRevision nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *InstallationThemeRevisionMutation) ResetField(name string) error {
+	switch name {
+	case installationthemerevision.FieldConfig:
+		m.ResetConfig()
+		return nil
+	case installationthemerevision.FieldCreatedByAccountID:
+		m.ResetCreatedByAccountID()
+		return nil
+	case installationthemerevision.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown InstallationThemeRevision field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *InstallationThemeRevisionMutation) AddedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *InstallationThemeRevisionMutation) AddedIDs(name string) []ent.Value {
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *InstallationThemeRevisionMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *InstallationThemeRevisionMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *InstallationThemeRevisionMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 0)
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *InstallationThemeRevisionMutation) EdgeCleared(name string) bool {
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *InstallationThemeRevisionMutation) ClearEdge(name string) error {
+	return fmt.Errorf("unknown InstallationThemeRevision unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *InstallationThemeRevisionMutation) ResetEdge(name string) error {
+	return fmt.Errorf("unknown InstallationThemeRevision edge %s", name)
 }
 
 // LaneMutation represents an operation that mutates the Lane nodes in the graph.

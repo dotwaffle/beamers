@@ -41,6 +41,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/federatedidentity"
 	"github.com/dotwaffle/beamers/ent/importreference"
 	"github.com/dotwaffle/beamers/ent/installation"
+	"github.com/dotwaffle/beamers/ent/installationthemerevision"
 	"github.com/dotwaffle/beamers/ent/lane"
 	"github.com/dotwaffle/beamers/ent/lanedraft"
 	"github.com/dotwaffle/beamers/ent/lanepublishedversion"
@@ -164,6 +165,7 @@ func checkColumn(t, c string) error {
 			federatedidentity.Table:           federatedidentity.ValidColumn,
 			importreference.Table:             importreference.ValidColumn,
 			installation.Table:                installation.ValidColumn,
+			installationthemerevision.Table:   installationthemerevision.ValidColumn,
 			lane.Table:                        lane.ValidColumn,
 			lanedraft.Table:                   lanedraft.ValidColumn,
 			lanepublishedversion.Table:        lanepublishedversion.ValidColumn,

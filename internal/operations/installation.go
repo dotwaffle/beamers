@@ -27,6 +27,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/schedulebaseline"
 	"github.com/dotwaffle/beamers/internal/sessioncontrol"
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/themes"
 	"github.com/dotwaffle/beamers/internal/voting"
 )
 
@@ -63,6 +64,7 @@ type Installation struct {
 	baselineCommands *schedulebaseline.Commands
 	baselineQueries  *schedulebaseline.Queries
 	sessionControl   *sessioncontrol.Service
+	themes           *themes.Service
 	voting           *voting.Service
 }
 
@@ -213,6 +215,11 @@ func OpenInstallationWithConfig(
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.authentication = authentication
+	themeService, err := themes.New(storage, time.Now)
+	if err != nil {
+		return nil, errors.Join(err, installation.Close())
+	}
+	installation.themes = themeService
 	activationService, err := activation.New(storage, time.Now)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
@@ -467,6 +474,12 @@ func (installation *Installation) SessionControl() *sessioncontrol.Service {
 // It is nil only while the installation is restricted to recovery mode.
 func (installation *Installation) Voting() *voting.Service {
 	return installation.voting
+}
+
+// Themes returns Installation Theme revision control.
+// It is nil only while the installation is restricted to recovery mode.
+func (installation *Installation) Themes() *themes.Service {
+	return installation.themes
 }
 
 // Close closes storage and releases the installation lock.

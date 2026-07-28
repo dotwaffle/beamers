@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/installation"
+	"github.com/dotwaffle/beamers/ent/installationthemerevision"
 )
 
 // Installation is the model entity for the Installation schema.
@@ -24,6 +25,8 @@ type Installation struct {
 	ActiveEventID *int `json:"active_event_id,omitempty"`
 	// ActivationGeneration holds the value of the "activation_generation" field.
 	ActivationGeneration int `json:"activation_generation,omitempty"`
+	// ActiveThemeRevisionID holds the value of the "active_theme_revision_id" field.
+	ActiveThemeRevisionID *int `json:"active_theme_revision_id,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the InstallationQuery when eager-loading is set.
 	Edges        InstallationEdges `json:"edges"`
@@ -34,9 +37,11 @@ type Installation struct {
 type InstallationEdges struct {
 	// ActiveEvent holds the value of the active_event edge.
 	ActiveEvent *Event `json:"active_event,omitempty"`
+	// ActiveThemeRevision holds the value of the active_theme_revision edge.
+	ActiveThemeRevision *InstallationThemeRevision `json:"active_theme_revision,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [1]bool
+	loadedTypes [2]bool
 }
 
 // ActiveEventOrErr returns the ActiveEvent value or an error if the edge
@@ -50,12 +55,23 @@ func (e InstallationEdges) ActiveEventOrErr() (*Event, error) {
 	return nil, &NotLoadedError{edge: "active_event"}
 }
 
+// ActiveThemeRevisionOrErr returns the ActiveThemeRevision value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e InstallationEdges) ActiveThemeRevisionOrErr() (*InstallationThemeRevision, error) {
+	if e.ActiveThemeRevision != nil {
+		return e.ActiveThemeRevision, nil
+	} else if e.loadedTypes[1] {
+		return nil, &NotFoundError{label: installationthemerevision.Label}
+	}
+	return nil, &NotLoadedError{edge: "active_theme_revision"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*Installation) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case installation.FieldID, installation.FieldActiveEventID, installation.FieldActivationGeneration:
+		case installation.FieldID, installation.FieldActiveEventID, installation.FieldActivationGeneration, installation.FieldActiveThemeRevisionID:
 			values[i] = new(sql.NullInt64)
 		case installation.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -99,6 +115,13 @@ func (_m *Installation) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.ActivationGeneration = int(value.Int64)
 			}
+		case installation.FieldActiveThemeRevisionID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field active_theme_revision_id", values[i])
+			} else if value.Valid {
+				_m.ActiveThemeRevisionID = new(int)
+				*_m.ActiveThemeRevisionID = int(value.Int64)
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -115,6 +138,11 @@ func (_m *Installation) Value(name string) (ent.Value, error) {
 // QueryActiveEvent queries the "active_event" edge of the Installation entity.
 func (_m *Installation) QueryActiveEvent() *EventQuery {
 	return NewInstallationClient(_m.config).QueryActiveEvent(_m)
+}
+
+// QueryActiveThemeRevision queries the "active_theme_revision" edge of the Installation entity.
+func (_m *Installation) QueryActiveThemeRevision() *InstallationThemeRevisionQuery {
+	return NewInstallationClient(_m.config).QueryActiveThemeRevision(_m)
 }
 
 // Update returns a builder for updating this Installation.
@@ -150,6 +178,11 @@ func (_m *Installation) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("activation_generation=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ActivationGeneration))
+	builder.WriteString(", ")
+	if v := _m.ActiveThemeRevisionID; v != nil {
+		builder.WriteString("active_theme_revision_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteByte(')')
 	return builder.String()
 }

@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/installation"
+	"github.com/dotwaffle/beamers/ent/installationthemerevision"
 )
 
 // InstallationCreate is the builder for creating a Installation entity.
@@ -63,9 +64,28 @@ func (_c *InstallationCreate) SetNillableActivationGeneration(v *int) *Installat
 	return _c
 }
 
+// SetActiveThemeRevisionID sets the "active_theme_revision_id" field.
+func (_c *InstallationCreate) SetActiveThemeRevisionID(v int) *InstallationCreate {
+	_c.mutation.SetActiveThemeRevisionID(v)
+	return _c
+}
+
+// SetNillableActiveThemeRevisionID sets the "active_theme_revision_id" field if the given value is not nil.
+func (_c *InstallationCreate) SetNillableActiveThemeRevisionID(v *int) *InstallationCreate {
+	if v != nil {
+		_c.SetActiveThemeRevisionID(*v)
+	}
+	return _c
+}
+
 // SetActiveEvent sets the "active_event" edge to the Event entity.
 func (_c *InstallationCreate) SetActiveEvent(v *Event) *InstallationCreate {
 	return _c.SetActiveEventID(v.ID)
+}
+
+// SetActiveThemeRevision sets the "active_theme_revision" edge to the InstallationThemeRevision entity.
+func (_c *InstallationCreate) SetActiveThemeRevision(v *InstallationThemeRevision) *InstallationCreate {
+	return _c.SetActiveThemeRevisionID(v.ID)
 }
 
 // Mutation returns the InstallationMutation object of the builder.
@@ -181,6 +201,23 @@ func (_c *InstallationCreate) createSpec() (*Installation, *sqlgraph.CreateSpec)
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.ActiveEventID = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.ActiveThemeRevisionIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   installation.ActiveThemeRevisionTable,
+			Columns: []string{installation.ActiveThemeRevisionColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(installationthemerevision.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.ActiveThemeRevisionID = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
