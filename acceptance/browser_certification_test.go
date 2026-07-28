@@ -757,6 +757,10 @@ func TestBrowserCertification(t *testing.T) {
 		RunnerArchitecture: os.Getenv("RUNNER_ARCH"),
 		GeneratedAt:        time.Now().UTC(),
 	}
+	report.Pages = append(
+		report.Pages,
+		certifyDemoBrowserJourneys(t, client, crewDriverEndpoint, config, bin)...,
+	)
 	crewDriver := startBrowserSession(t, client, crewDriverEndpoint, config)
 	report.BrowserVersion = crewDriver.browserVersion
 	if major := browserMajor(t, crewDriver.browserVersion); major != config.ExpectedMajor {
@@ -767,10 +771,6 @@ func TestBrowserCertification(t *testing.T) {
 			config.ExpectedMajor,
 		)
 	}
-	report.Pages = append(
-		report.Pages,
-		certifyDemoBrowserJourneys(t, client, crewDriverEndpoint, config, bin)...,
-	)
 	assertResponsivePageWidths(t, crewDriver, origin+"/", 320, 375, 768, 1024, 1440)
 	assertResponsivePageWidths(t, crewDriver, origin+"/events/revision-2099", 320, 1440)
 	assertResponsivePageWidths(t, crewDriver, origin+"/schedule", 320, 375, 768, 1024, 1440)
