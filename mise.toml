@@ -13,14 +13,14 @@ atlas = "1.2.0"
 buf = "1.72.0"
 go = "1.26.5"
 golangci-lint = "2.12.2"
-govulncheck = "1.3.0"
+govulncheck = "1.6.0"
 "github:docker/buildx" = { version = "0.35.0", bin = "docker-buildx" }
 node = "24.18.0"
 "go:connectrpc.com/connect/cmd/protoc-gen-connect-go" = "1.20.0"
 "go:google.golang.org/protobuf/cmd/protoc-gen-go" = "1.36.11"
-rumdl = "0.2.34"
+rumdl = "0.2.44"
 shellcheck = "0.11.0"
-templ = "0.3.906"
+templ = "0.3.1020"
 
 [tasks.format]
 description = "Format Go and Markdown sources"
