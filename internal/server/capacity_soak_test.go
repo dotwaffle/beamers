@@ -277,15 +277,14 @@ func TestCapacityBackgroundCancellationDoesNotReportError(t *testing.T) {
 }
 
 func TestCapacityScheduleCacheCoalescesRevalidation(t *testing.T) {
-	refreshedAt := time.Now()
 	cache := capacityScheduleCache{
-		expires:     refreshedAt.Add(publicPollingInterval),
-		refreshedAt: refreshedAt,
+		expires:     time.Now().Add(publicPollingInterval),
+		revalidated: "42",
 	}
-	if !cache.fresh(true, refreshedAt.Add(-time.Second), refreshedAt) {
-		t.Error("cache missed a refresh completed after the request started")
+	if !cache.fresh(true, "42", time.Now()) {
+		t.Error("cache missed a completed revalidation")
 	}
-	if cache.fresh(true, refreshedAt.Add(time.Second), refreshedAt.Add(time.Second)) {
+	if cache.fresh(true, "43", time.Now()) {
 		t.Error("cache suppressed an independent revalidation")
 	}
 }
@@ -1992,7 +1991,7 @@ func runCapacityPublicLoad(
 			reader := bufio.NewReader(response.Body)
 			representative := index%100 == 0
 			for {
-				_, readErr := readCapacityScheduleInvalidation(reader)
+				invalidation, readErr := readCapacityScheduleInvalidation(reader)
 				if readErr != nil {
 					if ctx.Err() == nil {
 						sendCapacityError(ctx, backgroundErr, readErr)
@@ -2002,7 +2001,12 @@ func runCapacityPublicLoad(
 				if !representative {
 					continue
 				}
-				if err = resnapshotCapacitySchedule(ctx, client, baseURL); err != nil {
+				if err = resnapshotCapacitySchedule(
+					ctx,
+					client,
+					baseURL,
+					invalidation,
+				); err != nil {
 					sendCapacityError(ctx, backgroundErr, err)
 					return
 				}
@@ -2037,6 +2041,7 @@ func resnapshotCapacitySchedule(
 	ctx context.Context,
 	client *http.Client,
 	baseURL string,
+	invalidation string,
 ) error {
 	request, err := http.NewRequestWithContext(
 		ctx, http.MethodGet, baseURL+"/schedule", http.NoBody,
@@ -2045,6 +2050,7 @@ func resnapshotCapacitySchedule(
 		return err
 	}
 	request.Header.Set("Cache-Control", "no-cache")
+	request.Header.Set("X-Beamers-Capacity-Invalidation", invalidation)
 	response, err := client.Do(request)
 	if err != nil {
 		return err
@@ -2365,7 +2371,7 @@ type capacityScheduleCache struct {
 	body        []byte
 	etagValue   string
 	expires     time.Time
-	refreshedAt time.Time
+	revalidated string
 }
 
 func newCapacityScheduleCache(origin string, client *http.Client) *capacityScheduleCache {
@@ -2376,10 +2382,10 @@ func (cache *capacityScheduleCache) ServeHTTP(
 	response http.ResponseWriter,
 	request *http.Request,
 ) {
-	requestedAt := time.Now()
 	revalidate := request.Header.Get("Cache-Control") == "no-cache"
+	invalidation := request.Header.Get("X-Beamers-Capacity-Invalidation")
 	cache.mu.RLock()
-	if cache.fresh(revalidate, requestedAt, time.Now()) {
+	if cache.fresh(revalidate, invalidation, time.Now()) {
 		etag := cache.etagValue
 		body := cache.body
 		cache.mu.RUnlock()
@@ -2389,12 +2395,13 @@ func (cache *capacityScheduleCache) ServeHTTP(
 	cache.mu.RUnlock()
 
 	cache.mu.Lock()
-	if !cache.fresh(revalidate, requestedAt, time.Now()) {
+	if !cache.fresh(revalidate, invalidation, time.Now()) {
 		if err := cache.refresh(request.Context()); err != nil {
 			cache.mu.Unlock()
 			http.Error(response, err.Error(), http.StatusBadGateway)
 			return
 		}
+		cache.revalidated = invalidation
 	}
 	etag := cache.etagValue
 	body := cache.body
@@ -2404,11 +2411,11 @@ func (cache *capacityScheduleCache) ServeHTTP(
 
 func (cache *capacityScheduleCache) fresh(
 	revalidate bool,
-	requestedAt time.Time,
+	invalidation string,
 	now time.Time,
 ) bool {
 	return now.Before(cache.expires) &&
-		(!revalidate || cache.refreshedAt.After(requestedAt))
+		(!revalidate || invalidation != "" && invalidation == cache.revalidated)
 }
 
 func writeCapacityScheduleCache(
@@ -2447,8 +2454,7 @@ func (cache *capacityScheduleCache) refresh(ctx context.Context) error {
 		if closeErr := response.Body.Close(); closeErr != nil {
 			return closeErr
 		}
-		cache.refreshedAt = time.Now()
-		cache.expires = cache.refreshedAt.Add(publicPollingInterval)
+		cache.expires = time.Now().Add(publicPollingInterval)
 		return nil
 	}
 	if response.StatusCode != http.StatusOK {
@@ -2465,8 +2471,7 @@ func (cache *capacityScheduleCache) refresh(ctx context.Context) error {
 	if cache.etagValue == "" {
 		return errors.New("origin Schedule has no ETag")
 	}
-	cache.refreshedAt = time.Now()
-	cache.expires = cache.refreshedAt.Add(publicPollingInterval)
+	cache.expires = time.Now().Add(publicPollingInterval)
 	return nil
 }
 
