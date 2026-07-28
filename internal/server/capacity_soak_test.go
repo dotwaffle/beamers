@@ -880,7 +880,7 @@ type capacityResourceSampler struct {
 func newCapacityResourceSampler(ctx context.Context) *capacityResourceSampler {
 	sampler := &capacityResourceSampler{}
 	go func() {
-		ticker := time.NewTicker(100 * time.Millisecond)
+		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
 		for {
 			if err := sampler.sample(); err != nil {
