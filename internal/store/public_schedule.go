@@ -52,6 +52,7 @@ type PublicScheduleTrack struct {
 // PublicScheduleSession contains no crew-only fields.
 type PublicScheduleSession struct {
 	ID                  int
+	Type                string
 	Title               string
 	Speaker             string
 	PublicDetails       string
@@ -260,7 +261,8 @@ func (installationStore *SQLite) loadPublicScheduleSessions(
 			return queryErr
 		}
 		result.Sessions = append(result.Sessions, PublicScheduleSession{
-			ID: identity.ID, Title: details.Title, Speaker: details.Speaker, PublicDetails: details.PublicDetails,
+			ID: identity.ID, Type: version.Type.String(),
+			Title: details.Title, Speaker: details.Speaker, PublicDetails: details.PublicDetails,
 			CancellationMessage: identity.PublicCancellationMessage,
 			PublicTime:          publicTime,
 			LocationIDs:         locations, LaneIDs: lanes, TrackIDs: tracks,

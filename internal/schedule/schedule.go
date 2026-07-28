@@ -35,6 +35,7 @@ type Service struct {
 type Snapshot struct {
 	EventID        int            `json:"event_id"`
 	EventName      string         `json:"event_name"`
+	EventSlug      string         `json:"-"`
 	Language       string         `json:"language"`
 	Locale         string         `json:"locale"`
 	Timezone       string         `json:"timezone"`
@@ -86,6 +87,8 @@ type Day struct {
 // Session is one attendee-visible Schedule entry.
 type Session struct {
 	ID                   int                `json:"id"`
+	Type                 string             `json:"type"`
+	EventSlug            string             `json:"-"`
 	Title                string             `json:"title"`
 	Speaker              string             `json:"speaker,omitempty"`
 	PublicDetails        string             `json:"public_details,omitempty"`
@@ -315,7 +318,8 @@ func (service *Service) snapshot(ctx context.Context, upcomingOnly bool, filter 
 			})
 		}
 		result.Sessions = append(result.Sessions, Session{
-			ID: item.ID, Title: item.Title, Speaker: item.Speaker, PublicDetails: item.PublicDetails,
+			ID: item.ID, Type: item.Type,
+			Title: item.Title, Speaker: item.Speaker, PublicDetails: item.PublicDetails,
 			CancellationMessage: item.CancellationMessage,
 			Lifecycle:           string(item.PublicTime.Lifecycle), Was: was,
 			EventDay: eventDay, LocalDate: localStart.Format(time.DateOnly),
@@ -479,6 +483,9 @@ func (service *Service) SetFavorite(
 
 // Path returns the stable public deep link for a Session identity.
 func (session Session) Path() string {
+	if session.EventSlug != "" {
+		return "/events/" + session.EventSlug + "/schedule/sessions/" + strconv.Itoa(session.ID)
+	}
 	return "/schedule/sessions/" + strconv.Itoa(session.ID)
 }
 
@@ -493,6 +500,9 @@ func (session Session) PathWithTimezone(viewerTimezone string) string {
 
 // SchedulePath preserves the complete shareable Schedule view.
 func (snapshot Snapshot) SchedulePath() string {
+	if snapshot.EventSlug != "" {
+		return snapshot.viewPath("/events/" + snapshot.EventSlug + "/schedule")
+	}
 	return snapshot.viewPath("/schedule")
 }
 
@@ -534,7 +544,7 @@ func SignInPath(returnTo string) string {
 
 // FavoritePath returns one Session's private bookmark mutation route.
 func (session Session) FavoritePath() string {
-	return session.Path() + "/favorite"
+	return "/schedule/sessions/" + strconv.Itoa(session.ID) + "/favorite"
 }
 
 // EventsPath resumes invalidations after the complete snapshot cursor.

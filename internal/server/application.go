@@ -795,6 +795,7 @@ func (application *application) buildHandler(
 	registerScheduleRoutes(
 		mux,
 		installation.Authentication(),
+		installation.Events(),
 		installation.Schedule(),
 		application.config.ScheduleStream,
 		application.scheduleMetrics,
@@ -848,6 +849,7 @@ func (application *application) buildHandler(
 	if err := registerResultsRoutes(
 		mux,
 		installation.Authentication(),
+		installation.Events(),
 		installation.Results(),
 		application.config.ListenerAddress,
 		application.config.TracerProvider,

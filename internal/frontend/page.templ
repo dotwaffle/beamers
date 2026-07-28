@@ -2,6 +2,8 @@ package frontend
 
 import "net/url"
 import "strconv"
+import "strings"
+import "time"
 
 import "github.com/dotwaffle/beamers/internal/auth"
 import "github.com/dotwaffle/beamers/internal/events"
@@ -33,6 +35,20 @@ func EffectsLabel(reducedEffects bool) string {
 		return "Resume effects"
 	}
 	return "Pause effects"
+}
+
+func publicEventDate(value, locale string) string {
+	date, err := time.Parse(time.DateOnly, value)
+	if err != nil {
+		return value
+	}
+	if locale == "en-US" {
+		return date.Format("Jan 2, 2006")
+	}
+	if locale == "de" || strings.HasPrefix(locale, "de-") {
+		return date.Format("02.01.2006")
+	}
+	return date.Format("02 Jan 2006")
 }
 
 templ EffectsLink(returnTo string, reducedEffects bool) {
@@ -473,23 +489,52 @@ templ PublicEventSummary(event events.PublicEvent) {
 	</span>
 }
 
-templ PublicEvent(
+templ PublicEventHub(
 	event events.PublicEvent,
+	accountName string,
 	csrfToken string,
 	reducedEffects bool,
+	backstage bool,
 ) {
 	<!doctype html>
 		<html lang={ event.EventLocale }>
 		@EventHead(event.Name + " · Beamers", event.ID)
 		<body data-reduced-effects={ strconv.FormatBool(reducedEffects) }>
-			@Navigation("", csrfToken, reducedEffects, false)
+			@Navigation(accountName, csrfToken, reducedEffects, backstage)
 			<main>
 				<h1>{ event.Name }</h1>
 				<p>
-					<time datetime={ event.PlannedStartDate }>{ event.PlannedStartDate }</time>
+					<time datetime={ event.PlannedStartDate }>{ publicEventDate(event.PlannedStartDate, event.EventLocale) }</time>
 					–
-					<time datetime={ event.PlannedEndDate }>{ event.PlannedEndDate }</time>
+					<time datetime={ event.PlannedEndDate }>{ publicEventDate(event.PlannedEndDate, event.EventLocale) }</time>
 				</p>
+				<nav aria-label="Event">
+					<a href={ templ.SafeURL("/events/" + event.Slug + "/schedule") }>Event Schedule</a>
+					<a href={ templ.SafeURL("/events/" + event.Slug + "/competitions") }>Competitions</a>
+					<a href={ templ.SafeURL("/events/" + event.Slug + "/results") }>Event Results</a>
+				</nav>
+			</main>
+		</body>
+	</html>
+}
+
+templ PublicEventUnavailable(
+	event events.PublicEvent,
+	accountName string,
+	csrfToken string,
+	reducedEffects bool,
+	backstage bool,
+	section string,
+	message string,
+) {
+	<!doctype html>
+	<html lang={ event.EventLocale }>
+		@EventHead(event.Name + " " + section, event.ID)
+		<body data-reduced-effects={ strconv.FormatBool(reducedEffects) }>
+			@Navigation(accountName, csrfToken, reducedEffects, backstage)
+			<main>
+				<h1>{ event.Name } { section }</h1>
+				<p>{ message }</p>
 			</main>
 		</body>
 	</html>
