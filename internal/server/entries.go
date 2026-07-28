@@ -188,7 +188,8 @@ func (handlers entryHandlers) submitEntryAction(
 		"assign-submitter":
 		return handlers.submitEntryConfiguration(request, actor, eventID, sessionID)
 	case "attachment-readiness", "version-release-hold",
-		"competition-release-policy", "create-reopen-window":
+		"competition-release-policy", "create-reopen-window",
+		"extend-reopen-window", "close-reopen-window":
 		return handlers.submitEntryAttachment(request, actor, eventID, sessionID)
 	case "record-technical-failure", "resolve-entry", "entry-release-hold",
 		"claim-control", "defer-entry":
@@ -456,9 +457,91 @@ func (handlers entryHandlers) submitEntryAttachment(
 			},
 		)
 		return err
+	case "extend-reopen-window", "close-reopen-window":
+		entryID, err := entryFormPositiveInt(request, "entry_id")
+		if err != nil {
+			return err
+		}
+		return handlers.updateReopenWindow(
+			request,
+			actor,
+			eventID,
+			attachments.TargetEntry,
+			entryID,
+		)
 	default:
 		return competition.ErrInvalidInput
 	}
+}
+
+func (handlers entryHandlers) updateReopenWindow(
+	request *http.Request,
+	actor auth.Account,
+	eventID int,
+	targetType attachments.TargetKind,
+	targetID int,
+) error {
+	windowID, err := entryFormPositiveInt(request, "window_id")
+	if err != nil {
+		return err
+	}
+	revision, err := entryFormPositiveInt(request, "expected_revision")
+	if err != nil {
+		return err
+	}
+	windows, err := handlers.attachments.CrewReopenWindows(
+		request.Context(),
+		actor,
+		eventID,
+		targetType,
+		targetID,
+	)
+	if err != nil {
+		return err
+	}
+	found := false
+	for _, window := range windows {
+		if window.ID == windowID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return attachments.ErrUploadTargetNotFound
+	}
+	input := attachments.UpdateReopenInput{
+		EventID: eventID, WindowID: windowID, ExpectedRevision: revision,
+		CommandID: request.Form.Get("command_id"),
+	}
+	switch request.Form.Get("action") {
+	case "close-reopen-window":
+		if request.Form.Get("confirm_close") != "true" {
+			return attachments.ErrInvalidInput
+		}
+		input.Close = true
+	case "extend-reopen-window":
+		event, eventErr := handlers.events.CrewEvent(request.Context(), actor, eventID)
+		if eventErr != nil {
+			return eventErr
+		}
+		location, locationErr := time.LoadLocation(event.Timezone)
+		if locationErr != nil {
+			return locationErr
+		}
+		input.ExpiresAt, err = time.ParseInLocation(
+			"2006-01-02T15:04",
+			strings.TrimSpace(request.Form.Get("expires_at")),
+			location,
+		)
+		if err != nil {
+			return attachments.ErrInvalidInput
+		}
+		input.ExpiresAt = input.ExpiresAt.UTC()
+	default:
+		return attachments.ErrInvalidInput
+	}
+	_, err = handlers.attachments.UpdateReopenWindow(request.Context(), actor, input)
+	return err
 }
 
 func (handlers entryHandlers) submitEntryLiveAction(
@@ -840,9 +923,15 @@ func entryError(err error) (int, string) {
 		errors.Is(err, competition.ErrCompetitionNotFound):
 		return http.StatusNotFound, "Competition not found."
 	case errors.Is(err, attachments.ErrInvalidInput),
-		errors.Is(err, attachments.ErrReleasePolicy),
-		errors.Is(err, attachments.ErrReopenWindowExtension):
+		errors.Is(err, attachments.ErrReleasePolicy):
 		return http.StatusUnprocessableEntity, "Check the Attachment details and try again."
+	case errors.Is(err, attachments.ErrReopenWindowExtension):
+		return http.StatusUnprocessableEntity,
+			"Choose an expiry later than the current expiry."
+	case errors.Is(err, attachments.ErrReopenWindowExpiry):
+		return http.StatusUnprocessableEntity, "Choose a future expiry within 7 days."
+	case errors.Is(err, attachments.ErrReopenWindowInactive):
+		return http.StatusUnprocessableEntity, "Only active Reopen Windows can be changed."
 	case errors.Is(err, attachments.ErrReleaseRevision),
 		errors.Is(err, attachments.ErrReopenWindowRevision),
 		errors.Is(err, attachments.ErrCommandConflict):

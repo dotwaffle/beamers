@@ -4518,6 +4518,20 @@ func TestBrowserManagesCompetitionEntries(t *testing.T) {
 	); denied.status != http.StatusNotFound {
 		t.Fatalf("unscoped Operator Competition Entries = %d %q", denied.status, denied.body)
 	}
+	if denied := postFrontendForm(
+		t,
+		unscopedOperator,
+		server.address,
+		path,
+		url.Values{
+			"action":            {"close-reopen-window"},
+			"window_id":         {"1"},
+			"expected_revision": {"1"},
+			"confirm_close":     {"true"},
+		},
+	); denied.status != http.StatusNotFound {
+		t.Fatalf("unscoped Operator Reopen Window update = %d %q", denied.status, denied.body)
+	}
 
 	created := postFrontendForm(t, administrator, server.address, path, url.Values{
 		"csrf_token":     {requireFrontendCSRF(t, page)},
@@ -4829,9 +4843,170 @@ func TestBrowserManagesCompetitionEntries(t *testing.T) {
 	}
 	page = getFrontendPage(t, administrator, server.address, path)
 	if !strings.Contains(page.body, "Late corrected slides") ||
-		!strings.Contains(page.body, "Open until") {
+		!strings.Contains(page.body, "Active Reopen Window") ||
+		!strings.Contains(page.body, `name="action" value="extend-reopen-window"`) ||
+		!strings.Contains(page.body, `name="action" value="close-reopen-window"`) ||
+		!strings.Contains(page.body, `name="confirm_close" value="true"`) {
 		t.Fatalf("bounded Reopen Window projection = %d %q", page.status, page.body)
 	}
+	extendedExpiry := time.Now().UTC().Add(4 * time.Hour).Format("2006-01-02T15:04")
+	extended := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, page)},
+		"action":            {"extend-reopen-window"},
+		"command_id":        {"browser-extend-entry-window"},
+		"entry_id":          {"1"},
+		"window_id":         {"1"},
+		"expected_revision": {"1"},
+		"expires_at":        {extendedExpiry},
+	})
+	if extended.status != http.StatusSeeOther {
+		t.Fatalf("extend Reopen Window = %d %q", extended.status, extended.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	stale := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, page)},
+		"action":            {"extend-reopen-window"},
+		"command_id":        {"browser-stale-entry-window"},
+		"entry_id":          {"1"},
+		"window_id":         {"1"},
+		"expected_revision": {"1"},
+		"expires_at":        {time.Now().UTC().Add(5 * time.Hour).Format("2006-01-02T15:04")},
+	})
+	if stale.status != http.StatusConflict ||
+		!strings.Contains(stale.body, "Attachment state changed. Reload and try again.") {
+		t.Fatalf("stale Reopen Window extension = %d %q", stale.status, stale.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	invalid := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, page)},
+		"action":            {"extend-reopen-window"},
+		"command_id":        {"browser-invalid-entry-window"},
+		"entry_id":          {"1"},
+		"window_id":         {"1"},
+		"expected_revision": {"2"},
+		"expires_at":        {expiresAt},
+	})
+	if invalid.status != http.StatusUnprocessableEntity ||
+		!strings.Contains(invalid.body, "Choose an expiry later than the current expiry.") {
+		t.Fatalf("invalid Reopen Window extension = %d %q", invalid.status, invalid.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	unbounded := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, page)},
+		"action":            {"extend-reopen-window"},
+		"command_id":        {"browser-unbounded-entry-window"},
+		"entry_id":          {"1"},
+		"window_id":         {"1"},
+		"expected_revision": {"2"},
+		"expires_at":        {time.Now().UTC().Add(8 * 24 * time.Hour).Format("2006-01-02T15:04")},
+	})
+	if unbounded.status != http.StatusUnprocessableEntity ||
+		!strings.Contains(unbounded.body, "Choose a future expiry within 7 days.") {
+		t.Fatalf("unbounded Reopen Window extension = %d %q", unbounded.status, unbounded.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	otherWindow := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token": {requireFrontendCSRF(t, page)},
+		"action":     {"create-reopen-window"},
+		"command_id": {"browser-reopen-other-entry"},
+		"entry_id":   {"2"},
+		"reason":     {"Other Entry correction"},
+		"expires_at": {time.Now().UTC().Add(3 * time.Hour).Format("2006-01-02T15:04")},
+	})
+	if otherWindow.status != http.StatusSeeOther {
+		t.Fatalf("create other Entry Reopen Window = %d %q", otherWindow.status, otherWindow.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	forged := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, page)},
+		"action":            {"close-reopen-window"},
+		"command_id":        {"browser-close-forged-owner"},
+		"entry_id":          {"1"},
+		"window_id":         {"2"},
+		"expected_revision": {"1"},
+		"confirm_close":     {"true"},
+	})
+	if forged.status != http.StatusNotFound {
+		t.Fatalf("cross-owner Reopen Window closure = %d %q", forged.status, forged.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	if strings.Count(page.body, "Active Reopen Window") != 2 {
+		t.Fatalf("cross-owner closure changed Reopen Window = %d %q", page.status, page.body)
+	}
+	closedOther := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, page)},
+		"action":            {"close-reopen-window"},
+		"command_id":        {"browser-close-other-entry"},
+		"entry_id":          {"2"},
+		"window_id":         {"2"},
+		"expected_revision": {"1"},
+		"confirm_close":     {"true"},
+	})
+	if closedOther.status != http.StatusSeeOther {
+		t.Fatalf("close other Entry Reopen Window = %d %q", closedOther.status, closedOther.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	unconfirmed := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, page)},
+		"action":            {"close-reopen-window"},
+		"command_id":        {"browser-unconfirmed-entry-window"},
+		"entry_id":          {"1"},
+		"window_id":         {"1"},
+		"expected_revision": {"2"},
+	})
+	if unconfirmed.status != http.StatusUnprocessableEntity {
+		t.Fatalf("unconfirmed Reopen Window closure = %d %q", unconfirmed.status, unconfirmed.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	closedWindow := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, page)},
+		"action":            {"close-reopen-window"},
+		"command_id":        {"browser-close-entry-window"},
+		"entry_id":          {"1"},
+		"window_id":         {"1"},
+		"expected_revision": {"2"},
+		"confirm_close":     {"true"},
+	})
+	if closedWindow.status != http.StatusSeeOther {
+		t.Fatalf("close Reopen Window = %d %q", closedWindow.status, closedWindow.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	if !strings.Contains(page.body, "<details>") ||
+		!strings.Contains(page.body, "Reopen Window history") ||
+		!strings.Contains(page.body, "Late corrected slides") ||
+		strings.Contains(page.body, "Active Reopen Window") {
+		t.Fatalf("closed Reopen Window history = %d %q", page.status, page.body)
+	}
+	historicalUpdate := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, page)},
+		"action":            {"extend-reopen-window"},
+		"command_id":        {"browser-extend-closed-entry-window"},
+		"entry_id":          {"1"},
+		"window_id":         {"1"},
+		"expected_revision": {"3"},
+		"expires_at":        {time.Now().UTC().Add(5 * time.Hour).Format("2006-01-02T15:04")},
+	})
+	if historicalUpdate.status != http.StatusUnprocessableEntity ||
+		!strings.Contains(historicalUpdate.body, "Only active Reopen Windows can be changed.") {
+		t.Fatalf(
+			"closed Reopen Window update = %d %q",
+			historicalUpdate.status,
+			historicalUpdate.body,
+		)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	reopenedAgain := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token": {requireFrontendCSRF(t, page)},
+		"action":     {"create-reopen-window"},
+		"command_id": {"browser-reopen-entry-again"},
+		"entry_id":   {"1"},
+		"reason":     {"Final corrected slides"},
+		"expires_at": {time.Now().UTC().Add(3 * time.Hour).Format("2006-01-02T15:04")},
+	})
+	if reopenedAgain.status != http.StatusSeeOther {
+		t.Fatalf("create replacement Reopen Window = %d %q", reopenedAgain.status, reopenedAgain.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
 	failure := postFrontendForm(t, administrator, server.address, path, url.Values{
 		"csrf_token":        {requireFrontendCSRF(t, page)},
 		"action":            {"record-technical-failure"},
@@ -5126,6 +5301,82 @@ func exercisePresentationSubmissionFlow(
 	})
 	if reopened.status != http.StatusSeeOther {
 		t.Fatalf("reopen Presentation submission = %d %q", reopened.status, reopened.body)
+	}
+	producerPage = getFrontendPage(t, administrator, server.address, producerPath)
+	if !strings.Contains(producerPage.body, "Submitter correction") ||
+		!strings.Contains(producerPage.body, "Active Reopen Window") ||
+		!strings.Contains(producerPage.body, `name="action" value="extend-reopen-window"`) ||
+		!strings.Contains(producerPage.body, `name="action" value="close-reopen-window"`) {
+		t.Fatalf("Presentation Reopen Window projection = %d %q", producerPage.status, producerPage.body)
+	}
+	extended := postFrontendForm(t, administrator, server.address, producerPath, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, producerPage)},
+		"action":            {"extend-reopen-window"},
+		"command_id":        {"extend-presentation-submission"},
+		"window_id":         {"1"},
+		"expected_revision": {"1"},
+		"expires_at":        {time.Now().UTC().Add(4 * time.Hour).Format("2006-01-02T15:04")},
+	})
+	if extended.status != http.StatusSeeOther {
+		t.Fatalf("extend Presentation Reopen Window = %d %q", extended.status, extended.body)
+	}
+	producerPage = getFrontendPage(t, administrator, server.address, producerPath)
+	invalid := postFrontendForm(t, administrator, server.address, producerPath, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, producerPage)},
+		"action":            {"extend-reopen-window"},
+		"command_id":        {"invalid-presentation-extension"},
+		"window_id":         {"1"},
+		"expected_revision": {"2"},
+		"expires_at":        {time.Now().UTC().Add(3 * time.Hour).Format("2006-01-02T15:04")},
+	})
+	if invalid.status != http.StatusUnprocessableEntity ||
+		!strings.Contains(invalid.body, "Choose an expiry later than the current expiry.") {
+		t.Fatalf("invalid Presentation Reopen Window extension = %d %q", invalid.status, invalid.body)
+	}
+	producerPage = getFrontendPage(t, administrator, server.address, producerPath)
+	closedWindow := postFrontendForm(t, administrator, server.address, producerPath, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, producerPage)},
+		"action":            {"close-reopen-window"},
+		"command_id":        {"close-presentation-submission"},
+		"window_id":         {"1"},
+		"expected_revision": {"2"},
+		"confirm_close":     {"true"},
+	})
+	if closedWindow.status != http.StatusSeeOther {
+		t.Fatalf("close Presentation Reopen Window = %d %q", closedWindow.status, closedWindow.body)
+	}
+	blairPage = getFrontendPage(t, blair, server.address, submissionsPath)
+	closedAgain := requestMultipart(
+		t.Context(),
+		blair,
+		server.address,
+		uploadPath,
+		map[string]string{
+			"csrf_token": requireFrontendCSRF(t, blairPage),
+			"command_id": "blair-presentation-upload-closed-again",
+			"name":       "closed-again",
+		},
+		"closed-again.pdf",
+		"application/pdf",
+		[]byte("must not persist"),
+	)
+	if closedAgain.status != http.StatusGone {
+		t.Fatalf("early-closed Presentation upload = %d %q", closedAgain.status, closedAgain.body)
+	}
+	producerPage = getFrontendPage(t, administrator, server.address, producerPath)
+	if !strings.Contains(producerPage.body, "Reopen Window history") ||
+		!strings.Contains(producerPage.body, "Submitter correction") {
+		t.Fatalf("Presentation Reopen Window history = %d %q", producerPage.status, producerPage.body)
+	}
+	reopened = postFrontendForm(t, administrator, server.address, producerPath, url.Values{
+		"csrf_token": {requireFrontendCSRF(t, producerPage)},
+		"action":     {"create-reopen-window"},
+		"command_id": {"reopen-presentation-submission-again"},
+		"reason":     {"Final Submitter correction"},
+		"expires_at": {time.Now().UTC().Add(3 * time.Hour).Format("2006-01-02T15:04")},
+	})
+	if reopened.status != http.StatusSeeOther {
+		t.Fatalf("reopen Presentation submission again = %d %q", reopened.status, reopened.body)
 	}
 	blairPage = getFrontendPage(t, blair, server.address, submissionsPath)
 	reopenedUpdate := postFrontendForm(t, blair, server.address, submissionsPath, url.Values{
@@ -5556,6 +5807,38 @@ func TestAccountSubmissionsHonorPolicyOwnershipAndReopenWindows(t *testing.T) {
 	entriesPage = getFrontendPage(t, administrator, server.address, entriesPath)
 	if !strings.Contains(entriesPage.body, "review current: false") {
 		t.Fatalf("Account upload retained stale review: %q", entriesPage.body)
+	}
+	closedWindow := postFrontendForm(t, administrator, server.address, entriesPath, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, entriesPage)},
+		"action":            {"close-reopen-window"},
+		"command_id":        {"close-account-submission"},
+		"entry_id":          {"1"},
+		"window_id":         {"3"},
+		"expected_revision": {"1"},
+		"confirm_close":     {"true"},
+	})
+	if closedWindow.status != http.StatusSeeOther {
+		t.Fatalf("close Account Reopen Window = %d %q", closedWindow.status, closedWindow.body)
+	}
+	server.stop(t)
+	server = startBeamersWithPublicListener(t, server.bin, server.dataDir)
+	alexPage = getFrontendPage(t, alex, server.address, submissionsPath)
+	closedAfterRestart := postFrontendForm(t, alex, server.address, submissionsPath, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, alexPage)},
+		"action":            {"update"},
+		"command_id":        {"account-update-after-reopen-close"},
+		"event_id":          {"1"},
+		"session_id":        {strconv.FormatInt(competitionID, 10)},
+		"entry_id":          {"1"},
+		"expected_revision": {frontendEntryRevision(t, alexPage.body, 1)},
+		"entry_name":        {"Too Late Again"},
+	})
+	if closedAfterRestart.status != http.StatusGone {
+		t.Fatalf(
+			"closed Account Reopen Window after restart = %d %q",
+			closedAfterRestart.status,
+			closedAfterRestart.body,
+		)
 	}
 	blairPage := getFrontendPage(t, blair, server.address, submissionsPath)
 	if !strings.Contains(blairPage.body, "Crew Assigned Credit") ||
