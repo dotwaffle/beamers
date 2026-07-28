@@ -1,6 +1,7 @@
 package server
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"io"
@@ -8,15 +9,18 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strconv"
 
 	"github.com/dotwaffle/beamers/internal/attachments"
+	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/events"
+	"github.com/dotwaffle/beamers/internal/frontend"
 	"github.com/dotwaffle/beamers/internal/operations"
 )
 
 type finalFilesHandlers struct {
 	installation       *operations.Installation
+	browser            frontendHandlers
 	logger             *slog.Logger
 	allowPlaintextCrew bool
 }
@@ -28,16 +32,155 @@ func registerFinalFilesRoutes(
 	listenerAddress net.Addr,
 ) {
 	handlers := finalFilesHandlers{
-		installation:       installation,
+		installation: installation,
+		browser: frontendHandlers{
+			authentication: installation.Authentication(),
+			logger:         logger,
+			random:         rand.Reader,
+		},
 		logger:             logger,
 		allowPlaintextCrew: listenerIsLoopback(listenerAddress),
 	}
+	backstageRoute := backstagePageRoute()
+	backstageRoute.maxBodyBytes = maxAuthBodyBytes
+	backstageRoute.timeout = restoreOperationTimeout
+	mux.HandleFunc(
+		"/backstage/events/{eventID}/final-files",
+		backstageRoute,
+		handlers.backstage,
+	)
 	mux.HandleFunc("/admin/final-files/preview", crewRoute(), handlers.preview)
 	mux.HandleFunc(
 		"/admin/final-files",
 		routeContract{kind: crewInterface, timeout: restoreOperationTimeout},
 		handlers.download,
 	)
+}
+
+func (handlers finalFilesHandlers) backstage(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	actor, ok := handlers.browser.browserAccount(response, request)
+	if !ok {
+		return
+	}
+	eventID, err := positivePathID(request, "eventID")
+	if _, granted := actor.EventRoles[eventID]; err != nil || !actor.Administrator || !granted {
+		http.NotFound(response, request)
+		return
+	}
+	event, err := handlers.installation.Events().CrewEvent(request.Context(), actor, eventID)
+	if err != nil {
+		handlers.browser.frontendError(response, request, "read Final Files Export Event", err)
+		return
+	}
+	plan, err := handlers.installation.Attachments().PlanFinalFiles(
+		request.Context(), eventID, "",
+	)
+	if err != nil {
+		handlers.browser.frontendError(response, request, "preview Final Files Export", err)
+		return
+	}
+	csrfToken, err := handlers.browser.csrfToken(response, request)
+	if err != nil {
+		handlers.browser.frontendError(response, request, "create CSRF proof", err)
+		return
+	}
+	switch request.Method {
+	case http.MethodGet, http.MethodHead:
+		handlers.renderBackstage(
+			response, request, actor, event, plan, csrfToken, http.StatusOK, "",
+		)
+	case http.MethodPost:
+		if !handlers.browser.validForm(response, request) {
+			return
+		}
+		digest := request.Form.Get("preview_digest")
+		if digest == "" || request.Form.Get("confirmed") != "true" {
+			handlers.renderBackstage(
+				response,
+				request,
+				actor,
+				event,
+				plan,
+				csrfToken,
+				http.StatusBadRequest,
+				"Review and confirm the exact preview before downloading.",
+			)
+			return
+		}
+		if digest != plan.PreviewDigest {
+			handlers.renderBackstage(
+				response,
+				request,
+				actor,
+				event,
+				plan,
+				csrfToken,
+				http.StatusConflict,
+				"Preview changed. Review the current files before downloading.",
+			)
+			return
+		}
+		archive, size, archiveErr := handlers.prepareFinalFilesArchive(
+			request, eventID, digest,
+		)
+		if errors.Is(archiveErr, attachments.ErrFinalFilesPreviewChanged) {
+			plan, err = handlers.installation.Attachments().PlanFinalFiles(
+				request.Context(), eventID, "",
+			)
+			if err != nil {
+				handlers.browser.frontendError(
+					response, request, "refresh Final Files Export preview", err,
+				)
+				return
+			}
+			handlers.renderBackstage(
+				response,
+				request,
+				actor,
+				event,
+				plan,
+				csrfToken,
+				http.StatusConflict,
+				"Preview changed. Review the current files before downloading.",
+			)
+			return
+		}
+		if archiveErr != nil {
+			handlers.browser.frontendError(
+				response, request, "prepare Final Files Export download", archiveErr,
+			)
+			return
+		}
+		handlers.serveFinalFilesArchive(response, request, archive, size)
+	default:
+		frontendMethodNotAllowed(response, http.MethodGet+", "+http.MethodHead+", "+http.MethodPost)
+	}
+}
+
+func (handlers finalFilesHandlers) renderBackstage(
+	response http.ResponseWriter,
+	request *http.Request,
+	actor auth.Account,
+	event events.Event,
+	plan attachments.FinalFilesPlan,
+	csrfToken string,
+	status int,
+	message string,
+) {
+	var totalSize int64
+	for _, file := range plan.Files {
+		totalSize += file.SizeBytes
+	}
+	handlers.browser.render(response, request, status, frontend.FinalFiles(
+		frontend.FinalFilesPage{
+			AccountName: actor.Name, CSRFToken: csrfToken,
+			ReducedEffects: reducedEffectsCookie(request), Navigation: backstageNavigation(actor),
+			Event: event, Plan: plan, TotalSize: totalSize, Error: message,
+		},
+	))
 }
 
 func (handlers finalFilesHandlers) preview(
@@ -102,57 +245,73 @@ func (handlers finalFilesHandlers) download(
 		http.Error(response, "invalid request", http.StatusBadRequest)
 		return
 	}
-	workDir, err := os.MkdirTemp("", ".beamers-final-files-*")
-	if err != nil {
-		handlers.writeFinalFilesFailure(response, request, err)
-		return
-	}
-	defer func() {
-		if removeErr := os.RemoveAll(workDir); removeErr != nil {
-			handlers.logger.Warn("remove Final Files Export staging", "error", removeErr)
-		}
-	}()
-	archivePath := filepath.Join(workDir, "beamers-final-files.zip")
-	archive, err := os.OpenFile( //nolint:gosec // Private process-owned download staging.
-		archivePath, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0o600,
+	archive, size, err := handlers.prepareFinalFilesArchive(
+		request, input.EventID, input.PreviewDigest,
 	)
 	if err != nil {
 		handlers.writeFinalFilesFailure(response, request, err)
 		return
 	}
-	if err = handlers.installation.Attachments().WriteFinalFilesZIP(
-		request.Context(), input.EventID, input.PreviewDigest, archive,
-	); err != nil {
-		_ = archive.Close()
-		handlers.writeFinalFilesFailure(response, request, err)
-		return
+	handlers.serveFinalFilesArchive(response, request, archive, size)
+}
+
+func (handlers finalFilesHandlers) prepareFinalFilesArchive(
+	request *http.Request,
+	eventID int,
+	previewDigest string,
+) (*os.File, int64, error) {
+	archive, err := os.CreateTemp("", ".beamers-final-files-*.zip")
+	if err != nil {
+		return nil, 0, err
+	}
+	keep := false
+	defer func() {
+		if !keep {
+			handlers.cleanupFinalFilesArchive(archive)
+		}
+	}()
+	if writeErr := handlers.installation.Attachments().WriteFinalFilesZIP(
+		request.Context(), eventID, previewDigest, archive,
+	); writeErr != nil {
+		return nil, 0, writeErr
 	}
 	if _, err = archive.Seek(0, io.SeekStart); err != nil {
-		_ = archive.Close()
-		handlers.writeFinalFilesFailure(response, request, err)
-		return
+		return nil, 0, err
 	}
 	info, err := archive.Stat()
 	if err != nil {
-		_ = archive.Close()
-		handlers.writeFinalFilesFailure(response, request, err)
-		return
+		return nil, 0, err
 	}
-	defer func() {
-		if closeErr := archive.Close(); closeErr != nil {
-			handlers.logger.Warn("close Final Files Export download", "error", closeErr)
-		}
-	}()
+	keep = true
+	return archive, info.Size(), nil
+}
+
+func (handlers finalFilesHandlers) serveFinalFilesArchive(
+	response http.ResponseWriter,
+	request *http.Request,
+	archive *os.File,
+	size int64,
+) {
+	defer handlers.cleanupFinalFilesArchive(archive)
 	response.Header().Set("Content-Type", "application/zip")
 	response.Header().Set(
 		"Content-Disposition",
 		`attachment; filename="beamers-final-files.zip"`,
 	)
-	response.Header().Set("Content-Length", strconv.FormatInt(info.Size(), 10))
-	if _, err = io.Copy(response, archive); err != nil {
+	response.Header().Set("Content-Length", strconv.FormatInt(size, 10))
+	if _, err := io.Copy(response, archive); err != nil {
 		handlers.logger.ErrorContext(
 			request.Context(), "write Final Files Export download", "error", err,
 		)
+	}
+}
+
+func (handlers finalFilesHandlers) cleanupFinalFilesArchive(archive *os.File) {
+	if err := archive.Close(); err != nil {
+		handlers.logger.Warn("close Final Files Export download", "error", err)
+	}
+	if err := os.Remove(archive.Name()); err != nil { //nolint:gosec // Process-owned path from os.CreateTemp.
+		handlers.logger.Warn("remove Final Files Export staging", "error", err)
 	}
 }
 

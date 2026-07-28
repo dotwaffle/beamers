@@ -1,6 +1,7 @@
 package acceptance_test
 
 import (
+	"archive/zip"
 	"bufio"
 	"bytes"
 	"context"
@@ -1719,6 +1720,152 @@ func TestBackstageNavigationReflectsAuthorityAndInterface(t *testing.T) {
 		t.Fatalf("public-listener Frontend = %d, want 200", frontend.status)
 	} else if strings.Contains(frontend.body, `href="/backstage"`) {
 		t.Fatalf("public-listener Frontend advertises private Backstage: %q", frontend.body)
+	}
+	server.stop(t)
+}
+
+func TestBackstageExportsFinalFiles(t *testing.T) {
+	fixture := prepareReleasedEntryAttachments(t)
+	administrator, server := fixture.administrator, fixture.server
+	const path = "/backstage/events/1/final-files"
+
+	backstage := getFrontendPage(t, administrator, server.address, "/backstage")
+	if !strings.Contains(frontendBackstageNavigation(t, backstage), "Final Files Export") {
+		t.Fatalf("Administrator Backstage lacks Final Files Export: %q", backstage.body)
+	}
+	preview := getFrontendPage(t, administrator, server.address, path)
+	if preview.status != http.StatusOK {
+		t.Fatalf("Final Files Export preview = %d %q", preview.status, preview.body)
+	}
+	for _, want := range []string{
+		"Final Files Export",
+		"Files",
+		"Total size",
+		"Collisions",
+		"Demo Competition",
+		"Release Project",
+		"public.txt",
+	} {
+		if !strings.Contains(preview.body, want) {
+			t.Fatalf("Final Files Export preview lacks %q: %q", want, preview.body)
+		}
+	}
+	if strings.Contains(preview.body, `name="output"`) ||
+		strings.Contains(preview.body, server.dataDir) {
+		t.Fatalf("Final Files Export exposes a server destination: %q", preview.body)
+	}
+	digest := frontendNamedValues(preview.body, "preview_digest").Get("preview_digest")
+	if digest == "" {
+		t.Fatalf("Final Files Export preview lacks digest: %q", preview.body)
+	}
+	unconfirmed := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":     {requireFrontendCSRF(t, preview)},
+		"preview_digest": {digest},
+	})
+	if unconfirmed.status != http.StatusBadRequest {
+		t.Fatalf("unconfirmed Final Files Export = %d, want 400", unconfirmed.status)
+	}
+	download := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":     {requireFrontendCSRF(t, preview)},
+		"preview_digest": {digest},
+		"confirmed":      {"true"},
+	})
+	if download.status != http.StatusOK ||
+		download.header.Get("Content-Type") != "application/zip" ||
+		download.header.Get("Content-Disposition") !=
+			`attachment; filename="beamers-final-files.zip"` {
+		t.Fatalf(
+			"Final Files Export download = %d %q %q: %q",
+			download.status,
+			download.header.Get("Content-Type"),
+			download.header.Get("Content-Disposition"),
+			download.body,
+		)
+	}
+	archive, err := zip.NewReader(
+		bytes.NewReader([]byte(download.body)),
+		int64(len(download.body)),
+	)
+	if err != nil {
+		t.Fatalf("open Final Files Export download: %v", err)
+	}
+	if len(archive.File) != 2 ||
+		archive.File[1].Name != "manifest.json" ||
+		!strings.Contains(preview.body, archive.File[0].Name) {
+		t.Fatalf("Final Files Export entries = %+v, preview %q", archive.File, preview.body)
+	}
+	file, err := archive.File[0].Open()
+	if err != nil {
+		t.Fatalf("open Final Files Export file: %v", err)
+	}
+	content, readErr := io.ReadAll(file)
+	closeErr := file.Close()
+	if err = errors.Join(readErr, closeErr); err != nil || string(content) != "public release" {
+		t.Fatalf("Final Files Export bytes = %q, %v", content, err)
+	}
+	manifest, err := archive.File[1].Open()
+	if err != nil {
+		t.Fatalf("open Final Files Export manifest: %v", err)
+	}
+	content, readErr = io.ReadAll(manifest)
+	closeErr = manifest.Close()
+	if err = errors.Join(readErr, closeErr); err != nil ||
+		!bytes.Contains(content, []byte(`"original_filename":"public.txt"`)) ||
+		bytes.Contains(content, []byte(`"original_filename":"crew.txt"`)) {
+		t.Fatalf("Final Files Export manifest = %q, %v", content, err)
+	}
+
+	_, err = fixture.competitionClient.SetEntryAttachmentReadiness(
+		t.Context(),
+		connect.NewRequest(&competitionv1.SetEntryAttachmentReadinessRequest{
+			EventId: 1, SessionId: fixture.competitionID, EntryId: fixture.entryID,
+			AttachmentVersionId: int64(fixture.publicVersion.ID),
+			CommandId:           "change-final-files-preview",
+			ExpectedRevision:    int64(fixture.publicVersion.ReadinessRevision + 1),
+		}),
+	)
+	if err != nil {
+		t.Fatalf("change Final Files Export canonical state: %v", err)
+	}
+	conflict := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":     {requireFrontendCSRF(t, preview)},
+		"preview_digest": {digest},
+		"confirmed":      {"true"},
+	})
+	freshDigest := frontendNamedValues(conflict.body, "preview_digest").Get("preview_digest")
+	if conflict.status != http.StatusConflict ||
+		!strings.Contains(conflict.body, "Preview changed") ||
+		freshDigest == "" ||
+		freshDigest == digest {
+		t.Fatalf("stale Final Files Export = %d %q", conflict.status, conflict.body)
+	}
+
+	operator := provisionOperatorWithLanes(t, administrator, server, nil)
+	if navigation := frontendBackstageNavigation(
+		t,
+		getFrontendPage(t, operator, server.address, "/backstage"),
+	); strings.Contains(navigation, "Final Files Export") {
+		t.Fatalf("Operator Backstage exposes Final Files Export: %q", navigation)
+	}
+	if denied := getFrontendPage(t, operator, server.address, path); denied.status != http.StatusNotFound {
+		t.Fatalf("Operator Final Files Export = %d, want 404", denied.status)
+	}
+	if denied := postFrontendForm(
+		t,
+		operator,
+		server.address,
+		path,
+		url.Values{},
+	); denied.status != http.StatusNotFound {
+		t.Fatalf("Operator Final Files Export submit = %d, want 404", denied.status)
+	}
+	if public := getFrontendPage(
+		t,
+		authenticatedClient(t),
+		server.publicAddress,
+		path,
+	); public.status != http.StatusNotFound {
+		t.Fatalf("public-listener Final Files Export = %d, want 404", public.status)
 	}
 	server.stop(t)
 }
