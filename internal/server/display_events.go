@@ -202,12 +202,17 @@ func writeDisplayInvalidationState(
 	))
 }
 
-func writeDisplaySSE(response http.ResponseWriter, payload string) error {
+func writeDisplaySSE(response http.ResponseWriter, payload string) (err error) {
 	controller := http.NewResponseController(response)
-	if err := controller.SetWriteDeadline(time.Now().Add(displayWriteTimeout)); err != nil {
-		return err
+	if deadlineErr := controller.SetWriteDeadline(
+		time.Now().Add(displayWriteTimeout),
+	); deadlineErr != nil {
+		return deadlineErr
 	}
-	if _, err := fmt.Fprint(response, payload); err != nil {
+	defer func() {
+		err = errors.Join(err, controller.SetWriteDeadline(time.Time{}))
+	}()
+	if _, err = fmt.Fprint(response, payload); err != nil {
 		return err
 	}
 	return controller.Flush()

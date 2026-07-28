@@ -323,6 +323,7 @@ func startShutdownProcess(t *testing.T, bin string, args ...string) *shutdownPro
 		logs: &synchronizedBuffer{},
 	}
 	listening := make(chan string, 1)
+	stderrDone := make(chan error, 1)
 	go func() {
 		scanner := bufio.NewScanner(stderr)
 		for scanner.Scan() {
@@ -340,9 +341,11 @@ func startShutdownProcess(t *testing.T, bin string, args ...string) *shutdownPro
 				}
 			}
 		}
+		stderrDone <- scanner.Err()
 	}()
 	go func() {
-		process.done <- command.Wait()
+		scanErr := <-stderrDone
+		process.done <- errors.Join(command.Wait(), scanErr)
 	}()
 	t.Cleanup(func() {
 		_ = process.cmd.Process.Kill()
