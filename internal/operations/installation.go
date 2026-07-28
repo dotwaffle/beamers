@@ -18,6 +18,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/competition"
 	"github.com/dotwaffle/beamers/internal/displays"
 	"github.com/dotwaffle/beamers/internal/events"
+	"github.com/dotwaffle/beamers/internal/eventthemes"
 	"github.com/dotwaffle/beamers/internal/overrides"
 	"github.com/dotwaffle/beamers/internal/presentation"
 	"github.com/dotwaffle/beamers/internal/programcontrol"
@@ -54,6 +55,7 @@ type Installation struct {
 	attachments      *attachments.Service
 	competition      *competition.Service
 	events           *events.Service
+	eventThemes      *eventthemes.Service
 	overrides        *overrides.Service
 	programControl   *programcontrol.Service
 	presentation     *presentation.Service
@@ -220,6 +222,11 @@ func OpenInstallationWithConfig(
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.themes = themeService
+	eventThemeService, err := eventthemes.New(storage, themeService, time.Now)
+	if err != nil {
+		return nil, errors.Join(err, installation.Close())
+	}
+	installation.eventThemes = eventThemeService
 	activationService, err := activation.New(storage, time.Now)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
@@ -237,6 +244,7 @@ func OpenInstallationWithConfig(
 	installation.events = eventService
 	displayConfig := displays.DefaultConfig()
 	displayConfig.Emergency = overrideService
+	displayConfig.EventThemes = eventThemeService
 	displayService, err := displays.New(storage, displayConfig)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
@@ -480,6 +488,12 @@ func (installation *Installation) Voting() *voting.Service {
 // It is nil only while the installation is restricted to recovery mode.
 func (installation *Installation) Themes() *themes.Service {
 	return installation.themes
+}
+
+// EventThemes returns inherited Event Theme revision control.
+// It is nil only while the installation is restricted to recovery mode.
+func (installation *Installation) EventThemes() *eventthemes.Service {
+	return installation.eventThemes
 }
 
 // Close closes storage and releases the installation lock.

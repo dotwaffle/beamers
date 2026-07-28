@@ -87,11 +87,11 @@ func TestAttestedMigrationPlanUpgradesStagedSQLite(t *testing.T) {
 		t.Fatalf("plan migrations: %v", err)
 	}
 	if plan.FromVersion != 47 ||
-		plan.ToVersion != 63 ||
+		plan.ToVersion != 64 ||
 		plan.Safety != MigrationDestructive ||
-		plan.MinimumReaderSchemaVersion != 63 ||
-		plan.MinimumWriterSchemaVersion != 63 ||
-		len(plan.Migrations) != 16 ||
+		plan.MinimumReaderSchemaVersion != 64 ||
+		plan.MinimumWriterSchemaVersion != 64 ||
+		len(plan.Migrations) != 17 ||
 		plan.Migrations[0].Version != 48 ||
 		plan.Migrations[1].Version != 49 ||
 		plan.Migrations[2].Version != 50 ||
@@ -107,7 +107,8 @@ func TestAttestedMigrationPlanUpgradesStagedSQLite(t *testing.T) {
 		plan.Migrations[12].Version != 60 ||
 		plan.Migrations[13].Version != 61 ||
 		plan.Migrations[14].Version != 62 ||
-		plan.Migrations[15].Version != 63 {
+		plan.Migrations[15].Version != 63 ||
+		plan.Migrations[16].Version != 64 {
 		t.Fatalf("migration plan = %+v", plan)
 	}
 
@@ -297,13 +298,13 @@ func TestDeclaredForwardWriterRangeAllowsNewerSchema(t *testing.T) {
 		"INSERT INTO beamers_schema_migrations "+
 			"(version, name, checksum, safety, minimum_reader_schema_version, "+
 			"minimum_writer_schema_version, applied_at) "+
-			"VALUES (64, 'future_addition', printf('%064d', 1), "+
-			"'NonDestructive', 63, 63, CURRENT_TIMESTAMP)",
+			"VALUES (65, 'future_addition', printf('%064d', 1), "+
+			"'NonDestructive', 64, 64, CURRENT_TIMESTAMP)",
 	); err != nil {
 		_ = database.Close()
 		t.Fatalf("record future migration: %v", err)
 	}
-	if _, err = database.ExecContext(t.Context(), "PRAGMA user_version = 64"); err != nil {
+	if _, err = database.ExecContext(t.Context(), "PRAGMA user_version = 65"); err != nil {
 		_ = database.Close()
 		t.Fatalf("set future schema version: %v", err)
 	}
@@ -323,8 +324,8 @@ func TestDeclaredForwardWriterRangeAllowsNewerSchema(t *testing.T) {
 	if err = installation.StartupError(); err != nil {
 		t.Fatalf("forward-compatible startup: %v", err)
 	}
-	if installation.SchemaVersion() != 64 {
-		t.Fatalf("opened schema version = %d, want 64", installation.SchemaVersion())
+	if installation.SchemaVersion() != 65 {
+		t.Fatalf("opened schema version = %d, want 65", installation.SchemaVersion())
 	}
 }
 

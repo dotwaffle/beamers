@@ -147,7 +147,15 @@ func (handlers scheduleHandlers) schedulePage(
 			return
 		}
 	}
-	handlers.render(response, request, snapshot.ETag, signedIn, schedule.Page(snapshot), "public Schedule") //nolint:contextcheck // Generated templ closures receive context when rendered.
+	snapshot.ReducedEffects = reducedEffectsCookie(request)
+	handlers.render(
+		response,
+		request,
+		snapshot.ETag,
+		signedIn || reducedEffectsPreferenceCookie(request),
+		schedule.Page(snapshot), //nolint:contextcheck // Generated templ closures receive context when rendered.
+		"public Schedule",
+	)
 }
 
 func currentScheduleSnapshot(
@@ -303,7 +311,15 @@ func (handlers scheduleHandlers) session(response http.ResponseWriter, request *
 			return
 		}
 	}
-	handlers.render(response, request, snapshot.ETag, signedIn, schedule.SessionPage(snapshot, session), "public Session") //nolint:contextcheck // Generated templ closures receive context when rendered.
+	snapshot.ReducedEffects = reducedEffectsCookie(request)
+	handlers.render(
+		response,
+		request,
+		snapshot.ETag,
+		signedIn || reducedEffectsPreferenceCookie(request),
+		schedule.SessionPage(snapshot, session), //nolint:contextcheck // Generated templ closures receive context when rendered.
+		"public Session",
+	)
 }
 
 func (handlers scheduleHandlers) favorite(response http.ResponseWriter, request *http.Request) {
@@ -532,6 +548,7 @@ func publicMethodAllowed(response http.ResponseWriter, request *http.Request) bo
 }
 
 func setScheduleHeaders(response http.ResponseWriter, etag string, private bool) {
+	response.Header().Add("Vary", "Cookie")
 	cacheControl := "public, max-age=15, must-revalidate"
 	if private {
 		cacheControl = "private, no-store"

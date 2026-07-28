@@ -371,6 +371,285 @@ func TestAdministratorRevisesPreviewsActivatesAndRestoresInstallationTheme(t *te
 	restored.stop(t)
 }
 
+func TestProducerActivatesInheritedEventThemeAcrossPublicSchedule(t *testing.T) {
+	producer, server := startAuthenticatedAdministrator(t)
+	prepareActiveSchedule(t, producer, server)
+	published := requestJSONMethod(
+		t.Context(),
+		http.MethodPut,
+		producer,
+		server.address,
+		"/crew/events/1",
+		map[string]any{
+			"name": "Revision 2099", "public": true, "public_slug": "revision-2099",
+			"planned_start_date": "2099-08-21", "planned_end_date": "2099-08-23",
+			"timezone": "Europe/Berlin", "event_locale": "en-GB",
+			"content_language": "en-GB", "event_day_boundary": "06:00",
+			"expected_revision": 1, "command_id": "publish-themed-event",
+		},
+	)
+	if published.err != nil || published.status != http.StatusOK {
+		t.Fatalf("publish themed Event = %d %q, %v", published.status, published.body, published.err)
+	}
+	displayClient := enrollAndAssignDisplay(
+		t, producer, server, "Theme Display", "location-signage",
+	)
+	csrf := browserCSRFToken(
+		t,
+		producer,
+		server.address,
+		"/backstage/events/1/theme",
+	)
+	assertGETContains(
+		t,
+		producer,
+		server.address,
+		"/backstage/events/1/theme",
+		"Fully inherited Installation Theme",
+	)
+
+	draft := eventThemeForm(csrf, "create-draft", "create-event-theme")
+	draft.Set("background_color", "#112233")
+	draft.Set("location-signage_accent_color", "#ffdf6e")
+	draft.Set("location-signage_motion", "still")
+	status, body := postBrowserForm(
+		t,
+		producer,
+		server.address,
+		"/backstage/events/1/theme",
+		draft,
+	)
+	if status != http.StatusOK ||
+		!strings.Contains(body, "Event Theme Revision #1") ||
+		!strings.Contains(body, "passes known inherited activation checks") ||
+		!strings.Contains(body, `data-theme-variant="location-signage"`) ||
+		!strings.Contains(body, "#ffdf6e") {
+		t.Fatalf("Event Theme preview = %d %q", status, body)
+	}
+	assertGETContains(
+		t,
+		producer,
+		server.address,
+		"/assets/events/1/theme.css",
+		"#080b15",
+	)
+	beforeActivation := readDisplaySnapshot(t, displayClient, server.address)
+	beforePosition, err := strconv.ParseUint(beforeActivation.StreamPosition, 10, 64)
+	if err != nil {
+		t.Fatalf("parse pre-activation Display stream position: %v", err)
+	}
+	streamContext, cancelStream := context.WithTimeout(t.Context(), 5*time.Second)
+	streamURL := fmt.Sprintf(
+		"http://%s/display/events?stream_id=%s&after=%s",
+		server.address,
+		url.QueryEscape(beforeActivation.StreamID),
+		url.QueryEscape(beforeActivation.StreamPosition),
+	)
+	streamRequest, err := http.NewRequestWithContext(
+		streamContext, http.MethodGet, streamURL, http.NoBody,
+	)
+	if err != nil {
+		t.Fatalf("create Event Theme Display stream request: %v", err)
+	}
+	streamResponse, err := displayClient.Do(streamRequest)
+	if err != nil {
+		t.Fatalf("open Event Theme Display stream: %v", err)
+	}
+	streamReader := bufio.NewReader(streamResponse.Body)
+	if heartbeat, readErr := streamReader.ReadString('\n'); readErr != nil ||
+		heartbeat != ": heartbeat\n" {
+		t.Fatalf("Event Theme Display heartbeat = %q, %v", heartbeat, readErr)
+	}
+	if _, err = streamReader.ReadString('\n'); err != nil {
+		t.Fatalf("finish Event Theme Display heartbeat: %v", err)
+	}
+
+	activate := eventThemeForm(csrf, "activate", "activate-event-theme")
+	activate.Set("revision_id", "1")
+	activate.Set("expected_active_revision_id", "0")
+	_, _ = postBrowserForm(
+		t,
+		producer,
+		server.address,
+		"/backstage/events/1/theme",
+		activate,
+	)
+	var invalidation strings.Builder
+	for {
+		line, readErr := streamReader.ReadString('\n')
+		if readErr != nil {
+			t.Fatalf("read Event Theme Display invalidation: %v", readErr)
+		}
+		if line == "\n" {
+			break
+		}
+		invalidation.WriteString(line)
+	}
+	for _, want := range []string{
+		fmt.Sprintf("id: %d\n", beforePosition+1),
+		"event: invalidate\n",
+		fmt.Sprintf(`"stream_position":%d`, beforePosition+1),
+	} {
+		if !strings.Contains(invalidation.String(), want) {
+			t.Errorf("Event Theme Display invalidation missing %q: %s", want, invalidation.String())
+		}
+	}
+	cancelStream()
+	if err = streamResponse.Body.Close(); err != nil {
+		t.Errorf("close Event Theme Display stream: %v", err)
+	}
+	assertGETContains(
+		t,
+		producer,
+		server.address,
+		"/assets/events/1/theme.css",
+		"#112233",
+	)
+	assertGETContains(
+		t,
+		producer,
+		server.address,
+		"/events/revision-2099",
+		"/assets/events/1/theme.css",
+	)
+	assertGETContains(
+		t,
+		producer,
+		server.address,
+		"/schedule",
+		"/assets/events/1/theme.css",
+	)
+	assertGETContains(t, producer, server.address, "/schedule", "Pause effects")
+	displayPage := readDisplayHTML(t, displayClient, server.address)
+	for _, want := range []string{
+		`display-layout-location-signage`,
+		`display-transition-none`,
+		`--display-signal:#ffdf6e`,
+	} {
+		if !strings.Contains(displayPage, want) {
+			t.Errorf("active Event Theme Display missing %q: %s", want, displayPage)
+		}
+	}
+
+	dataDir, bin := server.dataDir, server.bin
+	server.stop(t)
+	server = startBeamers(t, bin, dataDir)
+	assertGETContains(
+		t,
+		displayClient,
+		server.address,
+		"/display",
+		"--display-signal:#ffdf6e",
+	)
+	csrf = browserCSRFToken(t, producer, server.address, "/backstage/events/1/theme")
+
+	unknown := eventThemeForm(csrf, "create-draft", "create-arbitrary-event-theme")
+	unknown.Set("raw_css", "body { display: none }")
+	status, body = postBrowserForm(
+		t,
+		producer,
+		server.address,
+		"/backstage/events/1/theme",
+		unknown,
+	)
+	if status != http.StatusBadRequest ||
+		!strings.Contains(body, "undocumented Theme control") {
+		t.Fatalf("arbitrary Event Theme input = %d %q", status, body)
+	}
+
+	inaccessible := eventThemeForm(csrf, "create-draft", "create-inaccessible-event-theme")
+	inaccessible.Set("text_color", "#777777")
+	inaccessible.Set("background_color", "#ffffff")
+	inaccessible.Set("surface_color", "#ffffff")
+	_, body = postBrowserForm(
+		t,
+		producer,
+		server.address,
+		"/backstage/events/1/theme",
+		inaccessible,
+	)
+	if !strings.Contains(body, "Event Theme Revision #2") ||
+		!strings.Contains(body, "4.5:1") {
+		t.Fatalf("inaccessible Event Theme preview = %q", body)
+	}
+	blocked := eventThemeForm(csrf, "activate", "activate-inaccessible-event-theme")
+	blocked.Set("revision_id", "2")
+	blocked.Set("expected_active_revision_id", "1")
+	status, body = postBrowserForm(
+		t,
+		producer,
+		server.address,
+		"/backstage/events/1/theme",
+		blocked,
+	)
+	if status != http.StatusConflict ||
+		!strings.Contains(body, "Activation is blocked") {
+		t.Fatalf("blocked Event Theme activation = %d %q", status, body)
+	}
+
+	rollback := eventThemeForm(csrf, "activate", "rollback-event-theme")
+	rollback.Set("revision_id", "0")
+	rollback.Set("expected_active_revision_id", "1")
+	_, _ = postBrowserForm(
+		t,
+		producer,
+		server.address,
+		"/backstage/events/1/theme",
+		rollback,
+	)
+	assertGETContains(
+		t,
+		producer,
+		server.address,
+		"/assets/events/1/theme.css",
+		"#080b15",
+	)
+	emergencyPreview := requestJSON(
+		t.Context(),
+		producer,
+		server.address,
+		"/crew/events/1/emergency-alerts/preview",
+		map[string]any{
+			"target": map[string]any{"type": "Event"},
+			"text":   "Evacuate using marked exits",
+		},
+	)
+	var preview struct {
+		ConfirmationFingerprint string `json:"confirmation_fingerprint"`
+	}
+	if err := json.Unmarshal([]byte(emergencyPreview.body), &preview); err != nil ||
+		emergencyPreview.status != http.StatusOK ||
+		preview.ConfirmationFingerprint == "" {
+		t.Fatalf(
+			"preview themed Emergency Alert = %d %q, %v",
+			emergencyPreview.status, emergencyPreview.body, err,
+		)
+	}
+	emergency := requestJSON(
+		t.Context(),
+		producer,
+		server.address,
+		"/crew/events/1/emergency-alerts",
+		map[string]any{
+			"target":              map[string]any{"type": "Event"},
+			"text":                "Evacuate using marked exits",
+			"preview_fingerprint": preview.ConfirmationFingerprint,
+			"confirmed":           true, "confirmation_method": "Keyboard",
+			"command_id": "activate-themed-emergency",
+		},
+	)
+	if emergency.status != http.StatusOK {
+		t.Fatalf("activate themed Emergency Alert = %d %q", emergency.status, emergency.body)
+	}
+	displayPage = readDisplayHTML(t, displayClient, server.address)
+	const emergencyClass = `class="display-view emergency-alert display-override-replace"`
+	if !strings.Contains(displayPage, emergencyClass) ||
+		strings.Contains(displayPage, emergencyClass+" style=") {
+		t.Fatalf("Emergency Alert inherited Event Theme: %s", displayPage)
+	}
+	server.stop(t)
+}
+
 func TestUnenrolledDisplayPresentsEnrollmentCodeAndQR(t *testing.T) {
 	_, server := startAuthenticatedAdministrator(t)
 	displayClient := authenticatedClient(t)
@@ -1272,6 +1551,7 @@ func TestProducerConfiguresAccessibleBuiltInDisplayViews(t *testing.T) {
 	configureInput := map[string]any{
 		"expected_event_revision": 1,
 		"rotation_seconds":        30,
+		"reduced_effects":         true,
 		"theme": map[string]any{
 			"branding":         "FOSDEM",
 			"foreground_color": "#ffffff",
@@ -1305,6 +1585,7 @@ func TestProducerConfiguresAccessibleBuiltInDisplayViews(t *testing.T) {
 	for _, want := range []string{
 		`"event_id":1`,
 		`"rotation_seconds":30`,
+		`"reduced_effects":true`,
 		`"branding":"FOSDEM"`,
 		`"background":"variable-media"`,
 		`"scrim_opacity":85`,
@@ -1420,9 +1701,11 @@ func TestProducerConfiguresAccessibleBuiltInDisplayViews(t *testing.T) {
 	}
 	for _, want := range []string{
 		`class="display-view display-layout-event-overview`,
-		`--display-foreground:#ffffff`,
-		`--display-background:#101828`,
-		`--display-accent:#1d4ed8`,
+		`display-transition-none`,
+		`--display-foreground:#f1f5ff`,
+		`--display-background:#080b15`,
+		`--display-accent:#141a2c`,
+		`--display-signal:#62ebcb`,
 		`data-region="header"`,
 		`data-region="schedule"`,
 		`data-region="clock"`,
@@ -1447,6 +1730,7 @@ func TestProducerConfiguresAccessibleBuiltInDisplayViews(t *testing.T) {
 		`"layout":{"key":"event-overview"`,
 		`"rotationSeconds":30`,
 		`"theme":{"branding":"FOSDEM"`,
+		`"transition":"none"`,
 	} {
 		if !strings.Contains(snapshot.body, want) {
 			t.Errorf("Display Snapshot missing %s: %s", want, snapshot.body)
@@ -1518,7 +1802,8 @@ func TestProducerConfiguresAccessibleBuiltInDisplayViews(t *testing.T) {
 		nil,
 	)
 	if persisted.err != nil || persisted.status != http.StatusOK ||
-		!strings.Contains(persisted.body, `"branding":"FOSDEM"`) {
+		!strings.Contains(persisted.body, `"branding":"FOSDEM"`) ||
+		!strings.Contains(persisted.body, `"reduced_effects":true`) {
 		t.Errorf(
 			"persisted Display configuration = %d %q, %v",
 			persisted.status,
@@ -9259,6 +9544,14 @@ func installationThemeForm(csrf, action, commandID string) url.Values {
 		"transition":       {"fade"},
 		"effect":           {"starfield"},
 		"motion":           {"subtle"},
+	}
+}
+
+func eventThemeForm(csrf, action, commandID string) url.Values {
+	return url.Values{
+		"csrf_token": {csrf},
+		"action":     {action},
+		"command_id": {commandID},
 	}
 }
 

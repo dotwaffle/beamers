@@ -8,7 +8,9 @@ import (
 
 	"github.com/a-h/templ"
 
+	"github.com/dotwaffle/beamers/internal/displayviews"
 	"github.com/dotwaffle/beamers/internal/stagetimer"
+	"github.com/dotwaffle/beamers/internal/themevalue"
 )
 
 func displayPageClass(snapshot Snapshot) string {
@@ -23,13 +25,17 @@ func displayPageClass(snapshot Snapshot) string {
 }
 
 func displayBranding(snapshot Snapshot) string {
+	prefix := ""
+	if snapshot.Composition.Theme.BrandAsset == themevalue.BrandAssetSignal {
+		prefix = "◆ "
+	}
 	if snapshot.Composition.Theme.Branding != "" {
-		return snapshot.Composition.Theme.Branding
+		return prefix + snapshot.Composition.Theme.Branding
 	}
 	if snapshot.EventName != "" {
-		return snapshot.EventName
+		return prefix + snapshot.EventName
 	}
-	return "Beamers"
+	return prefix + "Beamers"
 }
 
 func displayPageTitle(snapshot Snapshot) string {
@@ -148,11 +154,49 @@ func displayThemeStyle(snapshot Snapshot) templ.SafeCSS {
 	// Event content from becoming CSS syntax.
 	return templ.SafeCSS(fmt.Sprintf(
 		"--display-foreground:%s;--display-background:%s;--display-accent:%s;"+
-			"--display-scrim-layer:%s%02x",
+			"--display-signal:%s;--display-scrim-layer:%s%02x",
 		theme.ForegroundColor,
 		theme.BackgroundColor,
 		theme.AccentColor,
+		theme.SignalColor,
 		theme.ScrimColor,
 		alpha,
 	))
+}
+
+func eventDisplayTheme(config themevalue.Config, branding string) displayviews.Theme {
+	background := displayviews.BackgroundSolid
+	if config.Background == themevalue.BackgroundNebula {
+		background = displayviews.BackgroundNebula
+	}
+	font := displayviews.FontSans
+	if config.Typeface == themevalue.TypefaceDemoscene {
+		font = displayviews.FontDemoscene
+	}
+	transition := config.Transition
+	if config.Motion == themevalue.MotionStill {
+		transition = displayviews.TransitionNone
+	}
+	return displayviews.Theme{
+		Branding: branding, BrandAsset: config.BrandAsset,
+		ForegroundColor: config.TextColor, BackgroundColor: config.BackgroundColor,
+		AccentColor: config.SurfaceColor, Background: background,
+		SignalColor: config.AccentColor,
+		ScrimColor:  "#000000", ScrimOpacity: 85,
+		Font: font, Transition: transition,
+	}
+}
+
+func displayThemeVariant(viewKey string, standby bool) string {
+	if standby {
+		return themevalue.VariantStandby
+	}
+	switch viewKey {
+	case displayviews.CompetitionOutput,
+		displayviews.EventOverview,
+		displayviews.LocationSignage:
+		return viewKey
+	default:
+		return ""
+	}
 }

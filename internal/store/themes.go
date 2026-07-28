@@ -142,14 +142,37 @@ func (installationStore *SQLite) ListInstallationThemeRevisions(
 func (installationStore *SQLite) LoadActiveInstallationThemeRevision(
 	ctx context.Context,
 ) (InstallationThemeRevision, error) {
-	routing, err := installationStore.client.Installation.Query().Only(systemContext(ctx))
+	return loadActiveInstallationThemeRevision(
+		ctx,
+		installationStore.client,
+		installationStore.LoadInstallationThemeRevision,
+	)
+}
+
+// LoadActiveInstallationThemeRevision returns active Theme state inside a command.
+func (transaction *CommandTx) LoadActiveInstallationThemeRevision(
+	ctx context.Context,
+) (InstallationThemeRevision, error) {
+	return loadActiveInstallationThemeRevision(
+		ctx,
+		transaction.transaction.Client(),
+		transaction.LoadInstallationThemeRevision,
+	)
+}
+
+func loadActiveInstallationThemeRevision(
+	ctx context.Context,
+	client *ent.Client,
+	load func(context.Context, int) (InstallationThemeRevision, error),
+) (InstallationThemeRevision, error) {
+	routing, err := client.Installation.Query().Only(systemContext(ctx))
 	if err != nil {
 		return InstallationThemeRevision{}, opaqueError("load active Installation Theme Revision", err)
 	}
 	if routing.ActiveThemeRevisionID == nil {
 		return InstallationThemeRevision{}, nil
 	}
-	return installationStore.LoadInstallationThemeRevision(ctx, *routing.ActiveThemeRevisionID)
+	return load(ctx, *routing.ActiveThemeRevisionID)
 }
 
 func installationThemeRevision(

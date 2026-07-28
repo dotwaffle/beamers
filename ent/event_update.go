@@ -22,6 +22,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/eventawardsdraft"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/eventslug"
+	"github.com/dotwaffle/beamers/ent/eventthemerevision"
 	"github.com/dotwaffle/beamers/ent/importreference"
 	"github.com/dotwaffle/beamers/ent/lane"
 	"github.com/dotwaffle/beamers/ent/location"
@@ -272,6 +273,26 @@ func (_u *EventUpdate) SetNillableDisplayConfiguration(v *string) *EventUpdate {
 	if v != nil {
 		_u.SetDisplayConfiguration(*v)
 	}
+	return _u
+}
+
+// SetActiveThemeRevisionID sets the "active_theme_revision_id" field.
+func (_u *EventUpdate) SetActiveThemeRevisionID(v int) *EventUpdate {
+	_u.mutation.SetActiveThemeRevisionID(v)
+	return _u
+}
+
+// SetNillableActiveThemeRevisionID sets the "active_theme_revision_id" field if the given value is not nil.
+func (_u *EventUpdate) SetNillableActiveThemeRevisionID(v *int) *EventUpdate {
+	if v != nil {
+		_u.SetActiveThemeRevisionID(*v)
+	}
+	return _u
+}
+
+// ClearActiveThemeRevisionID clears the value of the "active_theme_revision_id" field.
+func (_u *EventUpdate) ClearActiveThemeRevisionID() *EventUpdate {
+	_u.mutation.ClearActiveThemeRevisionID()
 	return _u
 }
 
@@ -817,6 +838,26 @@ func (_u *EventUpdate) AddDisplayOverrides(v ...*DisplayOverride) *EventUpdate {
 	return _u.AddDisplayOverrideIDs(ids...)
 }
 
+// AddThemeRevisionIDs adds the "theme_revisions" edge to the EventThemeRevision entity by IDs.
+func (_u *EventUpdate) AddThemeRevisionIDs(ids ...int) *EventUpdate {
+	_u.mutation.AddThemeRevisionIDs(ids...)
+	return _u
+}
+
+// AddThemeRevisions adds the "theme_revisions" edges to the EventThemeRevision entity.
+func (_u *EventUpdate) AddThemeRevisions(v ...*EventThemeRevision) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddThemeRevisionIDs(ids...)
+}
+
+// SetActiveThemeRevision sets the "active_theme_revision" edge to the EventThemeRevision entity.
+func (_u *EventUpdate) SetActiveThemeRevision(v *EventThemeRevision) *EventUpdate {
+	return _u.SetActiveThemeRevisionID(v.ID)
+}
+
 // Mutation returns the EventMutation object of the builder.
 func (_u *EventUpdate) Mutation() *EventMutation {
 	return _u.mutation
@@ -1317,6 +1358,33 @@ func (_u *EventUpdate) RemoveDisplayOverrides(v ...*DisplayOverride) *EventUpdat
 	return _u.RemoveDisplayOverrideIDs(ids...)
 }
 
+// ClearThemeRevisions clears all "theme_revisions" edges to the EventThemeRevision entity.
+func (_u *EventUpdate) ClearThemeRevisions() *EventUpdate {
+	_u.mutation.ClearThemeRevisions()
+	return _u
+}
+
+// RemoveThemeRevisionIDs removes the "theme_revisions" edge to EventThemeRevision entities by IDs.
+func (_u *EventUpdate) RemoveThemeRevisionIDs(ids ...int) *EventUpdate {
+	_u.mutation.RemoveThemeRevisionIDs(ids...)
+	return _u
+}
+
+// RemoveThemeRevisions removes "theme_revisions" edges to EventThemeRevision entities.
+func (_u *EventUpdate) RemoveThemeRevisions(v ...*EventThemeRevision) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveThemeRevisionIDs(ids...)
+}
+
+// ClearActiveThemeRevision clears the "active_theme_revision" edge to the EventThemeRevision entity.
+func (_u *EventUpdate) ClearActiveThemeRevision() *EventUpdate {
+	_u.mutation.ClearActiveThemeRevision()
+	return _u
+}
+
 // Save executes the query and returns the number of nodes affected by the update operation.
 func (_u *EventUpdate) Save(ctx context.Context) (int, error) {
 	return withHooks(ctx, _u.sqlSave, _u.mutation, _u.hooks)
@@ -1414,6 +1482,11 @@ func (_u *EventUpdate) check() error {
 	if v, ok := _u.mutation.DisplayConfiguration(); ok {
 		if err := event.DisplayConfigurationValidator(v); err != nil {
 			return &ValidationError{Name: "display_configuration", err: fmt.Errorf(`ent: validator failed for field "Event.display_configuration": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ActiveThemeRevisionID(); ok {
+		if err := event.ActiveThemeRevisionIDValidator(v); err != nil {
+			return &ValidationError{Name: "active_theme_revision_id", err: fmt.Errorf(`ent: validator failed for field "Event.active_theme_revision_id": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.AttachmentReleasePolicy(); ok {
@@ -2650,6 +2723,80 @@ func (_u *EventUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.ThemeRevisionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.ThemeRevisionsTable,
+			Columns: []string{event.ThemeRevisionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(eventthemerevision.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedThemeRevisionsIDs(); len(nodes) > 0 && !_u.mutation.ThemeRevisionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.ThemeRevisionsTable,
+			Columns: []string{event.ThemeRevisionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(eventthemerevision.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ThemeRevisionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.ThemeRevisionsTable,
+			Columns: []string{event.ThemeRevisionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(eventthemerevision.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.ActiveThemeRevisionCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   event.ActiveThemeRevisionTable,
+			Columns: []string{event.ActiveThemeRevisionColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(eventthemerevision.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ActiveThemeRevisionIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   event.ActiveThemeRevisionTable,
+			Columns: []string{event.ActiveThemeRevisionColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(eventthemerevision.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{event.Label}
@@ -2889,6 +3036,26 @@ func (_u *EventUpdateOne) SetNillableDisplayConfiguration(v *string) *EventUpdat
 	if v != nil {
 		_u.SetDisplayConfiguration(*v)
 	}
+	return _u
+}
+
+// SetActiveThemeRevisionID sets the "active_theme_revision_id" field.
+func (_u *EventUpdateOne) SetActiveThemeRevisionID(v int) *EventUpdateOne {
+	_u.mutation.SetActiveThemeRevisionID(v)
+	return _u
+}
+
+// SetNillableActiveThemeRevisionID sets the "active_theme_revision_id" field if the given value is not nil.
+func (_u *EventUpdateOne) SetNillableActiveThemeRevisionID(v *int) *EventUpdateOne {
+	if v != nil {
+		_u.SetActiveThemeRevisionID(*v)
+	}
+	return _u
+}
+
+// ClearActiveThemeRevisionID clears the value of the "active_theme_revision_id" field.
+func (_u *EventUpdateOne) ClearActiveThemeRevisionID() *EventUpdateOne {
+	_u.mutation.ClearActiveThemeRevisionID()
 	return _u
 }
 
@@ -3434,6 +3601,26 @@ func (_u *EventUpdateOne) AddDisplayOverrides(v ...*DisplayOverride) *EventUpdat
 	return _u.AddDisplayOverrideIDs(ids...)
 }
 
+// AddThemeRevisionIDs adds the "theme_revisions" edge to the EventThemeRevision entity by IDs.
+func (_u *EventUpdateOne) AddThemeRevisionIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.AddThemeRevisionIDs(ids...)
+	return _u
+}
+
+// AddThemeRevisions adds the "theme_revisions" edges to the EventThemeRevision entity.
+func (_u *EventUpdateOne) AddThemeRevisions(v ...*EventThemeRevision) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddThemeRevisionIDs(ids...)
+}
+
+// SetActiveThemeRevision sets the "active_theme_revision" edge to the EventThemeRevision entity.
+func (_u *EventUpdateOne) SetActiveThemeRevision(v *EventThemeRevision) *EventUpdateOne {
+	return _u.SetActiveThemeRevisionID(v.ID)
+}
+
 // Mutation returns the EventMutation object of the builder.
 func (_u *EventUpdateOne) Mutation() *EventMutation {
 	return _u.mutation
@@ -3934,6 +4121,33 @@ func (_u *EventUpdateOne) RemoveDisplayOverrides(v ...*DisplayOverride) *EventUp
 	return _u.RemoveDisplayOverrideIDs(ids...)
 }
 
+// ClearThemeRevisions clears all "theme_revisions" edges to the EventThemeRevision entity.
+func (_u *EventUpdateOne) ClearThemeRevisions() *EventUpdateOne {
+	_u.mutation.ClearThemeRevisions()
+	return _u
+}
+
+// RemoveThemeRevisionIDs removes the "theme_revisions" edge to EventThemeRevision entities by IDs.
+func (_u *EventUpdateOne) RemoveThemeRevisionIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.RemoveThemeRevisionIDs(ids...)
+	return _u
+}
+
+// RemoveThemeRevisions removes "theme_revisions" edges to EventThemeRevision entities.
+func (_u *EventUpdateOne) RemoveThemeRevisions(v ...*EventThemeRevision) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveThemeRevisionIDs(ids...)
+}
+
+// ClearActiveThemeRevision clears the "active_theme_revision" edge to the EventThemeRevision entity.
+func (_u *EventUpdateOne) ClearActiveThemeRevision() *EventUpdateOne {
+	_u.mutation.ClearActiveThemeRevision()
+	return _u
+}
+
 // Where appends a list predicates to the EventUpdate builder.
 func (_u *EventUpdateOne) Where(ps ...predicate.Event) *EventUpdateOne {
 	_u.mutation.Where(ps...)
@@ -4044,6 +4258,11 @@ func (_u *EventUpdateOne) check() error {
 	if v, ok := _u.mutation.DisplayConfiguration(); ok {
 		if err := event.DisplayConfigurationValidator(v); err != nil {
 			return &ValidationError{Name: "display_configuration", err: fmt.Errorf(`ent: validator failed for field "Event.display_configuration": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ActiveThemeRevisionID(); ok {
+		if err := event.ActiveThemeRevisionIDValidator(v); err != nil {
+			return &ValidationError{Name: "active_theme_revision_id", err: fmt.Errorf(`ent: validator failed for field "Event.active_theme_revision_id": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.AttachmentReleasePolicy(); ok {
@@ -5290,6 +5509,80 @@ func (_u *EventUpdateOne) sqlSave(ctx context.Context) (_node *Event, err error)
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(displayoverride.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.ThemeRevisionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.ThemeRevisionsTable,
+			Columns: []string{event.ThemeRevisionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(eventthemerevision.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedThemeRevisionsIDs(); len(nodes) > 0 && !_u.mutation.ThemeRevisionsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.ThemeRevisionsTable,
+			Columns: []string{event.ThemeRevisionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(eventthemerevision.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ThemeRevisionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.ThemeRevisionsTable,
+			Columns: []string{event.ThemeRevisionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(eventthemerevision.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.ActiveThemeRevisionCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   event.ActiveThemeRevisionTable,
+			Columns: []string{event.ActiveThemeRevisionColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(eventthemerevision.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ActiveThemeRevisionIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   event.ActiveThemeRevisionTable,
+			Columns: []string{event.ActiveThemeRevisionColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(eventthemerevision.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

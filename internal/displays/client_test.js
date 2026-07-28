@@ -676,6 +676,28 @@ test("display styles preserve content changes while reducing motion", () => {
   assert.match(template, /@media \(min-aspect-ratio: 8\/5\)/);
 });
 
+test("Event Theme variants survive Display snapshot rendering", async () => {
+  const composition = displayComposition();
+  composition.theme = {
+    ...composition.theme,
+    branding: "Revision",
+    brandAsset: "signal",
+    signalColor: "#ffdf6e",
+    background: "nebula",
+    font: "demoscene",
+  };
+  const browser = await startBrowser({
+    snapshot: displaySnapshot({composition}),
+  });
+  assert.match(browser.document.main.className, /display-background-nebula/);
+  assert.match(browser.document.main.className, /display-font-demoscene/);
+  assert.match(nodeText(browser.document.main), /◆ Revision/);
+  assert.equal(
+    browser.document.main.style.properties.get("--display-signal"),
+    "#ffdf6e",
+  );
+});
+
 async function startBrowser(options = {}) {
   const timers = new Map();
   let nextTimerID = 0;
@@ -927,6 +949,7 @@ function displayComposition(overrides = {}) {
       foregroundColor: "#ffffff",
       backgroundColor: "#101828",
       accentColor: "#1d4ed8",
+      signalColor: "#62ebcb",
       background: "solid",
       scrimColor: "#000000",
       scrimOpacity: 85,

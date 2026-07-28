@@ -64,6 +64,8 @@ type Tx struct {
 	EventGrant *EventGrantClient
 	// EventSlug is the client for interacting with the EventSlug builders.
 	EventSlug *EventSlugClient
+	// EventThemeRevision is the client for interacting with the EventThemeRevision builders.
+	EventThemeRevision *EventThemeRevisionClient
 	// FavoriteSession is the client for interacting with the FavoriteSession builders.
 	FavoriteSession *FavoriteSessionClient
 	// FederatedIdentity is the client for interacting with the FederatedIdentity builders.
@@ -298,6 +300,7 @@ func (tx *Tx) init() {
 	tx.EventAwardsDraft = NewEventAwardsDraftClient(tx.config)
 	tx.EventGrant = NewEventGrantClient(tx.config)
 	tx.EventSlug = NewEventSlugClient(tx.config)
+	tx.EventThemeRevision = NewEventThemeRevisionClient(tx.config)
 	tx.FavoriteSession = NewFavoriteSessionClient(tx.config)
 	tx.FederatedIdentity = NewFederatedIdentityClient(tx.config)
 	tx.ImportReference = NewImportReferenceClient(tx.config)

@@ -40,6 +40,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/eventawardsdraft"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/eventslug"
+	"github.com/dotwaffle/beamers/ent/eventthemerevision"
 	"github.com/dotwaffle/beamers/ent/favoritesession"
 	"github.com/dotwaffle/beamers/ent/federatedidentity"
 	"github.com/dotwaffle/beamers/ent/importreference"
@@ -138,6 +139,8 @@ type Client struct {
 	EventGrant *EventGrantClient
 	// EventSlug is the client for interacting with the EventSlug builders.
 	EventSlug *EventSlugClient
+	// EventThemeRevision is the client for interacting with the EventThemeRevision builders.
+	EventThemeRevision *EventThemeRevisionClient
 	// FavoriteSession is the client for interacting with the FavoriteSession builders.
 	FavoriteSession *FavoriteSessionClient
 	// FederatedIdentity is the client for interacting with the FederatedIdentity builders.
@@ -252,6 +255,7 @@ func (c *Client) init() {
 	c.EventAwardsDraft = NewEventAwardsDraftClient(c.config)
 	c.EventGrant = NewEventGrantClient(c.config)
 	c.EventSlug = NewEventSlugClient(c.config)
+	c.EventThemeRevision = NewEventThemeRevisionClient(c.config)
 	c.FavoriteSession = NewFavoriteSessionClient(c.config)
 	c.FederatedIdentity = NewFederatedIdentityClient(c.config)
 	c.ImportReference = NewImportReferenceClient(c.config)
@@ -408,6 +412,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		EventAwardsDraft:            NewEventAwardsDraftClient(cfg),
 		EventGrant:                  NewEventGrantClient(cfg),
 		EventSlug:                   NewEventSlugClient(cfg),
+		EventThemeRevision:          NewEventThemeRevisionClient(cfg),
 		FavoriteSession:             NewFavoriteSessionClient(cfg),
 		FederatedIdentity:           NewFederatedIdentityClient(cfg),
 		ImportReference:             NewImportReferenceClient(cfg),
@@ -491,6 +496,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		EventAwardsDraft:            NewEventAwardsDraftClient(cfg),
 		EventGrant:                  NewEventGrantClient(cfg),
 		EventSlug:                   NewEventSlugClient(cfg),
+		EventThemeRevision:          NewEventThemeRevisionClient(cfg),
 		FavoriteSession:             NewFavoriteSessionClient(cfg),
 		FederatedIdentity:           NewFederatedIdentityClient(cfg),
 		ImportReference:             NewImportReferenceClient(cfg),
@@ -565,13 +571,13 @@ func (c *Client) Use(hooks ...Hook) {
 		c.CompetitionResultsDraft, c.Display, c.DisplayAssignment, c.DisplayCredential,
 		c.DisplayEnrollment, c.DisplayOverride, c.DisplayOverrideState, c.DraftChange,
 		c.DraftChangeDependency, c.DraftEdit, c.Event, c.EventAwardsDraft,
-		c.EventGrant, c.EventSlug, c.FavoriteSession, c.FederatedIdentity,
-		c.ImportReference, c.Installation, c.InstallationThemeRevision, c.Lane,
-		c.LaneDraft, c.LanePublishedVersion, c.Location, c.LocationDraft,
-		c.LocationPublishedVersion, c.Migration, c.PasswordCredential, c.Prizegiving,
-		c.PrizegivingCompetition, c.PublicScheduleBaseline,
-		c.PublicScheduleBaselineEntry, c.RecoveryCode, c.RecoveryToken,
-		c.RegistrationPolicy, c.ReleasedProfileEntry, c.ReopenWindow,
+		c.EventGrant, c.EventSlug, c.EventThemeRevision, c.FavoriteSession,
+		c.FederatedIdentity, c.ImportReference, c.Installation,
+		c.InstallationThemeRevision, c.Lane, c.LaneDraft, c.LanePublishedVersion,
+		c.Location, c.LocationDraft, c.LocationPublishedVersion, c.Migration,
+		c.PasswordCredential, c.Prizegiving, c.PrizegivingCompetition,
+		c.PublicScheduleBaseline, c.PublicScheduleBaselineEntry, c.RecoveryCode,
+		c.RecoveryToken, c.RegistrationPolicy, c.ReleasedProfileEntry, c.ReopenWindow,
 		c.ResultsCorrection, c.ResultsPublication, c.Rundown, c.Session,
 		c.SessionCancellation, c.SessionDraft, c.SessionPublishedVersion, c.SessionRun,
 		c.SessionRunAmendment, c.Track, c.TrackDraft, c.TrackPublishedVersion, c.Vote,
@@ -591,13 +597,13 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.CompetitionResultsDraft, c.Display, c.DisplayAssignment, c.DisplayCredential,
 		c.DisplayEnrollment, c.DisplayOverride, c.DisplayOverrideState, c.DraftChange,
 		c.DraftChangeDependency, c.DraftEdit, c.Event, c.EventAwardsDraft,
-		c.EventGrant, c.EventSlug, c.FavoriteSession, c.FederatedIdentity,
-		c.ImportReference, c.Installation, c.InstallationThemeRevision, c.Lane,
-		c.LaneDraft, c.LanePublishedVersion, c.Location, c.LocationDraft,
-		c.LocationPublishedVersion, c.Migration, c.PasswordCredential, c.Prizegiving,
-		c.PrizegivingCompetition, c.PublicScheduleBaseline,
-		c.PublicScheduleBaselineEntry, c.RecoveryCode, c.RecoveryToken,
-		c.RegistrationPolicy, c.ReleasedProfileEntry, c.ReopenWindow,
+		c.EventGrant, c.EventSlug, c.EventThemeRevision, c.FavoriteSession,
+		c.FederatedIdentity, c.ImportReference, c.Installation,
+		c.InstallationThemeRevision, c.Lane, c.LaneDraft, c.LanePublishedVersion,
+		c.Location, c.LocationDraft, c.LocationPublishedVersion, c.Migration,
+		c.PasswordCredential, c.Prizegiving, c.PrizegivingCompetition,
+		c.PublicScheduleBaseline, c.PublicScheduleBaselineEntry, c.RecoveryCode,
+		c.RecoveryToken, c.RegistrationPolicy, c.ReleasedProfileEntry, c.ReopenWindow,
 		c.ResultsCorrection, c.ResultsPublication, c.Rundown, c.Session,
 		c.SessionCancellation, c.SessionDraft, c.SessionPublishedVersion, c.SessionRun,
 		c.SessionRunAmendment, c.Track, c.TrackDraft, c.TrackPublishedVersion, c.Vote,
@@ -660,6 +666,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.EventGrant.mutate(ctx, m)
 	case *EventSlugMutation:
 		return c.EventSlug.mutate(ctx, m)
+	case *EventThemeRevisionMutation:
+		return c.EventThemeRevision.mutate(ctx, m)
 	case *FavoriteSessionMutation:
 		return c.FavoriteSession.mutate(ctx, m)
 	case *FederatedIdentityMutation:
@@ -4993,6 +5001,38 @@ func (c *EventClient) QueryDisplayOverrides(_m *Event) *DisplayOverrideQuery {
 	return query
 }
 
+// QueryThemeRevisions queries the theme_revisions edge of a Event.
+func (c *EventClient) QueryThemeRevisions(_m *Event) *EventThemeRevisionQuery {
+	query := (&EventThemeRevisionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, id),
+			sqlgraph.To(eventthemerevision.Table, eventthemerevision.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, event.ThemeRevisionsTable, event.ThemeRevisionsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryActiveThemeRevision queries the active_theme_revision edge of a Event.
+func (c *EventClient) QueryActiveThemeRevision(_m *Event) *EventThemeRevisionQuery {
+	query := (&EventThemeRevisionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, id),
+			sqlgraph.To(eventthemerevision.Table, eventthemerevision.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, event.ActiveThemeRevisionTable, event.ActiveThemeRevisionColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *EventClient) Hooks() []Hook {
 	hooks := c.hooks.Event
@@ -5482,6 +5522,156 @@ func (c *EventSlugClient) mutate(ctx context.Context, m *EventSlugMutation) (Val
 		return (&EventSlugDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown EventSlug mutation op: %q", m.Op())
+	}
+}
+
+// EventThemeRevisionClient is a client for the EventThemeRevision schema.
+type EventThemeRevisionClient struct {
+	config
+}
+
+// NewEventThemeRevisionClient returns a client for the EventThemeRevision from the given config.
+func NewEventThemeRevisionClient(c config) *EventThemeRevisionClient {
+	return &EventThemeRevisionClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `eventthemerevision.Hooks(f(g(h())))`.
+func (c *EventThemeRevisionClient) Use(hooks ...Hook) {
+	c.hooks.EventThemeRevision = append(c.hooks.EventThemeRevision, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `eventthemerevision.Intercept(f(g(h())))`.
+func (c *EventThemeRevisionClient) Intercept(interceptors ...Interceptor) {
+	c.inters.EventThemeRevision = append(c.inters.EventThemeRevision, interceptors...)
+}
+
+// Create returns a builder for creating a EventThemeRevision entity.
+func (c *EventThemeRevisionClient) Create() *EventThemeRevisionCreate {
+	mutation := newEventThemeRevisionMutation(c.config, OpCreate)
+	return &EventThemeRevisionCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of EventThemeRevision entities.
+func (c *EventThemeRevisionClient) CreateBulk(builders ...*EventThemeRevisionCreate) *EventThemeRevisionCreateBulk {
+	return &EventThemeRevisionCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *EventThemeRevisionClient) MapCreateBulk(slice any, setFunc func(*EventThemeRevisionCreate, int)) *EventThemeRevisionCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &EventThemeRevisionCreateBulk{err: fmt.Errorf("calling to EventThemeRevisionClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*EventThemeRevisionCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &EventThemeRevisionCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for EventThemeRevision.
+func (c *EventThemeRevisionClient) Update() *EventThemeRevisionUpdate {
+	mutation := newEventThemeRevisionMutation(c.config, OpUpdate)
+	return &EventThemeRevisionUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *EventThemeRevisionClient) UpdateOne(_m *EventThemeRevision) *EventThemeRevisionUpdateOne {
+	mutation := newEventThemeRevisionMutation(c.config, OpUpdateOne, withEventThemeRevision(_m))
+	return &EventThemeRevisionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *EventThemeRevisionClient) UpdateOneID(id int) *EventThemeRevisionUpdateOne {
+	mutation := newEventThemeRevisionMutation(c.config, OpUpdateOne, withEventThemeRevisionID(id))
+	return &EventThemeRevisionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for EventThemeRevision.
+func (c *EventThemeRevisionClient) Delete() *EventThemeRevisionDelete {
+	mutation := newEventThemeRevisionMutation(c.config, OpDelete)
+	return &EventThemeRevisionDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *EventThemeRevisionClient) DeleteOne(_m *EventThemeRevision) *EventThemeRevisionDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *EventThemeRevisionClient) DeleteOneID(id int) *EventThemeRevisionDeleteOne {
+	builder := c.Delete().Where(eventthemerevision.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &EventThemeRevisionDeleteOne{builder}
+}
+
+// Query returns a query builder for EventThemeRevision.
+func (c *EventThemeRevisionClient) Query() *EventThemeRevisionQuery {
+	return &EventThemeRevisionQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeEventThemeRevision},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a EventThemeRevision entity by its id.
+func (c *EventThemeRevisionClient) Get(ctx context.Context, id int) (*EventThemeRevision, error) {
+	return c.Query().Where(eventthemerevision.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *EventThemeRevisionClient) GetX(ctx context.Context, id int) *EventThemeRevision {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryEvent queries the event edge of a EventThemeRevision.
+func (c *EventThemeRevisionClient) QueryEvent(_m *EventThemeRevision) *EventQuery {
+	query := (&EventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(eventthemerevision.Table, eventthemerevision.FieldID, id),
+			sqlgraph.To(event.Table, event.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, eventthemerevision.EventTable, eventthemerevision.EventColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *EventThemeRevisionClient) Hooks() []Hook {
+	hooks := c.hooks.EventThemeRevision
+	return append(hooks[:len(hooks):len(hooks)], eventthemerevision.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *EventThemeRevisionClient) Interceptors() []Interceptor {
+	return c.inters.EventThemeRevision
+}
+
+func (c *EventThemeRevisionClient) mutate(ctx context.Context, m *EventThemeRevisionMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&EventThemeRevisionCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&EventThemeRevisionUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&EventThemeRevisionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&EventThemeRevisionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown EventThemeRevision mutation op: %q", m.Op())
 	}
 }
 
@@ -12110,16 +12300,16 @@ type (
 		CompetitionEntry, CompetitionResultStanding, CompetitionResultsDraft, Display,
 		DisplayAssignment, DisplayCredential, DisplayEnrollment, DisplayOverride,
 		DisplayOverrideState, DraftChange, DraftChangeDependency, DraftEdit, Event,
-		EventAwardsDraft, EventGrant, EventSlug, FavoriteSession, FederatedIdentity,
-		ImportReference, Installation, InstallationThemeRevision, Lane, LaneDraft,
-		LanePublishedVersion, Location, LocationDraft, LocationPublishedVersion,
-		Migration, PasswordCredential, Prizegiving, PrizegivingCompetition,
-		PublicScheduleBaseline, PublicScheduleBaselineEntry, RecoveryCode,
-		RecoveryToken, RegistrationPolicy, ReleasedProfileEntry, ReopenWindow,
-		ResultsCorrection, ResultsPublication, Rundown, Session, SessionCancellation,
-		SessionDraft, SessionPublishedVersion, SessionRun, SessionRunAmendment, Track,
-		TrackDraft, TrackPublishedVersion, Vote, VotingEligibility, VotingKey,
-		VotingTally, WebAuthnCredential []ent.Hook
+		EventAwardsDraft, EventGrant, EventSlug, EventThemeRevision, FavoriteSession,
+		FederatedIdentity, ImportReference, Installation, InstallationThemeRevision,
+		Lane, LaneDraft, LanePublishedVersion, Location, LocationDraft,
+		LocationPublishedVersion, Migration, PasswordCredential, Prizegiving,
+		PrizegivingCompetition, PublicScheduleBaseline, PublicScheduleBaselineEntry,
+		RecoveryCode, RecoveryToken, RegistrationPolicy, ReleasedProfileEntry,
+		ReopenWindow, ResultsCorrection, ResultsPublication, Rundown, Session,
+		SessionCancellation, SessionDraft, SessionPublishedVersion, SessionRun,
+		SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion, Vote,
+		VotingEligibility, VotingKey, VotingTally, WebAuthnCredential []ent.Hook
 	}
 	inters struct {
 		Account, AccountPreference, AccountProfile, AccountSession, Attachment,
@@ -12127,16 +12317,16 @@ type (
 		CompetitionEntry, CompetitionResultStanding, CompetitionResultsDraft, Display,
 		DisplayAssignment, DisplayCredential, DisplayEnrollment, DisplayOverride,
 		DisplayOverrideState, DraftChange, DraftChangeDependency, DraftEdit, Event,
-		EventAwardsDraft, EventGrant, EventSlug, FavoriteSession, FederatedIdentity,
-		ImportReference, Installation, InstallationThemeRevision, Lane, LaneDraft,
-		LanePublishedVersion, Location, LocationDraft, LocationPublishedVersion,
-		Migration, PasswordCredential, Prizegiving, PrizegivingCompetition,
-		PublicScheduleBaseline, PublicScheduleBaselineEntry, RecoveryCode,
-		RecoveryToken, RegistrationPolicy, ReleasedProfileEntry, ReopenWindow,
-		ResultsCorrection, ResultsPublication, Rundown, Session, SessionCancellation,
-		SessionDraft, SessionPublishedVersion, SessionRun, SessionRunAmendment, Track,
-		TrackDraft, TrackPublishedVersion, Vote, VotingEligibility, VotingKey,
-		VotingTally, WebAuthnCredential []ent.Interceptor
+		EventAwardsDraft, EventGrant, EventSlug, EventThemeRevision, FavoriteSession,
+		FederatedIdentity, ImportReference, Installation, InstallationThemeRevision,
+		Lane, LaneDraft, LanePublishedVersion, Location, LocationDraft,
+		LocationPublishedVersion, Migration, PasswordCredential, Prizegiving,
+		PrizegivingCompetition, PublicScheduleBaseline, PublicScheduleBaselineEntry,
+		RecoveryCode, RecoveryToken, RegistrationPolicy, ReleasedProfileEntry,
+		ReopenWindow, ResultsCorrection, ResultsPublication, Rundown, Session,
+		SessionCancellation, SessionDraft, SessionPublishedVersion, SessionRun,
+		SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion, Vote,
+		VotingEligibility, VotingKey, VotingTally, WebAuthnCredential []ent.Interceptor
 	}
 )
 

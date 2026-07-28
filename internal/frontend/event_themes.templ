@@ -1,0 +1,192 @@
+package frontend
+
+import "strconv"
+import "time"
+
+import "github.com/dotwaffle/beamers/internal/themevalue"
+
+type EventThemePage struct {
+	EventID             int
+	AccountName         string
+	CSRFToken           string
+	ReducedEffects      bool
+	Navigation          BackstageNavigation
+	ActiveRevisionID    int
+	Revisions           []ThemeRevisionSummary
+	RevisionID          int
+	Config              themevalue.EventConfig
+	Resolved            themevalue.Config
+	Variants            map[string]themevalue.Config
+	Findings            []themevalue.Finding
+	CreateCommandID     string
+	ActivateCommandID   string
+	Error               string
+}
+
+func eventThemeRevisionLabel(id int) string {
+	if id == 0 {
+		return "Fully inherited Installation Theme"
+	}
+	return "Event Theme Revision #" + strconv.Itoa(id)
+}
+
+func eventThemePath(eventID int) string {
+	return "/backstage/events/" + strconv.Itoa(eventID) + "/theme"
+}
+
+func eventThemeVariants() []string {
+	return []string{
+		themevalue.VariantCompetitionOutput,
+		themevalue.VariantEventOverview,
+		themevalue.VariantLocationSignage,
+		themevalue.VariantStandby,
+	}
+}
+
+templ EventThemeAdministration(page EventThemePage) {
+	<!doctype html>
+	<html lang="en">
+		@Head("Event Theme · Beamers")
+		<body data-reduced-effects={ strconv.FormatBool(page.ReducedEffects) }>
+			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, true)
+			<div class="backstage-layout">
+				@BackstageNavigationViews(page.Navigation)
+				<main>
+					<h1>Event #{ strconv.Itoa(page.EventID) } Theme</h1>
+					<p>Active: <strong>{ eventThemeRevisionLabel(page.ActiveRevisionID) }</strong></p>
+					if page.Error != "" {
+						<p class="error" role="alert">{ page.Error }</p>
+					}
+					<section>
+						<h2>Edit a new Draft Event Theme Revision</h2>
+						<p>Empty controls inherit the active Installation Theme. Variants are limited to approved Display surfaces.</p>
+						<form class="stack" method="post" action={ eventThemePath(page.EventID) }>
+							<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+							<input type="hidden" name="action" value="create-draft"/>
+							<input type="hidden" name="command_id" value={ page.CreateCommandID }/>
+							<label>
+								Branding asset
+								<select name="brand_asset">
+									<option value="">Inherit</option>
+									<option value="signal" selected?={ page.Config.Overrides.BrandAsset == themevalue.BrandAssetSignal }>Signal mark</option>
+									<option value="wordmark" selected?={ page.Config.Overrides.BrandAsset == themevalue.BrandAssetWordmark }>Wordmark only</option>
+								</select>
+							</label>
+							@EventThemeColor("Background color", "background_color", page.Config.Overrides.BackgroundColor)
+							@EventThemeColor("Surface color", "surface_color", page.Config.Overrides.SurfaceColor)
+							@EventThemeColor("Border color", "border_color", page.Config.Overrides.BorderColor)
+							@EventThemeColor("Text color", "text_color", page.Config.Overrides.TextColor)
+							@EventThemeColor("Muted text color", "muted_color", page.Config.Overrides.MutedColor)
+							@EventThemeColor("Accent color", "accent_color", page.Config.Overrides.AccentColor)
+							@EventThemeColor("Link color", "link_color", page.Config.Overrides.LinkColor)
+							@EventThemeColor("Focus color", "focus_color", page.Config.Overrides.FocusColor)
+							@EventThemeChoice("Background", "background", page.Config.Overrides.Background, []string{"nebula", "solid"})
+							@EventThemeChoice("Bundled type choice", "typeface", page.Config.Overrides.Typeface, []string{"demoscene", "clean"})
+							@EventThemeChoice("Transition", "transition", page.Config.Overrides.Transition, []string{"fade", "none"})
+							@EventThemeChoice("Effect", "effect", page.Config.Overrides.Effect, []string{"starfield", "none"})
+							@EventThemeChoice("Motion level", "motion", page.Config.Overrides.Motion, []string{"still", "subtle", "full"})
+							<fieldset>
+								<legend>Approved Display variants</legend>
+								for _, variant := range eventThemeVariants() {
+									<h3>{ variant }</h3>
+									@EventThemeColor("Accent color", variant + "_accent_color", page.Config.Variants[variant].AccentColor)
+									@EventThemeChoice("Motion level", variant + "_motion", page.Config.Variants[variant].Motion, []string{"still", "subtle", "full"})
+								}
+							</fieldset>
+							<button type="submit">Save, preview, and validate Draft</button>
+						</form>
+					</section>
+					<section>
+						<h2>{ eventThemeRevisionLabel(page.RevisionID) } preview</h2>
+						if len(page.Findings) == 0 {
+							<p role="status">This Revision passes known inherited activation checks.</p>
+						} else {
+							<p role="alert">Activation blockers:</p>
+							<ul>
+								for _, finding := range page.Findings {
+									<li><code>{ finding.Field }</code>: { finding.Message }</li>
+								}
+							</ul>
+						}
+						<div class="theme-preview-grid" style={ themePreviewStyle(page.Resolved) }>
+							<article class="theme-preview">
+								<h3>Public Event and Schedule</h3>
+								<p class="theme-preview-muted">Inherited public presentation.</p>
+								<a href="#">Public link</a>
+							</article>
+							<article class="theme-preview">
+								<h3>Display Views</h3>
+								<p class="theme-preview-muted">Event Overview, signage, Competition Output, and Standby.</p>
+							</article>
+						</div>
+						<div class="theme-preview-grid">
+							for _, variant := range eventThemeVariants() {
+								<article
+									class="theme-preview"
+									style={ themePreviewStyle(page.Variants[variant]) }
+									data-theme-variant={ variant }
+								>
+									<h3>{ variant }</h3>
+									<p class="theme-preview-muted">
+										Accent { page.Variants[variant].AccentColor } ·
+										Motion { page.Variants[variant].Motion }
+									</p>
+								</article>
+							}
+						</div>
+						if page.RevisionID != page.ActiveRevisionID {
+							<form method="post" action={ eventThemePath(page.EventID) }>
+								<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+								<input type="hidden" name="action" value="activate"/>
+								<input type="hidden" name="command_id" value={ page.ActivateCommandID }/>
+								<input type="hidden" name="revision_id" value={ strconv.Itoa(page.RevisionID) }/>
+								<input type="hidden" name="expected_active_revision_id" value={ strconv.Itoa(page.ActiveRevisionID) }/>
+								<button type="submit" disabled?={ len(page.Findings) != 0 }>
+									if page.RevisionID == 0 || page.RevisionID < page.ActiveRevisionID {
+										Roll back to this exact Revision
+									} else {
+										Activate this Revision
+									}
+								</button>
+							</form>
+						}
+					</section>
+					<section>
+						<h2>Immutable Revision history</h2>
+						<ul>
+							for _, revision := range page.Revisions {
+								<li>
+									<a href={ templ.SafeURL(eventThemePath(page.EventID) + "?revision=" + strconv.Itoa(revision.ID)) }>
+										{ eventThemeRevisionLabel(revision.ID) }
+									</a>
+									if revision.Active {
+										<strong> — active</strong>
+									}
+									if !revision.CreatedAt.IsZero() {
+										<span> — { revision.CreatedAt.UTC().Format(time.RFC3339) }</span>
+									}
+								</li>
+							}
+						</ul>
+					</section>
+				</main>
+			</div>
+		</body>
+	</html>
+}
+
+templ EventThemeColor(label string, name string, value string) {
+	<label>{ label } <input name={ name } value={ value } pattern="#[0-9A-Fa-f]{6}" placeholder="Inherit"/></label>
+}
+
+templ EventThemeChoice(label string, name string, selected string, choices []string) {
+	<label>
+		{ label }
+		<select name={ name }>
+			<option value="">Inherit</option>
+			for _, choice := range choices {
+				<option value={ choice } selected?={ selected == choice }>{ choice }</option>
+			}
+		</select>
+	</label>
+}

@@ -30,6 +30,8 @@ const (
 	BackgroundSolid = "solid"
 	// BackgroundVariableMedia places content over varying imagery protected by a scrim.
 	BackgroundVariableMedia = "variable-media"
+	// BackgroundNebula uses the bundled decorative Event background.
+	BackgroundNebula = "nebula"
 
 	// FontSans selects the built-in sans-serif font stack.
 	FontSans = "sans"
@@ -37,6 +39,8 @@ const (
 	FontSerif = "serif"
 	// FontMono selects the built-in monospace font stack.
 	FontMono = "mono"
+	// FontDemoscene selects the bundled display heading font.
+	FontDemoscene = "demoscene"
 
 	// TransitionNone changes rotating pages without animation.
 	TransitionNone = "none"
@@ -68,9 +72,11 @@ func (err *ValidationError) Error() string {
 // Theme is the controlled Event appearance accepted by Display renderers.
 type Theme struct {
 	Branding        string `json:"branding"`
+	BrandAsset      string `json:"brand_asset,omitempty"`
 	ForegroundColor string `json:"foreground_color"`
 	BackgroundColor string `json:"background_color"`
 	AccentColor     string `json:"accent_color"`
+	SignalColor     string `json:"signal_color"`
 	Background      string `json:"background"`
 	ScrimColor      string `json:"scrim_color"`
 	ScrimOpacity    int    `json:"scrim_opacity"`
@@ -87,6 +93,7 @@ type TimerThreshold struct {
 // Configuration controls the shared appearance and autonomous rotation interval.
 type Configuration struct {
 	RotationSeconds            int                         `json:"rotation_seconds"`
+	ReducedEffects             bool                        `json:"reduced_effects,omitempty"`
 	Theme                      Theme                       `json:"theme"`
 	TimerThresholds            []TimerThreshold            `json:"timer_thresholds"`
 	SessionTypeTimerThresholds map[string][]TimerThreshold `json:"session_type_timer_thresholds,omitempty"`
@@ -125,6 +132,7 @@ func DefaultConfiguration() Configuration {
 			ForegroundColor: "#ffffff",
 			BackgroundColor: "#101828",
 			AccentColor:     "#1d4ed8",
+			SignalColor:     "#62ebcb",
 			Background:      BackgroundSolid,
 			ScrimColor:      "#000000",
 			ScrimOpacity:    85,
@@ -138,6 +146,9 @@ func DefaultConfiguration() Configuration {
 func NormalizeConfiguration(configuration Configuration) Configuration {
 	if configuration.TimerThresholds == nil {
 		configuration.TimerThresholds = slices.Clone(DefaultConfiguration().TimerThresholds)
+	}
+	if configuration.Theme.SignalColor == "" {
+		configuration.Theme.SignalColor = DefaultConfiguration().Theme.SignalColor
 	}
 	return configuration
 }
@@ -181,6 +192,11 @@ func ValidateConfiguration(configuration Configuration) error {
 	if len(configuration.Theme.Branding) > 200 {
 		return invalid("theme.branding", "must not exceed 200 characters")
 	}
+	switch configuration.Theme.BrandAsset {
+	case "", "wordmark", "signal":
+	default:
+		return invalid("theme.brand_asset", "must be wordmark or signal")
+	}
 	foreground, err := parseColor("theme.foreground_color", configuration.Theme.ForegroundColor)
 	if err != nil {
 		return err
@@ -193,6 +209,9 @@ func ValidateConfiguration(configuration Configuration) error {
 	if err != nil {
 		return err
 	}
+	if _, err = parseColor("theme.signal_color", configuration.Theme.SignalColor); err != nil {
+		return err
+	}
 	if contrastRatio(foreground, background) < minimumTextContrast {
 		return invalid("theme.foreground_color", "must have at least 4.5:1 contrast against the background")
 	}
@@ -203,7 +222,7 @@ func ValidateConfiguration(configuration Configuration) error {
 		return invalid("theme.scrim_opacity", "must be between 0 and 100")
 	}
 	switch configuration.Theme.Background {
-	case BackgroundSolid:
+	case BackgroundSolid, BackgroundNebula:
 	case BackgroundVariableMedia:
 		if err := validateVariableBackground(configuration.Theme, foreground); err != nil {
 			return err
@@ -212,7 +231,7 @@ func ValidateConfiguration(configuration Configuration) error {
 		return invalid("theme.background", "must be solid or variable-media")
 	}
 	switch configuration.Theme.Font {
-	case FontSans, FontSerif, FontMono:
+	case FontSans, FontSerif, FontMono, FontDemoscene:
 	default:
 		return invalid("theme.font", "must select a built-in font")
 	}

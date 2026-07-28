@@ -10,7 +10,9 @@ import (
 
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/command"
+	"github.com/dotwaffle/beamers/internal/eventthemes"
 	"github.com/dotwaffle/beamers/internal/frontend"
+	"github.com/dotwaffle/beamers/internal/store"
 	"github.com/dotwaffle/beamers/internal/themes"
 	"github.com/dotwaffle/beamers/internal/themevalue"
 )
@@ -18,14 +20,18 @@ import (
 var errInvalidThemeForm = errors.New("invalid Theme form")
 
 type themeHandlers struct {
-	browser frontendHandlers
-	themes  *themes.Service
+	browser        frontendHandlers
+	themes         *themes.Service
+	events         *eventthemes.Service
+	notifyDisplays func()
 }
 
 func registerThemeRoutes(
 	mux *routeMux,
 	authentication *auth.Service,
 	service *themes.Service,
+	eventService *eventthemes.Service,
+	notifyDisplays func(),
 	logger *slog.Logger,
 ) {
 	handlers := themeHandlers{
@@ -34,12 +40,61 @@ func registerThemeRoutes(
 			logger:         logger,
 			random:         rand.Reader,
 		},
-		themes: service,
+		themes:         service,
+		events:         eventService,
+		notifyDisplays: notifyDisplays,
 	}
 	mux.HandleFunc(frontend.InstallationThemePath, publicRoute(), handlers.stylesheet)
+	mux.HandleFunc(
+		"/assets/events/{eventID}/theme.css",
+		publicRoute(),
+		handlers.eventStylesheet,
+	)
 	route := backstagePageRoute()
 	route.maxBodyBytes = maxAuthBodyBytes
 	mux.HandleFunc("/backstage/themes", route, handlers.administration)
+	mux.HandleFunc(
+		"/backstage/events/{eventID}/theme",
+		route,
+		eventThemeHandlers{
+			browser: handlers.browser, themes: eventService,
+			notifyDisplays: notifyDisplays,
+		}.administration,
+	)
+}
+
+func (handlers themeHandlers) eventStylesheet(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	if !frontendReadAllowed(response, request) {
+		return
+	}
+	eventID, err := positivePathID(request, "eventID")
+	if err != nil {
+		http.NotFound(response, request)
+		return
+	}
+	active, err := handlers.events.Active(request.Context(), eventID, "")
+	if errors.Is(err, store.ErrEventNotFound) {
+		http.NotFound(response, request)
+		return
+	}
+	if err != nil {
+		handlers.browser.frontendError(response, request, "read active Event Theme", err)
+		return
+	}
+	response.Header().Set("Cache-Control", "no-store")
+	response.Header().Set("Content-Type", "text/css; charset=utf-8")
+	if request.Method == http.MethodHead {
+		return
+	}
+	stylesheet, err := themevalue.Stylesheet(active.Resolved)
+	if err != nil {
+		handlers.browser.frontendError(response, request, "render active Event Theme", err)
+		return
+	}
+	_, _ = response.Write([]byte(stylesheet))
 }
 
 func (handlers themeHandlers) stylesheet(
@@ -211,6 +266,7 @@ func (handlers themeHandlers) submit(
 			)
 			return
 		}
+		handlers.notifyDisplays()
 		http.Redirect(
 			response,
 			request,

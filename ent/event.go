@@ -10,6 +10,7 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
 	"github.com/dotwaffle/beamers/ent/event"
+	"github.com/dotwaffle/beamers/ent/eventthemerevision"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
 	"github.com/dotwaffle/beamers/ent/rundown"
 )
@@ -49,6 +50,8 @@ type Event struct {
 	TargetAdjustmentPresets string `json:"target_adjustment_presets,omitempty"`
 	// DisplayConfiguration holds the value of the "display_configuration" field.
 	DisplayConfiguration string `json:"display_configuration,omitempty"`
+	// ActiveThemeRevisionID holds the value of the "active_theme_revision_id" field.
+	ActiveThemeRevisionID *int `json:"active_theme_revision_id,omitempty"`
 	// AttachmentReleasePolicy holds the value of the "attachment_release_policy" field.
 	AttachmentReleasePolicy event.AttachmentReleasePolicy `json:"attachment_release_policy,omitempty"`
 	// AttachmentReleaseCueSessionID holds the value of the "attachment_release_cue_session_id" field.
@@ -125,9 +128,13 @@ type EventEdges struct {
 	DisplayAssignments []*DisplayAssignment `json:"display_assignments,omitempty"`
 	// DisplayOverrides holds the value of the display_overrides edge.
 	DisplayOverrides []*DisplayOverride `json:"display_overrides,omitempty"`
+	// ThemeRevisions holds the value of the theme_revisions edge.
+	ThemeRevisions []*EventThemeRevision `json:"theme_revisions,omitempty"`
+	// ActiveThemeRevision holds the value of the active_theme_revision edge.
+	ActiveThemeRevision *EventThemeRevision `json:"active_theme_revision,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [25]bool
+	loadedTypes [27]bool
 }
 
 // GrantsOrErr returns the Grants value or an error if the edge
@@ -359,6 +366,26 @@ func (e EventEdges) DisplayOverridesOrErr() ([]*DisplayOverride, error) {
 	return nil, &NotLoadedError{edge: "display_overrides"}
 }
 
+// ThemeRevisionsOrErr returns the ThemeRevisions value or an error if the edge
+// was not loaded in eager-loading.
+func (e EventEdges) ThemeRevisionsOrErr() ([]*EventThemeRevision, error) {
+	if e.loadedTypes[25] {
+		return e.ThemeRevisions, nil
+	}
+	return nil, &NotLoadedError{edge: "theme_revisions"}
+}
+
+// ActiveThemeRevisionOrErr returns the ActiveThemeRevision value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e EventEdges) ActiveThemeRevisionOrErr() (*EventThemeRevision, error) {
+	if e.ActiveThemeRevision != nil {
+		return e.ActiveThemeRevision, nil
+	} else if e.loadedTypes[26] {
+		return nil, &NotFoundError{label: eventthemerevision.Label}
+	}
+	return nil, &NotLoadedError{edge: "active_theme_revision"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*Event) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
@@ -366,7 +393,7 @@ func (*Event) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case event.FieldPublic:
 			values[i] = new(sql.NullBool)
-		case event.FieldID, event.FieldAttachmentReleaseCueSessionID, event.FieldAttachmentReleaseRevision, event.FieldStageMessageDefaultDurationSeconds, event.FieldStageMessageConfigurationRevision, event.FieldRevision:
+		case event.FieldID, event.FieldActiveThemeRevisionID, event.FieldAttachmentReleaseCueSessionID, event.FieldAttachmentReleaseRevision, event.FieldStageMessageDefaultDurationSeconds, event.FieldStageMessageConfigurationRevision, event.FieldRevision:
 			values[i] = new(sql.NullInt64)
 		case event.FieldName, event.FieldPublicSlug, event.FieldPlannedStartDate, event.FieldPlannedEndDate, event.FieldTimezone, event.FieldEventLocale, event.FieldContentLanguage, event.FieldEventDayBoundary, event.FieldEntryDefaultDisposition, event.FieldSubmissionEligibility, event.FieldVotingMethod, event.FieldSelfVotePolicy, event.FieldTargetAdjustmentPresets, event.FieldDisplayConfiguration, event.FieldAttachmentReleasePolicy, event.FieldStageMessagePresets:
 			values[i] = new(sql.NullString)
@@ -482,6 +509,13 @@ func (_m *Event) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field display_configuration", values[i])
 			} else if value.Valid {
 				_m.DisplayConfiguration = value.String
+			}
+		case event.FieldActiveThemeRevisionID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field active_theme_revision_id", values[i])
+			} else if value.Valid {
+				_m.ActiveThemeRevisionID = new(int)
+				*_m.ActiveThemeRevisionID = int(value.Int64)
 			}
 		case event.FieldAttachmentReleasePolicy:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -676,6 +710,16 @@ func (_m *Event) QueryDisplayOverrides() *DisplayOverrideQuery {
 	return NewEventClient(_m.config).QueryDisplayOverrides(_m)
 }
 
+// QueryThemeRevisions queries the "theme_revisions" edge of the Event entity.
+func (_m *Event) QueryThemeRevisions() *EventThemeRevisionQuery {
+	return NewEventClient(_m.config).QueryThemeRevisions(_m)
+}
+
+// QueryActiveThemeRevision queries the "active_theme_revision" edge of the Event entity.
+func (_m *Event) QueryActiveThemeRevision() *EventThemeRevisionQuery {
+	return NewEventClient(_m.config).QueryActiveThemeRevision(_m)
+}
+
 // Update returns a builder for updating this Event.
 // Note that you need to call Event.Unwrap() before calling this method if this Event
 // was returned from a transaction, and the transaction was committed or rolled back.
@@ -743,6 +787,11 @@ func (_m *Event) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("display_configuration=")
 	builder.WriteString(_m.DisplayConfiguration)
+	builder.WriteString(", ")
+	if v := _m.ActiveThemeRevisionID; v != nil {
+		builder.WriteString("active_theme_revision_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteString(", ")
 	builder.WriteString("attachment_release_policy=")
 	builder.WriteString(fmt.Sprintf("%v", _m.AttachmentReleasePolicy))

@@ -175,6 +175,7 @@ func TestValidateConfigurationAcceptsControlledTheme(t *testing.T) {
 		ForegroundColor: "#ffffff",
 		BackgroundColor: "#101828",
 		AccentColor:     "#1d4ed8",
+		SignalColor:     "#62ebcb",
 		Background:      BackgroundVariableMedia,
 		ScrimColor:      "#000000",
 		ScrimOpacity:    85,
@@ -190,6 +191,7 @@ func TestConfigurationCarriesTimerThresholdInheritance(t *testing.T) {
 	t.Parallel()
 
 	configuration := DefaultConfiguration()
+	configuration.ReducedEffects = true
 	configuration.TimerThresholds = []TimerThreshold{
 		{RemainingSeconds: 300, Emphasis: EmphasisAttention},
 	}
@@ -212,6 +214,9 @@ func TestConfigurationCarriesTimerThresholdInheritance(t *testing.T) {
 	}
 	if got.SessionTimerThresholds[42][0].Emphasis != EmphasisUrgent {
 		t.Errorf("Session thresholds = %+v", got.SessionTimerThresholds)
+	}
+	if !got.ReducedEffects {
+		t.Error("Reduced Effects setting was not preserved")
 	}
 }
 

@@ -4,7 +4,13 @@ package frontend
 import (
 	"embed"
 	"errors"
+	"strconv"
 )
+
+// EventThemePath returns one Event's resolved controlled stylesheet route.
+func EventThemePath(eventID int) string {
+	return "/assets/events/" + strconv.Itoa(eventID) + "/theme.css"
+}
 
 // Embedded browser asset routes.
 const (

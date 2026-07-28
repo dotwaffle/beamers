@@ -9,7 +9,67 @@ import (
 
 	"github.com/dotwaffle/beamers/internal/displayviews"
 	"github.com/dotwaffle/beamers/internal/stagetimer"
+	"github.com/dotwaffle/beamers/internal/themevalue"
 )
+
+func TestDisplayThemeUsesResolvedEventTheme(t *testing.T) {
+	t.Parallel()
+
+	config := themevalue.DefaultConfig()
+	config.BrandAsset = themevalue.BrandAssetSignal
+	config.BackgroundColor = "#112233"
+	config.SurfaceColor = "#223344"
+	config.AccentColor = "#ffdf6e"
+	config.TextColor = "#ffffff"
+	config.Background = themevalue.BackgroundNebula
+	config.Typeface = themevalue.TypefaceDemoscene
+	config.Transition = themevalue.TransitionFade
+	config.Motion = themevalue.MotionStill
+
+	theme := eventDisplayTheme(config, "Revision")
+	if theme.Branding != "Revision" ||
+		theme.BrandAsset != themevalue.BrandAssetSignal ||
+		theme.ForegroundColor != "#ffffff" ||
+		theme.BackgroundColor != "#112233" ||
+		theme.AccentColor != "#223344" ||
+		theme.SignalColor != "#ffdf6e" ||
+		theme.Background != displayviews.BackgroundNebula ||
+		theme.Font != displayviews.FontDemoscene ||
+		theme.Transition != displayviews.TransitionNone {
+		t.Fatalf("Display Event Theme = %+v", theme)
+	}
+}
+
+func TestEmergencyAlertKeepsCertifiedPresentationOutsideEventTheme(t *testing.T) {
+	t.Parallel()
+
+	configuration := displayviews.DefaultConfiguration()
+	configuration.Theme.BackgroundColor = "#112233"
+	composition, err := displayviews.Compose("", true, configuration)
+	if err != nil {
+		t.Fatalf("compose themed Display: %v", err)
+	}
+	var output strings.Builder
+	err = DisplayPage(Snapshot{
+		ProtocolVersion: "beamers.display.v1",
+		AssetVersion:    "test",
+		Display:         Display{Name: "Display"},
+		Composition:     composition,
+		EmergencyAlert:  &DisplayOverride{Text: "Evacuate"},
+	}).Render(t.Context(), &output)
+	if err != nil {
+		t.Fatalf("render Emergency Alert: %v", err)
+	}
+	if !strings.Contains(
+		output.String(),
+		`<main class="display-view emergency-alert display-override-replace" data-override-kind="EmergencyAlert">`,
+	) || strings.Contains(
+		output.String(),
+		`class="display-view emergency-alert display-override-replace" style=`,
+	) {
+		t.Fatalf("Emergency Alert inherited Event Theme: %s", output.String())
+	}
+}
 
 func TestDisplayPageRendersEveryConfiguredBuiltInRegion(t *testing.T) {
 	t.Parallel()

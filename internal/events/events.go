@@ -99,6 +99,7 @@ type CreateInput struct {
 
 // PublicEvent is one attendee-visible Event under its current Event Slug.
 type PublicEvent struct {
+	ID               int
 	Name             string
 	Slug             string
 	PlannedStartDate string
@@ -821,7 +822,7 @@ func event(found store.Event) (Event, error) {
 
 func publicEvent(found store.PublicEvent, active bool) PublicEvent {
 	return PublicEvent{
-		Name: found.Name, Slug: found.PublicSlug,
+		ID: found.ID, Name: found.Name, Slug: found.PublicSlug,
 		PlannedStartDate: found.PlannedStartDate,
 		PlannedEndDate:   found.PlannedEndDate,
 		EventLocale:      found.EventLocale,

@@ -345,13 +345,17 @@ function renderSnapshot(snapshot, offset) {
     `display-layout-${controlledToken(composition.layout.key, [
       "standby", "event-overview", "location-signage", "stage-timer", "competition-output",
     ])}`,
-    `display-font-${controlledToken(composition.theme.font, ["sans", "serif", "mono"])}`,
-    `display-background-${controlledToken(composition.theme.background, ["solid", "variable-media"])}`,
+    `display-font-${controlledToken(composition.theme.font, ["sans", "serif", "mono", "demoscene"])}`,
+    `display-background-${controlledToken(composition.theme.background, ["solid", "variable-media", "nebula"])}`,
     `display-transition-${controlledToken(composition.theme.transition, ["none", "fade"])}`,
   ].join(" ");
   main.style.setProperty("--display-foreground", composition.theme.foregroundColor);
   main.style.setProperty("--display-background", composition.theme.backgroundColor);
   main.style.setProperty("--display-accent", composition.theme.accentColor);
+  main.style.setProperty(
+    "--display-signal",
+    composition.theme.signalColor || composition.theme.accentColor,
+  );
   main.style.setProperty("--display-scrim", composition.theme.scrimColor);
   main.style.setProperty("--display-scrim-opacity", composition.theme.scrimOpacity / 100);
   const alpha = Math.round((composition.theme.scrimOpacity / 100) * 255)
@@ -466,17 +470,20 @@ function controlledToken(value, allowed) {
 
 function renderWidget(region, widget, snapshot, theme, candidateClockReference) {
   switch (widget) {
-  case "branding":
+  case "branding": {
+    const branding = `${theme.brandAsset === "signal" ? "◆ " : ""}` +
+      (theme.branding || snapshot.eventName || "Beamers");
     if (snapshot.standby) {
-      appendParagraph(region, theme.branding || snapshot.eventName || "Beamers");
+      appendParagraph(region, branding);
     } else {
-      appendHeading(region, theme.branding || snapshot.eventName || "Beamers");
+      appendHeading(region, branding);
       if (snapshot.viewKey === "event-overview") {
         appendParagraph(region, "Event Overview");
         appendParagraph(region, `Location: ${snapshot.locationName}`);
       }
     }
     return;
+  }
   case "standby":
     appendHeading(region, "Standby");
     appendParagraph(region, `Display: ${snapshot.displayName}`);

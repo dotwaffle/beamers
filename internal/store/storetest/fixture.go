@@ -71,6 +71,10 @@ func DowngradeBeforeUpgradeContracts(ctx context.Context, path string) error {
 	return mutateSchema(path, func(database *sql.DB) error {
 		const statement = `
 PRAGMA foreign_keys = off;
+DROP TRIGGER events_active_theme_revision_owner_insert;
+DROP TRIGGER events_active_theme_revision_owner_update;
+DROP TABLE event_theme_revisions;
+ALTER TABLE events DROP COLUMN active_theme_revision_id;
 CREATE TABLE installations_before_themes (
 	id integer NOT NULL PRIMARY KEY AUTOINCREMENT,
 	created_at datetime NOT NULL,

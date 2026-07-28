@@ -21,6 +21,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/eventawardsdraft"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/eventslug"
+	"github.com/dotwaffle/beamers/ent/eventthemerevision"
 	"github.com/dotwaffle/beamers/ent/importreference"
 	"github.com/dotwaffle/beamers/ent/lane"
 	"github.com/dotwaffle/beamers/ent/location"
@@ -203,6 +204,20 @@ func (_c *EventCreate) SetDisplayConfiguration(v string) *EventCreate {
 func (_c *EventCreate) SetNillableDisplayConfiguration(v *string) *EventCreate {
 	if v != nil {
 		_c.SetDisplayConfiguration(*v)
+	}
+	return _c
+}
+
+// SetActiveThemeRevisionID sets the "active_theme_revision_id" field.
+func (_c *EventCreate) SetActiveThemeRevisionID(v int) *EventCreate {
+	_c.mutation.SetActiveThemeRevisionID(v)
+	return _c
+}
+
+// SetNillableActiveThemeRevisionID sets the "active_theme_revision_id" field if the given value is not nil.
+func (_c *EventCreate) SetNillableActiveThemeRevisionID(v *int) *EventCreate {
+	if v != nil {
+		_c.SetActiveThemeRevisionID(*v)
 	}
 	return _c
 }
@@ -716,6 +731,26 @@ func (_c *EventCreate) AddDisplayOverrides(v ...*DisplayOverride) *EventCreate {
 	return _c.AddDisplayOverrideIDs(ids...)
 }
 
+// AddThemeRevisionIDs adds the "theme_revisions" edge to the EventThemeRevision entity by IDs.
+func (_c *EventCreate) AddThemeRevisionIDs(ids ...int) *EventCreate {
+	_c.mutation.AddThemeRevisionIDs(ids...)
+	return _c
+}
+
+// AddThemeRevisions adds the "theme_revisions" edges to the EventThemeRevision entity.
+func (_c *EventCreate) AddThemeRevisions(v ...*EventThemeRevision) *EventCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddThemeRevisionIDs(ids...)
+}
+
+// SetActiveThemeRevision sets the "active_theme_revision" edge to the EventThemeRevision entity.
+func (_c *EventCreate) SetActiveThemeRevision(v *EventThemeRevision) *EventCreate {
+	return _c.SetActiveThemeRevisionID(v.ID)
+}
+
 // Mutation returns the EventMutation object of the builder.
 func (_c *EventCreate) Mutation() *EventMutation {
 	return _c.mutation
@@ -924,6 +959,11 @@ func (_c *EventCreate) check() error {
 	if v, ok := _c.mutation.DisplayConfiguration(); ok {
 		if err := event.DisplayConfigurationValidator(v); err != nil {
 			return &ValidationError{Name: "display_configuration", err: fmt.Errorf(`ent: validator failed for field "Event.display_configuration": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.ActiveThemeRevisionID(); ok {
+		if err := event.ActiveThemeRevisionIDValidator(v); err != nil {
+			return &ValidationError{Name: "active_theme_revision_id", err: fmt.Errorf(`ent: validator failed for field "Event.active_theme_revision_id": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.AttachmentReleasePolicy(); !ok {
@@ -1497,6 +1537,39 @@ func (_c *EventCreate) createSpec() (*Event, *sqlgraph.CreateSpec) {
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.ThemeRevisionsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.ThemeRevisionsTable,
+			Columns: []string{event.ThemeRevisionsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(eventthemerevision.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.ActiveThemeRevisionIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: false,
+			Table:   event.ActiveThemeRevisionTable,
+			Columns: []string{event.ActiveThemeRevisionColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(eventthemerevision.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.ActiveThemeRevisionID = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

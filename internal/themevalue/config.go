@@ -41,6 +41,15 @@ const (
 	MotionSubtle = "subtle"
 	// MotionFull uses the strongest Theme motion.
 	MotionFull = "full"
+
+	// VariantCompetitionOutput specializes the built-in Competition Output View.
+	VariantCompetitionOutput = "competition-output"
+	// VariantEventOverview specializes the built-in Event Overview View.
+	VariantEventOverview = "event-overview"
+	// VariantLocationSignage specializes the built-in Location Signage View.
+	VariantLocationSignage = "location-signage"
+	// VariantStandby specializes the built-in Standby View.
+	VariantStandby = "standby"
 )
 
 // Config is one controlled browser presentation.
@@ -59,6 +68,12 @@ type Config struct {
 	Transition      string `json:"transition"`
 	Effect          string `json:"effect"`
 	Motion          string `json:"motion"`
+}
+
+// EventConfig overrides inherited Installation values and approved Display Views.
+type EventConfig struct {
+	Overrides Config            `json:"overrides"`
+	Variants  map[string]Config `json:"variants,omitempty"`
 }
 
 // ValidationError identifies one rejected Theme field.
@@ -135,6 +150,121 @@ func ValidateDraft(config Config) error {
 		return invalid("motion", "must be still, subtle, or full")
 	}
 	return nil
+}
+
+// ValidateEventDraft rejects undocumented Event controls while allowing inheritance.
+func ValidateEventDraft(config EventConfig) error {
+	if _, err := resolveEvent(DefaultConfig(), config, ""); err != nil {
+		return err
+	}
+	for variant := range config.Variants {
+		if !validVariant(variant) {
+			return invalid("variants", "must identify an approved Display surface")
+		}
+		if _, err := resolveEvent(DefaultConfig(), config, variant); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ResolveEvent applies inherited Event and approved Display-variant values.
+func ResolveEvent(base Config, config EventConfig, variant string) (Config, error) {
+	if variant != "" && !validVariant(variant) {
+		return Config{}, invalid("variant", "must identify an approved Display surface")
+	}
+	return resolveEvent(base, config, variant)
+}
+
+// EventActivationFindings returns failures across the base and configured variants.
+func EventActivationFindings(base Config, config EventConfig) []Finding {
+	var findings []Finding
+	for _, variant := range []string{
+		"",
+		VariantCompetitionOutput,
+		VariantEventOverview,
+		VariantLocationSignage,
+		VariantStandby,
+	} {
+		if variant != "" {
+			if _, configured := config.Variants[variant]; !configured {
+				continue
+			}
+		}
+		resolved, err := ResolveEvent(base, config, variant)
+		if err != nil {
+			return []Finding{{Field: "config", Message: err.Error()}}
+		}
+		findings = append(findings, ActivationFindings(resolved)...)
+	}
+	return findings
+}
+
+func resolveEvent(base Config, config EventConfig, variant string) (Config, error) {
+	if err := ValidateDraft(base); err != nil {
+		return Config{}, err
+	}
+	resolved := applyOverrides(base, config.Overrides)
+	if variant != "" {
+		resolved = applyOverrides(resolved, config.Variants[variant])
+	}
+	if err := ValidateDraft(resolved); err != nil {
+		return Config{}, err
+	}
+	return resolved, nil
+}
+
+func applyOverrides(base, overrides Config) Config {
+	fields := []*string{
+		&base.BrandAsset,
+		&base.BackgroundColor,
+		&base.SurfaceColor,
+		&base.BorderColor,
+		&base.TextColor,
+		&base.MutedColor,
+		&base.AccentColor,
+		&base.LinkColor,
+		&base.FocusColor,
+		&base.Background,
+		&base.Typeface,
+		&base.Transition,
+		&base.Effect,
+		&base.Motion,
+	}
+	values := []string{
+		overrides.BrandAsset,
+		overrides.BackgroundColor,
+		overrides.SurfaceColor,
+		overrides.BorderColor,
+		overrides.TextColor,
+		overrides.MutedColor,
+		overrides.AccentColor,
+		overrides.LinkColor,
+		overrides.FocusColor,
+		overrides.Background,
+		overrides.Typeface,
+		overrides.Transition,
+		overrides.Effect,
+		overrides.Motion,
+	}
+	for index, value := range values {
+		if value != "" {
+			*fields[index] = value
+		}
+	}
+	return base
+}
+
+func validVariant(value string) bool {
+	switch value {
+	case VariantCompetitionOutput,
+		VariantEventOverview,
+		VariantLocationSignage,
+		VariantStandby:
+		return true
+	default:
+		return false
+	}
 }
 
 // ActivationFindings returns known contrast and legibility failures.

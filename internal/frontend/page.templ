@@ -23,12 +23,37 @@ type BackstageSection struct {
 	Href  string
 }
 
+func EffectsPath(returnTo string) string {
+	return "/effects?return_to=" + url.QueryEscape(returnTo)
+}
+
+func EffectsLabel(reducedEffects bool) string {
+	if reducedEffects {
+		return "Resume effects"
+	}
+	return "Pause effects"
+}
+
+templ EffectsLink(returnTo string, reducedEffects bool) {
+	<a href={ EffectsPath(returnTo) }>{ EffectsLabel(reducedEffects) }</a>
+}
+
 templ Head(title string) {
 	<head>
 		<meta charset="utf-8"/>
 		<meta name="viewport" content="width=device-width, initial-scale=1"/>
 		<link rel="stylesheet" href={ StylesheetPath }/>
 		<link rel="stylesheet" href={ InstallationThemePath }/>
+		<title>{ title }</title>
+	</head>
+}
+
+templ EventHead(title string, eventID int) {
+	<head>
+		<meta charset="utf-8"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1"/>
+		<link rel="stylesheet" href={ StylesheetPath }/>
+		<link rel="stylesheet" href={ EventThemePath(eventID) }/>
 		<title>{ title }</title>
 	</head>
 }
@@ -71,6 +96,29 @@ templ Navigation(accountName string, csrfToken string, reducedEffects bool, back
 			</form>
 		</nav>
 	</header>
+}
+
+templ Effects(csrfToken string, reducedEffects bool, returnTo string) {
+	<!doctype html>
+	<html lang="en">
+		@Head("Effects · Beamers")
+		<body data-reduced-effects={ strconv.FormatBool(reducedEffects) }>
+			@Navigation("", csrfToken, reducedEffects, false)
+			<main>
+				<h1>{ EffectsLabel(reducedEffects) }</h1>
+				<p>Decorative motion stays off until you resume it.</p>
+				<form method="post" action="/effects">
+					<input type="hidden" name="csrf_token" value={ csrfToken }/>
+					<input type="hidden" name="return_to" value={ returnTo }/>
+					<button
+						type="submit"
+						name="reduce_effects"
+						value={ strconv.FormatBool(!reducedEffects) }
+					>{ EffectsLabel(reducedEffects) }</button>
+				</form>
+			</main>
+		</body>
+	</html>
 }
 
 templ Register(
@@ -431,7 +479,7 @@ templ PublicEvent(
 ) {
 	<!doctype html>
 		<html lang={ event.EventLocale }>
-		@Head(event.Name + " · Beamers")
+		@EventHead(event.Name + " · Beamers", event.ID)
 		<body data-reduced-effects={ strconv.FormatBool(reducedEffects) }>
 			@Navigation("", csrfToken, reducedEffects, false)
 			<main>

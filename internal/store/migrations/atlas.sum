@@ -1,4 +1,4 @@
-h1:gU++mvbJDnsTolrmbFjAWlQH0VhvVw09ric5J2u7dz0=
+h1:ide0ALPvv4E1pLSW1I+qbLNt+drzkzRUyi1Pi2OutBg=
 0001_initialize.sql h1:xwTCiCDERoBPK7+31D4g3SOs7BivkqIi3/tf+14eOlo=
 0002_bootstrap_auth.sql h1:Z4h1bvDVGzPXbmlEc3NCEn1HvMSf2V6eY56wIlxFLjA=
 0003_add_events.sql h1:6XxTAjVp9ntlWbsdacCMQkdgTAG185npJMhgxOSnAtA=
@@ -62,3 +62,4 @@ h1:gU++mvbJDnsTolrmbFjAWlQH0VhvVw09ric5J2u7dz0=
 0061_add_competition_ballots.sql h1:/gsSUTbF8XlPWdBzLqoYZj6im45mJCeRb4coQB0xpsM=
 0062_add_voting_tally.sql h1:wX0SNfn+CjR+0VBudAbYdBJj1YLvTtxvUs5PnxpdVgs=
 0063_installation_themes.sql h1:MtIg/Qff0mq4h7AtGsj/BfBU5kCZe/uYBlPawudIap4=
+0064_event_themes.sql h1:WIfjegsd0inYni1lBDDOhx9aYkS91XQhAY5genJCjjM=

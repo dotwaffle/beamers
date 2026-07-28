@@ -232,6 +232,14 @@ var migrationContracts = map[int]migrationContract{
 		minimumWriter: 63,
 		consequence:   "adds immutable Installation Theme Revisions and active selection",
 	},
+	64: {
+		name:          "event_themes",
+		checksum:      "4dea5ea8bdafc36f759f33e0f914bc7a4edb86c376478b8353d6c888fd89d653",
+		safety:        MigrationNonDestructive,
+		minimumReader: 64,
+		minimumWriter: 64,
+		consequence:   "adds immutable inherited Event Theme Revisions and active selection",
+	},
 }
 
 // MigrationStep is one exact committed migration in an upgrade plan.

@@ -33,6 +33,7 @@ type Service struct {
 
 // Snapshot is one cacheable public Schedule page model.
 type Snapshot struct {
+	EventID        int            `json:"event_id"`
 	EventName      string         `json:"event_name"`
 	Language       string         `json:"language"`
 	Locale         string         `json:"locale"`
@@ -52,6 +53,7 @@ type Snapshot struct {
 	AccountName    string         `json:"-"`
 	CSRFToken      string         `json:"-"`
 	MySchedule     bool           `json:"-"`
+	ReducedEffects bool           `json:"-"`
 }
 
 // Filter is the complete shareable attendee Schedule view state.
@@ -201,7 +203,8 @@ func (service *Service) snapshot(ctx context.Context, upcomingOnly bool, filter 
 	}
 	language := scheduleLanguage(state.ContentLanguage, state.EventLocale)
 	result := Snapshot{
-		EventName: state.EventName, Language: language, Locale: state.EventLocale, Timezone: state.Timezone,
+		EventID: state.EventID, EventName: state.EventName,
+		Language: language, Locale: state.EventLocale, Timezone: state.Timezone,
 		Filter: filter,
 	}
 	zone, err := time.LoadLocation(state.Timezone)

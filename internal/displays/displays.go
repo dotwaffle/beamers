@@ -24,6 +24,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/displaystream"
 	"github.com/dotwaffle/beamers/internal/displayviews"
+	"github.com/dotwaffle/beamers/internal/eventthemes"
 	"github.com/dotwaffle/beamers/internal/publictime"
 	"github.com/dotwaffle/beamers/internal/stagetimer"
 	"github.com/dotwaffle/beamers/internal/store"
@@ -71,6 +72,7 @@ type Config struct {
 	Random        io.Reader
 	EnrollmentTTL time.Duration
 	Emergency     EmergencySnapshotProjector
+	EventThemes   *eventthemes.Service
 }
 
 // EmergencySnapshotProjector preserves connected Display snapshots and applies
@@ -95,6 +97,7 @@ type Service struct {
 	random        io.Reader
 	enrollmentTTL time.Duration
 	emergency     EmergencySnapshotProjector
+	eventThemes   *eventthemes.Service
 }
 
 // Enrollment is browser-held material for one pending Display claim.
@@ -318,7 +321,7 @@ func New(storage *store.SQLite, config Config) (*Service, error) {
 	}
 	return &Service{
 		storage: storage, now: config.Now, random: config.Random, enrollmentTTL: config.EnrollmentTTL,
-		emergency: config.Emergency,
+		emergency: config.Emergency, eventThemes: config.EventThemes,
 	}, nil
 }
 
@@ -376,6 +379,20 @@ func (service *Service) Current(ctx context.Context, credential string) (Snapsho
 	configuration, err := displayviews.ParseConfiguration(found.DisplayConfiguration)
 	if err != nil {
 		return Snapshot{}, errors.Join(errors.New("load Display configuration"), err)
+	}
+	if service.eventThemes != nil && found.ActiveEventID > 0 {
+		active, themeErr := service.eventThemes.Active(
+			ctx,
+			found.ActiveEventID,
+			displayThemeVariant(found.ViewKey, found.Standby),
+		)
+		if themeErr != nil {
+			return Snapshot{}, errors.Join(errors.New("load active Event Theme"), themeErr)
+		}
+		configuration.Theme = eventDisplayTheme(active.Resolved, configuration.Theme.Branding)
+	}
+	if configuration.ReducedEffects {
+		configuration.Theme.Transition = displayviews.TransitionNone
 	}
 	result.Composition, err = displayviews.Compose(found.ViewKey, found.Standby, configuration)
 	if err != nil {

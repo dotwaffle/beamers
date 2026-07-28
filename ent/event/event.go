@@ -46,6 +46,8 @@ const (
 	FieldTargetAdjustmentPresets = "target_adjustment_presets"
 	// FieldDisplayConfiguration holds the string denoting the display_configuration field in the database.
 	FieldDisplayConfiguration = "display_configuration"
+	// FieldActiveThemeRevisionID holds the string denoting the active_theme_revision_id field in the database.
+	FieldActiveThemeRevisionID = "active_theme_revision_id"
 	// FieldAttachmentReleasePolicy holds the string denoting the attachment_release_policy field in the database.
 	FieldAttachmentReleasePolicy = "attachment_release_policy"
 	// FieldAttachmentReleaseCueSessionID holds the string denoting the attachment_release_cue_session_id field in the database.
@@ -114,6 +116,10 @@ const (
 	EdgeDisplayAssignments = "display_assignments"
 	// EdgeDisplayOverrides holds the string denoting the display_overrides edge name in mutations.
 	EdgeDisplayOverrides = "display_overrides"
+	// EdgeThemeRevisions holds the string denoting the theme_revisions edge name in mutations.
+	EdgeThemeRevisions = "theme_revisions"
+	// EdgeActiveThemeRevision holds the string denoting the active_theme_revision edge name in mutations.
+	EdgeActiveThemeRevision = "active_theme_revision"
 	// Table holds the table name of the event in the database.
 	Table = "events"
 	// GrantsTable is the table that holds the grants relation/edge.
@@ -291,6 +297,20 @@ const (
 	DisplayOverridesInverseTable = "display_overrides"
 	// DisplayOverridesColumn is the table column denoting the display_overrides relation/edge.
 	DisplayOverridesColumn = "event_id"
+	// ThemeRevisionsTable is the table that holds the theme_revisions relation/edge.
+	ThemeRevisionsTable = "event_theme_revisions"
+	// ThemeRevisionsInverseTable is the table name for the EventThemeRevision entity.
+	// It exists in this package in order to avoid circular dependency with the "eventthemerevision" package.
+	ThemeRevisionsInverseTable = "event_theme_revisions"
+	// ThemeRevisionsColumn is the table column denoting the theme_revisions relation/edge.
+	ThemeRevisionsColumn = "event_id"
+	// ActiveThemeRevisionTable is the table that holds the active_theme_revision relation/edge.
+	ActiveThemeRevisionTable = "events"
+	// ActiveThemeRevisionInverseTable is the table name for the EventThemeRevision entity.
+	// It exists in this package in order to avoid circular dependency with the "eventthemerevision" package.
+	ActiveThemeRevisionInverseTable = "event_theme_revisions"
+	// ActiveThemeRevisionColumn is the table column denoting the active_theme_revision relation/edge.
+	ActiveThemeRevisionColumn = "active_theme_revision_id"
 )
 
 // Columns holds all SQL columns for event fields.
@@ -311,6 +331,7 @@ var Columns = []string{
 	FieldSelfVotePolicy,
 	FieldTargetAdjustmentPresets,
 	FieldDisplayConfiguration,
+	FieldActiveThemeRevisionID,
 	FieldAttachmentReleasePolicy,
 	FieldAttachmentReleaseCueSessionID,
 	FieldAttachmentReleaseCueAt,
@@ -366,6 +387,8 @@ var (
 	DefaultDisplayConfiguration string
 	// DisplayConfigurationValidator is a validator for the "display_configuration" field. It is called by the builders before save.
 	DisplayConfigurationValidator func(string) error
+	// ActiveThemeRevisionIDValidator is a validator for the "active_theme_revision_id" field. It is called by the builders before save.
+	ActiveThemeRevisionIDValidator func(int) error
 	// AttachmentReleaseCueSessionIDValidator is a validator for the "attachment_release_cue_session_id" field. It is called by the builders before save.
 	AttachmentReleaseCueSessionIDValidator func(int) error
 	// DefaultAttachmentReleaseRevision holds the default value on creation for the "attachment_release_revision" field.
@@ -601,6 +624,11 @@ func ByTargetAdjustmentPresets(opts ...sql.OrderTermOption) OrderOption {
 // ByDisplayConfiguration orders the results by the display_configuration field.
 func ByDisplayConfiguration(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldDisplayConfiguration, opts...).ToFunc()
+}
+
+// ByActiveThemeRevisionID orders the results by the active_theme_revision_id field.
+func ByActiveThemeRevisionID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldActiveThemeRevisionID, opts...).ToFunc()
 }
 
 // ByAttachmentReleasePolicy orders the results by the attachment_release_policy field.
@@ -983,6 +1011,27 @@ func ByDisplayOverrides(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption 
 		sqlgraph.OrderByNeighborTerms(s, newDisplayOverridesStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByThemeRevisionsCount orders the results by theme_revisions count.
+func ByThemeRevisionsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newThemeRevisionsStep(), opts...)
+	}
+}
+
+// ByThemeRevisions orders the results by theme_revisions terms.
+func ByThemeRevisions(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newThemeRevisionsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByActiveThemeRevisionField orders the results by active_theme_revision field.
+func ByActiveThemeRevisionField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newActiveThemeRevisionStep(), sql.OrderByField(field, opts...))
+	}
+}
 func newGrantsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -1156,5 +1205,19 @@ func newDisplayOverridesStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(DisplayOverridesInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, DisplayOverridesTable, DisplayOverridesColumn),
+	)
+}
+func newThemeRevisionsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ThemeRevisionsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, ThemeRevisionsTable, ThemeRevisionsColumn),
+	)
+}
+func newActiveThemeRevisionStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ActiveThemeRevisionInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, false, ActiveThemeRevisionTable, ActiveThemeRevisionColumn),
 	)
 }

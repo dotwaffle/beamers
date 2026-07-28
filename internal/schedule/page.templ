@@ -2,6 +2,7 @@ package schedule
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/dotwaffle/beamers/internal/frontend"
 )
@@ -14,12 +15,16 @@ templ Page(snapshot Snapshot) {
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<link rel="stylesheet" href="/assets/frontend.css"/>
 			<link rel="stylesheet" href="/assets/schedule.css"/>
+			if snapshot.EventID > 0 {
+				<link rel="stylesheet" href={ frontend.EventThemePath(snapshot.EventID) }/>
+			}
 			<script src={ frontend.HTMXPath } defer></script>
 			<script src={ frontend.SSEPath } defer></script>
 			<script src="/assets/schedule.js" defer></script>
 			<title>{ snapshot.EventName } Schedule</title>
 		</head>
 		<body
+			data-reduced-effects={ strconv.FormatBool(snapshot.ReducedEffects) }
 			hx-ext="sse"
 			sse-connect={ snapshot.EventsPath() }
 			>
@@ -97,10 +102,13 @@ templ SessionPage(snapshot Snapshot, session Session) {
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<link rel="stylesheet" href="/assets/frontend.css"/>
 			<link rel="stylesheet" href="/assets/schedule.css"/>
+			if snapshot.EventID > 0 {
+				<link rel="stylesheet" href={ frontend.EventThemePath(snapshot.EventID) }/>
+			}
 			<script src={ frontend.HTMXPath } defer></script>
 			<title>{ session.Title } · { snapshot.EventName } Schedule</title>
 		</head>
-		<body>
+		<body data-reduced-effects={ strconv.FormatBool(snapshot.ReducedEffects) }>
 			@ScheduleNavigation(snapshot, session.PathWithTimezone(snapshot.ViewerTimezone))
 			<main>
 				<a href={ snapshot.SchedulePath() }>Schedule</a>
@@ -123,6 +131,7 @@ templ ScheduleNavigation(snapshot Snapshot, returnTo string) {
 			<a href="/my-schedule">My Schedule</a>
 			<span>{ snapshot.AccountName }</span>
 		}
+		@frontend.EffectsLink(returnTo, snapshot.ReducedEffects)
 	</nav>
 }
 

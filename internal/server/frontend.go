@@ -665,6 +665,7 @@ func backstageNavigation(account auth.Account) backstageNavigationModel {
 		if role == viewer.Producer {
 			sections = append(sections,
 				backstageSection(eventID, "planning", "Plan and publish"),
+				backstageSection(eventID, "theme", "Event Theme"),
 				backstageSection(eventID, "voting", "Voting Keys"),
 			)
 		}
@@ -726,6 +727,9 @@ func backstageSection(eventID int, fragment, label string) frontend.BackstageSec
 	}
 	if fragment == "voting" {
 		href = "/backstage/events/" + strconv.Itoa(eventID) + "/voting-keys"
+	}
+	if fragment == "theme" {
+		href = "/backstage/events/" + strconv.Itoa(eventID) + "/theme"
 	}
 	if fragment == "entries" {
 		href = "/backstage/events/" + strconv.Itoa(eventID) +
@@ -1088,8 +1092,23 @@ func safeFrontendReturnTo(value, fallback string) string {
 }
 
 func (handlers frontendHandlers) effects(response http.ResponseWriter, request *http.Request) {
+	returnTo := safeFrontendReturnTo(request.FormValue("return_to"), "/")
+	if request.Method == http.MethodGet || request.Method == http.MethodHead {
+		csrfToken, err := handlers.csrfToken(response, request)
+		if err != nil {
+			handlers.frontendError(response, request, "create CSRF proof", err)
+			return
+		}
+		handlers.render(
+			response,
+			request,
+			http.StatusOK,
+			frontend.Effects(csrfToken, reducedEffectsCookie(request), returnTo),
+		)
+		return
+	}
 	if request.Method != http.MethodPost {
-		frontendMethodNotAllowed(response, http.MethodPost)
+		frontendMethodNotAllowed(response, http.MethodGet+", "+http.MethodHead+", "+http.MethodPost)
 		return
 	}
 	if !handlers.validForm(response, request) {
@@ -1109,7 +1128,12 @@ func (handlers frontendHandlers) effects(response http.ResponseWriter, request *
 		}
 	}
 	setReducedEffectsCookie(response, request, enabled)
-	http.Redirect(response, request, "/", http.StatusSeeOther)
+	http.Redirect( //nolint:gosec // safeFrontendReturnTo restricts redirects to local absolute paths.
+		response,
+		request,
+		returnTo,
+		http.StatusSeeOther,
+	)
 }
 
 func (handlers frontendHandlers) signOut(response http.ResponseWriter, request *http.Request) {
@@ -1133,6 +1157,11 @@ func (handlers frontendHandlers) signOut(response http.ResponseWriter, request *
 func reducedEffectsCookie(request *http.Request) bool {
 	cookie, err := request.Cookie(reducedEffectsCookieName)
 	return err == nil && cookie.Value == "true"
+}
+
+func reducedEffectsPreferenceCookie(request *http.Request) bool {
+	_, err := request.Cookie(reducedEffectsCookieName)
+	return err == nil
 }
 
 func setReducedEffectsCookie(

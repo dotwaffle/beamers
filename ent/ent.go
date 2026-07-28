@@ -37,6 +37,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/eventawardsdraft"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/eventslug"
+	"github.com/dotwaffle/beamers/ent/eventthemerevision"
 	"github.com/dotwaffle/beamers/ent/favoritesession"
 	"github.com/dotwaffle/beamers/ent/federatedidentity"
 	"github.com/dotwaffle/beamers/ent/importreference"
@@ -161,6 +162,7 @@ func checkColumn(t, c string) error {
 			eventawardsdraft.Table:            eventawardsdraft.ValidColumn,
 			eventgrant.Table:                  eventgrant.ValidColumn,
 			eventslug.Table:                   eventslug.ValidColumn,
+			eventthemerevision.Table:          eventthemerevision.ValidColumn,
 			favoritesession.Table:             favoritesession.ValidColumn,
 			federatedidentity.Table:           federatedidentity.ValidColumn,
 			importreference.Table:             importreference.ValidColumn,

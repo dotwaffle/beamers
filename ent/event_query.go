@@ -24,6 +24,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/eventawardsdraft"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/eventslug"
+	"github.com/dotwaffle/beamers/ent/eventthemerevision"
 	"github.com/dotwaffle/beamers/ent/importreference"
 	"github.com/dotwaffle/beamers/ent/lane"
 	"github.com/dotwaffle/beamers/ent/location"
@@ -74,6 +75,8 @@ type EventQuery struct {
 	withPublicScheduleBaseline     *PublicScheduleBaselineQuery
 	withDisplayAssignments         *DisplayAssignmentQuery
 	withDisplayOverrides           *DisplayOverrideQuery
+	withThemeRevisions             *EventThemeRevisionQuery
+	withActiveThemeRevision        *EventThemeRevisionQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -660,6 +663,50 @@ func (_q *EventQuery) QueryDisplayOverrides() *DisplayOverrideQuery {
 	return query
 }
 
+// QueryThemeRevisions chains the current query on the "theme_revisions" edge.
+func (_q *EventQuery) QueryThemeRevisions() *EventThemeRevisionQuery {
+	query := (&EventThemeRevisionClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, selector),
+			sqlgraph.To(eventthemerevision.Table, eventthemerevision.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, event.ThemeRevisionsTable, event.ThemeRevisionsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryActiveThemeRevision chains the current query on the "active_theme_revision" edge.
+func (_q *EventQuery) QueryActiveThemeRevision() *EventThemeRevisionQuery {
+	query := (&EventThemeRevisionClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, selector),
+			sqlgraph.To(eventthemerevision.Table, eventthemerevision.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, event.ActiveThemeRevisionTable, event.ActiveThemeRevisionColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
 // First returns the first Event entity from the query.
 // Returns a *NotFoundError when no Event was found.
 func (_q *EventQuery) First(ctx context.Context) (*Event, error) {
@@ -877,6 +924,8 @@ func (_q *EventQuery) Clone() *EventQuery {
 		withPublicScheduleBaseline:     _q.withPublicScheduleBaseline.Clone(),
 		withDisplayAssignments:         _q.withDisplayAssignments.Clone(),
 		withDisplayOverrides:           _q.withDisplayOverrides.Clone(),
+		withThemeRevisions:             _q.withThemeRevisions.Clone(),
+		withActiveThemeRevision:        _q.withActiveThemeRevision.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -1158,6 +1207,28 @@ func (_q *EventQuery) WithDisplayOverrides(opts ...func(*DisplayOverrideQuery)) 
 	return _q
 }
 
+// WithThemeRevisions tells the query-builder to eager-load the nodes that are connected to
+// the "theme_revisions" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *EventQuery) WithThemeRevisions(opts ...func(*EventThemeRevisionQuery)) *EventQuery {
+	query := (&EventThemeRevisionClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withThemeRevisions = query
+	return _q
+}
+
+// WithActiveThemeRevision tells the query-builder to eager-load the nodes that are connected to
+// the "active_theme_revision" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *EventQuery) WithActiveThemeRevision(opts ...func(*EventThemeRevisionQuery)) *EventQuery {
+	query := (&EventThemeRevisionClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withActiveThemeRevision = query
+	return _q
+}
+
 // GroupBy is used to group vertices by one or more fields/columns.
 // It is often used with aggregate functions, like: count, max, mean, min, sum.
 //
@@ -1242,7 +1313,7 @@ func (_q *EventQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Event,
 	var (
 		nodes       = []*Event{}
 		_spec       = _q.querySpec()
-		loadedTypes = [25]bool{
+		loadedTypes = [27]bool{
 			_q.withGrants != nil,
 			_q.withSlugs != nil,
 			_q.withRundown != nil,
@@ -1268,6 +1339,8 @@ func (_q *EventQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Event,
 			_q.withPublicScheduleBaseline != nil,
 			_q.withDisplayAssignments != nil,
 			_q.withDisplayOverrides != nil,
+			_q.withThemeRevisions != nil,
+			_q.withActiveThemeRevision != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -1474,6 +1547,19 @@ func (_q *EventQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Event,
 		if err := _q.loadDisplayOverrides(ctx, query, nodes,
 			func(n *Event) { n.Edges.DisplayOverrides = []*DisplayOverride{} },
 			func(n *Event, e *DisplayOverride) { n.Edges.DisplayOverrides = append(n.Edges.DisplayOverrides, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withThemeRevisions; query != nil {
+		if err := _q.loadThemeRevisions(ctx, query, nodes,
+			func(n *Event) { n.Edges.ThemeRevisions = []*EventThemeRevision{} },
+			func(n *Event, e *EventThemeRevision) { n.Edges.ThemeRevisions = append(n.Edges.ThemeRevisions, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withActiveThemeRevision; query != nil {
+		if err := _q.loadActiveThemeRevision(ctx, query, nodes, nil,
+			func(n *Event, e *EventThemeRevision) { n.Edges.ActiveThemeRevision = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -2224,6 +2310,68 @@ func (_q *EventQuery) loadDisplayOverrides(ctx context.Context, query *DisplayOv
 	}
 	return nil
 }
+func (_q *EventQuery) loadThemeRevisions(ctx context.Context, query *EventThemeRevisionQuery, nodes []*Event, init func(*Event), assign func(*Event, *EventThemeRevision)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Event)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(eventthemerevision.FieldEventID)
+	}
+	query.Where(predicate.EventThemeRevision(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(event.ThemeRevisionsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.EventID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "event_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *EventQuery) loadActiveThemeRevision(ctx context.Context, query *EventThemeRevisionQuery, nodes []*Event, init func(*Event), assign func(*Event, *EventThemeRevision)) error {
+	ids := make([]int, 0, len(nodes))
+	nodeids := make(map[int][]*Event)
+	for i := range nodes {
+		if nodes[i].ActiveThemeRevisionID == nil {
+			continue
+		}
+		fk := *nodes[i].ActiveThemeRevisionID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(eventthemerevision.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "active_theme_revision_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
 
 func (_q *EventQuery) sqlCount(ctx context.Context) (int, error) {
 	_spec := _q.querySpec()
@@ -2249,6 +2397,9 @@ func (_q *EventQuery) querySpec() *sqlgraph.QuerySpec {
 			if fields[i] != event.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, fields[i])
 			}
+		}
+		if _q.withActiveThemeRevision != nil {
+			_spec.Node.AddColumnOnce(event.FieldActiveThemeRevisionID)
 		}
 	}
 	if ps := _q.predicates; len(ps) > 0 {

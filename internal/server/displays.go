@@ -15,6 +15,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/displays"
 	"github.com/dotwaffle/beamers/internal/displaystream"
+	"github.com/dotwaffle/beamers/internal/frontend"
 )
 
 const (
@@ -59,6 +60,12 @@ func registerDisplayRoutes(
 		handlers.display,
 	)
 	mux.HandleFunc("/display/client.js", displayRoute(), handlers.clientJavaScript)
+	mux.HandleFunc(
+		"/display/assets/chakra-petch-regular.ttf",
+		displayRoute(),
+		handlers.font,
+	)
+	mux.HandleFunc("/display/assets/open-sans.ttf", displayRoute(), handlers.font)
 	mux.HandleFunc("/display/assets/", displayRoute(), handlers.clientJavaScript)
 	mux.HandleFunc(
 		"/display/events",
@@ -72,6 +79,27 @@ func registerDisplayRoutes(
 		handlers.enroll,
 	)
 	mux.HandleFunc("/admin/displays/{displayID}/assign", crewRoute(), handlers.assign)
+}
+
+func (handlers displayHandlers) font(response http.ResponseWriter, request *http.Request) {
+	if !requestAllowed(response, request, http.MethodGet, handlers.allowPlaintextDisplay) {
+		return
+	}
+	path := frontend.OpenSansPath
+	if request.URL.Path == "/display/assets/chakra-petch-regular.ttf" {
+		path = frontend.ChakraRegularPath
+	} else if request.URL.Path != "/display/assets/open-sans.ttf" {
+		http.NotFound(response, request)
+		return
+	}
+	asset, err := frontend.Asset(path)
+	if err != nil {
+		http.NotFound(response, request)
+		return
+	}
+	response.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	response.Header().Set("Content-Type", "font/ttf")
+	_, _ = response.Write(asset)
 }
 
 func (handlers displayHandlers) display(response http.ResponseWriter, request *http.Request) {

@@ -36,6 +36,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/eventawardsdraft"
 	"github.com/dotwaffle/beamers/ent/eventgrant"
 	"github.com/dotwaffle/beamers/ent/eventslug"
+	"github.com/dotwaffle/beamers/ent/eventthemerevision"
 	"github.com/dotwaffle/beamers/ent/favoritesession"
 	"github.com/dotwaffle/beamers/ent/federatedidentity"
 	"github.com/dotwaffle/beamers/ent/importreference"
@@ -117,6 +118,7 @@ const (
 	TypeEventAwardsDraft            = "EventAwardsDraft"
 	TypeEventGrant                  = "EventGrant"
 	TypeEventSlug                   = "EventSlug"
+	TypeEventThemeRevision          = "EventThemeRevision"
 	TypeFavoriteSession             = "FavoriteSession"
 	TypeFederatedIdentity           = "FederatedIdentity"
 	TypeImportReference             = "ImportReference"
@@ -22665,6 +22667,11 @@ type EventMutation struct {
 	display_overrides                         map[int]struct{}
 	removeddisplay_overrides                  map[int]struct{}
 	cleareddisplay_overrides                  bool
+	theme_revisions                           map[int]struct{}
+	removedtheme_revisions                    map[int]struct{}
+	clearedtheme_revisions                    bool
+	active_theme_revision                     *int
+	clearedactive_theme_revision              bool
 	done                                      bool
 	oldValue                                  func(context.Context) (*Event, error)
 	predicates                                []predicate.Event
@@ -23332,6 +23339,55 @@ func (m *EventMutation) OldDisplayConfiguration(ctx context.Context) (v string, 
 // ResetDisplayConfiguration resets all changes to the "display_configuration" field.
 func (m *EventMutation) ResetDisplayConfiguration() {
 	m.display_configuration = nil
+}
+
+// SetActiveThemeRevisionID sets the "active_theme_revision_id" field.
+func (m *EventMutation) SetActiveThemeRevisionID(i int) {
+	m.active_theme_revision = &i
+}
+
+// ActiveThemeRevisionID returns the value of the "active_theme_revision_id" field in the mutation.
+func (m *EventMutation) ActiveThemeRevisionID() (r int, exists bool) {
+	v := m.active_theme_revision
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldActiveThemeRevisionID returns the old "active_theme_revision_id" field's value of the Event entity.
+// If the Event object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EventMutation) OldActiveThemeRevisionID(ctx context.Context) (v *int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldActiveThemeRevisionID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldActiveThemeRevisionID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldActiveThemeRevisionID: %w", err)
+	}
+	return oldValue.ActiveThemeRevisionID, nil
+}
+
+// ClearActiveThemeRevisionID clears the value of the "active_theme_revision_id" field.
+func (m *EventMutation) ClearActiveThemeRevisionID() {
+	m.active_theme_revision = nil
+	m.clearedFields[event.FieldActiveThemeRevisionID] = struct{}{}
+}
+
+// ActiveThemeRevisionIDCleared returns if the "active_theme_revision_id" field was cleared in this mutation.
+func (m *EventMutation) ActiveThemeRevisionIDCleared() bool {
+	_, ok := m.clearedFields[event.FieldActiveThemeRevisionID]
+	return ok
+}
+
+// ResetActiveThemeRevisionID resets all changes to the "active_theme_revision_id" field.
+func (m *EventMutation) ResetActiveThemeRevisionID() {
+	m.active_theme_revision = nil
+	delete(m.clearedFields, event.FieldActiveThemeRevisionID)
 }
 
 // SetAttachmentReleasePolicy sets the "attachment_release_policy" field.
@@ -25105,6 +25161,87 @@ func (m *EventMutation) ResetDisplayOverrides() {
 	m.removeddisplay_overrides = nil
 }
 
+// AddThemeRevisionIDs adds the "theme_revisions" edge to the EventThemeRevision entity by ids.
+func (m *EventMutation) AddThemeRevisionIDs(ids ...int) {
+	if m.theme_revisions == nil {
+		m.theme_revisions = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.theme_revisions[ids[i]] = struct{}{}
+	}
+}
+
+// ClearThemeRevisions clears the "theme_revisions" edge to the EventThemeRevision entity.
+func (m *EventMutation) ClearThemeRevisions() {
+	m.clearedtheme_revisions = true
+}
+
+// ThemeRevisionsCleared reports if the "theme_revisions" edge to the EventThemeRevision entity was cleared.
+func (m *EventMutation) ThemeRevisionsCleared() bool {
+	return m.clearedtheme_revisions
+}
+
+// RemoveThemeRevisionIDs removes the "theme_revisions" edge to the EventThemeRevision entity by IDs.
+func (m *EventMutation) RemoveThemeRevisionIDs(ids ...int) {
+	if m.removedtheme_revisions == nil {
+		m.removedtheme_revisions = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.theme_revisions, ids[i])
+		m.removedtheme_revisions[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedThemeRevisions returns the removed IDs of the "theme_revisions" edge to the EventThemeRevision entity.
+func (m *EventMutation) RemovedThemeRevisionsIDs() (ids []int) {
+	for id := range m.removedtheme_revisions {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ThemeRevisionsIDs returns the "theme_revisions" edge IDs in the mutation.
+func (m *EventMutation) ThemeRevisionsIDs() (ids []int) {
+	for id := range m.theme_revisions {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetThemeRevisions resets all changes to the "theme_revisions" edge.
+func (m *EventMutation) ResetThemeRevisions() {
+	m.theme_revisions = nil
+	m.clearedtheme_revisions = false
+	m.removedtheme_revisions = nil
+}
+
+// ClearActiveThemeRevision clears the "active_theme_revision" edge to the EventThemeRevision entity.
+func (m *EventMutation) ClearActiveThemeRevision() {
+	m.clearedactive_theme_revision = true
+	m.clearedFields[event.FieldActiveThemeRevisionID] = struct{}{}
+}
+
+// ActiveThemeRevisionCleared reports if the "active_theme_revision" edge to the EventThemeRevision entity was cleared.
+func (m *EventMutation) ActiveThemeRevisionCleared() bool {
+	return m.ActiveThemeRevisionIDCleared() || m.clearedactive_theme_revision
+}
+
+// ActiveThemeRevisionIDs returns the "active_theme_revision" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ActiveThemeRevisionID instead. It exists only for internal usage by the builders.
+func (m *EventMutation) ActiveThemeRevisionIDs() (ids []int) {
+	if id := m.active_theme_revision; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetActiveThemeRevision resets all changes to the "active_theme_revision" edge.
+func (m *EventMutation) ResetActiveThemeRevision() {
+	m.active_theme_revision = nil
+	m.clearedactive_theme_revision = false
+}
+
 // Where appends a list predicates to the EventMutation builder.
 func (m *EventMutation) Where(ps ...predicate.Event) {
 	m.predicates = append(m.predicates, ps...)
@@ -25139,7 +25276,7 @@ func (m *EventMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *EventMutation) Fields() []string {
-	fields := make([]string, 0, 24)
+	fields := make([]string, 0, 25)
 	if m.name != nil {
 		fields = append(fields, event.FieldName)
 	}
@@ -25184,6 +25321,9 @@ func (m *EventMutation) Fields() []string {
 	}
 	if m.display_configuration != nil {
 		fields = append(fields, event.FieldDisplayConfiguration)
+	}
+	if m.active_theme_revision != nil {
+		fields = append(fields, event.FieldActiveThemeRevisionID)
 	}
 	if m.attachment_release_policy != nil {
 		fields = append(fields, event.FieldAttachmentReleasePolicy)
@@ -25250,6 +25390,8 @@ func (m *EventMutation) Field(name string) (ent.Value, bool) {
 		return m.TargetAdjustmentPresets()
 	case event.FieldDisplayConfiguration:
 		return m.DisplayConfiguration()
+	case event.FieldActiveThemeRevisionID:
+		return m.ActiveThemeRevisionID()
 	case event.FieldAttachmentReleasePolicy:
 		return m.AttachmentReleasePolicy()
 	case event.FieldAttachmentReleaseCueSessionID:
@@ -25307,6 +25449,8 @@ func (m *EventMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldTargetAdjustmentPresets(ctx)
 	case event.FieldDisplayConfiguration:
 		return m.OldDisplayConfiguration(ctx)
+	case event.FieldActiveThemeRevisionID:
+		return m.OldActiveThemeRevisionID(ctx)
 	case event.FieldAttachmentReleasePolicy:
 		return m.OldAttachmentReleasePolicy(ctx)
 	case event.FieldAttachmentReleaseCueSessionID:
@@ -25438,6 +25582,13 @@ func (m *EventMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetDisplayConfiguration(v)
+		return nil
+	case event.FieldActiveThemeRevisionID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetActiveThemeRevisionID(v)
 		return nil
 	case event.FieldAttachmentReleasePolicy:
 		v, ok := value.(event.AttachmentReleasePolicy)
@@ -25601,6 +25752,9 @@ func (m *EventMutation) ClearedFields() []string {
 	if m.FieldCleared(event.FieldContentLanguage) {
 		fields = append(fields, event.FieldContentLanguage)
 	}
+	if m.FieldCleared(event.FieldActiveThemeRevisionID) {
+		fields = append(fields, event.FieldActiveThemeRevisionID)
+	}
 	if m.FieldCleared(event.FieldAttachmentReleaseCueSessionID) {
 		fields = append(fields, event.FieldAttachmentReleaseCueSessionID)
 	}
@@ -25626,6 +25780,9 @@ func (m *EventMutation) ClearField(name string) error {
 		return nil
 	case event.FieldContentLanguage:
 		m.ClearContentLanguage()
+		return nil
+	case event.FieldActiveThemeRevisionID:
+		m.ClearActiveThemeRevisionID()
 		return nil
 	case event.FieldAttachmentReleaseCueSessionID:
 		m.ClearAttachmentReleaseCueSessionID()
@@ -25686,6 +25843,9 @@ func (m *EventMutation) ResetField(name string) error {
 	case event.FieldDisplayConfiguration:
 		m.ResetDisplayConfiguration()
 		return nil
+	case event.FieldActiveThemeRevisionID:
+		m.ResetActiveThemeRevisionID()
+		return nil
 	case event.FieldAttachmentReleasePolicy:
 		m.ResetAttachmentReleasePolicy()
 		return nil
@@ -25719,7 +25879,7 @@ func (m *EventMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *EventMutation) AddedEdges() []string {
-	edges := make([]string, 0, 25)
+	edges := make([]string, 0, 27)
 	if m.grants != nil {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -25794,6 +25954,12 @@ func (m *EventMutation) AddedEdges() []string {
 	}
 	if m.display_overrides != nil {
 		edges = append(edges, event.EdgeDisplayOverrides)
+	}
+	if m.theme_revisions != nil {
+		edges = append(edges, event.EdgeThemeRevisions)
+	}
+	if m.active_theme_revision != nil {
+		edges = append(edges, event.EdgeActiveThemeRevision)
 	}
 	return edges
 }
@@ -25948,13 +26114,23 @@ func (m *EventMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case event.EdgeThemeRevisions:
+		ids := make([]ent.Value, 0, len(m.theme_revisions))
+		for id := range m.theme_revisions {
+			ids = append(ids, id)
+		}
+		return ids
+	case event.EdgeActiveThemeRevision:
+		if id := m.active_theme_revision; id != nil {
+			return []ent.Value{*id}
+		}
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *EventMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 25)
+	edges := make([]string, 0, 27)
 	if m.removedgrants != nil {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -26023,6 +26199,9 @@ func (m *EventMutation) RemovedEdges() []string {
 	}
 	if m.removeddisplay_overrides != nil {
 		edges = append(edges, event.EdgeDisplayOverrides)
+	}
+	if m.removedtheme_revisions != nil {
+		edges = append(edges, event.EdgeThemeRevisions)
 	}
 	return edges
 }
@@ -26169,13 +26348,19 @@ func (m *EventMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case event.EdgeThemeRevisions:
+		ids := make([]ent.Value, 0, len(m.removedtheme_revisions))
+		for id := range m.removedtheme_revisions {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *EventMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 25)
+	edges := make([]string, 0, 27)
 	if m.clearedgrants {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -26251,6 +26436,12 @@ func (m *EventMutation) ClearedEdges() []string {
 	if m.cleareddisplay_overrides {
 		edges = append(edges, event.EdgeDisplayOverrides)
 	}
+	if m.clearedtheme_revisions {
+		edges = append(edges, event.EdgeThemeRevisions)
+	}
+	if m.clearedactive_theme_revision {
+		edges = append(edges, event.EdgeActiveThemeRevision)
+	}
 	return edges
 }
 
@@ -26308,6 +26499,10 @@ func (m *EventMutation) EdgeCleared(name string) bool {
 		return m.cleareddisplay_assignments
 	case event.EdgeDisplayOverrides:
 		return m.cleareddisplay_overrides
+	case event.EdgeThemeRevisions:
+		return m.clearedtheme_revisions
+	case event.EdgeActiveThemeRevision:
+		return m.clearedactive_theme_revision
 	}
 	return false
 }
@@ -26321,6 +26516,9 @@ func (m *EventMutation) ClearEdge(name string) error {
 		return nil
 	case event.EdgePublicScheduleBaseline:
 		m.ClearPublicScheduleBaseline()
+		return nil
+	case event.EdgeActiveThemeRevision:
+		m.ClearActiveThemeRevision()
 		return nil
 	}
 	return fmt.Errorf("unknown Event unique edge %s", name)
@@ -26404,6 +26602,12 @@ func (m *EventMutation) ResetEdge(name string) error {
 		return nil
 	case event.EdgeDisplayOverrides:
 		m.ResetDisplayOverrides()
+		return nil
+	case event.EdgeThemeRevisions:
+		m.ResetThemeRevisions()
+		return nil
+	case event.EdgeActiveThemeRevision:
+		m.ResetActiveThemeRevision()
 		return nil
 	}
 	return fmt.Errorf("unknown Event edge %s", name)
@@ -28610,6 +28814,584 @@ func (m *EventSlugMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown EventSlug edge %s", name)
+}
+
+// EventThemeRevisionMutation represents an operation that mutates the EventThemeRevision nodes in the graph.
+type EventThemeRevisionMutation struct {
+	config
+	op                       Op
+	typ                      string
+	id                       *int
+	_config                  *themevalue.EventConfig
+	created_by_account_id    *int
+	addcreated_by_account_id *int
+	created_at               *time.Time
+	clearedFields            map[string]struct{}
+	event                    *int
+	clearedevent             bool
+	done                     bool
+	oldValue                 func(context.Context) (*EventThemeRevision, error)
+	predicates               []predicate.EventThemeRevision
+}
+
+var _ ent.Mutation = (*EventThemeRevisionMutation)(nil)
+
+// eventthemerevisionOption allows management of the mutation configuration using functional options.
+type eventthemerevisionOption func(*EventThemeRevisionMutation)
+
+// newEventThemeRevisionMutation creates new mutation for the EventThemeRevision entity.
+func newEventThemeRevisionMutation(c config, op Op, opts ...eventthemerevisionOption) *EventThemeRevisionMutation {
+	m := &EventThemeRevisionMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeEventThemeRevision,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withEventThemeRevisionID sets the ID field of the mutation.
+func withEventThemeRevisionID(id int) eventthemerevisionOption {
+	return func(m *EventThemeRevisionMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *EventThemeRevision
+		)
+		m.oldValue = func(ctx context.Context) (*EventThemeRevision, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().EventThemeRevision.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withEventThemeRevision sets the old EventThemeRevision of the mutation.
+func withEventThemeRevision(node *EventThemeRevision) eventthemerevisionOption {
+	return func(m *EventThemeRevisionMutation) {
+		m.oldValue = func(context.Context) (*EventThemeRevision, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m EventThemeRevisionMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m EventThemeRevisionMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *EventThemeRevisionMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *EventThemeRevisionMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().EventThemeRevision.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetEventID sets the "event_id" field.
+func (m *EventThemeRevisionMutation) SetEventID(i int) {
+	m.event = &i
+}
+
+// EventID returns the value of the "event_id" field in the mutation.
+func (m *EventThemeRevisionMutation) EventID() (r int, exists bool) {
+	v := m.event
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEventID returns the old "event_id" field's value of the EventThemeRevision entity.
+// If the EventThemeRevision object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EventThemeRevisionMutation) OldEventID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEventID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEventID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEventID: %w", err)
+	}
+	return oldValue.EventID, nil
+}
+
+// ResetEventID resets all changes to the "event_id" field.
+func (m *EventThemeRevisionMutation) ResetEventID() {
+	m.event = nil
+}
+
+// SetConfig sets the "config" field.
+func (m *EventThemeRevisionMutation) SetConfig(tc themevalue.EventConfig) {
+	m._config = &tc
+}
+
+// Config returns the value of the "config" field in the mutation.
+func (m *EventThemeRevisionMutation) Config() (r themevalue.EventConfig, exists bool) {
+	v := m._config
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldConfig returns the old "config" field's value of the EventThemeRevision entity.
+// If the EventThemeRevision object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EventThemeRevisionMutation) OldConfig(ctx context.Context) (v themevalue.EventConfig, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldConfig is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldConfig requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldConfig: %w", err)
+	}
+	return oldValue.Config, nil
+}
+
+// ResetConfig resets all changes to the "config" field.
+func (m *EventThemeRevisionMutation) ResetConfig() {
+	m._config = nil
+}
+
+// SetCreatedByAccountID sets the "created_by_account_id" field.
+func (m *EventThemeRevisionMutation) SetCreatedByAccountID(i int) {
+	m.created_by_account_id = &i
+	m.addcreated_by_account_id = nil
+}
+
+// CreatedByAccountID returns the value of the "created_by_account_id" field in the mutation.
+func (m *EventThemeRevisionMutation) CreatedByAccountID() (r int, exists bool) {
+	v := m.created_by_account_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedByAccountID returns the old "created_by_account_id" field's value of the EventThemeRevision entity.
+// If the EventThemeRevision object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EventThemeRevisionMutation) OldCreatedByAccountID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedByAccountID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedByAccountID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedByAccountID: %w", err)
+	}
+	return oldValue.CreatedByAccountID, nil
+}
+
+// AddCreatedByAccountID adds i to the "created_by_account_id" field.
+func (m *EventThemeRevisionMutation) AddCreatedByAccountID(i int) {
+	if m.addcreated_by_account_id != nil {
+		*m.addcreated_by_account_id += i
+	} else {
+		m.addcreated_by_account_id = &i
+	}
+}
+
+// AddedCreatedByAccountID returns the value that was added to the "created_by_account_id" field in this mutation.
+func (m *EventThemeRevisionMutation) AddedCreatedByAccountID() (r int, exists bool) {
+	v := m.addcreated_by_account_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetCreatedByAccountID resets all changes to the "created_by_account_id" field.
+func (m *EventThemeRevisionMutation) ResetCreatedByAccountID() {
+	m.created_by_account_id = nil
+	m.addcreated_by_account_id = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *EventThemeRevisionMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *EventThemeRevisionMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the EventThemeRevision entity.
+// If the EventThemeRevision object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *EventThemeRevisionMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *EventThemeRevisionMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// ClearEvent clears the "event" edge to the Event entity.
+func (m *EventThemeRevisionMutation) ClearEvent() {
+	m.clearedevent = true
+	m.clearedFields[eventthemerevision.FieldEventID] = struct{}{}
+}
+
+// EventCleared reports if the "event" edge to the Event entity was cleared.
+func (m *EventThemeRevisionMutation) EventCleared() bool {
+	return m.clearedevent
+}
+
+// EventIDs returns the "event" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// EventID instead. It exists only for internal usage by the builders.
+func (m *EventThemeRevisionMutation) EventIDs() (ids []int) {
+	if id := m.event; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetEvent resets all changes to the "event" edge.
+func (m *EventThemeRevisionMutation) ResetEvent() {
+	m.event = nil
+	m.clearedevent = false
+}
+
+// Where appends a list predicates to the EventThemeRevisionMutation builder.
+func (m *EventThemeRevisionMutation) Where(ps ...predicate.EventThemeRevision) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the EventThemeRevisionMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *EventThemeRevisionMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.EventThemeRevision, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *EventThemeRevisionMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *EventThemeRevisionMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (EventThemeRevision).
+func (m *EventThemeRevisionMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *EventThemeRevisionMutation) Fields() []string {
+	fields := make([]string, 0, 4)
+	if m.event != nil {
+		fields = append(fields, eventthemerevision.FieldEventID)
+	}
+	if m._config != nil {
+		fields = append(fields, eventthemerevision.FieldConfig)
+	}
+	if m.created_by_account_id != nil {
+		fields = append(fields, eventthemerevision.FieldCreatedByAccountID)
+	}
+	if m.created_at != nil {
+		fields = append(fields, eventthemerevision.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *EventThemeRevisionMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case eventthemerevision.FieldEventID:
+		return m.EventID()
+	case eventthemerevision.FieldConfig:
+		return m.Config()
+	case eventthemerevision.FieldCreatedByAccountID:
+		return m.CreatedByAccountID()
+	case eventthemerevision.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *EventThemeRevisionMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case eventthemerevision.FieldEventID:
+		return m.OldEventID(ctx)
+	case eventthemerevision.FieldConfig:
+		return m.OldConfig(ctx)
+	case eventthemerevision.FieldCreatedByAccountID:
+		return m.OldCreatedByAccountID(ctx)
+	case eventthemerevision.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown EventThemeRevision field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *EventThemeRevisionMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case eventthemerevision.FieldEventID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEventID(v)
+		return nil
+	case eventthemerevision.FieldConfig:
+		v, ok := value.(themevalue.EventConfig)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetConfig(v)
+		return nil
+	case eventthemerevision.FieldCreatedByAccountID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedByAccountID(v)
+		return nil
+	case eventthemerevision.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown EventThemeRevision field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *EventThemeRevisionMutation) AddedFields() []string {
+	var fields []string
+	if m.addcreated_by_account_id != nil {
+		fields = append(fields, eventthemerevision.FieldCreatedByAccountID)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *EventThemeRevisionMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case eventthemerevision.FieldCreatedByAccountID:
+		return m.AddedCreatedByAccountID()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *EventThemeRevisionMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case eventthemerevision.FieldCreatedByAccountID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddCreatedByAccountID(v)
+		return nil
+	}
+	return fmt.Errorf("unknown EventThemeRevision numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *EventThemeRevisionMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *EventThemeRevisionMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *EventThemeRevisionMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown EventThemeRevision nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *EventThemeRevisionMutation) ResetField(name string) error {
+	switch name {
+	case eventthemerevision.FieldEventID:
+		m.ResetEventID()
+		return nil
+	case eventthemerevision.FieldConfig:
+		m.ResetConfig()
+		return nil
+	case eventthemerevision.FieldCreatedByAccountID:
+		m.ResetCreatedByAccountID()
+		return nil
+	case eventthemerevision.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown EventThemeRevision field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *EventThemeRevisionMutation) AddedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.event != nil {
+		edges = append(edges, eventthemerevision.EdgeEvent)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *EventThemeRevisionMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case eventthemerevision.EdgeEvent:
+		if id := m.event; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *EventThemeRevisionMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 1)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *EventThemeRevisionMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *EventThemeRevisionMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 1)
+	if m.clearedevent {
+		edges = append(edges, eventthemerevision.EdgeEvent)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *EventThemeRevisionMutation) EdgeCleared(name string) bool {
+	switch name {
+	case eventthemerevision.EdgeEvent:
+		return m.clearedevent
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *EventThemeRevisionMutation) ClearEdge(name string) error {
+	switch name {
+	case eventthemerevision.EdgeEvent:
+		m.ClearEvent()
+		return nil
+	}
+	return fmt.Errorf("unknown EventThemeRevision unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *EventThemeRevisionMutation) ResetEdge(name string) error {
+	switch name {
+	case eventthemerevision.EdgeEvent:
+		m.ResetEvent()
+		return nil
+	}
+	return fmt.Errorf("unknown EventThemeRevision edge %s", name)
 }
 
 // FavoriteSessionMutation represents an operation that mutates the FavoriteSession nodes in the graph.

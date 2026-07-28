@@ -755,12 +755,21 @@ var (
 		{Name: "stage_message_configuration_revision", Type: field.TypeInt, Default: 0},
 		{Name: "revision", Type: field.TypeInt, Default: 1},
 		{Name: "created_at", Type: field.TypeTime},
+		{Name: "active_theme_revision_id", Type: field.TypeInt, Nullable: true},
 	}
 	// EventsTable holds the schema information for the "events" table.
 	EventsTable = &schema.Table{
 		Name:       "events",
 		Columns:    EventsColumns,
 		PrimaryKey: []*schema.Column{EventsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "events_event_theme_revisions_active_theme_revision",
+				Columns:    []*schema.Column{EventsColumns[25]},
+				RefColumns: []*schema.Column{EventThemeRevisionsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
 	}
 	// EventAwardsDraftsColumns holds the columns for the "event_awards_drafts" table.
 	EventAwardsDraftsColumns = []*schema.Column{
@@ -850,6 +859,35 @@ var (
 				Columns:    []*schema.Column{EventSlugsColumns[4]},
 				RefColumns: []*schema.Column{EventsColumns[0]},
 				OnDelete:   schema.NoAction,
+			},
+		},
+	}
+	// EventThemeRevisionsColumns holds the columns for the "event_theme_revisions" table.
+	EventThemeRevisionsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "config", Type: field.TypeJSON},
+		{Name: "created_by_account_id", Type: field.TypeInt},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "event_id", Type: field.TypeInt},
+	}
+	// EventThemeRevisionsTable holds the schema information for the "event_theme_revisions" table.
+	EventThemeRevisionsTable = &schema.Table{
+		Name:       "event_theme_revisions",
+		Columns:    EventThemeRevisionsColumns,
+		PrimaryKey: []*schema.Column{EventThemeRevisionsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "event_theme_revisions_events_theme_revisions",
+				Columns:    []*schema.Column{EventThemeRevisionsColumns[4]},
+				RefColumns: []*schema.Column{EventsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "eventthemerevision_event_id",
+				Unique:  false,
+				Columns: []*schema.Column{EventThemeRevisionsColumns[4]},
 			},
 		},
 	}
@@ -2241,6 +2279,7 @@ var (
 		EventAwardsDraftsTable,
 		EventGrantsTable,
 		EventSlugsTable,
+		EventThemeRevisionsTable,
 		FavoriteSessionsTable,
 		FederatedIdentitiesTable,
 		ImportReferencesTable,
@@ -2319,10 +2358,12 @@ func init() {
 	DraftChangeDependenciesTable.ForeignKeys[1].RefTable = DraftChangesTable
 	DraftEditsTable.ForeignKeys[0].RefTable = AccountsTable
 	DraftEditsTable.ForeignKeys[1].RefTable = EventsTable
+	EventsTable.ForeignKeys[0].RefTable = EventThemeRevisionsTable
 	EventAwardsDraftsTable.ForeignKeys[0].RefTable = EventsTable
 	EventGrantsTable.ForeignKeys[0].RefTable = AccountsTable
 	EventGrantsTable.ForeignKeys[1].RefTable = EventsTable
 	EventSlugsTable.ForeignKeys[0].RefTable = EventsTable
+	EventThemeRevisionsTable.ForeignKeys[0].RefTable = EventsTable
 	FavoriteSessionsTable.ForeignKeys[0].RefTable = AccountsTable
 	FavoriteSessionsTable.ForeignKeys[1].RefTable = SessionsTable
 	FederatedIdentitiesTable.ForeignKeys[0].RefTable = AccountsTable

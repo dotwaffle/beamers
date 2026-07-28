@@ -309,6 +309,18 @@ func (f EventSlugFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, e
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.EventSlugMutation", m)
 }
 
+// The EventThemeRevisionFunc type is an adapter to allow the use of ordinary
+// function as EventThemeRevision mutator.
+type EventThemeRevisionFunc func(context.Context, *ent.EventThemeRevisionMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f EventThemeRevisionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.EventThemeRevisionMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.EventThemeRevisionMutation", m)
+}
+
 // The FavoriteSessionFunc type is an adapter to allow the use of ordinary
 // function as FavoriteSession mutator.
 type FavoriteSessionFunc func(context.Context, *ent.FavoriteSessionMutation) (ent.Value, error)

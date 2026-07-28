@@ -220,6 +220,15 @@ func (service *Service) Activate(
 			if len(themevalue.ActivationFindings(selected.Config)) > 0 {
 				return rejectRevision("activation_blocked", ErrActivationBlocked), nil
 			}
+			eventConfigs, loadErr := transaction.ListActiveEventThemeConfigs(actor.Context(ctx))
+			if loadErr != nil {
+				return command.Execution[Revision]{}, loadErr
+			}
+			for _, eventConfig := range eventConfigs {
+				if len(themevalue.EventActivationFindings(selected.Config, eventConfig)) > 0 {
+					return rejectRevision("activation_blocked", ErrActivationBlocked), nil
+				}
+			}
 			stored, activateErr := transaction.ActivateInstallationThemeRevision(
 				actor.Context(ctx),
 				input.RevisionID,

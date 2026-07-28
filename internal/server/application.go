@@ -669,6 +669,8 @@ func (application *application) buildHandler(
 		mux,
 		installation.Authentication(),
 		installation.Themes(),
+		installation.EventThemes(),
+		application.config.DisplayStream.Notify,
 		application.config.Logger,
 	)
 	registerPlanningRoutes(

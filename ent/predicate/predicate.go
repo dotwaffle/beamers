@@ -81,6 +81,9 @@ type EventGrant func(*sql.Selector)
 // EventSlug is the predicate function for eventslug builders.
 type EventSlug func(*sql.Selector)
 
+// EventThemeRevision is the predicate function for eventthemerevision builders.
+type EventThemeRevision func(*sql.Selector)
+
 // FavoriteSession is the predicate function for favoritesession builders.
 type FavoriteSession func(*sql.Selector)
 

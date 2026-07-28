@@ -146,3 +146,50 @@ func TestStylesheetUsesControlledTokensAndAccessibilityOverrides(t *testing.T) {
 		}
 	}
 }
+
+func TestResolveEventConfigInheritsAndAppliesControlledVariant(t *testing.T) {
+	t.Parallel()
+
+	base := DefaultConfig()
+	base.AccentColor = "#79d7ff"
+	event := EventConfig{
+		Overrides: Config{
+			BrandAsset: BrandAssetWordmark,
+			TextColor:  "#ffffff",
+		},
+		Variants: map[string]Config{
+			VariantLocationSignage: {
+				AccentColor: "#ffdf6e",
+				Motion:      MotionStill,
+			},
+		},
+	}
+
+	resolved, err := ResolveEvent(base, event, VariantLocationSignage)
+	if err != nil {
+		t.Fatalf("resolve Event Theme: %v", err)
+	}
+	if resolved.BrandAsset != BrandAssetWordmark ||
+		resolved.TextColor != "#ffffff" ||
+		resolved.AccentColor != "#ffdf6e" ||
+		resolved.Motion != MotionStill ||
+		resolved.BackgroundColor != base.BackgroundColor {
+		t.Fatalf("resolved Event Theme = %+v", resolved)
+	}
+
+	event.Variants[VariantLocationSignage] = Config{
+		TextColor:       "#777777",
+		BackgroundColor: "#ffffff",
+		SurfaceColor:    "#ffffff",
+	}
+	if findings := EventActivationFindings(base, event); len(findings) == 0 {
+		t.Fatal("inaccessible configured variant has no activation findings")
+	}
+
+	event.Variants["custom-css"] = Config{Background: "url(payload.css)"}
+	err = ValidateEventDraft(event)
+	var validation *ValidationError
+	if !errors.As(err, &validation) || validation.Field != "variants" {
+		t.Fatalf("ValidateEventDraft() error = %v, want variants ValidationError", err)
+	}
+}
