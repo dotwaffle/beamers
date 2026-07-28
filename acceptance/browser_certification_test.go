@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	_ "embed"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -120,6 +121,10 @@ type browserCertificationReport struct {
 }
 
 func (report browserCertificationReport) validate() error {
+	commit, err := hex.DecodeString(report.Commit)
+	if err != nil || len(commit) != 20 {
+		return errors.New("certified commit is not a full Git SHA")
+	}
 	switch {
 	case !report.CrewCommandCommitted:
 		return errors.New("Crew command was not committed")
@@ -158,37 +163,49 @@ func (report browserCertificationReport) validate() error {
 		}
 		seen[display.DisplayID] = true
 	}
-	var crewPages, controlPages, confirmationPages, displayPages, enrollmentPages, resultsPages int
+	pageCounts := make(map[string]int)
 	for _, page := range report.Pages {
 		if err := page.validate(); err != nil {
 			return fmt.Errorf("validate %s page evidence: %w", page.Surface, err)
 		}
-		switch page.Surface {
-		case "crew_control":
-			crewPages++
-		case "control":
-			controlPages++
-		case "override_confirmation":
-			confirmationPages++
-		case "display":
-			displayPages++
-		case "enrollment":
-			enrollmentPages++
-		case "results":
-			resultsPages++
-		}
+		pageCounts[page.Surface]++
 	}
-	if crewPages != 2 || controlPages != 1 || confirmationPages != 1 ||
-		displayPages != 2 || enrollmentPages != 1 || resultsPages != 1 {
-		return fmt.Errorf(
-			"browser evidence has %d Crew, %d Control, %d Override confirmation, %d Display, %d Enrollment, and %d Results pages; want 2, 1, 1, 2, 1, and 1",
-			crewPages,
-			controlPages,
-			confirmationPages,
-			displayPages,
-			enrollmentPages,
-			resultsPages,
-		)
+	for _, required := range []struct {
+		surface string
+		count   int
+	}{
+		{"demo-anonymous", 1},
+		{"demo-display", 1},
+		{"demo-results", 1},
+		{"demo-attendee", 1},
+		{"demo-submission", 1},
+		{"demo-voter", 1},
+		{"demo-producer", 1},
+		{"demo-administrator", 1},
+		{"demo-operator", 1},
+		{"frontend", 1},
+		{"event", 1},
+		{"schedule", 1},
+		{"results", 1},
+		{"backstage", 1},
+		{"installation", 1},
+		{"planning", 1},
+		{"operations", 1},
+		{"results-management", 1},
+		{"enrollment", 1},
+		{"display", 2},
+		{"crew_control", 2},
+		{"control", 1},
+		{"override_confirmation", 1},
+	} {
+		if pageCounts[required.surface] != required.count {
+			return fmt.Errorf(
+				"%s page evidence = %d, want %d",
+				required.surface,
+				pageCounts[required.surface],
+				required.count,
+			)
+		}
 	}
 	return nil
 }
@@ -199,6 +216,7 @@ func TestBrowserCertificationReportRequiresDurableTwoDisplayTake(t *testing.T) {
 			Kind: "PROGRAM_ITEM_KIND_STARTING", Title: "Opening Keynote", Revision: "1",
 		}
 		return browserCertificationReport{
+			Commit:                         strings.Repeat("a", 40),
 			CrewCommandCommitted:           true,
 			DisplaysConnectedBeforeCommand: []string{"1", "2"},
 			ProgramOutput:                  programOutput,
@@ -213,6 +231,23 @@ func TestBrowserCertificationReportRequiresDurableTwoDisplayTake(t *testing.T) {
 				},
 			},
 			Pages: []browserPageEvidence{
+				validBrowserPageEvidence("demo-anonymous"),
+				validBrowserPageEvidence("demo-display"),
+				validBrowserPageEvidence("demo-results"),
+				validBrowserPageEvidence("demo-attendee"),
+				validBrowserPageEvidence("demo-submission"),
+				validBrowserPageEvidence("demo-voter"),
+				validBrowserPageEvidence("demo-producer"),
+				validBrowserPageEvidence("demo-administrator"),
+				validBrowserPageEvidence("demo-operator"),
+				validBrowserPageEvidence("frontend"),
+				validBrowserPageEvidence("event"),
+				validBrowserPageEvidence("schedule"),
+				validBrowserPageEvidence("backstage"),
+				validBrowserPageEvidence("installation"),
+				validBrowserPageEvidence("planning"),
+				validBrowserPageEvidence("operations"),
+				validBrowserPageEvidence("results-management"),
 				validBrowserPageEvidence("crew_control"),
 				validBrowserPageEvidence("crew_control"),
 				validBrowserPageEvidence("control"),
@@ -231,6 +266,12 @@ func TestBrowserCertificationReportRequiresDurableTwoDisplayTake(t *testing.T) {
 	}
 
 	tests := map[string]func(*browserCertificationReport){
+		"missing certified commit": func(report *browserCertificationReport) {
+			report.Commit = ""
+		},
+		"invalid certified commit": func(report *browserCertificationReport) {
+			report.Commit = "deadbeef"
+		},
 		"missing Crew command": func(report *browserCertificationReport) {
 			report.CrewCommandCommitted = false
 		},
@@ -267,6 +308,14 @@ func TestBrowserCertificationReportRequiresDurableTwoDisplayTake(t *testing.T) {
 		"missing browser evidence": func(report *browserCertificationReport) {
 			report.Pages = nil
 		},
+		"missing demo voter evidence": func(report *browserCertificationReport) {
+			for index, page := range report.Pages {
+				if page.Surface == "demo-voter" {
+					report.Pages = append(report.Pages[:index], report.Pages[index+1:]...)
+					return
+				}
+			}
+		},
 		"missing enrollment evidence": func(report *browserCertificationReport) {
 			report.Pages = report.Pages[:3]
 		},
@@ -291,11 +340,24 @@ func TestBrowserCertificationReportRequiresDurableTwoDisplayTake(t *testing.T) {
 	}
 }
 
+func TestBrowserCertificationWorktreeMustBeClean(t *testing.T) {
+	t.Parallel()
+	if err := validateBrowserCertificationWorktree(nil); err != nil {
+		t.Fatalf("clean worktree rejected: %v", err)
+	}
+	if err := validateBrowserCertificationWorktree([]byte(" M acceptance/test.go\n")); err == nil {
+		t.Fatal("dirty worktree accepted")
+	}
+	if err := validateBrowserCertificationWorktree([]byte("?? local.go\n")); err == nil {
+		t.Fatal("untracked source accepted")
+	}
+}
+
 func validBrowserPageEvidence(surface string) browserPageEvidence {
 	evidence := browserPageEvidence{
 		Surface: surface, Title: "Evidence", Language: "en", Main: true, Heading: true,
 	}
-	if surface == "display" {
+	if surface == "display" || surface == "demo-display" {
 		evidence.ReducedMotion = true
 		evidence.NonColorStatus = true
 	} else {
@@ -2107,6 +2169,7 @@ func certifyDemoBrowserJourneys(
 		backstage             bool
 	}{
 		{"attendee", "/my-schedule", "demo-attendee", false},
+		{"attendee", "/submissions", "demo-submission", false},
 		{"voter", "/voting/3?event_id=1", "demo-voter", false},
 		{"producer", "/backstage/events/1/results", "demo-producer", true},
 		{"administrator", "/backstage/themes", "demo-administrator", true},
@@ -2169,6 +2232,42 @@ func certifyDemoBrowserJourneys(
 				hasBackstage,
 				journey.backstage,
 			)
+		}
+		switch journey.surface {
+		case "demo-submission":
+			if err = driver.execute(
+				t.Context(),
+				`const form = document.querySelector('form input[name="entry_name"]').form;`+
+					`form.elements.entry_name.value = "Browser Certified Entry";`+
+					`form.requestSubmit();`,
+			); err != nil {
+				t.Fatalf("create demo submission: %v", err)
+			}
+			if err = driver.waitFor(
+				t.Context(),
+				10*time.Second,
+				`return document.body.textContent.includes("Browser Certified Entry");`,
+			); err != nil {
+				t.Fatalf("observe created demo submission: %v", err)
+			}
+		case "demo-voter":
+			if err = driver.execute(
+				t.Context(),
+				`const vote = document.querySelector('input[name="value"][value="4"]');`+
+					`document.documentElement.dataset.browserCertificationPending = "1";`+
+					`vote.checked = true; vote.form.requestSubmit();`,
+			); err != nil {
+				t.Fatalf("save demo vote: %v", err)
+			}
+			if err = driver.waitFor(
+				t.Context(),
+				10*time.Second,
+				`const vote = document.querySelector('input[name="value"][value="4"]');`+
+					`return !document.documentElement.dataset.browserCertificationPending && `+
+					`vote && vote.checked;`,
+			); err != nil {
+				t.Fatalf("observe saved demo vote: %v", err)
+			}
 		}
 		evidence = append(evidence, pageEvidence)
 		if err = driver.deleteCookie(t.Context(), "beamers_session"); err != nil {
@@ -2796,12 +2895,33 @@ func browserCertificationCommit(t *testing.T) string {
 	if commit := os.Getenv("GITHUB_SHA"); commit != "" {
 		return commit
 	}
+	status := exec.CommandContext(
+		t.Context(),
+		"git",
+		"status",
+		"--porcelain",
+		"--untracked-files=all",
+	)
+	output, err := status.CombinedOutput()
+	if err != nil {
+		t.Fatalf("read browser certification worktree: %v\n%s", err, output)
+	}
+	if err = validateBrowserCertificationWorktree(output); err != nil {
+		t.Fatal(err)
+	}
 	command := exec.CommandContext(t.Context(), "git", "rev-parse", "HEAD")
-	output, err := command.Output()
+	output, err = command.Output()
 	if err != nil {
 		t.Fatalf("read browser certification commit: %v", err)
 	}
 	return strings.TrimSpace(string(output))
+}
+
+func validateBrowserCertificationWorktree(status []byte) error {
+	if len(bytes.TrimSpace(status)) != 0 {
+		return errors.New("browser certification requires a clean worktree")
+	}
+	return nil
 }
 
 func writeBrowserCertificationReport(

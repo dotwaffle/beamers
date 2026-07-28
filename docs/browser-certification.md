@@ -3,12 +3,26 @@
 The `Browsers` workflow runs the current and previous major Chromium and Firefox releases against real served Beamers pages.
 It records the exact browser, driver, runner, and commit versions in downloadable JSON evidence.
 
-The hosted check covers public Schedule and released Results, Enrollment controls, an Override targeting confirmation, and two simultaneous Crew consoles observing a Program Claim, Preview selection, and durable Take to two connected browser Displays.
+The hosted check renders anonymous, attendee, voter, Producer, Operator, Administrator, Display, Theme, submission, and released Results surfaces against a representative demo installation.
+It creates a submission and saves a vote through the served browser interface.
+It also covers public Schedule and released Results, Enrollment controls, an Override targeting confirmation, and two simultaneous Crew consoles observing a Program Claim, Preview selection, and durable Take to two connected browser Displays.
 It starts a timed Result Reveal, proves an Emergency Alert pauses it beyond its original duration on both Displays, then clears the Alert and proves the Reveal resumes.
 It requires both Displays to render and acknowledge the exact committed Program Output.
-It also covers keyboard activation, visible focus, labels, touch targets, contrast, language metadata, reduced motion, non-color connection state, retained content during disconnect, and recovery after a compatible server restart.
+It also covers keyboard activation, visible focus, labels, touch targets, contrast, forced colors, language metadata, pause controls, 200% zoom, reduced motion, non-color connection state, retained content during disconnect, and recovery after a compatible server restart.
+The JSON report fails validation unless every required surface is present and identifies the exact certified commit.
 
-Hosted evidence does not certify Safari, kiosk fullscreen, kiosk hardware, an actual version upgrade, screen readers, touch input, or browser zoom.
+Hosted evidence does not certify Safari, kiosk fullscreen, kiosk hardware, an actual version upgrade, screen readers, touch input, or 400% zoom.
+
+## Release gate
+
+The `Release` workflow requires all evidence to identify the exact candidate commit:
+
+- a successful `Browsers` push run with current and previous Chromium and Firefox artifacts;
+- a successful full `Capacity` dispatch with every representative, rated, and diagnostic stress artifact;
+- closed manual certification issue #51 with a trusted `Certified commit: ...` line.
+
+The release job then reruns the canonical full-process and deployment checks.
+This keeps CSRF, session, route-interface, credential, federation, Ballot, public non-disclosure, live-stream, capacity, browser, and manual certification failures release-blocking.
 
 ## Run the hosted check locally
 
@@ -37,6 +51,7 @@ go test ./acceptance -run '^TestBrowserCertification$' -count=1 -timeout 25m -v
 
 Use `firefox` and `geckodriver` for Firefox.
 Never edit or combine reports: each run creates one new file and refuses to overwrite existing evidence.
+Local evidence also requires a clean worktree so the recorded commit identifies the tested source.
 
 ## Current Safari manual run
 
