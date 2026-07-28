@@ -262,6 +262,20 @@ func TestCapacityFreshnessStopsWhenCanceled(t *testing.T) {
 	}
 }
 
+func TestCapacityBackgroundCancellationDoesNotReportError(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	for range 1_000 {
+		target := make(chan error, 1)
+		sendCapacityError(ctx, target, ctx.Err())
+		select {
+		case err := <-target:
+			t.Fatalf("canceled background load reported %v", err)
+		default:
+		}
+	}
+}
+
 func TestCapacityFanoutSummarizesEachCommandFirst(t *testing.T) {
 	found := summarizeCapacityFanout([][]time.Duration{
 		{10 * time.Millisecond, 20 * time.Millisecond, 30 * time.Millisecond},
@@ -2601,9 +2615,11 @@ func sendCapacityError(
 	target chan<- error,
 	err error,
 ) {
+	if ctx.Err() != nil {
+		return
+	}
 	select {
 	case target <- err:
-	case <-ctx.Done():
 	default:
 	}
 }
