@@ -29,6 +29,46 @@ type EventSettingsPage struct {
 	Error           string
 }
 
+// DisplayThresholdFields holds one editable timer-emphasis row.
+type DisplayThresholdFields struct {
+	Seconds  string
+	Emphasis string
+}
+
+// DisplaySettingsForm holds submitted values for the Event Display settings editor.
+type DisplaySettingsForm struct {
+	RotationSeconds       string
+	ReducedEffects        bool
+	TimerThresholds       []DisplayThresholdFields
+	SessionTypeOverrides  map[string]bool
+	SessionTypeThresholds map[string][]DisplayThresholdFields
+	SessionOverrides      map[int]bool
+	SessionThresholds     map[int][]DisplayThresholdFields
+}
+
+// DisplaySettingsError identifies one accessible form error.
+type DisplaySettingsError struct {
+	Message      string
+	FieldID      string
+	FieldMessage string
+	Section      string
+}
+
+// DisplaySettingsPage contains one Producer's Event Display settings workflow.
+type DisplaySettingsPage struct {
+	AccountName    string
+	CSRFToken      string
+	ReducedEffects bool
+	Navigation     BackstageNavigation
+	Event          events.Event
+	EventRevision  int
+	Draft          rundown.DraftRundown
+	SessionTypes   []string
+	Form           DisplaySettingsForm
+	CommandID      string
+	Error          DisplaySettingsError
+}
+
 templ EventOverview(page EventOverviewPage) {
 	<!doctype html>
 	<html lang={ page.Event.EventLocale } data-locale={ page.Event.EventLocale }>
@@ -130,6 +170,12 @@ templ EventSettings(page EventSettingsPage) {
 					if page.Error != "" {
 						<p class="error" role="alert">{ page.Error }</p>
 					}
+					<p>
+						Related:
+						<a href={ templ.SafeURL("/backstage/events/" + strconv.Itoa(page.Event.ID) + "/display-settings") }>Event Display settings</a>
+						and
+						<a href={ templ.SafeURL("/backstage/events/" + strconv.Itoa(page.Event.ID) + "/theme") }>Event Theme</a>.
+					</p>
 					<form class="stack" method="post">
 						<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
 						<input type="hidden" name="command_id" value={ page.CommandID }/>
@@ -197,4 +243,187 @@ templ EventSettings(page EventSettingsPage) {
 			</div>
 		</body>
 	</html>
+}
+
+templ DisplaySettings(page DisplaySettingsPage) {
+	<!doctype html>
+	<html lang={ page.Event.EventLocale } data-locale={ page.Event.EventLocale }>
+		@Head("Event Display settings · " + page.Event.Name + " · Beamers")
+		<body data-reduced-effects={ strconv.FormatBool(page.ReducedEffects) }>
+			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, true)
+			<div class="backstage-layout">
+				@BackstageNavigationViews(page.Navigation)
+				<main>
+					<h1>Event Display settings</h1>
+					<p>{ page.Event.Name }</p>
+					<p>
+						Branding and colors remain in the
+						<a href={ templ.SafeURL("/backstage/events/" + strconv.Itoa(page.Event.ID) + "/theme") }>Event Theme</a>
+						workflow.
+					</p>
+					if page.Error.Message != "" {
+						if page.Error.FieldID == "" {
+							<p class="error" role="alert">{ page.Error.Message }</p>
+						} else {
+							<p class="error" role="alert">
+								<a href={ templ.SafeURL("#" + page.Error.FieldID) }>{ page.Error.Message }</a>
+							</p>
+						}
+					}
+					<form class="stack" method="post">
+						<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+						<input type="hidden" name="command_id" value={ page.CommandID }/>
+						<input type="hidden" name="expected_event_revision" value={ strconv.Itoa(page.EventRevision) }/>
+						<label for="rotation_seconds">Rotation interval in seconds</label>
+						if page.Error.FieldID == "rotation_seconds" {
+							<input
+								id="rotation_seconds"
+								type="number"
+								name="rotation_seconds"
+								min="5"
+								max="300"
+								value={ page.Form.RotationSeconds }
+								required
+								aria-invalid="true"
+								aria-describedby="rotation_seconds-error"
+							/>
+							<p id="rotation_seconds-error" class="error">{ page.Error.FieldMessage }</p>
+						} else {
+							<input
+								id="rotation_seconds"
+								type="number"
+								name="rotation_seconds"
+								min="5"
+								max="300"
+								value={ page.Form.RotationSeconds }
+								required
+							/>
+						}
+						<label>
+							<input
+								type="checkbox"
+								name="reduced_effects"
+								value="true"
+								checked?={ page.Form.ReducedEffects }
+							/>
+							Reduce Display motion and effects
+						</label>
+						<fieldset>
+							<legend>Default timer thresholds</legend>
+							<p>Set remaining seconds and an attention or urgent emphasis. Leave a row empty to remove it.</p>
+							@displayThresholdRows("timer_threshold", page.Form.TimerThresholds, page.Error)
+						</fieldset>
+						<details open?={ page.Error.Section == "session-type" }>
+							<summary>Session-type overrides</summary>
+							for _, sessionType := range page.SessionTypes {
+								<fieldset>
+									<legend>{ sessionType }</legend>
+									<label>
+										<input
+											type="checkbox"
+											name={ "session_type." + sessionType + ".threshold_override" }
+											value="true"
+											checked?={ page.Form.SessionTypeOverrides[sessionType] }
+										/>
+										Override Event defaults
+									</label>
+									<p>Leave all rows empty to use no thresholds. Clear the checkbox to inherit Event defaults.</p>
+									@displayThresholdRows(
+										"session_type." + sessionType + ".threshold",
+										page.Form.SessionTypeThresholds[sessionType],
+										page.Error,
+									)
+								</fieldset>
+							}
+						</details>
+						<details open?={ page.Error.Section == "session" }>
+							<summary>Individual Session overrides</summary>
+							if len(page.Draft.Sessions) == 0 {
+								<p>Add named Sessions in Plan and publish before configuring overrides.</p>
+							}
+							for _, session := range page.Draft.Sessions {
+								<fieldset>
+									<legend>{ session.Title } ({ string(session.Type) })</legend>
+									<label>
+										<input
+											type="checkbox"
+											name={ "session." + strconv.Itoa(session.ID) + ".threshold_override" }
+											value="true"
+											checked?={ page.Form.SessionOverrides[session.ID] }
+										/>
+										Override Event and Session-type defaults
+									</label>
+									<p>Leave all rows empty to use no thresholds. Clear the checkbox to inherit.</p>
+									@displayThresholdRows(
+										"session." + strconv.Itoa(session.ID) + ".threshold",
+										page.Form.SessionThresholds[session.ID],
+										page.Error,
+									)
+								</fieldset>
+							}
+						</details>
+						<button type="submit">Save Event Display settings</button>
+					</form>
+				</main>
+			</div>
+		</body>
+	</html>
+}
+
+templ displayThresholdRows(prefix string, rows []DisplayThresholdFields, formError DisplaySettingsError) {
+	for index, row := range rows {
+		<div>
+			<label for={ displayThresholdFieldID(prefix, "seconds", index) }>Remaining seconds</label>
+			if formError.FieldID == displayThresholdFieldID(prefix, "seconds", index) {
+				<input
+					id={ displayThresholdFieldID(prefix, "seconds", index) }
+					type="number"
+					name={ prefix + "_seconds" }
+					min="1"
+					max="86400"
+					value={ row.Seconds }
+					aria-invalid="true"
+					aria-describedby={ formError.FieldID + "-error" }
+				/>
+				<p id={ formError.FieldID + "-error" } class="error">{ formError.FieldMessage }</p>
+			} else {
+				<input
+					id={ displayThresholdFieldID(prefix, "seconds", index) }
+					type="number"
+					name={ prefix + "_seconds" }
+					min="1"
+					max="86400"
+					value={ row.Seconds }
+				/>
+			}
+			<label for={ displayThresholdFieldID(prefix, "emphasis", index) }>Emphasis</label>
+			if formError.FieldID == displayThresholdFieldID(prefix, "emphasis", index) {
+				<select
+					id={ displayThresholdFieldID(prefix, "emphasis", index) }
+					name={ prefix + "_emphasis" }
+					aria-invalid="true"
+					aria-describedby={ formError.FieldID + "-error" }
+				>
+					<option value="" selected?={ row.Emphasis == "" }>No threshold</option>
+					<option value="attention" selected?={ row.Emphasis == "attention" }>Attention</option>
+					<option value="urgent" selected?={ row.Emphasis == "urgent" }>Urgent</option>
+				</select>
+				<p id={ formError.FieldID + "-error" } class="error">{ formError.FieldMessage }</p>
+			} else {
+				<select
+					id={ displayThresholdFieldID(prefix, "emphasis", index) }
+					name={ prefix + "_emphasis" }
+				>
+					<option value="" selected?={ row.Emphasis == "" }>No threshold</option>
+					<option value="attention" selected?={ row.Emphasis == "attention" }>Attention</option>
+					<option value="urgent" selected?={ row.Emphasis == "urgent" }>Urgent</option>
+				</select>
+			}
+			<span class="visually-hidden">Threshold row { strconv.Itoa(index + 1) }</span>
+		</div>
+	}
+}
+
+func displayThresholdFieldID(prefix, kind string, index int) string {
+	return prefix + "-" + kind + "-" + strconv.Itoa(index)
 }
