@@ -70,7 +70,7 @@ func registerAttachmentRoutes(
 	mux.HandleFunc(
 		"/crew/events/{eventID}/attachment-release-cue",
 		crewRoute(),
-		handlers.fireReleaseCue,
+		handlers.releaseCue,
 	)
 	mux.HandleFunc("/public/attachments", publicRoute(), handlers.listReleasedVersions)
 	mux.HandleFunc(
@@ -388,6 +388,41 @@ func (handlers attachmentHandlers) setVersionRelease(
 	handlers.writeReleaseResult(response, request, result, err)
 }
 
+func (handlers attachmentHandlers) releaseCue(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	switch request.Method {
+	case http.MethodGet:
+		handlers.previewReleaseCue(response, request)
+	case http.MethodPost:
+		handlers.fireReleaseCue(response, request)
+	default:
+		response.Header().Set("Allow", http.MethodGet+", "+http.MethodPost)
+		http.Error(response, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (handlers attachmentHandlers) previewReleaseCue(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	if !requestAllowed(response, request, http.MethodGet, handlers.allowPlaintextCrew) {
+		return
+	}
+	actor, ok := handlers.authenticate(response, request)
+	if !ok {
+		return
+	}
+	eventID, err := positivePathID(request, "eventID")
+	if err != nil {
+		http.Error(response, "Event not found", http.StatusNotFound)
+		return
+	}
+	result, err := handlers.attachments.PreviewReleaseCue(request.Context(), actor, eventID)
+	handlers.writeReleaseResult(response, request, result, err)
+}
+
 func (handlers attachmentHandlers) fireReleaseCue(
 	response http.ResponseWriter,
 	request *http.Request,
@@ -426,6 +461,7 @@ func (handlers attachmentHandlers) writeReleaseResult(
 	case errors.Is(err, attachments.ErrUploadTargetNotFound):
 		http.Error(response, "release target not found", http.StatusNotFound)
 	case errors.Is(err, attachments.ErrReleaseRevision),
+		errors.Is(err, attachments.ErrReleaseCuePreviewChanged),
 		errors.Is(err, attachments.ErrCommandConflict):
 		http.Error(response, "release state conflict", http.StatusConflict)
 	case errors.Is(err, attachments.ErrReleaseCueBlocked):

@@ -1840,6 +1840,159 @@ func TestBrowserEventOverviewAndSettings(t *testing.T) {
 	server.stop(t)
 }
 
+func TestBrowserControlsEventAttachmentRelease(t *testing.T) {
+	fixture := prepareReleasedEntryAttachments(t)
+	administrator, server := fixture.administrator, fixture.server
+	administrator.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	rundownClient := rundownv1connect.NewRundownServiceClient(
+		administrator, "http://"+server.address, connect.WithProtoJSON(),
+	)
+	rundown, err := rundownClient.GetCrewRundown(t.Context(), connect.NewRequest(
+		&rundownv1.GetCrewRundownRequest{EventId: 1},
+	))
+	if err != nil {
+		t.Fatalf("load release cue Ceremony: %v", err)
+	}
+	var ceremonyID int64
+	for _, session := range rundown.Msg.GetSessions() {
+		if session.GetType() == rundownv1.SessionType_SESSION_TYPE_CEREMONY {
+			ceremonyID = session.GetId()
+			break
+		}
+	}
+	if ceremonyID == 0 {
+		t.Fatal("release cue Ceremony not found")
+	}
+
+	const settingsPath = "/backstage/events/1/settings"
+	settings := getFrontendPage(t, administrator, server.address, settingsPath)
+	for _, want := range []string{"Attachment release", "On Live", "Closing Session"} {
+		if settings.status != http.StatusOK || !strings.Contains(settings.body, want) {
+			t.Fatalf("Event release settings lack %q: %d %q", want, settings.status, settings.body)
+		}
+	}
+	configured := postFrontendForm(t, administrator, server.address, settingsPath, url.Values{
+		"csrf_token":                {requireFrontendCSRF(t, settings)},
+		"action":                    {"configure-attachment-release"},
+		"command_id":                {"browser-configure-event-release"},
+		"expected_release_revision": {"1"},
+		"release_policy":            {"OnEventReleaseCue"},
+		"cue_session_id":            {strconv.FormatInt(ceremonyID, 10)},
+	})
+	if configured.status != http.StatusSeeOther {
+		t.Fatalf("configure Event Attachment release = %d %q", configured.status, configured.body)
+	}
+	assertPublicAttachmentOnListeners(
+		t, server, fixture.publicVersion.ID,
+		http.StatusNotFound, "Attachment Version not found\n",
+	)
+
+	preview := getFrontendPage(t, administrator, server.address, settingsPath)
+	for _, want := range []string{
+		"On Event Release Cue",
+		"Cue not fired",
+		"Eligible Final Versions",
+		">1</dd>",
+		"Held Final Versions",
+		">0</dd>",
+		"Blocked Final Versions",
+	} {
+		if preview.status != http.StatusOK || !strings.Contains(preview.body, want) {
+			t.Fatalf("Event release preview lacks %q: %d %q", want, preview.status, preview.body)
+		}
+	}
+	if strings.Contains(preview.body, "Competition override") {
+		t.Fatalf("Event settings expose Competition override editing: %q", preview.body)
+	}
+	releaseValues := frontendNamedValues(
+		preview.body,
+		"expected_release_revision",
+		"preview_fingerprint",
+	)
+	staleFingerprint := releaseValues.Get("preview_fingerprint")
+	held := requestJSONMethod(
+		t.Context(), http.MethodPatch, administrator, server.address,
+		"/crew/events/1/attachment-versions/"+
+			strconv.Itoa(fixture.publicVersion.ID)+"/release",
+		map[string]any{
+			"expected_revision": fixture.publicVersion.ReleaseRevision,
+			"hold":              true, "command_id": "hold-browser-release-preview",
+		},
+	)
+	if held.status != http.StatusOK {
+		t.Fatalf("hold previewed Attachment = %d %q", held.status, held.body)
+	}
+	stale := postFrontendForm(t, administrator, server.address, settingsPath, url.Values{
+		"csrf_token":                {requireFrontendCSRF(t, preview)},
+		"action":                    {"fire-attachment-release-cue"},
+		"command_id":                {"browser-fire-stale-release-cue"},
+		"expected_release_revision": {releaseValues.Get("expected_release_revision")},
+		"preview_fingerprint":       {staleFingerprint},
+		"confirmed":                 {"true"},
+	})
+	if stale.status != http.StatusConflict ||
+		!strings.Contains(stale.body, "Release impact changed") {
+		t.Fatalf("stale Event Release Cue = %d %q", stale.status, stale.body)
+	}
+	assertPublicAttachmentOnListeners(
+		t, server, fixture.publicVersion.ID,
+		http.StatusNotFound, "Attachment Version not found\n",
+	)
+
+	lifted := requestJSONMethod(
+		t.Context(), http.MethodPatch, administrator, server.address,
+		"/crew/events/1/attachment-versions/"+
+			strconv.Itoa(fixture.publicVersion.ID)+"/release",
+		map[string]any{
+			"expected_revision": fixture.publicVersion.ReleaseRevision + 1,
+			"hold":              false, "command_id": "lift-browser-release-preview",
+		},
+	)
+	if lifted.status != http.StatusOK {
+		t.Fatalf("lift previewed Attachment hold = %d %q", lifted.status, lifted.body)
+	}
+	preview = getFrontendPage(t, administrator, server.address, settingsPath)
+	releaseValues = frontendNamedValues(
+		preview.body,
+		"expected_release_revision",
+		"preview_fingerprint",
+	)
+	unconfirmed := postFrontendForm(t, administrator, server.address, settingsPath, url.Values{
+		"csrf_token":                {requireFrontendCSRF(t, preview)},
+		"action":                    {"fire-attachment-release-cue"},
+		"command_id":                {"browser-fire-unconfirmed-release-cue"},
+		"expected_release_revision": {releaseValues.Get("expected_release_revision")},
+		"preview_fingerprint":       {releaseValues.Get("preview_fingerprint")},
+	})
+	if unconfirmed.status != http.StatusUnprocessableEntity {
+		t.Fatalf("unconfirmed Event Release Cue = %d %q", unconfirmed.status, unconfirmed.body)
+	}
+	fire := url.Values{
+		"csrf_token":                {requireFrontendCSRF(t, preview)},
+		"action":                    {"fire-attachment-release-cue"},
+		"command_id":                {"browser-fire-release-cue"},
+		"expected_release_revision": {releaseValues.Get("expected_release_revision")},
+		"preview_fingerprint":       {releaseValues.Get("preview_fingerprint")},
+		"confirmed":                 {"true"},
+	}
+	for attempt := range 2 {
+		fired := postFrontendForm(t, administrator, server.address, settingsPath, fire)
+		if fired.status != http.StatusSeeOther {
+			t.Fatalf("fire Event Release Cue attempt %d = %d %q", attempt+1, fired.status, fired.body)
+		}
+	}
+	assertPublicAttachmentOnListeners(
+		t, server, fixture.publicVersion.ID, http.StatusOK, "public release",
+	)
+	assertPublicAttachmentOnListeners(
+		t, server, fixture.crewVersion.ID,
+		http.StatusNotFound, "Attachment Version not found\n",
+	)
+	server.stop(t)
+}
+
 func TestBrowserConfiguresEventDisplays(t *testing.T) {
 	administrator, server := startAuthenticatedAdministratorWithPublicListener(t)
 	administrator.CheckRedirect = func(*http.Request, []*http.Request) error {

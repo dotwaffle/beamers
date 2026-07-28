@@ -154,9 +154,19 @@ func TestAttachmentReleasePolicyEligibilityHoldAndCue(t *testing.T) {
 		t.Fatalf("cue-governed files released early = %v", released)
 	}
 
+	preview, err := installationStore.PreviewEventAttachmentReleaseCue(
+		producerContext, event.ID,
+	)
+	if err != nil {
+		t.Fatalf("preview Event Release Cue: %v", err)
+	}
+	if preview.Eligible != 1 || preview.Held != 1 || preview.Blocked != 3 ||
+		!preview.BlockedByUnresolvedEntries || preview.Fingerprint == "" {
+		t.Fatalf("Event Release Cue preview = %+v", preview)
+	}
 	blocked := beginCommand(t, installationStore, producerContext)
 	if _, err = blocked.FireEventAttachmentReleaseCue(
-		producerContext, event.ID, 0, now,
+		producerContext, event.ID, 0, preview.Fingerprint, now,
 	); !errors.Is(err, ErrAttachmentReleaseCueBlocked) {
 		t.Fatalf("blocked Event Release Cue error = %v", err)
 	}
@@ -164,8 +174,25 @@ func TestAttachmentReleasePolicyEligibilityHoldAndCue(t *testing.T) {
 		t.Fatalf("roll back blocked Event Release Cue: %v", err)
 	}
 	unresolved.Update().SetResolutionRequired(false).SaveX(fixtureContext)
+	stale := beginCommand(t, installationStore, producerContext)
+	if _, err = stale.FireEventAttachmentReleaseCue(
+		producerContext, event.ID, 0, preview.Fingerprint, now,
+	); !errors.Is(err, ErrAttachmentReleaseCuePreviewChanged) {
+		t.Fatalf("changed Event Release Cue preview error = %v", err)
+	}
+	if err = stale.Rollback(); err != nil {
+		t.Fatalf("roll back changed Event Release Cue preview: %v", err)
+	}
+	preview, err = installationStore.PreviewEventAttachmentReleaseCue(
+		producerContext, event.ID,
+	)
+	if err != nil || preview.BlockedByUnresolvedEntries {
+		t.Fatalf("refreshed Event Release Cue preview = %+v, %v", preview, err)
+	}
 	cue := beginCommand(t, installationStore, producerContext)
-	fired, err := cue.FireEventAttachmentReleaseCue(producerContext, event.ID, 0, now)
+	fired, err := cue.FireEventAttachmentReleaseCue(
+		producerContext, event.ID, 0, preview.Fingerprint, now,
+	)
 	if err != nil {
 		t.Fatalf("fire Event Release Cue: %v", err)
 	}
@@ -174,6 +201,22 @@ func TestAttachmentReleasePolicyEligibilityHoldAndCue(t *testing.T) {
 	}
 	if fired.CueAt.IsZero() || fired.Revision != 1 {
 		t.Fatalf("Event Release Cue = %+v", fired)
+	}
+	repeatedPreview, err := installationStore.PreviewEventAttachmentReleaseCue(
+		producerContext, event.ID,
+	)
+	if err != nil {
+		t.Fatalf("preview repeated Event Release Cue: %v", err)
+	}
+	repeated := beginCommand(t, installationStore, producerContext)
+	replayed, err := repeated.FireEventAttachmentReleaseCue(
+		producerContext, event.ID, 1, repeatedPreview.Fingerprint, now.Add(time.Minute),
+	)
+	if err != nil || replayed.Revision != fired.Revision || !replayed.CueAt.Equal(fired.CueAt) {
+		t.Fatalf("repeated Event Release Cue = %+v, %v", replayed, err)
+	}
+	if err = repeated.Commit(); err != nil {
+		t.Fatalf("commit repeated Event Release Cue: %v", err)
 	}
 	if released := releasedVersionIDs(t, installationStore); !slices.Equal(released, []int{publicVersion.ID}) {
 		t.Fatalf("cue releases = %v, want [%d]", released, publicVersion.ID)
