@@ -42,6 +42,10 @@ var (
 	ErrReopenWindowRevision = store.ErrReopenWindowRevision
 	// ErrReopenWindowExtension means a requested expiry did not extend the window.
 	ErrReopenWindowExtension = store.ErrReopenWindowExtension
+	// ErrReopenWindowExpiry means an extension is not future-bounded.
+	ErrReopenWindowExpiry = errors.New("reopen window expiry must be future-bounded")
+	// ErrReopenWindowInactive means historical window state is immutable.
+	ErrReopenWindowInactive = store.ErrReopenWindowInactive
 	// ErrReleaseRevision means Attachment release state changed after observation.
 	ErrReleaseRevision = store.ErrAttachmentReleaseRevision
 	// ErrReleasePolicy means an Attachment Release Policy is invalid.
@@ -678,6 +682,29 @@ func (service *Service) CompetitionCrewState(
 	return result, nil
 }
 
+// CrewReopenWindows returns retained private windows for one exact owner.
+func (service *Service) CrewReopenWindows(
+	ctx context.Context,
+	actor auth.Account,
+	eventID int,
+	targetType TargetKind,
+	targetID int,
+) ([]store.ReopenWindow, error) {
+	if eventID <= 0 || targetID <= 0 ||
+		(targetType != TargetPresentation && targetType != TargetEntry) {
+		return nil, ErrInvalidInput
+	}
+	if actor.EventRoles[eventID] == "" {
+		return nil, ErrProducerRequired
+	}
+	return service.storage.LoadReopenWindows(
+		actor.Context(ctx),
+		eventID,
+		targetType,
+		targetID,
+	)
+}
+
 // SubmittedState returns only the signed-in Account's private file metadata.
 func (service *Service) SubmittedState(
 	ctx context.Context,
@@ -1077,9 +1104,12 @@ func (service *Service) UpdateReopenWindow(
 ) (store.ReopenWindow, error) {
 	now := service.now().UTC()
 	if input.EventID <= 0 || input.WindowID <= 0 || input.ExpectedRevision <= 0 ||
-		(input.Close != input.ExpiresAt.IsZero()) ||
-		(!input.Close && (!input.ExpiresAt.After(now) || input.ExpiresAt.After(now.Add(maxReopenDuration)))) {
+		(input.Close != input.ExpiresAt.IsZero()) {
 		return store.ReopenWindow{}, ErrInvalidInput
+	}
+	if !input.Close &&
+		(!input.ExpiresAt.After(now) || input.ExpiresAt.After(now.Add(maxReopenDuration))) {
+		return store.ReopenWindow{}, ErrReopenWindowExpiry
 	}
 	if err := command.ValidateID(input.CommandID); err != nil {
 		return store.ReopenWindow{}, err

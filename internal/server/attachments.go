@@ -256,6 +256,8 @@ func (handlers attachmentHandlers) updateReopenWindow(response http.ResponseWrit
 		errors.Is(err, attachments.ErrCommandConflict):
 		http.Error(response, "Reopen Window conflict", http.StatusConflict)
 	case errors.Is(err, attachments.ErrInvalidInput),
+		errors.Is(err, attachments.ErrReopenWindowExpiry),
+		errors.Is(err, attachments.ErrReopenWindowInactive),
 		errors.Is(err, attachments.ErrReopenWindowExtension),
 		errors.Is(err, command.ErrInvalidID):
 		http.Error(response, "invalid request", http.StatusUnprocessableEntity)

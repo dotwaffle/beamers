@@ -26,6 +26,8 @@ var (
 	ErrReopenWindowRevision = errors.New("reopen window revision conflict")
 	// ErrReopenWindowExtension means an update did not extend the existing expiry.
 	ErrReopenWindowExtension = errors.New("reopen window extension must increase expiry")
+	// ErrReopenWindowInactive means historical window state is immutable.
+	ErrReopenWindowInactive = errors.New("reopen window is not active")
 )
 
 // UploadTargetKind is the closed owner vocabulary for scoped attachments.
@@ -555,6 +557,31 @@ func (installation *SQLite) LoadCompetitionAttachmentCrewState(
 	return result, nil
 }
 
+// LoadReopenWindows returns retained windows for one exact Attachment owner.
+func (installation *SQLite) LoadReopenWindows(
+	ctx context.Context,
+	eventID int,
+	targetType UploadTargetKind,
+	targetID int,
+) ([]ReopenWindow, error) {
+	windows, err := installation.client.ReopenWindow.Query().
+		Where(
+			reopenwindow.EventIDEQ(eventID),
+			reopenwindow.TargetTypeEQ(reopenwindow.TargetType(targetType)),
+			reopenwindow.TargetIDEQ(targetID),
+		).
+		Order(ent.Asc(reopenwindow.FieldID)).
+		All(systemContext(ctx))
+	if err != nil {
+		return nil, opaqueError("load Reopen Windows", err)
+	}
+	result := make([]ReopenWindow, 0, len(windows))
+	for _, window := range windows {
+		result = append(result, reopenWindow(window))
+	}
+	return result, nil
+}
+
 // LoadAccountAttachmentState returns file metadata for only one Account's submitted content.
 func (installation *SQLite) LoadAccountAttachmentState(
 	ctx context.Context,
@@ -748,6 +775,9 @@ func (transaction *CommandTx) UpdateReopenWindow(
 	}
 	if window.Revision != expectedRevision {
 		return ReopenWindow{}, ErrReopenWindowRevision
+	}
+	if !window.ClosedAt.IsZero() || !window.ExpiresAt.After(now) {
+		return ReopenWindow{}, ErrReopenWindowInactive
 	}
 	if !closeWindow && !expiresAt.After(window.ExpiresAt) {
 		return ReopenWindow{}, ErrReopenWindowExtension

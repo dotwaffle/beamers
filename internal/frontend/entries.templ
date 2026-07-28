@@ -65,6 +65,75 @@ func entryReopenWindows(values []store.ReopenWindow, entryID int) []store.Reopen
 	return result
 }
 
+func reopenWindowHistory(values []store.ReopenWindow, now time.Time) []store.ReopenWindow {
+	result := make([]store.ReopenWindow, 0)
+	for _, window := range values {
+		if !window.ClosedAt.IsZero() || !window.ExpiresAt.After(now) {
+			result = append(result, window)
+		}
+	}
+	return result
+}
+
+// ReopenWindows renders owner-scoped active controls and retained history.
+templ ReopenWindows(
+	owner, timezone, locale, csrfToken, commandID string,
+	windows []store.ReopenWindow,
+	producer bool,
+	now time.Time,
+) {
+	<h4>Reopen Windows</h4>
+	for _, window := range windows {
+		if window.ClosedAt.IsZero() && window.ExpiresAt.After(now) {
+			<p>
+				<strong>Active Reopen Window:</strong>
+				{ owner } — open until
+				@EventTime(window.ExpiresAt, timezone, locale)
+				: { window.Reason }
+			</p>
+			if producer {
+				<form method="post">
+					<input type="hidden" name="csrf_token" value={ csrfToken }/>
+					<input type="hidden" name="action" value="extend-reopen-window"/>
+					<input type="hidden" name="command_id" value={ commandID }/>
+					<input type="hidden" name="entry_id" value={ strconv.Itoa(window.TargetID) }/>
+					<input type="hidden" name="window_id" value={ strconv.Itoa(window.ID) }/>
+					<input type="hidden" name="expected_revision" value={ strconv.Itoa(window.Revision) }/>
+					<label>Extend until ({ timezone }) <input type="datetime-local" name="expires_at" required/></label>
+					<button type="submit">Extend Reopen Window</button>
+				</form>
+				<form method="post">
+					<input type="hidden" name="csrf_token" value={ csrfToken }/>
+					<input type="hidden" name="action" value="close-reopen-window"/>
+					<input type="hidden" name="command_id" value={ commandID }/>
+					<input type="hidden" name="entry_id" value={ strconv.Itoa(window.TargetID) }/>
+					<input type="hidden" name="window_id" value={ strconv.Itoa(window.ID) }/>
+					<input type="hidden" name="expected_revision" value={ strconv.Itoa(window.Revision) }/>
+					<label><input type="checkbox" name="confirm_close" value="true" required/> Confirm early closure</label>
+					<button type="submit">Close Reopen Window early</button>
+				</form>
+			}
+		}
+	}
+	if history := reopenWindowHistory(windows, now); len(history) > 0 {
+		<details>
+			<summary>Reopen Window history</summary>
+			for _, window := range history {
+				<p>
+					if window.ClosedAt.IsZero() {
+						Expired
+						@EventTime(window.ExpiresAt, timezone, locale)
+					} else {
+						Closed
+						@EventTime(window.ClosedAt, timezone, locale)
+					}
+					: { window.Reason }
+				</p>
+			}
+		</details>
+	}
+}
+
 func entryUploadPath(eventID, sessionID int) string {
 	return "/backstage/events/" + strconv.Itoa(eventID) +
 		"/competitions/" + strconv.Itoa(sessionID) + "/entries/upload"
@@ -432,22 +501,16 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 										}
 									</section>
 								}
-								<h4>Reopen Windows</h4>
-								for _, window := range entryReopenWindows(page.Attachments.ReopenWindows, entry.ID) {
-									if window.ClosedAt.IsZero() {
-										<p>
-											Open until
-											@EventTime(window.ExpiresAt, page.Event.Timezone, page.Event.EventLocale)
-											: { window.Reason }
-										</p>
-									} else {
-										<p>
-											Closed
-											@EventTime(window.ClosedAt, page.Event.Timezone, page.Event.EventLocale)
-											: { window.Reason }
-										</p>
-									}
-								}
+								@ReopenWindows(
+									entry.Name,
+									page.Event.Timezone,
+									page.Event.EventLocale,
+									page.CSRFToken,
+									page.CommandID,
+									entryReopenWindows(page.Attachments.ReopenWindows, entry.ID),
+									page.Producer,
+									time.Now(),
+								)
 								if page.Producer {
 									<form method="post">
 										<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>

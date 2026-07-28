@@ -128,6 +128,14 @@ func (handlers entryHandlers) submitPresentationSubmission(
 			},
 		)
 		return err
+	case "extend-reopen-window", "close-reopen-window":
+		return handlers.updateReopenWindow(
+			request,
+			actor,
+			eventID,
+			attachments.TargetPresentation,
+			sessionID,
+		)
 	default:
 		return presentation.ErrInvalidInput
 	}
@@ -156,6 +164,17 @@ func (handlers entryHandlers) renderPresentationSubmission(
 		handlers.browser.frontendError(response, request, "read Presentation submission", err)
 		return
 	}
+	windows, err := handlers.attachments.CrewReopenWindows(
+		request.Context(),
+		actor,
+		eventID,
+		attachments.TargetPresentation,
+		sessionID,
+	)
+	if err != nil {
+		handlers.browser.frontendError(response, request, "read Presentation Reopen Windows", err)
+		return
+	}
 	accounts, err := handlers.presentation.AssignableAccounts(request.Context(), actor, eventID)
 	if err != nil {
 		handlers.browser.frontendError(response, request, "list Presentation Submitter Accounts", err)
@@ -170,7 +189,8 @@ func (handlers entryHandlers) renderPresentationSubmission(
 		frontend.PresentationSubmissionPage{
 			AccountName: actor.Name, CSRFToken: csrfToken,
 			ReducedEffects: reducedEffectsCookie(request), Navigation: backstageNavigation(actor),
-			CommandID: commandID, Event: foundEvent, State: state, Accounts: accounts, Error: message,
+			CommandID: commandID, Event: foundEvent, State: state, Accounts: accounts,
+			ReopenWindows: windows, Error: message,
 		},
 	))
 }
@@ -178,10 +198,16 @@ func (handlers entryHandlers) renderPresentationSubmission(
 func presentationSubmissionError(err error) (int, string) {
 	switch {
 	case errors.Is(err, attachments.ErrInvalidInput),
-		errors.Is(err, attachments.ErrReopenWindowExtension),
 		errors.Is(err, presentation.ErrInvalidInput),
 		errors.Is(err, command.ErrInvalidID):
 		return http.StatusUnprocessableEntity, "Check the Presentation submission and try again."
+	case errors.Is(err, attachments.ErrReopenWindowExtension):
+		return http.StatusUnprocessableEntity,
+			"Choose an expiry later than the current expiry."
+	case errors.Is(err, attachments.ErrReopenWindowExpiry):
+		return http.StatusUnprocessableEntity, "Choose a future expiry within 7 days."
+	case errors.Is(err, attachments.ErrReopenWindowInactive):
+		return http.StatusUnprocessableEntity, "Only active Reopen Windows can be changed."
 	case errors.Is(err, attachments.ErrReopenWindowRevision),
 		errors.Is(err, attachments.ErrCommandConflict),
 		errors.Is(err, presentation.ErrRevisionConflict),

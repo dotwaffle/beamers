@@ -2,9 +2,11 @@ package frontend
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/dotwaffle/beamers/internal/events"
 	"github.com/dotwaffle/beamers/internal/presentation"
+	"github.com/dotwaffle/beamers/internal/store"
 )
 
 type PresentationSubmissionPage struct {
@@ -16,6 +18,7 @@ type PresentationSubmissionPage struct {
 	Event          events.Event
 	State          presentation.State
 	Accounts       []presentation.Account
+	ReopenWindows  []store.ReopenWindow
 	Error          string
 }
 
@@ -40,6 +43,16 @@ templ PresentationSubmission(page PresentationSubmissionPage) {
 					}
 					<p><strong>Speaker credit:</strong> { page.State.Speaker }</p>
 					<p>{ page.State.PublicDetails }</p>
+					@ReopenWindows(
+						page.State.SessionTitle,
+						page.Event.Timezone,
+						page.Event.EventLocale,
+						page.CSRFToken,
+						page.CommandID,
+						page.ReopenWindows,
+						true,
+						time.Now(),
+					)
 					<form method="post">
 						<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
 						<input type="hidden" name="action" value="assign-submitter"/>
