@@ -319,14 +319,19 @@ func (evidence browserPageEvidence) validate() error {
 	if !evidence.Heading {
 		findings = append(findings, "missing heading")
 	}
-	if evidence.Surface == "display" {
+	switch evidence.Surface {
+	case "display":
 		if !evidence.ReducedMotion {
 			findings = append(findings, "missing reduced motion")
 		}
 		if !evidence.NonColorStatus {
 			findings = append(findings, "missing non-color status")
 		}
-	} else {
+	case "demo-display":
+		if !evidence.ReducedMotion {
+			findings = append(findings, "missing reduced motion")
+		}
+	default:
 		if !evidence.KeyboardOperable {
 			findings = append(findings, "missing keyboard operation")
 		}
@@ -762,6 +767,10 @@ func TestBrowserCertification(t *testing.T) {
 			config.ExpectedMajor,
 		)
 	}
+	report.Pages = append(
+		report.Pages,
+		certifyDemoBrowserJourneys(t, client, crewDriverEndpoint, config, bin)...,
+	)
 	assertResponsivePageWidths(t, crewDriver, origin+"/", 320, 375, 768, 1024, 1440)
 	assertResponsivePageWidths(t, crewDriver, origin+"/events/revision-2099", 320, 1440)
 	assertResponsivePageWidths(t, crewDriver, origin+"/schedule", 320, 375, 768, 1024, 1440)
@@ -2048,6 +2057,123 @@ func certifyInteractivePage(
 	evidence, err := driver.auditPage(t.Context(), surface)
 	if err != nil {
 		t.Fatal(err)
+	}
+	return evidence
+}
+
+func certifyDemoBrowserJourneys(
+	t *testing.T,
+	client *http.Client,
+	driverEndpoint string,
+	config browserCertificationConfig,
+	bin string,
+) []browserPageEvidence {
+	t.Helper()
+	demo := startDemo(t, bin)
+	defer demo.stop(t)
+	driver := startBrowserSession(t, client, driverEndpoint, config)
+	defer closeBrowserSession(t, driver)
+	_, port, err := net.SplitHostPort(demo.address)
+	if err != nil {
+		t.Fatalf("split demo browser address: %v", err)
+	}
+	origin := "http://" + net.JoinHostPort("localhost", port)
+	browserOrigin, err := url.Parse(origin)
+	if err != nil {
+		t.Fatalf("parse demo browser origin: %v", err)
+	}
+	evidence := []browserPageEvidence{
+		certifyInteractivePage(t, driver, origin+"/", "demo-anonymous"),
+	}
+	if err = driver.navigate(t.Context(), origin+"/display"); err != nil {
+		t.Fatalf("navigate to demo Display: %v", err)
+	}
+	displayEvidence, err := driver.auditPage(t.Context(), "demo-display")
+	if err != nil {
+		t.Fatal(err)
+	}
+	evidence = append(
+		evidence,
+		displayEvidence,
+		certifyInteractivePage(
+			t,
+			driver,
+			origin+"/results/events/1/standalone/4",
+			"demo-results",
+		),
+	)
+	for _, journey := range []struct {
+		handle, path, surface string
+		backstage             bool
+	}{
+		{"attendee", "/my-schedule", "demo-attendee", false},
+		{"voter", "/voting/3?event_id=1", "demo-voter", false},
+		{"producer", "/backstage/events/1/results", "demo-producer", true},
+		{"administrator", "/backstage/themes", "demo-administrator", true},
+		{"operator", "/backstage/events/1/operations", "demo-operator", true},
+	} {
+		account := authenticatedClient(t)
+		assertJSONRequest(
+			t,
+			account,
+			demo.address,
+			"/auth/sign-in",
+			map[string]string{"name": journey.handle, "password": "demo"},
+			http.StatusNoContent,
+			"",
+		)
+		account.Jar.SetCookies(
+			browserOrigin,
+			account.Jar.Cookies(&url.URL{Scheme: "http", Host: demo.address}),
+		)
+		addBrowserCookie(t, driver, browserCookie(
+			t,
+			account,
+			origin,
+			"beamers_session",
+			"/",
+		))
+		pageEvidence := certifyInteractivePage(
+			t,
+			driver,
+			origin+journey.path,
+			journey.surface,
+		)
+		actualPath, err := driver.evaluateString(
+			t.Context(),
+			`return location.pathname + location.search;`,
+		)
+		if err != nil {
+			t.Fatalf("read %s demo browser path: %v", journey.handle, err)
+		}
+		if actualPath != journey.path {
+			t.Fatalf(
+				"%s demo browser path = %q, want %q",
+				journey.handle,
+				actualPath,
+				journey.path,
+			)
+		}
+		hasBackstage, err := driver.evaluateBool(
+			t.Context(),
+			`return Boolean(document.querySelector(`+
+				`'nav[aria-label="Primary"] a[href="/backstage"]'));`,
+		)
+		if err != nil {
+			t.Fatalf("read %s demo browser navigation: %v", journey.handle, err)
+		}
+		if hasBackstage != journey.backstage {
+			t.Fatalf(
+				"%s demo Backstage navigation = %t, want %t",
+				journey.handle,
+				hasBackstage,
+				journey.backstage,
+			)
+		}
+		evidence = append(evidence, pageEvidence)
+		if err = driver.deleteCookie(t.Context(), "beamers_session"); err != nil {
+			t.Fatalf("clear %s demo browser session: %v", journey.handle, err)
+		}
 	}
 	return evidence
 }

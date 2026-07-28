@@ -80,6 +80,7 @@ type OpenConfig struct {
 	TracerProvider    trace.TracerProvider
 	MeterProvider     metric.MeterProvider
 	AllowDemoPassword bool
+	Now               func() time.Time
 }
 
 // Initialize creates a new installation with the committed schema.
@@ -204,7 +205,11 @@ func OpenInstallationWithConfig(
 		// Startup storage failures deliberately produce a recovery-mode handle.
 		return installation, nil //nolint:nilerr // The caller reads StartupError to select recovery mode.
 	}
-	overrideService, err := overrides.New(ctx, storage, time.Now)
+	now := config.Now
+	if now == nil {
+		now = time.Now
+	}
+	overrideService, err := overrides.New(ctx, storage, now)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
 	}
@@ -212,37 +217,39 @@ func OpenInstallationWithConfig(
 	authConfig := auth.DefaultConfig()
 	authConfig.StorageState = overrideService
 	authConfig.AllowDemoPassword = config.AllowDemoPassword
+	authConfig.Now = now
 	authentication, err := auth.New(storage, authConfig)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.authentication = authentication
-	themeService, err := themes.New(storage, time.Now)
+	themeService, err := themes.New(storage, now)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.themes = themeService
-	eventThemeService, err := eventthemes.New(storage, themeService, time.Now)
+	eventThemeService, err := eventthemes.New(storage, themeService, now)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.eventThemes = eventThemeService
-	activationService, err := activation.New(storage, time.Now)
+	activationService, err := activation.New(storage, now)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.activation = activationService
-	attachmentService, err := attachments.New(ctx, storage, config.AttachmentsDir, time.Now)
+	attachmentService, err := attachments.New(ctx, storage, config.AttachmentsDir, now)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.attachments = attachmentService
-	eventService, err := events.New(storage, time.Now)
+	eventService, err := events.New(storage, now)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.events = eventService
 	displayConfig := displays.DefaultConfig()
+	displayConfig.Now = now
 	displayConfig.Emergency = overrideService
 	displayConfig.EventThemes = eventThemeService
 	displayService, err := displays.New(storage, displayConfig)
@@ -250,27 +257,27 @@ func OpenInstallationWithConfig(
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.displays = displayService
-	competitionService, err := competition.New(storage, time.Now)
+	competitionService, err := competition.New(storage, now)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.competition = competitionService
-	presentationService, err := presentation.New(storage, time.Now)
+	presentationService, err := presentation.New(storage, now)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.presentation = presentationService
-	resultsService, err := results.New(storage, time.Now)
+	resultsService, err := results.New(storage, now)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.results = resultsService
-	programControlService, err := programcontrol.New(storage, resultsService, time.Now)
+	programControlService, err := programcontrol.New(storage, resultsService, now)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.programControl = programControlService
-	rundownCommands, err := rundown.NewCommands(storage, time.Now)
+	rundownCommands, err := rundown.NewCommands(storage, now)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
 	}
@@ -280,12 +287,12 @@ func OpenInstallationWithConfig(
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.rundownQueries = rundownQueries
-	scheduleService, err := schedule.New(storage, time.Now)
+	scheduleService, err := schedule.New(storage, now)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.schedule = scheduleService
-	baselineCommands, err := schedulebaseline.NewCommands(storage, time.Now)
+	baselineCommands, err := schedulebaseline.NewCommands(storage, now)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
 	}
@@ -295,12 +302,12 @@ func OpenInstallationWithConfig(
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.baselineQueries = baselineQueries
-	sessionControlService, err := sessioncontrol.New(storage, resultsService, time.Now)
+	sessionControlService, err := sessioncontrol.New(storage, resultsService, now)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.sessionControl = sessionControlService
-	votingService, err := voting.New(storage, nil, time.Now)
+	votingService, err := voting.New(storage, nil, now)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
 	}
