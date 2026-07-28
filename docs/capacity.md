@@ -38,6 +38,7 @@ Server and workload generator share the runner; the generator still uses fixed-r
 Each rated run samples at least 200 independent live commands.
 Percentiles use the nearest-rank method.
 Each command first produces p50, p95, p99, and maximum Display fanout latency; those per-command results are then summarized across commands rather than pooling every command-Display observation.
+Certification compares the p50 of command p50s, p95 of command p95s, p99 of command p99s, and maximum of command maxima with the objectives below.
 The commit-to boundary uses the server's command decision timestamp immediately before the durable transaction, conservatively including commit time rather than understating delivery latency.
 
 The rated objectives are:

@@ -304,6 +304,21 @@ func TestCapacityFanoutSummarizesEachCommandFirst(t *testing.T) {
 	}
 }
 
+func TestCapacityDisplayObjectivesUseCrossCommandSummaries(t *testing.T) {
+	commands := make([][]time.Duration, 100)
+	for index := range commands {
+		commands[index] = []time.Duration{200 * time.Millisecond}
+	}
+	commands[len(commands)-1] = []time.Duration{300 * time.Millisecond}
+	if !capacityDisplayCommitWithinObjectives(summarizeCapacityFanout(commands)) {
+		t.Fatal("one sub-2s outlier failed otherwise passing cross-command objectives")
+	}
+	commands[len(commands)-1] = []time.Duration{2_001 * time.Millisecond}
+	if capacityDisplayCommitWithinObjectives(summarizeCapacityFanout(commands)) {
+		t.Fatal("maximum-of-maxima objective accepted a Display over 2s")
+	}
+}
+
 func TestCapacityCertificationAcceptsHostedCombinedTopology(t *testing.T) {
 	t.Setenv("RUNNER_ENVIRONMENT", "github-hosted")
 	profile, err := capacityProfileNamed("rated")
@@ -2534,29 +2549,21 @@ func verifyCapacityThresholds(t *testing.T, metrics capacityMetrics) bool {
 		passed = false
 		t.Errorf("durable live command maximum = %dms, want <= 2000ms", live.MaxMS)
 	}
-	for index, fanout := range metrics.displayCommit {
-		display := summarizeCapacityLatency(fanout)
-		if display.P50MS > 250 ||
-			display.P95MS > 500 ||
-			display.P99MS > 1_000 ||
-			display.MaxMS > 2_000 {
-			passed = false
-			t.Errorf(
-				"command %d commit-to-Display fanout = %+v, want <= 250/500/1000/2000ms",
-				index,
-				display,
-			)
-		}
+	displayCommit := summarizeCapacityFanout(metrics.displayCommit)
+	if !capacityDisplayCommitWithinObjectives(displayCommit) {
+		passed = false
+		t.Errorf(
+			"commit-to-Display fanout summary = %+v, want p50/p95/p99/max <= 250/500/1000/2000ms",
+			displayCommit,
+		)
 	}
-	for index, fanout := range metrics.displayOperator {
-		if display := summarizeCapacityLatency(fanout); display.P95MS > 750 {
-			passed = false
-			t.Errorf(
-				"command %d operator-to-Display p95 = %dms, want <= 750ms",
-				index,
-				display.P95MS,
-			)
-		}
+	displayOperator := summarizeCapacityFanout(metrics.displayOperator)
+	if displayOperator.P95.P95MS > 750 {
+		passed = false
+		t.Errorf(
+			"operator-to-Display fanout summary = %+v, want p95 <= 750ms",
+			displayOperator,
+		)
 	}
 	if metrics.maximumTimerSkew > capacityTimerSkewBound {
 		passed = false
@@ -2576,6 +2583,13 @@ func verifyCapacityThresholds(t *testing.T, metrics capacityMetrics) bool {
 		)
 	}
 	return passed
+}
+
+func capacityDisplayCommitWithinObjectives(display capacityFanout) bool {
+	return display.P50.P50MS <= 250 &&
+		display.P95.P95MS <= 500 &&
+		display.P99.P99MS <= 1_000 &&
+		display.Maximum.MaxMS <= 2_000
 }
 
 func verifyCapacityWarning(
