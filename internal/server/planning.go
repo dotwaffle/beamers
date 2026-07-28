@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dotwaffle/beamers/internal/attachments"
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/displayviews"
 	"github.com/dotwaffle/beamers/internal/events"
@@ -25,6 +26,7 @@ import (
 type planningHandlers struct {
 	browser        frontendHandlers
 	events         *events.Service
+	attachments    *attachments.Service
 	commands       *rundown.Commands
 	queries        *rundown.Queries
 	notifyDisplays func()
@@ -34,6 +36,7 @@ func registerPlanningRoutes(
 	mux *routeMux,
 	authentication *auth.Service,
 	eventService *events.Service,
+	attachmentService *attachments.Service,
 	commands *rundown.Commands,
 	queries *rundown.Queries,
 	notifyDisplays func(),
@@ -46,6 +49,7 @@ func registerPlanningRoutes(
 			random:         rand.Reader,
 		},
 		events:         eventService,
+		attachments:    attachmentService,
 		commands:       commands,
 		queries:        queries,
 		notifyDisplays: notifyDisplays,
@@ -130,9 +134,46 @@ func (handlers planningHandlers) settings(response http.ResponseWriter, request 
 		if !handlers.browser.validForm(response, request) {
 			return
 		}
-		input, inputErr := eventFormInput(request)
-		if inputErr == nil {
-			_, inputErr = handlers.events.Update(request.Context(), actor, eventID, input)
+		var inputErr error
+		switch request.Form.Get("action") {
+		case "configure-attachment-release":
+			var revision, cueSessionID int
+			revision, inputErr = nonnegativeFormInt(request, "expected_release_revision")
+			if inputErr == nil {
+				cueSessionID, inputErr = optionalPositiveFormInt(request, "cue_session_id")
+			}
+			if inputErr == nil {
+				_, inputErr = handlers.attachments.ConfigureEventRelease(
+					request.Context(),
+					actor,
+					attachments.ConfigureEventReleaseInput{
+						EventID: eventID, ExpectedRevision: revision,
+						Policy:       attachments.ReleasePolicy(request.Form.Get("release_policy")),
+						CueSessionID: cueSessionID, CommandID: request.Form.Get("command_id"),
+					},
+				)
+			}
+		case "fire-attachment-release-cue":
+			var revision int
+			revision, inputErr = nonnegativeFormInt(request, "expected_release_revision")
+			if inputErr == nil {
+				_, inputErr = handlers.attachments.FireReleaseCue(
+					request.Context(),
+					actor,
+					attachments.FireReleaseCueInput{
+						EventID: eventID, ExpectedRevision: revision,
+						PreviewFingerprint: request.Form.Get("preview_fingerprint"),
+						Confirmed:          request.Form.Get("confirmed") == "true",
+						CommandID:          request.Form.Get("command_id"),
+					},
+				)
+			}
+		default:
+			var input events.CreateInput
+			input, inputErr = eventFormInput(request)
+			if inputErr == nil {
+				_, inputErr = handlers.events.Update(request.Context(), actor, eventID, input)
+			}
 		}
 		if inputErr != nil {
 			status, message := planningError(inputErr)
@@ -165,6 +206,22 @@ func (handlers planningHandlers) renderSettings(
 		handlers.browser.frontendError(response, request, "read Event settings", err)
 		return
 	}
+	release, err := handlers.attachments.PreviewReleaseCue(request.Context(), actor, eventID)
+	if err != nil {
+		handlers.browser.frontendError(response, request, "read Attachment release settings", err)
+		return
+	}
+	crew, err := handlers.queries.CrewRundown(request.Context(), actor, eventID)
+	if err != nil {
+		handlers.browser.frontendError(response, request, "read Attachment release ceremonies", err)
+		return
+	}
+	ceremonies := make([]rundown.CrewSession, 0)
+	for _, session := range crew.Sessions {
+		if session.Type == rundown.SessionCeremony {
+			ceremonies = append(ceremonies, session)
+		}
+	}
 	commandID, err := planningCommandID(handlers.browser.random)
 	if err != nil {
 		handlers.browser.frontendError(response, request, "create Event command identity", err)
@@ -174,7 +231,8 @@ func (handlers planningHandlers) renderSettings(
 		frontend.EventSettingsPage{
 			AccountName: actor.Name, CSRFToken: csrfToken,
 			ReducedEffects: reducedEffectsCookie(request), Navigation: backstageNavigation(actor),
-			Event: event, CommandID: commandID, Error: message,
+			Event: event, Release: release, Ceremonies: ceremonies,
+			CommandID: commandID, Error: message,
 		},
 	))
 }
@@ -968,15 +1026,29 @@ func planningError(err error) (int, string) {
 		return http.StatusUnprocessableEntity, rundownValidation.Error()
 	case errors.Is(err, events.ErrRevisionConflict):
 		return http.StatusConflict, "Event changed. Reload, review the latest revision, and try again."
+	case errors.Is(err, attachments.ErrReleaseCuePreviewChanged):
+		return http.StatusConflict, "Release impact changed. Reload and review the current preview."
+	case errors.Is(err, attachments.ErrReleaseCueBlocked):
+		return http.StatusConflict, "Release is blocked by unresolved Entries. Resolve them and review again."
+	case errors.Is(err, attachments.ErrReleaseRevision):
+		return http.StatusConflict, "Attachment release changed. Reload and review the latest state."
+	case errors.Is(err, attachments.ErrInvalidInput),
+		errors.Is(err, attachments.ErrReleasePolicy):
+		return http.StatusUnprocessableEntity, "Check the Attachment release settings and confirmation."
 	case errors.Is(err, events.ErrEventSlugUnavailable):
 		return http.StatusConflict, "Event Slug is already in use."
 	case errors.Is(err, rundown.ErrDraftRevisionConflict):
 		return http.StatusConflict, "Draft changed. Reload and review the latest revision."
 	case errors.Is(err, rundown.ErrStalePreview):
 		return http.StatusConflict, "Publish Preview is stale. Preview the current Draft again."
-	case errors.Is(err, events.ErrCommandConflict), errors.Is(err, rundown.ErrCommandConflict):
+	case errors.Is(err, events.ErrCommandConflict),
+		errors.Is(err, rundown.ErrCommandConflict),
+		errors.Is(err, attachments.ErrCommandConflict):
 		return http.StatusConflict, "Command identity was already used for different work."
-	case errors.Is(err, events.ErrEventAccessDenied), errors.Is(err, rundown.ErrEventAccessDenied):
+	case errors.Is(err, events.ErrEventAccessDenied),
+		errors.Is(err, rundown.ErrEventAccessDenied),
+		errors.Is(err, attachments.ErrProducerRequired),
+		errors.Is(err, attachments.ErrUploadTargetNotFound):
 		return http.StatusNotFound, "Event not found."
 	default:
 		return http.StatusInternalServerError, "Planning action failed."

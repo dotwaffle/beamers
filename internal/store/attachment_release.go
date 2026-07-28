@@ -2,6 +2,9 @@ package store
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"sort"
 	"time"
@@ -24,6 +27,8 @@ var (
 	ErrAttachmentReleasePolicy = errors.New("invalid Attachment Release Policy")
 	// ErrAttachmentReleaseCueBlocked means unresolved Entries prevent the Event cue.
 	ErrAttachmentReleaseCueBlocked = errors.New("Event Release Cue is blocked by unresolved Entries")
+	// ErrAttachmentReleaseCuePreviewChanged means release impact changed after review.
+	ErrAttachmentReleaseCuePreviewChanged = errors.New("Event Release Cue preview changed")
 	// ErrAttachmentNotReleased hides unknown and unavailable public files.
 	ErrAttachmentNotReleased = errors.New("attachment version not released")
 )
@@ -47,6 +52,16 @@ type AttachmentReleaseConfiguration struct {
 	CueSessionID int                     `json:"cue_session_id,omitempty"`
 	CueAt        time.Time               `json:"cue_at,omitzero"`
 	Revision     int                     `json:"revision"`
+}
+
+// AttachmentReleaseCuePreview is the exact Event cue impact reviewed by a Producer.
+type AttachmentReleaseCuePreview struct {
+	Configuration              AttachmentReleaseConfiguration `json:"configuration"`
+	Eligible                   int                            `json:"eligible"`
+	Held                       int                            `json:"held"`
+	Blocked                    int                            `json:"blocked"`
+	BlockedByUnresolvedEntries bool                           `json:"blocked_by_unresolved_entries"`
+	Fingerprint                string                         `json:"fingerprint"`
 }
 
 // CompetitionAttachmentReleaseConfiguration is one optional Competition override.
@@ -216,6 +231,7 @@ func (transaction *CommandTx) ConfigureCompetitionAttachmentRelease(
 func (transaction *CommandTx) FireEventAttachmentReleaseCue(
 	ctx context.Context,
 	eventID, expectedRevision int,
+	previewFingerprint string,
 	now time.Time,
 ) (AttachmentReleaseConfiguration, error) {
 	found, err := transaction.transaction.Event.Query().Where(event.IDEQ(eventID)).Only(ctx)
@@ -228,17 +244,20 @@ func (transaction *CommandTx) FireEventAttachmentReleaseCue(
 	if found.AttachmentReleaseRevision != expectedRevision {
 		return eventAttachmentRelease(found), ErrAttachmentReleaseRevision
 	}
-	unresolved, err := transaction.transaction.CompetitionEntry.Query().
-		Where(
-			competitionentry.EventIDEQ(eventID),
-			competitionentry.ResolutionRequiredEQ(true),
-		).
-		Exist(ctx)
+	preview, err := attachmentReleaseCuePreview(
+		systemContext(ctx), transaction.transaction.Client(), eventID,
+	)
 	if err != nil {
-		return AttachmentReleaseConfiguration{}, opaqueError("load Event Release Cue blockers", err)
+		return AttachmentReleaseConfiguration{}, err
 	}
-	if unresolved {
+	if preview.Fingerprint != previewFingerprint {
+		return eventAttachmentRelease(found), ErrAttachmentReleaseCuePreviewChanged
+	}
+	if preview.BlockedByUnresolvedEntries {
 		return eventAttachmentRelease(found), ErrAttachmentReleaseCueBlocked
+	}
+	if !found.AttachmentReleaseCueAt.IsZero() {
+		return eventAttachmentRelease(found), nil
 	}
 	updated, err := found.Update().
 		SetAttachmentReleaseCueAt(now).
@@ -248,6 +267,115 @@ func (transaction *CommandTx) FireEventAttachmentReleaseCue(
 		return AttachmentReleaseConfiguration{}, opaqueError("fire Event Release Cue", err)
 	}
 	return eventAttachmentRelease(updated), nil
+}
+
+// PreviewEventAttachmentReleaseCue returns the exact current manual-cue impact.
+func (installationStore *SQLite) PreviewEventAttachmentReleaseCue(
+	ctx context.Context,
+	eventID int,
+) (AttachmentReleaseCuePreview, error) {
+	return attachmentReleaseCuePreview(systemContext(ctx), installationStore.client, eventID)
+}
+
+type attachmentReleaseCuePreviewVersion struct {
+	ID        int                     `json:"id"`
+	State     string                  `json:"state"`
+	SessionID int                     `json:"session_id"`
+	Policy    AttachmentReleasePolicy `json:"policy"`
+}
+
+func attachmentReleaseCuePreview(
+	ctx context.Context,
+	client *ent.Client,
+	eventID int,
+) (AttachmentReleaseCuePreview, error) {
+	foundEvent, err := client.Event.Get(ctx, eventID)
+	if ent.IsNotFound(err) {
+		return AttachmentReleaseCuePreview{}, ErrUploadTargetNotFound
+	}
+	if err != nil {
+		return AttachmentReleaseCuePreview{}, opaqueError("load Event Release Cue preview", err)
+	}
+	unresolved, err := client.CompetitionEntry.Query().
+		Where(
+			competitionentry.EventIDEQ(eventID),
+			competitionentry.ResolutionRequiredEQ(true),
+		).
+		Exist(ctx)
+	if err != nil {
+		return AttachmentReleaseCuePreview{}, opaqueError("load Event Release Cue blockers", err)
+	}
+	versions, err := client.AttachmentVersion.Query().
+		Where(
+			attachmentversion.FinalEQ(true),
+			attachmentversion.HasAttachmentWith(attachment.EventIDEQ(eventID)),
+		).
+		WithAttachment().
+		Order(ent.Asc(attachmentversion.FieldID)).
+		All(ctx)
+	if err != nil {
+		return AttachmentReleaseCuePreview{}, opaqueError("load Event Release Cue Final Versions", err)
+	}
+	preview := AttachmentReleaseCuePreview{
+		Configuration:              eventAttachmentRelease(foundEvent),
+		BlockedByUnresolvedEntries: unresolved,
+	}
+	material := make([]attachmentReleaseCuePreviewVersion, 0, len(versions))
+	for _, version := range versions {
+		item := attachmentReleaseCuePreviewVersion{ID: version.ID, State: "blocked"}
+		if version.ReleaseEligibility == attachmentversion.ReleaseEligibilityPublic {
+			logical, edgeErr := version.Edges.AttachmentOrErr()
+			if edgeErr != nil {
+				return AttachmentReleaseCuePreview{}, opaqueError(
+					"load Event Release Cue Attachment owner", edgeErr,
+				)
+			}
+			sessionID, eligible, held, ownerErr := attachmentReleaseOwner(ctx, client, logical)
+			if ownerErr != nil {
+				return AttachmentReleaseCuePreview{}, ownerErr
+			}
+			item.SessionID = sessionID
+			if held || (eligible && version.ReleaseHold) {
+				item.State = "held"
+			} else if eligible {
+				ownerSession, queryErr := client.Session.Get(ctx, sessionID)
+				if queryErr != nil {
+					return AttachmentReleaseCuePreview{}, opaqueError(
+						"load Event Release Cue Session", queryErr,
+					)
+				}
+				item.Policy = AttachmentReleasePolicy(foundEvent.AttachmentReleasePolicy.String())
+				if ownerSession.AttachmentReleasePolicyOverride != nil {
+					item.Policy = AttachmentReleasePolicy(
+						ownerSession.AttachmentReleasePolicyOverride.String(),
+					)
+				}
+				if item.Policy == AttachmentReleaseOnEventCue {
+					item.State = "eligible"
+				}
+			}
+		}
+		switch item.State {
+		case "eligible":
+			preview.Eligible++
+		case "held":
+			preview.Held++
+		default:
+			preview.Blocked++
+		}
+		material = append(material, item)
+	}
+	encoded, err := json.Marshal(struct {
+		Configuration AttachmentReleaseConfiguration       `json:"configuration"`
+		Unresolved    bool                                 `json:"unresolved"`
+		Versions      []attachmentReleaseCuePreviewVersion `json:"versions"`
+	}{preview.Configuration, unresolved, material})
+	if err != nil {
+		return AttachmentReleaseCuePreview{}, opaqueError("encode Event Release Cue preview", err)
+	}
+	sum := sha256.Sum256(encoded)
+	preview.Fingerprint = hex.EncodeToString(sum[:])
+	return preview, nil
 }
 
 func (transaction *CommandTx) fireBoundAttachmentReleaseCue(
@@ -484,59 +612,72 @@ func (installationStore *SQLite) publicAttachmentOwner(
 	ctx context.Context,
 	logical *ent.Attachment,
 ) (sessionID int, eligible bool, err error) {
+	sessionID, eligible, _, err = attachmentReleaseOwner(
+		ctx, installationStore.client, logical,
+	)
+	return sessionID, eligible, err
+}
+
+func attachmentReleaseOwner(
+	ctx context.Context,
+	client *ent.Client,
+	logical *ent.Attachment,
+) (sessionID int, eligible, held bool, err error) {
 	switch logical.OwnerType {
 	case attachment.OwnerTypePresentation:
-		found, queryErr := installationStore.client.Session.Query().
+		found, queryErr := client.Session.Query().
 			Where(session.IDEQ(logical.OwnerID), session.EventIDEQ(logical.EventID)).
 			Only(ctx)
 		if ent.IsNotFound(queryErr) {
-			return 0, false, nil
+			return 0, false, false, nil
 		}
 		if queryErr != nil {
-			return 0, false, opaqueError("load Presentation Attachment owner", queryErr)
+			return 0, false, false, opaqueError("load Presentation Attachment owner", queryErr)
 		}
-		public, queryErr := installationStore.publicPublishedSession(
-			ctx, found.ID, sessionpublishedversion.TypePresentation,
+		public, queryErr := publicPublishedSession(
+			ctx, client, found.ID, sessionpublishedversion.TypePresentation,
 		)
-		return found.ID, public, queryErr
+		return found.ID, public, false, queryErr
 	case attachment.OwnerTypeEntry:
-		entry, queryErr := installationStore.client.CompetitionEntry.Query().
+		entry, queryErr := client.CompetitionEntry.Query().
 			Where(
 				competitionentry.IDEQ(logical.OwnerID),
 				competitionentry.EventIDEQ(logical.EventID),
 			).
 			Only(ctx)
 		if ent.IsNotFound(queryErr) {
-			return 0, false, nil
+			return 0, false, false, nil
 		}
 		if queryErr != nil {
-			return 0, false, opaqueError("load Entry Attachment owner", queryErr)
+			return 0, false, false, opaqueError("load Entry Attachment owner", queryErr)
 		}
 		eligible := entry.Disposition == competitionentry.DispositionIncluded &&
-			entry.ResultDisposition != competitionentry.ResultDispositionWithheld &&
-			!entry.ReleaseHold
+			entry.ResultDisposition != competitionentry.ResultDispositionWithheld
 		if !eligible {
-			return entry.CompetitionSessionID, false, nil
+			return entry.CompetitionSessionID, false, false, nil
 		}
-		public, queryErr := installationStore.publicPublishedSession(
-			ctx, entry.CompetitionSessionID, sessionpublishedversion.TypeCompetition,
+		if entry.ReleaseHold {
+			return entry.CompetitionSessionID, false, true, nil
+		}
+		public, queryErr := publicPublishedSession(
+			ctx, client, entry.CompetitionSessionID, sessionpublishedversion.TypeCompetition,
 		)
 		if queryErr != nil {
-			return 0, false, queryErr
+			return 0, false, false, queryErr
 		}
-		eligible = public
-		return entry.CompetitionSessionID, eligible, nil
+		return entry.CompetitionSessionID, public, false, nil
 	default:
-		return 0, false, nil
+		return 0, false, false, nil
 	}
 }
 
-func (installationStore *SQLite) publicPublishedSession(
+func publicPublishedSession(
 	ctx context.Context,
+	client *ent.Client,
 	sessionID int,
 	sessionType sessionpublishedversion.Type,
 ) (bool, error) {
-	published, err := installationStore.client.SessionPublishedVersion.Query().
+	published, err := client.SessionPublishedVersion.Query().
 		Where(sessionpublishedversion.SessionIDEQ(sessionID)).
 		Order(ent.Desc(sessionpublishedversion.FieldPublishedRevision)).
 		First(ctx)

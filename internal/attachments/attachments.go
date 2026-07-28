@@ -52,6 +52,8 @@ var (
 	ErrReleasePolicy = store.ErrAttachmentReleasePolicy
 	// ErrReleaseCueBlocked means unresolved Entries block the Event cue.
 	ErrReleaseCueBlocked = store.ErrAttachmentReleaseCueBlocked
+	// ErrReleaseCuePreviewChanged means release impact changed after review.
+	ErrReleaseCuePreviewChanged = store.ErrAttachmentReleaseCuePreviewChanged
 	// ErrNotReleased hides unknown and unavailable attendee files.
 	ErrNotReleased = store.ErrAttachmentNotReleased
 )
@@ -177,6 +179,9 @@ const (
 	ReleaseOnEventCue = store.AttachmentReleaseOnEventCue
 )
 
+// ReleaseCuePreview is the exact Event cue impact reviewed by a Producer.
+type ReleaseCuePreview = store.AttachmentReleaseCuePreview
+
 // ConfigureEventReleaseInput changes the Event default.
 type ConfigureEventReleaseInput struct {
 	EventID          int           `json:"event_id"`
@@ -207,9 +212,11 @@ type SetVersionReleaseInput struct {
 
 // FireReleaseCueInput fires one Event-wide release cue.
 type FireReleaseCueInput struct {
-	EventID          int    `json:"event_id"`
-	ExpectedRevision int    `json:"expected_revision"`
-	CommandID        string `json:"command_id"`
+	EventID            int    `json:"event_id"`
+	ExpectedRevision   int    `json:"expected_revision"`
+	PreviewFingerprint string `json:"preview_fingerprint"`
+	Confirmed          bool   `json:"confirmed"`
+	CommandID          string `json:"command_id"`
 }
 
 // ReleasedVersion is attendee-safe immutable file metadata.
@@ -873,13 +880,29 @@ func (service *Service) SetVersionRelease(
 	})
 }
 
+// PreviewReleaseCue returns the exact current impact for Producer review.
+func (service *Service) PreviewReleaseCue(
+	ctx context.Context,
+	actor auth.Account,
+	eventID int,
+) (store.AttachmentReleaseCuePreview, error) {
+	if eventID <= 0 {
+		return store.AttachmentReleaseCuePreview{}, ErrInvalidInput
+	}
+	if !actor.CanProduceEvent(eventID) {
+		return store.AttachmentReleaseCuePreview{}, ErrProducerRequired
+	}
+	return service.storage.PreviewEventAttachmentReleaseCue(actor.Context(ctx), eventID)
+}
+
 // FireReleaseCue releases cue-governed files without changing Results state.
 func (service *Service) FireReleaseCue(
 	ctx context.Context,
 	actor auth.Account,
 	input FireReleaseCueInput,
 ) (store.AttachmentReleaseConfiguration, error) {
-	if input.EventID <= 0 || input.ExpectedRevision < 0 {
+	if input.EventID <= 0 || input.ExpectedRevision < 0 ||
+		input.PreviewFingerprint == "" || !input.Confirmed {
 		return store.AttachmentReleaseConfiguration{}, ErrInvalidInput
 	}
 	if err := command.ValidateID(input.CommandID); err != nil {
@@ -905,7 +928,11 @@ func (service *Service) FireReleaseCue(
 				return command.Execution[store.AttachmentReleaseConfiguration]{}, ErrProducerRequired
 			}
 			fired, fireErr := transaction.FireEventAttachmentReleaseCue(
-				actor.Context(ctx), input.EventID, input.ExpectedRevision, identity.Now,
+				actor.Context(ctx),
+				input.EventID,
+				input.ExpectedRevision,
+				input.PreviewFingerprint,
+				identity.Now,
 			)
 			return releaseSuccess(fired, fireErr)
 		}),
@@ -991,6 +1018,8 @@ func attachmentReleaseRejection(err error) (store.CommandRejection, bool) {
 		code = "invalid_release_policy"
 	case errors.Is(err, ErrReleaseCueBlocked):
 		code = "release_cue_blocked"
+	case errors.Is(err, ErrReleaseCuePreviewChanged):
+		code = "release_cue_preview_changed"
 	case errors.Is(err, ErrUploadTargetNotFound):
 		code = "attachment_target_not_found"
 	case errors.Is(err, store.ErrCompetitionNotFound):
@@ -1011,6 +1040,8 @@ func attachmentReleaseRejectionError(rejection store.CommandRejection) error {
 		return ErrReleasePolicy
 	case "release_cue_blocked":
 		return ErrReleaseCueBlocked
+	case "release_cue_preview_changed":
+		return ErrReleaseCuePreviewChanged
 	case "attachment_target_not_found":
 		return ErrUploadTargetNotFound
 	case "competition_not_found":

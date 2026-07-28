@@ -681,6 +681,7 @@ func (application *application) buildHandler(
 		mux,
 		installation.Authentication(),
 		installation.Events(),
+		installation.Attachments(),
 		installation.RundownCommands(),
 		installation.RundownQueries(),
 		notifyScheduleAndDisplays,

@@ -2,6 +2,7 @@ package frontend
 
 import "strconv"
 
+import "github.com/dotwaffle/beamers/internal/attachments"
 import "github.com/dotwaffle/beamers/internal/events"
 import "github.com/dotwaffle/beamers/internal/rundown"
 
@@ -25,6 +26,8 @@ type EventSettingsPage struct {
 	ReducedEffects  bool
 	Navigation      BackstageNavigation
 	Event           events.Event
+	Release         attachments.ReleaseCuePreview
+	Ceremonies      []rundown.CrewSession
 	CommandID       string
 	Error           string
 }
@@ -239,6 +242,73 @@ templ EventSettings(page EventSettingsPage) {
 						</label>
 						<button type="submit">Save Event settings</button>
 					</form>
+					<section>
+						<h2>Attachment release</h2>
+						<p>Competition release policies remain editable on their Competition pages.</p>
+						<form class="stack" method="post">
+							<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+							<input type="hidden" name="action" value="configure-attachment-release"/>
+							<input type="hidden" name="command_id" value={ page.CommandID }/>
+							<input type="hidden" name="expected_release_revision" value={ strconv.Itoa(page.Release.Configuration.Revision) }/>
+							<label>
+								Event Release Policy
+								<select name="release_policy">
+									<option value="OnLive" selected?={ page.Release.Configuration.Policy == attachments.ReleaseOnLive }>On Live</option>
+									<option value="OnEnded" selected?={ page.Release.Configuration.Policy == attachments.ReleaseOnEnded }>On Ended</option>
+									<option value="OnEventReleaseCue" selected?={ page.Release.Configuration.Policy == attachments.ReleaseOnEventCue }>On Event Release Cue</option>
+								</select>
+							</label>
+							<label>
+								Optional release Ceremony
+								<select name="cue_session_id">
+									<option value="">No ceremony binding</option>
+									for _, session := range page.Ceremonies {
+										<option
+											value={ strconv.Itoa(session.ID) }
+											selected?={ page.Release.Configuration.CueSessionID == session.ID }
+										>{ session.Title }</option>
+									}
+								</select>
+							</label>
+							<button type="submit">Save Attachment release</button>
+						</form>
+						<h3>Event Release Cue</h3>
+						<dl>
+							<dt>Current cue state</dt>
+							if page.Release.Configuration.CueAt.IsZero() {
+								<dd>Cue not fired.</dd>
+							} else {
+								<dd>Cue fired.</dd>
+							}
+							<dt>Eligible Final Versions</dt>
+							<dd>{ strconv.Itoa(page.Release.Eligible) }</dd>
+							<dt>Held Final Versions</dt>
+							<dd>{ strconv.Itoa(page.Release.Held) }</dd>
+							<dt>Blocked Final Versions</dt>
+							<dd>{ strconv.Itoa(page.Release.Blocked) }</dd>
+						</dl>
+						if page.Release.BlockedByUnresolvedEntries {
+							<p class="error" role="alert">
+								Release is blocked by unresolved Entries. Resolve them, then reload this preview.
+							</p>
+						}
+						if page.Release.Configuration.Policy == attachments.ReleaseOnEventCue &&
+							page.Release.Configuration.CueAt.IsZero() &&
+							!page.Release.BlockedByUnresolvedEntries {
+							<form class="stack" method="post">
+								<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+								<input type="hidden" name="action" value="fire-attachment-release-cue"/>
+								<input type="hidden" name="command_id" value={ page.CommandID }/>
+								<input type="hidden" name="expected_release_revision" value={ strconv.Itoa(page.Release.Configuration.Revision) }/>
+								<input type="hidden" name="preview_fingerprint" value={ page.Release.Fingerprint }/>
+								<label>
+									<input type="checkbox" name="confirmed" value="true" required/>
+									I reviewed this impact and confirm the Event Release Cue.
+								</label>
+								<button type="submit">Fire Event Release Cue</button>
+							</form>
+						}
+					</section>
 				</main>
 			</div>
 		</body>

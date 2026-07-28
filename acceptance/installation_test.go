@@ -5397,10 +5397,22 @@ func TestFinalAttachmentsReleaseByPolicyAndSurviveRestart(t *testing.T) {
 		t.Fatalf("start bound Attachment Release Cue Session: %v", err)
 	}
 	assertReleasedAttachmentsOnListeners(t, server, publicVersion.ID)
+	cuePreview := requestJSONMethod(
+		t.Context(), http.MethodGet, administrator, server.address,
+		"/crew/events/1/attachment-release-cue", nil,
+	)
+	var releaseImpact struct {
+		Fingerprint string `json:"fingerprint"`
+	}
+	if err = json.Unmarshal([]byte(cuePreview.body), &releaseImpact); err != nil ||
+		cuePreview.status != http.StatusOK || releaseImpact.Fingerprint == "" {
+		t.Fatalf("preview Attachment Release Cue = %d: %s (%v)", cuePreview.status, cuePreview.body, err)
+	}
 	cue := requestJSON(
 		t.Context(), administrator, server.address, "/crew/events/1/attachment-release-cue",
 		map[string]any{
-			"expected_revision": 3, "command_id": "fire-attachment-release-cue",
+			"expected_revision": 3, "preview_fingerprint": releaseImpact.Fingerprint,
+			"confirmed": true, "command_id": "fire-attachment-release-cue",
 		},
 	)
 	if cue.status != http.StatusOK {
@@ -5711,6 +5723,7 @@ type releasedEntryAttachments struct {
 	competitionID     int64
 	entryID           int64
 	publicVersion     attachmentVersionResponse
+	crewVersion       attachmentVersionResponse
 }
 
 func prepareReleasedEntryAttachments(t *testing.T) releasedEntryAttachments {
@@ -5815,7 +5828,7 @@ func prepareReleasedEntryAttachments(t *testing.T) releasedEntryAttachments {
 		administrator: administrator, server: server,
 		competitionClient: competitionClient,
 		competitionID:     competitionID, entryID: entryID,
-		publicVersion: publicVersion,
+		publicVersion: publicVersion, crewVersion: crewVersion,
 	}
 }
 
@@ -5851,6 +5864,7 @@ type attachmentVersionResponse struct {
 	Final              bool   `json:"final"`
 	ReadinessRevision  int    `json:"readiness_revision"`
 	ReleaseEligibility string `json:"release_eligibility"`
+	ReleaseRevision    int    `json:"release_revision"`
 }
 
 func decodeAttachmentVersion(t *testing.T, response jsonResponse) attachmentVersionResponse {
