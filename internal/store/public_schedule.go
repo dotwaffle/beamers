@@ -66,6 +66,7 @@ type PublicScheduleSession struct {
 
 // PublicCompetitionEntry contains attendee-safe Included Entry details.
 type PublicCompetitionEntry struct {
+	ID                            int
 	Name                          string
 	PublicDetails                 string
 	ResultDisposition             string
@@ -220,19 +221,29 @@ func (installationStore *SQLite) loadPublicScheduleSessions(
 				Where(
 					competitionentry.CompetitionSessionIDEQ(identity.ID),
 					competitionentry.DispositionEQ(competitionentry.DispositionIncluded),
-					competitionentry.ResultDispositionNEQ(
-						competitionentry.ResultDispositionWithheld,
-					),
 				).
 				Order(ent.Asc(competitionentry.FieldCreatedAt), ent.Asc(competitionentry.FieldID)).
 				All(ctx)
 			if entriesErr != nil {
 				return opaqueError("load public Competition Entries", entriesErr)
 			}
-			competitionEntries = make([]PublicCompetitionEntry, 0, len(entries))
+			order, _, orderErr := competitionEntryOrder(identity, entries)
+			if orderErr != nil {
+				return orderErr
+			}
+			byID := make(map[int]*ent.CompetitionEntry, len(entries))
 			for _, entry := range entries {
+				byID[entry.ID] = entry
+			}
+			competitionEntries = make([]PublicCompetitionEntry, 0, len(entries))
+			for _, entryID := range order.EntryIDs {
+				entry := byID[entryID]
+				if entry == nil ||
+					entry.ResultDisposition == competitionentry.ResultDispositionWithheld {
+					continue
+				}
 				competitionEntries = append(competitionEntries, PublicCompetitionEntry{
-					Name: entry.Name, PublicDetails: entry.PublicDetails,
+					ID: entry.ID, Name: entry.Name, PublicDetails: entry.PublicDetails,
 					ResultDisposition:             string(entry.ResultDisposition),
 					PublicDisqualificationMessage: entry.PublicDisqualificationMessage,
 				})

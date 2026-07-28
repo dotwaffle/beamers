@@ -141,7 +141,7 @@ templ CompetitionsPage(snapshot Snapshot) {
 				} else {
 					for _, session := range snapshot.Sessions {
 						<article>
-							<h2><a href={ session.Path() }>{ session.Title }</a></h2>
+							<h2><a href={ session.CompetitionPath() }>{ session.Title }</a></h2>
 							if session.PublicDetails != "" {
 								<p>{ session.PublicDetails }</p>
 							}
@@ -282,4 +282,55 @@ templ OperationalTime(presentation TimePresentation) {
 	} else {
 		<p>{ presentation.Start.Label }: <time datetime={ presentation.Start.Datetime }>{ presentation.Start.Display }</time> – { presentation.End.Label }: <time datetime={ presentation.End.Datetime }>{ presentation.End.Display }</time> ({ presentation.TimezoneLabel })</p>
 	}
+}
+
+templ CompetitionPage(snapshot Snapshot, session Session) {
+	<!doctype html>
+	<html lang={ snapshot.Language } data-locale={ snapshot.Locale }>
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<link rel="stylesheet" href="/assets/frontend.css"/>
+			<link rel="stylesheet" href="/assets/schedule.css"/>
+			<link rel="stylesheet" href={ frontend.EventThemePath(snapshot.EventID) }/>
+			<title>{ session.Title } · { snapshot.EventName }</title>
+		</head>
+		<body data-reduced-effects={ strconv.FormatBool(snapshot.ReducedEffects) }>
+			@ScheduleNavigation(snapshot, session.CompetitionPath())
+			<main>
+				<a href={ "/events/" + snapshot.EventSlug + "/competitions" }>Competitions</a>
+				<h1>{ session.Title }</h1>
+				if session.PublicDetails != "" {
+					<p>{ session.PublicDetails }</p>
+				}
+				<h2>Entries</h2>
+				if len(session.CompetitionEntries) == 0 {
+					<p>No public Entries are available yet.</p>
+				}
+				for _, entry := range session.CompetitionEntries {
+					<article id={ fmt.Sprintf("entry-%d", entry.ID) } class="competition-entry">
+						<h3>{ entry.Name }</h3>
+						if entry.ResultDisposition == "Disqualified" {
+							<p><strong>Disqualified</strong></p>
+							if entry.PublicDisqualificationMessage != "" {
+								<p>{ entry.PublicDisqualificationMessage }</p>
+							}
+						}
+						if entry.PublicDetails != "" {
+							<p>{ entry.PublicDetails }</p>
+						}
+						for _, attachment := range entry.Attachments {
+							<p><a href={ attachment.Path() }>{ attachment.Name } ({ attachment.OriginalFilename })</a></p>
+						}
+					</article>
+				}
+				<h2>Results</h2>
+				if session.ResultsPath == "" {
+					<p>Results have not been published yet.</p>
+				} else {
+					<p><a href={ session.ResultsPath }>View Competition Results</a></p>
+				}
+			</main>
+		</body>
+	</html>
 }

@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"maps"
 	"mime/multipart"
@@ -964,7 +965,7 @@ func TestBrowserFollowsCanonicalPublicEventJourney(t *testing.T) {
 		t,
 		administrator,
 		server.address,
-		"/events/revision-2099",
+		frontendLinkPath(t, root, "Revision 2099"),
 	)
 	for _, want := range []string{
 		"Ada Admin",
@@ -1003,7 +1004,7 @@ func TestBrowserFollowsCanonicalPublicEventJourney(t *testing.T) {
 		t,
 		publicClient,
 		server.publicAddress,
-		"/events/revision-2099/competitions",
+		frontendLinkPath(t, hub, "Competitions"),
 	)
 	if competitions.status != http.StatusOK ||
 		!strings.Contains(competitions.body, "Demo Competition") ||
@@ -1011,6 +1012,18 @@ func TestBrowserFollowsCanonicalPublicEventJourney(t *testing.T) {
 		strings.Contains(competitions.body, "Browser Certified Result") {
 		t.Fatalf("canonical Competitions index = %d %q", competitions.status, competitions.body)
 	}
+	competitionPath := frontendLinkPath(t, competitions, "Demo Competition")
+	competition := getFrontendPage(
+		t,
+		publicClient,
+		server.publicAddress,
+		competitionPath,
+	)
+	if competition.status != http.StatusOK ||
+		!strings.Contains(competition.body, "Results have not been published yet.") {
+		t.Fatalf("canonical Competition state = %d %q", competition.status, competition.body)
+	}
+	initialCompetitionETag := competition.header.Get("ETag")
 
 	results := getFrontendPage(
 		t,
@@ -1022,7 +1035,142 @@ func TestBrowserFollowsCanonicalPublicEventJourney(t *testing.T) {
 		!strings.Contains(results.body, "Results have not been published yet.") {
 		t.Fatalf("canonical Event Results state = %d %q", results.status, results.body)
 	}
-	prepareReleasedBrowserResults(t, administrator, server, competitionID)
+	entryID := prepareReleasedBrowserResults(t, administrator, server, competitionID)
+	publicVersion := decodeAttachmentVersion(t, requestMultipart(
+		t.Context(),
+		administrator,
+		server.address,
+		"/crew/events/1/attachments",
+		map[string]string{
+			"target_type": "Entry",
+			"target_id":   strconv.FormatInt(entryID, 10),
+			"name":        "Public download",
+			"command_id":  "upload-public-competition-file",
+		},
+		"public.txt",
+		"text/plain",
+		[]byte("public"),
+	))
+	crewVersion := decodeAttachmentVersion(t, requestMultipart(
+		t.Context(),
+		administrator,
+		server.address,
+		"/crew/events/1/attachments",
+		map[string]string{
+			"target_type": "Entry",
+			"target_id":   strconv.FormatInt(entryID, 10),
+			"name":        "Crew secret",
+			"command_id":  "upload-crew-competition-file",
+			"crew_only":   "true",
+		},
+		"crew.txt",
+		"text/plain",
+		[]byte("crew"),
+	))
+	competition = getFrontendPage(
+		t,
+		publicClient,
+		server.publicAddress,
+		competitionPath,
+	)
+	if strings.Contains(competition.body, "public.txt") ||
+		strings.Contains(competition.body, "crew.txt") {
+		t.Fatalf("unreleased Competition Attachment leaked: %q", competition.body)
+	}
+	competitionClient := competitionv1connect.NewCompetitionServiceClient(
+		administrator,
+		"http://"+server.address,
+		connect.WithProtoJSON(),
+	)
+	for _, version := range []attachmentVersionResponse{publicVersion, crewVersion} {
+		if _, err := competitionClient.SetEntryAttachmentReadiness(
+			t.Context(),
+			connect.NewRequest(&competitionv1.SetEntryAttachmentReadinessRequest{
+				EventId: 1, SessionId: competitionID, EntryId: entryID,
+				AttachmentVersionId: int64(version.ID),
+				CommandId:           fmt.Sprintf("finalize-competition-file-%d", version.ID),
+				ExpectedRevision:    int64(version.ReadinessRevision),
+				Final:               true,
+				Primary:             version.ID == publicVersion.ID,
+			}),
+		); err != nil {
+			t.Fatalf("finalize Competition Attachment %d: %v", version.ID, err)
+		}
+	}
+	if configured := requestJSONMethod(
+		t.Context(),
+		http.MethodPatch,
+		administrator,
+		server.address,
+		"/crew/events/1/attachment-release",
+		map[string]any{
+			"policy": "OnLive", "expected_revision": 0,
+			"command_id": "configure-competition-page-release",
+		},
+	); configured.status != http.StatusOK {
+		t.Fatalf("configure Competition Attachment release = %d %q", configured.status, configured.body)
+	}
+	sessionClient := sessionv1connect.NewSessionControlServiceClient(
+		administrator,
+		"http://"+server.address,
+		connect.WithProtoJSON(),
+	)
+	if _, err := sessionClient.StartSession(
+		t.Context(),
+		connect.NewRequest(&sessionv1.StartSessionRequest{
+			EventId: 1, SessionId: competitionID,
+			CommandId:                 "start-competition-page-release",
+			ExpectedLiveStateRevision: proto.Int64(0),
+		}),
+	); err != nil {
+		t.Fatalf("start Competition for Attachment release: %v", err)
+	}
+	competition = getFrontendPage(
+		t,
+		publicClient,
+		server.publicAddress,
+		competitionPath,
+	)
+	for _, want := range []string{
+		fmt.Sprintf(`id="entry-%d"`, entryID),
+		"Browser Certified Result",
+		"Public download (public.txt)",
+		fmt.Sprintf(`href="/public/attachments/%d"`, publicVersion.ID),
+		`href="/events/revision-2099/results"`,
+	} {
+		if competition.status != http.StatusOK || !strings.Contains(competition.body, want) {
+			t.Fatalf("published Competition lacks %q: %d %q", want, competition.status, competition.body)
+		}
+	}
+	if got := competition.header.Get("ETag"); got == "" || got == initialCompetitionETag {
+		t.Fatalf("published Competition ETag = %q, initial %q", got, initialCompetitionETag)
+	}
+	if strings.Contains(competition.body, "Crew secret") ||
+		strings.Contains(competition.body, "crew.txt") {
+		t.Fatalf("Crew Only Competition Attachment leaked: %q", competition.body)
+	}
+	if held := requestJSONMethod(
+		t.Context(),
+		http.MethodPatch,
+		administrator,
+		server.address,
+		fmt.Sprintf("/crew/events/1/attachment-versions/%d/release", publicVersion.ID),
+		map[string]any{
+			"hold": true, "expected_revision": 0,
+			"command_id": "hold-competition-page-file",
+		},
+	); held.status != http.StatusOK {
+		t.Fatalf("hold Competition Attachment = %d %q", held.status, held.body)
+	}
+	competition = getFrontendPage(
+		t,
+		publicClient,
+		server.publicAddress,
+		competitionPath,
+	)
+	if strings.Contains(competition.body, "public.txt") {
+		t.Fatalf("held Competition Attachment leaked: %q", competition.body)
+	}
 	results = getFrontendPage(
 		t,
 		publicClient,

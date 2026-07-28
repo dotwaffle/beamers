@@ -16,6 +16,7 @@ import (
 
 	"github.com/dotwaffle/beamers/internal/events"
 	"github.com/dotwaffle/beamers/internal/publictime"
+	"github.com/dotwaffle/beamers/internal/results"
 	"github.com/dotwaffle/beamers/internal/store"
 )
 
@@ -106,15 +107,25 @@ type Session struct {
 	Lanes                []string           `json:"lanes,omitempty"`
 	Tracks               []string           `json:"tracks,omitempty"`
 	CompetitionEntries   []CompetitionEntry `json:"competition_entries,omitempty"`
+	ResultsPath          string             `json:"-"`
 	Favorite             bool               `json:"favorite,omitempty"`
 }
 
 // CompetitionEntry is one attendee-visible Included submission.
 type CompetitionEntry struct {
-	Name                          string `json:"name"`
-	PublicDetails                 string `json:"public_details,omitempty"`
-	ResultDisposition             string `json:"result_disposition"`
-	PublicDisqualificationMessage string `json:"public_disqualification_message,omitempty"`
+	ID                            int                     `json:"id"`
+	Name                          string                  `json:"name"`
+	PublicDetails                 string                  `json:"public_details,omitempty"`
+	ResultDisposition             string                  `json:"result_disposition"`
+	PublicDisqualificationMessage string                  `json:"public_disqualification_message,omitempty"`
+	Attachments                   []CompetitionAttachment `json:"attachments,omitempty"`
+}
+
+// CompetitionAttachment is one released immutable Entry file.
+type CompetitionAttachment struct {
+	ID               int    `json:"id"`
+	Name             string `json:"name"`
+	OriginalFilename string `json:"original_filename"`
 }
 
 // TimePoint is one labeled attendee-facing operational instant.
@@ -312,7 +323,7 @@ func (service *Service) snapshot(ctx context.Context, upcomingOnly bool, filter 
 		competitionEntries := make([]CompetitionEntry, 0, len(item.CompetitionEntries))
 		for _, foundEntry := range item.CompetitionEntries {
 			competitionEntries = append(competitionEntries, CompetitionEntry{
-				Name: foundEntry.Name, PublicDetails: foundEntry.PublicDetails,
+				ID: foundEntry.ID, Name: foundEntry.Name, PublicDetails: foundEntry.PublicDetails,
 				ResultDisposition:             foundEntry.ResultDisposition,
 				PublicDisqualificationMessage: foundEntry.PublicDisqualificationMessage,
 			})
@@ -424,6 +435,95 @@ func (service *Service) Find(
 	return snapshot, Session{}, false, nil
 }
 
+// FindCompetition returns one complete attendee-safe Competition page projection.
+func (service *Service) FindCompetition(
+	ctx context.Context,
+	sessionID int,
+	eventSlug string,
+) (Snapshot, Session, bool, error) {
+	snapshot, session, found, err := service.Find(ctx, sessionID, "")
+	if err != nil || !found || session.Type != "Competition" {
+		return snapshot, session, false, err
+	}
+	snapshot.EventSlug = eventSlug
+	session.EventSlug = eventSlug
+	released, err := service.storage.LoadReleasedAttachmentVersions(ctx)
+	if err != nil {
+		return Snapshot{}, Session{}, false, err
+	}
+	attachReleasedCompetitionFiles(&session, released)
+	publication, err := service.storage.LoadResultsPublication(
+		ctx,
+		snapshot.EventID,
+		store.ResultsPublicationEvent,
+		snapshot.EventID,
+	)
+	if err != nil {
+		return Snapshot{}, Session{}, false, err
+	}
+	if publication.Revision > 0 {
+		var resultsReleased bool
+		resultsReleased, err = competitionResultsReleased(
+			publication.RenderedJSON,
+			session.ID,
+		)
+		if err != nil {
+			return Snapshot{}, Session{}, false, err
+		}
+		if resultsReleased {
+			session.ResultsPath = "/events/" + eventSlug + "/results"
+		}
+	}
+	validator, err := json.Marshal(struct {
+		ScheduleETag    string  `json:"schedule_etag"`
+		Session         Session `json:"session"`
+		ResultsRevision int     `json:"results_revision"`
+	}{
+		ScheduleETag: snapshot.ETag, Session: session,
+		ResultsRevision: publication.Revision,
+	})
+	if err != nil {
+		return Snapshot{}, Session{}, false,
+			fmt.Errorf("encode public Competition validator: %w", err)
+	}
+	snapshot.ETag = fmt.Sprintf(`"competition-%x"`, sha256.Sum256(validator))
+	return snapshot, session, true, nil
+}
+
+func attachReleasedCompetitionFiles(
+	session *Session,
+	released []store.AttachmentVersion,
+) {
+	entries := make(map[int]*CompetitionEntry, len(session.CompetitionEntries))
+	for index := range session.CompetitionEntries {
+		entry := &session.CompetitionEntries[index]
+		entries[entry.ID] = entry
+	}
+	for _, version := range released {
+		entry := entries[version.OwnerID]
+		if version.OwnerType != store.UploadTargetEntry || entry == nil {
+			continue
+		}
+		entry.Attachments = append(entry.Attachments, CompetitionAttachment{
+			ID: version.ID, Name: version.Name, OriginalFilename: version.OriginalFilename,
+		})
+	}
+}
+
+func competitionResultsReleased(renderedJSON string, sessionID int) (bool, error) {
+	var publication results.PublicResultsPublication
+	if err := json.Unmarshal([]byte(renderedJSON), &publication); err != nil {
+		return false, fmt.Errorf("decode public Competition Results: %w", err)
+	}
+	for _, item := range publication.Items {
+		if item.Competition != nil && item.Competition.SessionID == sessionID ||
+			item.NoPublicResults != nil && item.NoPublicResults.SessionID == sessionID {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // FindPersonalized returns one public Session with one Account's Favorite state.
 func (service *Service) FindPersonalized(
 	ctx context.Context,
@@ -487,6 +587,16 @@ func (session Session) Path() string {
 		return "/events/" + session.EventSlug + "/schedule/sessions/" + strconv.Itoa(session.ID)
 	}
 	return "/schedule/sessions/" + strconv.Itoa(session.ID)
+}
+
+// CompetitionPath returns the canonical focused public Competition page.
+func (session Session) CompetitionPath() string {
+	return "/events/" + session.EventSlug + "/competitions/" + strconv.Itoa(session.ID)
+}
+
+// Path returns the public immutable Attachment download route.
+func (attachment CompetitionAttachment) Path() string {
+	return "/public/attachments/" + strconv.Itoa(attachment.ID)
 }
 
 // PathWithTimezone keeps attendee-local conversion across deep-link navigation.

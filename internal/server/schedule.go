@@ -86,6 +86,11 @@ func registerScheduleRoutes(
 		browserPageRoute(),
 		handlers.eventCompetitions,
 	)
+	mux.HandleFunc(
+		"/events/{slug}/competitions/{sessionID}",
+		browserPageRoute(),
+		handlers.eventCompetition,
+	)
 	mux.HandleFunc("/my-schedule", browserPageRoute(), handlers.mySchedule)
 	mux.HandleFunc(
 		"/schedule/events",
@@ -135,6 +140,60 @@ func (handlers scheduleHandlers) eventCompetitions(
 	if ok {
 		handlers.schedulePage(response, request, false, &event, true)
 	}
+}
+
+func (handlers scheduleHandlers) eventCompetition(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	sessionID, err := positivePathID(request, "sessionID")
+	if err != nil {
+		http.NotFound(response, request)
+		return
+	}
+	event, ok := handlers.publicEvent(
+		response,
+		request,
+		"/competitions/"+strconv.Itoa(sessionID),
+	)
+	if !ok {
+		return
+	}
+	account, signedIn, ok := handlers.account(
+		response,
+		request,
+		false,
+		request.URL.RequestURI(),
+	)
+	if !ok {
+		return
+	}
+	snapshot, session, found, err := handlers.schedule.FindCompetition(
+		request.Context(),
+		sessionID,
+		event.Slug,
+	)
+	if err != nil {
+		handlers.logger.ErrorContext(request.Context(), "public Competition read failed", "error", err)
+		http.Error(response, "Competitions unavailable", http.StatusInternalServerError)
+		return
+	}
+	if !found || snapshot.EventID != event.ID {
+		http.NotFound(response, request)
+		return
+	}
+	if signedIn {
+		snapshot.AccountName = account.Name
+	}
+	snapshot.ReducedEffects = reducedEffectsCookie(request)
+	handlers.render(
+		response,
+		request,
+		snapshot.ETag,
+		signedIn || reducedEffectsPreferenceCookie(request),
+		schedule.CompetitionPage(snapshot, session), //nolint:contextcheck // Generated templ closures receive context when rendered.
+		"public Competition",
+	)
 }
 
 func (handlers scheduleHandlers) schedulePage(
