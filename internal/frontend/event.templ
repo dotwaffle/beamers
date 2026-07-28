@@ -497,3 +497,97 @@ templ displayThresholdRows(prefix string, rows []DisplayThresholdFields, formErr
 func displayThresholdFieldID(prefix, kind string, index int) string {
 	return prefix + "-" + kind + "-" + strconv.Itoa(index)
 }
+
+// FinalFilesPage contains one Administrator's reviewed Event export preview.
+type FinalFilesPage struct {
+	AccountName    string
+	CSRFToken      string
+	ReducedEffects bool
+	Navigation     BackstageNavigation
+	Event          events.Event
+	Plan           attachments.FinalFilesPlan
+	TotalSize      int64
+	Error          string
+}
+
+// FinalFiles renders the digest-bound Final Files Export workflow.
+templ FinalFiles(page FinalFilesPage) {
+	<!doctype html>
+	<html lang={ page.Event.EventLocale } data-locale={ page.Event.EventLocale }>
+		@Head("Final Files Export · " + page.Event.Name + " · Beamers")
+		<body data-reduced-effects={ strconv.FormatBool(page.ReducedEffects) }>
+			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, true)
+			<div class="backstage-layout">
+				@BackstageNavigationViews(page.Navigation)
+				<main>
+					<h1>Final Files Export</h1>
+					<p>{ page.Event.Name }</p>
+					if page.Error != "" {
+						<p class="error" role="alert">{ page.Error }</p>
+					}
+					<section>
+						<h2>Exact preview</h2>
+						<dl>
+							<dt>Files</dt>
+							<dd>{ strconv.Itoa(len(page.Plan.Files)) }</dd>
+							<dt>Total size</dt>
+							<dd>{ strconv.FormatInt(page.TotalSize, 10) } bytes</dd>
+							<dt>Collisions</dt>
+							if len(page.Plan.Collisions) == 0 {
+								<dd>None.</dd>
+							} else {
+								<dd>
+									<ul>
+										for _, collision := range page.Plan.Collisions {
+											<li><code>{ collision }</code></li>
+										}
+									</ul>
+								</dd>
+							}
+						</dl>
+						<table>
+							<thead>
+								<tr>
+									<th scope="col">Session</th>
+									<th scope="col">Competition</th>
+									<th scope="col">Entry</th>
+									<th scope="col">Original filename</th>
+									<th scope="col">Exact output path</th>
+									<th scope="col">Size</th>
+									<th scope="col">SHA-256</th>
+								</tr>
+							</thead>
+							<tbody>
+								for _, file := range page.Plan.Files {
+									<tr>
+										<td>{ file.SessionTitle }</td>
+										if file.EntryID == 0 {
+											<td>—</td>
+											<td>—</td>
+										} else {
+											<td>{ file.SessionTitle }</td>
+											<td>{ file.EntryName }</td>
+										}
+										<td>{ file.OriginalFilename }</td>
+										<td><code>{ file.Path }</code></td>
+										<td>{ strconv.FormatInt(file.SizeBytes, 10) } bytes</td>
+										<td><code>{ file.SHA256 }</code></td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					</section>
+					<form class="stack" method="post">
+						<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+						<input type="hidden" name="preview_digest" value={ page.Plan.PreviewDigest }/>
+						<label>
+							<input type="checkbox" name="confirmed" value="true" required/>
+							I reviewed this exact preview and confirm the ZIP download.
+						</label>
+						<button type="submit">Download Final Files ZIP</button>
+					</form>
+				</main>
+			</div>
+		</body>
+	</html>
+}

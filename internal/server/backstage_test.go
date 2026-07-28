@@ -55,6 +55,7 @@ func TestBackstageNavigationReflectsEffectiveAuthority(t *testing.T) {
 	}
 	if got := backstageSectionLabels(navigation.Events[0]); !reflect.DeepEqual(got, []string{
 		"Event overview",
+		"Final Files Export",
 		"Event settings",
 		"Event Displays",
 		"Plan and publish",
@@ -70,6 +71,7 @@ func TestBackstageNavigationReflectsEffectiveAuthority(t *testing.T) {
 	}
 	if got := backstageSectionLabels(navigation.Events[1]); !reflect.DeepEqual(got, []string{
 		"Event overview",
+		"Final Files Export",
 		"Sessions and Displays",
 		"Program Output and Overrides",
 		"Emergency Alerts",
@@ -80,11 +82,13 @@ func TestBackstageNavigationReflectsEffectiveAuthority(t *testing.T) {
 	}
 	if got := backstageSectionLabels(navigation.Events[2]); !reflect.DeepEqual(got, []string{
 		"Event overview",
+		"Final Files Export",
 	}) {
 		t.Fatalf("Observer sections = %v", got)
 	}
 	if got := backstageSectionLabels(navigation.Events[3]); !reflect.DeepEqual(got, []string{
 		"Event overview",
+		"Final Files Export",
 	}) {
 		t.Fatalf("capability-only Operator sections = %v", got)
 	}
