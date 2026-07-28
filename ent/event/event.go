@@ -100,6 +100,8 @@ const (
 	EdgeVotingKeys = "voting_keys"
 	// EdgeVotes holds the string denoting the votes edge name in mutations.
 	EdgeVotes = "votes"
+	// EdgeVotingTallies holds the string denoting the voting_tallies edge name in mutations.
+	EdgeVotingTallies = "voting_tallies"
 	// EdgeDraftEdits holds the string denoting the draft_edits edge name in mutations.
 	EdgeDraftEdits = "draft_edits"
 	// EdgeDraftChanges holds the string denoting the draft_changes edge name in mutations.
@@ -240,6 +242,13 @@ const (
 	VotesInverseTable = "votes"
 	// VotesColumn is the table column denoting the votes relation/edge.
 	VotesColumn = "event_id"
+	// VotingTalliesTable is the table that holds the voting_tallies relation/edge.
+	VotingTalliesTable = "voting_tallies"
+	// VotingTalliesInverseTable is the table name for the VotingTally entity.
+	// It exists in this package in order to avoid circular dependency with the "votingtally" package.
+	VotingTalliesInverseTable = "voting_tallies"
+	// VotingTalliesColumn is the table column denoting the voting_tallies relation/edge.
+	VotingTalliesColumn = "event_id"
 	// DraftEditsTable is the table that holds the draft_edits relation/edge.
 	DraftEditsTable = "draft_edits"
 	// DraftEditsInverseTable is the table name for the DraftEdit entity.
@@ -884,6 +893,20 @@ func ByVotes(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByVotingTalliesCount orders the results by voting_tallies count.
+func ByVotingTalliesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newVotingTalliesStep(), opts...)
+	}
+}
+
+// ByVotingTallies orders the results by voting_tallies terms.
+func ByVotingTallies(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newVotingTalliesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByDraftEditsCount orders the results by draft_edits count.
 func ByDraftEditsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -1084,6 +1107,13 @@ func newVotesStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(VotesInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, VotesTable, VotesColumn),
+	)
+}
+func newVotingTalliesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(VotingTalliesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, VotingTalliesTable, VotingTalliesColumn),
 	)
 }
 func newDraftEditsStep() *sqlgraph.Step {

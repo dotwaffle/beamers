@@ -71,6 +71,7 @@ func DowngradeBeforeUpgradeContracts(ctx context.Context, path string) error {
 	return mutateSchema(path, func(database *sql.DB) error {
 		const statement = `
 PRAGMA foreign_keys = off;
+DROP TABLE voting_tallies;
 DROP TABLE votes;
 DROP TABLE voting_keys;
 DROP TABLE voting_eligibilities;

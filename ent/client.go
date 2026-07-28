@@ -76,6 +76,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/vote"
 	"github.com/dotwaffle/beamers/ent/votingeligibility"
 	"github.com/dotwaffle/beamers/ent/votingkey"
+	"github.com/dotwaffle/beamers/ent/votingtally"
 	"github.com/dotwaffle/beamers/ent/webauthncredential"
 
 	stdsql "database/sql"
@@ -208,6 +209,8 @@ type Client struct {
 	VotingEligibility *VotingEligibilityClient
 	// VotingKey is the client for interacting with the VotingKey builders.
 	VotingKey *VotingKeyClient
+	// VotingTally is the client for interacting with the VotingTally builders.
+	VotingTally *VotingTallyClient
 	// WebAuthnCredential is the client for interacting with the WebAuthnCredential builders.
 	WebAuthnCredential *WebAuthnCredentialClient
 }
@@ -282,6 +285,7 @@ func (c *Client) init() {
 	c.Vote = NewVoteClient(c.config)
 	c.VotingEligibility = NewVotingEligibilityClient(c.config)
 	c.VotingKey = NewVotingKeyClient(c.config)
+	c.VotingTally = NewVotingTallyClient(c.config)
 	c.WebAuthnCredential = NewWebAuthnCredentialClient(c.config)
 }
 
@@ -436,6 +440,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		Vote:                        NewVoteClient(cfg),
 		VotingEligibility:           NewVotingEligibilityClient(cfg),
 		VotingKey:                   NewVotingKeyClient(cfg),
+		VotingTally:                 NewVotingTallyClient(cfg),
 		WebAuthnCredential:          NewWebAuthnCredentialClient(cfg),
 	}, nil
 }
@@ -517,6 +522,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		Vote:                        NewVoteClient(cfg),
 		VotingEligibility:           NewVotingEligibilityClient(cfg),
 		VotingKey:                   NewVotingKeyClient(cfg),
+		VotingTally:                 NewVotingTallyClient(cfg),
 		WebAuthnCredential:          NewWebAuthnCredentialClient(cfg),
 	}, nil
 }
@@ -562,7 +568,7 @@ func (c *Client) Use(hooks ...Hook) {
 		c.ResultsCorrection, c.ResultsPublication, c.Rundown, c.Session,
 		c.SessionCancellation, c.SessionDraft, c.SessionPublishedVersion, c.SessionRun,
 		c.SessionRunAmendment, c.Track, c.TrackDraft, c.TrackPublishedVersion, c.Vote,
-		c.VotingEligibility, c.VotingKey, c.WebAuthnCredential,
+		c.VotingEligibility, c.VotingKey, c.VotingTally, c.WebAuthnCredential,
 	} {
 		n.Use(hooks...)
 	}
@@ -587,7 +593,7 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.ResultsCorrection, c.ResultsPublication, c.Rundown, c.Session,
 		c.SessionCancellation, c.SessionDraft, c.SessionPublishedVersion, c.SessionRun,
 		c.SessionRunAmendment, c.Track, c.TrackDraft, c.TrackPublishedVersion, c.Vote,
-		c.VotingEligibility, c.VotingKey, c.WebAuthnCredential,
+		c.VotingEligibility, c.VotingKey, c.VotingTally, c.WebAuthnCredential,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -718,6 +724,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.VotingEligibility.mutate(ctx, m)
 	case *VotingKeyMutation:
 		return c.VotingKey.mutate(ctx, m)
+	case *VotingTallyMutation:
+		return c.VotingTally.mutate(ctx, m)
 	case *WebAuthnCredentialMutation:
 		return c.WebAuthnCredential.mutate(ctx, m)
 	default:
@@ -2883,6 +2891,22 @@ func (c *CompetitionResultsDraftClient) QueryCompetition(_m *CompetitionResultsD
 	return query
 }
 
+// QueryVotingTally queries the voting_tally edge of a CompetitionResultsDraft.
+func (c *CompetitionResultsDraftClient) QueryVotingTally(_m *CompetitionResultsDraft) *VotingTallyQuery {
+	query := (&VotingTallyClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(competitionresultsdraft.Table, competitionresultsdraft.FieldID, id),
+			sqlgraph.To(votingtally.Table, votingtally.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, competitionresultsdraft.VotingTallyTable, competitionresultsdraft.VotingTallyColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryStandings queries the standings edge of a CompetitionResultsDraft.
 func (c *CompetitionResultsDraftClient) QueryStandings(_m *CompetitionResultsDraft) *CompetitionResultStandingQuery {
 	query := (&CompetitionResultStandingClient{config: c.config}).Query()
@@ -4840,6 +4864,22 @@ func (c *EventClient) QueryVotes(_m *Event) *VoteQuery {
 			sqlgraph.From(event.Table, event.FieldID, id),
 			sqlgraph.To(vote.Table, vote.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, event.VotesTable, event.VotesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryVotingTallies queries the voting_tallies edge of a Event.
+func (c *EventClient) QueryVotingTallies(_m *Event) *VotingTallyQuery {
+	query := (&VotingTallyClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, id),
+			sqlgraph.To(votingtally.Table, votingtally.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, event.VotingTalliesTable, event.VotingTalliesColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -9590,6 +9630,22 @@ func (c *SessionClient) QueryVotes(_m *Session) *VoteQuery {
 	return query
 }
 
+// QueryVotingTallies queries the voting_tallies edge of a Session.
+func (c *SessionClient) QueryVotingTallies(_m *Session) *VotingTallyQuery {
+	query := (&VotingTallyClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(session.Table, session.FieldID, id),
+			sqlgraph.To(votingtally.Table, votingtally.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, session.VotingTalliesTable, session.VotingTalliesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryPrizegiving queries the prizegiving edge of a Session.
 func (c *SessionClient) QueryPrizegiving(_m *Session) *PrizegivingQuery {
 	query := (&PrizegivingClient{config: c.config}).Query()
@@ -11554,6 +11610,188 @@ func (c *VotingKeyClient) mutate(ctx context.Context, m *VotingKeyMutation) (Val
 	}
 }
 
+// VotingTallyClient is a client for the VotingTally schema.
+type VotingTallyClient struct {
+	config
+}
+
+// NewVotingTallyClient returns a client for the VotingTally from the given config.
+func NewVotingTallyClient(c config) *VotingTallyClient {
+	return &VotingTallyClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `votingtally.Hooks(f(g(h())))`.
+func (c *VotingTallyClient) Use(hooks ...Hook) {
+	c.hooks.VotingTally = append(c.hooks.VotingTally, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `votingtally.Intercept(f(g(h())))`.
+func (c *VotingTallyClient) Intercept(interceptors ...Interceptor) {
+	c.inters.VotingTally = append(c.inters.VotingTally, interceptors...)
+}
+
+// Create returns a builder for creating a VotingTally entity.
+func (c *VotingTallyClient) Create() *VotingTallyCreate {
+	mutation := newVotingTallyMutation(c.config, OpCreate)
+	return &VotingTallyCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of VotingTally entities.
+func (c *VotingTallyClient) CreateBulk(builders ...*VotingTallyCreate) *VotingTallyCreateBulk {
+	return &VotingTallyCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *VotingTallyClient) MapCreateBulk(slice any, setFunc func(*VotingTallyCreate, int)) *VotingTallyCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &VotingTallyCreateBulk{err: fmt.Errorf("calling to VotingTallyClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*VotingTallyCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &VotingTallyCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for VotingTally.
+func (c *VotingTallyClient) Update() *VotingTallyUpdate {
+	mutation := newVotingTallyMutation(c.config, OpUpdate)
+	return &VotingTallyUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *VotingTallyClient) UpdateOne(_m *VotingTally) *VotingTallyUpdateOne {
+	mutation := newVotingTallyMutation(c.config, OpUpdateOne, withVotingTally(_m))
+	return &VotingTallyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *VotingTallyClient) UpdateOneID(id int) *VotingTallyUpdateOne {
+	mutation := newVotingTallyMutation(c.config, OpUpdateOne, withVotingTallyID(id))
+	return &VotingTallyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for VotingTally.
+func (c *VotingTallyClient) Delete() *VotingTallyDelete {
+	mutation := newVotingTallyMutation(c.config, OpDelete)
+	return &VotingTallyDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *VotingTallyClient) DeleteOne(_m *VotingTally) *VotingTallyDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *VotingTallyClient) DeleteOneID(id int) *VotingTallyDeleteOne {
+	builder := c.Delete().Where(votingtally.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &VotingTallyDeleteOne{builder}
+}
+
+// Query returns a query builder for VotingTally.
+func (c *VotingTallyClient) Query() *VotingTallyQuery {
+	return &VotingTallyQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeVotingTally},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a VotingTally entity by its id.
+func (c *VotingTallyClient) Get(ctx context.Context, id int) (*VotingTally, error) {
+	return c.Query().Where(votingtally.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *VotingTallyClient) GetX(ctx context.Context, id int) *VotingTally {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryEvent queries the event edge of a VotingTally.
+func (c *VotingTallyClient) QueryEvent(_m *VotingTally) *EventQuery {
+	query := (&EventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(votingtally.Table, votingtally.FieldID, id),
+			sqlgraph.To(event.Table, event.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, votingtally.EventTable, votingtally.EventColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryCompetition queries the competition edge of a VotingTally.
+func (c *VotingTallyClient) QueryCompetition(_m *VotingTally) *SessionQuery {
+	query := (&SessionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(votingtally.Table, votingtally.FieldID, id),
+			sqlgraph.To(session.Table, session.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, votingtally.CompetitionTable, votingtally.CompetitionColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryResultsDrafts queries the results_drafts edge of a VotingTally.
+func (c *VotingTallyClient) QueryResultsDrafts(_m *VotingTally) *CompetitionResultsDraftQuery {
+	query := (&CompetitionResultsDraftClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(votingtally.Table, votingtally.FieldID, id),
+			sqlgraph.To(competitionresultsdraft.Table, competitionresultsdraft.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, votingtally.ResultsDraftsTable, votingtally.ResultsDraftsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *VotingTallyClient) Hooks() []Hook {
+	hooks := c.hooks.VotingTally
+	return append(hooks[:len(hooks):len(hooks)], votingtally.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *VotingTallyClient) Interceptors() []Interceptor {
+	return c.inters.VotingTally
+}
+
+func (c *VotingTallyClient) mutate(ctx context.Context, m *VotingTallyMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&VotingTallyCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&VotingTallyUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&VotingTallyUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&VotingTallyDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown VotingTally mutation op: %q", m.Op())
+	}
+}
+
 // WebAuthnCredentialClient is a client for the WebAuthnCredential schema.
 type WebAuthnCredentialClient struct {
 	config
@@ -11720,7 +11958,7 @@ type (
 		ReleasedProfileEntry, ReopenWindow, ResultsCorrection, ResultsPublication,
 		Rundown, Session, SessionCancellation, SessionDraft, SessionPublishedVersion,
 		SessionRun, SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
-		Vote, VotingEligibility, VotingKey, WebAuthnCredential []ent.Hook
+		Vote, VotingEligibility, VotingKey, VotingTally, WebAuthnCredential []ent.Hook
 	}
 	inters struct {
 		Account, AccountPreference, AccountProfile, AccountSession, Attachment,
@@ -11736,7 +11974,8 @@ type (
 		ReleasedProfileEntry, ReopenWindow, ResultsCorrection, ResultsPublication,
 		Rundown, Session, SessionCancellation, SessionDraft, SessionPublishedVersion,
 		SessionRun, SessionRunAmendment, Track, TrackDraft, TrackPublishedVersion,
-		Vote, VotingEligibility, VotingKey, WebAuthnCredential []ent.Interceptor
+		Vote, VotingEligibility, VotingKey, VotingTally,
+		WebAuthnCredential []ent.Interceptor
 	}
 )
 

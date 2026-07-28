@@ -14,6 +14,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/competitionresultstanding"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/session"
+	"github.com/dotwaffle/beamers/ent/votingtally"
 	"github.com/dotwaffle/beamers/internal/awardvalue"
 )
 
@@ -158,6 +159,34 @@ func (_c *CompetitionResultsDraftCreate) SetAwards(v []awardvalue.Competition) *
 	return _c
 }
 
+// SetVotingTallyID sets the "voting_tally_id" field.
+func (_c *CompetitionResultsDraftCreate) SetVotingTallyID(v int) *CompetitionResultsDraftCreate {
+	_c.mutation.SetVotingTallyID(v)
+	return _c
+}
+
+// SetNillableVotingTallyID sets the "voting_tally_id" field if the given value is not nil.
+func (_c *CompetitionResultsDraftCreate) SetNillableVotingTallyID(v *int) *CompetitionResultsDraftCreate {
+	if v != nil {
+		_c.SetVotingTallyID(*v)
+	}
+	return _c
+}
+
+// SetTallyOverrideCrewReason sets the "tally_override_crew_reason" field.
+func (_c *CompetitionResultsDraftCreate) SetTallyOverrideCrewReason(v string) *CompetitionResultsDraftCreate {
+	_c.mutation.SetTallyOverrideCrewReason(v)
+	return _c
+}
+
+// SetNillableTallyOverrideCrewReason sets the "tally_override_crew_reason" field if the given value is not nil.
+func (_c *CompetitionResultsDraftCreate) SetNillableTallyOverrideCrewReason(v *string) *CompetitionResultsDraftCreate {
+	if v != nil {
+		_c.SetTallyOverrideCrewReason(*v)
+	}
+	return _c
+}
+
 // SetReadyByAccountID sets the "ready_by_account_id" field.
 func (_c *CompetitionResultsDraftCreate) SetReadyByAccountID(v int) *CompetitionResultsDraftCreate {
 	_c.mutation.SetReadyByAccountID(v)
@@ -220,6 +249,11 @@ func (_c *CompetitionResultsDraftCreate) SetCompetitionID(id int) *CompetitionRe
 // SetCompetition sets the "competition" edge to the Session entity.
 func (_c *CompetitionResultsDraftCreate) SetCompetition(v *Session) *CompetitionResultsDraftCreate {
 	return _c.SetCompetitionID(v.ID)
+}
+
+// SetVotingTally sets the "voting_tally" edge to the VotingTally entity.
+func (_c *CompetitionResultsDraftCreate) SetVotingTally(v *VotingTally) *CompetitionResultsDraftCreate {
+	return _c.SetVotingTallyID(v.ID)
 }
 
 // AddStandingIDs adds the "standings" edge to the CompetitionResultStanding entity by IDs.
@@ -379,6 +413,16 @@ func (_c *CompetitionResultsDraftCreate) check() error {
 			return &ValidationError{Name: "score_interpretation", err: fmt.Errorf(`ent: validator failed for field "CompetitionResultsDraft.score_interpretation": %w`, err)}
 		}
 	}
+	if v, ok := _c.mutation.VotingTallyID(); ok {
+		if err := competitionresultsdraft.VotingTallyIDValidator(v); err != nil {
+			return &ValidationError{Name: "voting_tally_id", err: fmt.Errorf(`ent: validator failed for field "CompetitionResultsDraft.voting_tally_id": %w`, err)}
+		}
+	}
+	if v, ok := _c.mutation.TallyOverrideCrewReason(); ok {
+		if err := competitionresultsdraft.TallyOverrideCrewReasonValidator(v); err != nil {
+			return &ValidationError{Name: "tally_override_crew_reason", err: fmt.Errorf(`ent: validator failed for field "CompetitionResultsDraft.tally_override_crew_reason": %w`, err)}
+		}
+	}
 	if v, ok := _c.mutation.ReadyByAccountID(); ok {
 		if err := competitionresultsdraft.ReadyByAccountIDValidator(v); err != nil {
 			return &ValidationError{Name: "ready_by_account_id", err: fmt.Errorf(`ent: validator failed for field "CompetitionResultsDraft.ready_by_account_id": %w`, err)}
@@ -471,6 +515,10 @@ func (_c *CompetitionResultsDraftCreate) createSpec() (*CompetitionResultsDraft,
 		_spec.SetField(competitionresultsdraft.FieldAwards, field.TypeJSON, value)
 		_node.Awards = value
 	}
+	if value, ok := _c.mutation.TallyOverrideCrewReason(); ok {
+		_spec.SetField(competitionresultsdraft.FieldTallyOverrideCrewReason, field.TypeString, value)
+		_node.TallyOverrideCrewReason = value
+	}
 	if value, ok := _c.mutation.ReadyByAccountID(); ok {
 		_spec.SetField(competitionresultsdraft.FieldReadyByAccountID, field.TypeInt, value)
 		_node.ReadyByAccountID = &value
@@ -519,6 +567,23 @@ func (_c *CompetitionResultsDraftCreate) createSpec() (*CompetitionResultsDraft,
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.CompetitionSessionID = nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.VotingTallyIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   competitionresultsdraft.VotingTallyTable,
+			Columns: []string{competitionresultsdraft.VotingTallyColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingtally.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.VotingTallyID = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := _c.mutation.StandingsIDs(); len(nodes) > 0 {

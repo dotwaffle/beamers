@@ -51,6 +51,8 @@ func (CompetitionResultsDraft) Fields() []ent.Field {
 			Default("Informational").
 			Immutable(),
 		field.JSON("awards", []awardvalue.Competition{}).Optional().Immutable(),
+		field.Int("voting_tally_id").Optional().Nillable().Positive().Immutable(),
+		field.String("tally_override_crew_reason").Optional().MaxLen(1000).Immutable(),
 		field.Int("ready_by_account_id").Optional().Nillable().Positive(),
 		field.Time("ready_at").Optional().Nillable(),
 		field.Int("created_by_account_id").Positive().Immutable(),
@@ -73,6 +75,11 @@ func (CompetitionResultsDraft) Edges() []ent.Edge {
 			Unique().
 			Immutable().
 			Required(),
+		edge.From("voting_tally", VotingTally.Type).
+			Ref("results_drafts").
+			Field("voting_tally_id").
+			Unique().
+			Immutable(),
 		edge.To("standings", CompetitionResultStanding.Type),
 	}
 }

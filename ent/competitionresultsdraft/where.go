@@ -90,6 +90,16 @@ func ScorePrecision(v int) predicate.CompetitionResultsDraft {
 	return predicate.CompetitionResultsDraft(sql.FieldEQ(FieldScorePrecision, v))
 }
 
+// VotingTallyID applies equality check predicate on the "voting_tally_id" field. It's identical to VotingTallyIDEQ.
+func VotingTallyID(v int) predicate.CompetitionResultsDraft {
+	return predicate.CompetitionResultsDraft(sql.FieldEQ(FieldVotingTallyID, v))
+}
+
+// TallyOverrideCrewReason applies equality check predicate on the "tally_override_crew_reason" field. It's identical to TallyOverrideCrewReasonEQ.
+func TallyOverrideCrewReason(v string) predicate.CompetitionResultsDraft {
+	return predicate.CompetitionResultsDraft(sql.FieldEQ(FieldTallyOverrideCrewReason, v))
+}
+
 // ReadyByAccountID applies equality check predicate on the "ready_by_account_id" field. It's identical to ReadyByAccountIDEQ.
 func ReadyByAccountID(v int) predicate.CompetitionResultsDraft {
 	return predicate.CompetitionResultsDraft(sql.FieldEQ(FieldReadyByAccountID, v))
@@ -565,6 +575,111 @@ func AwardsNotNil() predicate.CompetitionResultsDraft {
 	return predicate.CompetitionResultsDraft(sql.FieldNotNull(FieldAwards))
 }
 
+// VotingTallyIDEQ applies the EQ predicate on the "voting_tally_id" field.
+func VotingTallyIDEQ(v int) predicate.CompetitionResultsDraft {
+	return predicate.CompetitionResultsDraft(sql.FieldEQ(FieldVotingTallyID, v))
+}
+
+// VotingTallyIDNEQ applies the NEQ predicate on the "voting_tally_id" field.
+func VotingTallyIDNEQ(v int) predicate.CompetitionResultsDraft {
+	return predicate.CompetitionResultsDraft(sql.FieldNEQ(FieldVotingTallyID, v))
+}
+
+// VotingTallyIDIn applies the In predicate on the "voting_tally_id" field.
+func VotingTallyIDIn(vs ...int) predicate.CompetitionResultsDraft {
+	return predicate.CompetitionResultsDraft(sql.FieldIn(FieldVotingTallyID, vs...))
+}
+
+// VotingTallyIDNotIn applies the NotIn predicate on the "voting_tally_id" field.
+func VotingTallyIDNotIn(vs ...int) predicate.CompetitionResultsDraft {
+	return predicate.CompetitionResultsDraft(sql.FieldNotIn(FieldVotingTallyID, vs...))
+}
+
+// VotingTallyIDIsNil applies the IsNil predicate on the "voting_tally_id" field.
+func VotingTallyIDIsNil() predicate.CompetitionResultsDraft {
+	return predicate.CompetitionResultsDraft(sql.FieldIsNull(FieldVotingTallyID))
+}
+
+// VotingTallyIDNotNil applies the NotNil predicate on the "voting_tally_id" field.
+func VotingTallyIDNotNil() predicate.CompetitionResultsDraft {
+	return predicate.CompetitionResultsDraft(sql.FieldNotNull(FieldVotingTallyID))
+}
+
+// TallyOverrideCrewReasonEQ applies the EQ predicate on the "tally_override_crew_reason" field.
+func TallyOverrideCrewReasonEQ(v string) predicate.CompetitionResultsDraft {
+	return predicate.CompetitionResultsDraft(sql.FieldEQ(FieldTallyOverrideCrewReason, v))
+}
+
+// TallyOverrideCrewReasonNEQ applies the NEQ predicate on the "tally_override_crew_reason" field.
+func TallyOverrideCrewReasonNEQ(v string) predicate.CompetitionResultsDraft {
+	return predicate.CompetitionResultsDraft(sql.FieldNEQ(FieldTallyOverrideCrewReason, v))
+}
+
+// TallyOverrideCrewReasonIn applies the In predicate on the "tally_override_crew_reason" field.
+func TallyOverrideCrewReasonIn(vs ...string) predicate.CompetitionResultsDraft {
+	return predicate.CompetitionResultsDraft(sql.FieldIn(FieldTallyOverrideCrewReason, vs...))
+}
+
+// TallyOverrideCrewReasonNotIn applies the NotIn predicate on the "tally_override_crew_reason" field.
+func TallyOverrideCrewReasonNotIn(vs ...string) predicate.CompetitionResultsDraft {
+	return predicate.CompetitionResultsDraft(sql.FieldNotIn(FieldTallyOverrideCrewReason, vs...))
+}
+
+// TallyOverrideCrewReasonGT applies the GT predicate on the "tally_override_crew_reason" field.
+func TallyOverrideCrewReasonGT(v string) predicate.CompetitionResultsDraft {
+	return predicate.CompetitionResultsDraft(sql.FieldGT(FieldTallyOverrideCrewReason, v))
+}
+
+// TallyOverrideCrewReasonGTE applies the GTE predicate on the "tally_override_crew_reason" field.
+func TallyOverrideCrewReasonGTE(v string) predicate.CompetitionResultsDraft {
+	return predicate.CompetitionResultsDraft(sql.FieldGTE(FieldTallyOverrideCrewReason, v))
+}
+
+// TallyOverrideCrewReasonLT applies the LT predicate on the "tally_override_crew_reason" field.
+func TallyOverrideCrewReasonLT(v string) predicate.CompetitionResultsDraft {
+	return predicate.CompetitionResultsDraft(sql.FieldLT(FieldTallyOverrideCrewReason, v))
+}
+
+// TallyOverrideCrewReasonLTE applies the LTE predicate on the "tally_override_crew_reason" field.
+func TallyOverrideCrewReasonLTE(v string) predicate.CompetitionResultsDraft {
+	return predicate.CompetitionResultsDraft(sql.FieldLTE(FieldTallyOverrideCrewReason, v))
+}
+
+// TallyOverrideCrewReasonContains applies the Contains predicate on the "tally_override_crew_reason" field.
+func TallyOverrideCrewReasonContains(v string) predicate.CompetitionResultsDraft {
+	return predicate.CompetitionResultsDraft(sql.FieldContains(FieldTallyOverrideCrewReason, v))
+}
+
+// TallyOverrideCrewReasonHasPrefix applies the HasPrefix predicate on the "tally_override_crew_reason" field.
+func TallyOverrideCrewReasonHasPrefix(v string) predicate.CompetitionResultsDraft {
+	return predicate.CompetitionResultsDraft(sql.FieldHasPrefix(FieldTallyOverrideCrewReason, v))
+}
+
+// TallyOverrideCrewReasonHasSuffix applies the HasSuffix predicate on the "tally_override_crew_reason" field.
+func TallyOverrideCrewReasonHasSuffix(v string) predicate.CompetitionResultsDraft {
+	return predicate.CompetitionResultsDraft(sql.FieldHasSuffix(FieldTallyOverrideCrewReason, v))
+}
+
+// TallyOverrideCrewReasonIsNil applies the IsNil predicate on the "tally_override_crew_reason" field.
+func TallyOverrideCrewReasonIsNil() predicate.CompetitionResultsDraft {
+	return predicate.CompetitionResultsDraft(sql.FieldIsNull(FieldTallyOverrideCrewReason))
+}
+
+// TallyOverrideCrewReasonNotNil applies the NotNil predicate on the "tally_override_crew_reason" field.
+func TallyOverrideCrewReasonNotNil() predicate.CompetitionResultsDraft {
+	return predicate.CompetitionResultsDraft(sql.FieldNotNull(FieldTallyOverrideCrewReason))
+}
+
+// TallyOverrideCrewReasonEqualFold applies the EqualFold predicate on the "tally_override_crew_reason" field.
+func TallyOverrideCrewReasonEqualFold(v string) predicate.CompetitionResultsDraft {
+	return predicate.CompetitionResultsDraft(sql.FieldEqualFold(FieldTallyOverrideCrewReason, v))
+}
+
+// TallyOverrideCrewReasonContainsFold applies the ContainsFold predicate on the "tally_override_crew_reason" field.
+func TallyOverrideCrewReasonContainsFold(v string) predicate.CompetitionResultsDraft {
+	return predicate.CompetitionResultsDraft(sql.FieldContainsFold(FieldTallyOverrideCrewReason, v))
+}
+
 // ReadyByAccountIDEQ applies the EQ predicate on the "ready_by_account_id" field.
 func ReadyByAccountIDEQ(v int) predicate.CompetitionResultsDraft {
 	return predicate.CompetitionResultsDraft(sql.FieldEQ(FieldReadyByAccountID, v))
@@ -783,6 +898,29 @@ func HasCompetition() predicate.CompetitionResultsDraft {
 func HasCompetitionWith(preds ...predicate.Session) predicate.CompetitionResultsDraft {
 	return predicate.CompetitionResultsDraft(func(s *sql.Selector) {
 		step := newCompetitionStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasVotingTally applies the HasEdge predicate on the "voting_tally" edge.
+func HasVotingTally() predicate.CompetitionResultsDraft {
+	return predicate.CompetitionResultsDraft(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, VotingTallyTable, VotingTallyColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasVotingTallyWith applies the HasEdge predicate on the "voting_tally" edge with a given conditions (other predicates).
+func HasVotingTallyWith(preds ...predicate.VotingTally) predicate.CompetitionResultsDraft {
+	return predicate.CompetitionResultsDraft(func(s *sql.Selector) {
+		step := newVotingTallyStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

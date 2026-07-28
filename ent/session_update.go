@@ -27,6 +27,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
 	"github.com/dotwaffle/beamers/ent/sessionrun"
 	"github.com/dotwaffle/beamers/ent/vote"
+	"github.com/dotwaffle/beamers/ent/votingtally"
 	"github.com/dotwaffle/beamers/internal/prizegivingvalue"
 )
 
@@ -1059,6 +1060,21 @@ func (_u *SessionUpdate) AddVotes(v ...*Vote) *SessionUpdate {
 	return _u.AddVoteIDs(ids...)
 }
 
+// AddVotingTallyIDs adds the "voting_tallies" edge to the VotingTally entity by IDs.
+func (_u *SessionUpdate) AddVotingTallyIDs(ids ...int) *SessionUpdate {
+	_u.mutation.AddVotingTallyIDs(ids...)
+	return _u
+}
+
+// AddVotingTallies adds the "voting_tallies" edges to the VotingTally entity.
+func (_u *SessionUpdate) AddVotingTallies(v ...*VotingTally) *SessionUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddVotingTallyIDs(ids...)
+}
+
 // SetPrizegivingID sets the "prizegiving" edge to the Prizegiving entity by ID.
 func (_u *SessionUpdate) SetPrizegivingID(id int) *SessionUpdate {
 	_u.mutation.SetPrizegivingID(id)
@@ -1286,6 +1302,27 @@ func (_u *SessionUpdate) RemoveVotes(v ...*Vote) *SessionUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveVoteIDs(ids...)
+}
+
+// ClearVotingTallies clears all "voting_tallies" edges to the VotingTally entity.
+func (_u *SessionUpdate) ClearVotingTallies() *SessionUpdate {
+	_u.mutation.ClearVotingTallies()
+	return _u
+}
+
+// RemoveVotingTallyIDs removes the "voting_tallies" edge to VotingTally entities by IDs.
+func (_u *SessionUpdate) RemoveVotingTallyIDs(ids ...int) *SessionUpdate {
+	_u.mutation.RemoveVotingTallyIDs(ids...)
+	return _u
+}
+
+// RemoveVotingTallies removes "voting_tallies" edges to VotingTally entities.
+func (_u *SessionUpdate) RemoveVotingTallies(v ...*VotingTally) *SessionUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveVotingTallyIDs(ids...)
 }
 
 // ClearPrizegiving clears the "prizegiving" edge to the Prizegiving entity.
@@ -2177,6 +2214,51 @@ func (_u *SessionUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(vote.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.VotingTalliesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.VotingTalliesTable,
+			Columns: []string{session.VotingTalliesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingtally.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedVotingTalliesIDs(); len(nodes) > 0 && !_u.mutation.VotingTalliesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.VotingTalliesTable,
+			Columns: []string{session.VotingTalliesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingtally.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.VotingTalliesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.VotingTalliesTable,
+			Columns: []string{session.VotingTalliesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingtally.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -3278,6 +3360,21 @@ func (_u *SessionUpdateOne) AddVotes(v ...*Vote) *SessionUpdateOne {
 	return _u.AddVoteIDs(ids...)
 }
 
+// AddVotingTallyIDs adds the "voting_tallies" edge to the VotingTally entity by IDs.
+func (_u *SessionUpdateOne) AddVotingTallyIDs(ids ...int) *SessionUpdateOne {
+	_u.mutation.AddVotingTallyIDs(ids...)
+	return _u
+}
+
+// AddVotingTallies adds the "voting_tallies" edges to the VotingTally entity.
+func (_u *SessionUpdateOne) AddVotingTallies(v ...*VotingTally) *SessionUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddVotingTallyIDs(ids...)
+}
+
 // SetPrizegivingID sets the "prizegiving" edge to the Prizegiving entity by ID.
 func (_u *SessionUpdateOne) SetPrizegivingID(id int) *SessionUpdateOne {
 	_u.mutation.SetPrizegivingID(id)
@@ -3505,6 +3602,27 @@ func (_u *SessionUpdateOne) RemoveVotes(v ...*Vote) *SessionUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveVoteIDs(ids...)
+}
+
+// ClearVotingTallies clears all "voting_tallies" edges to the VotingTally entity.
+func (_u *SessionUpdateOne) ClearVotingTallies() *SessionUpdateOne {
+	_u.mutation.ClearVotingTallies()
+	return _u
+}
+
+// RemoveVotingTallyIDs removes the "voting_tallies" edge to VotingTally entities by IDs.
+func (_u *SessionUpdateOne) RemoveVotingTallyIDs(ids ...int) *SessionUpdateOne {
+	_u.mutation.RemoveVotingTallyIDs(ids...)
+	return _u
+}
+
+// RemoveVotingTallies removes "voting_tallies" edges to VotingTally entities.
+func (_u *SessionUpdateOne) RemoveVotingTallies(v ...*VotingTally) *SessionUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveVotingTallyIDs(ids...)
 }
 
 // ClearPrizegiving clears the "prizegiving" edge to the Prizegiving entity.
@@ -4426,6 +4544,51 @@ func (_u *SessionUpdateOne) sqlSave(ctx context.Context) (_node *Session, err er
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(vote.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.VotingTalliesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.VotingTalliesTable,
+			Columns: []string{session.VotingTalliesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingtally.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedVotingTalliesIDs(); len(nodes) > 0 && !_u.mutation.VotingTalliesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.VotingTalliesTable,
+			Columns: []string{session.VotingTalliesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingtally.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.VotingTalliesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.VotingTalliesTable,
+			Columns: []string{session.VotingTalliesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingtally.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

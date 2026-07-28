@@ -83,6 +83,7 @@ func (Event) Edges() []ent.Edge {
 		edge.To("voting_eligibilities", VotingEligibility.Type),
 		edge.To("voting_keys", VotingKey.Type),
 		edge.To("votes", Vote.Type),
+		edge.To("voting_tallies", VotingTally.Type),
 		edge.To("draft_edits", DraftEdit.Type),
 		edge.To("draft_changes", DraftChange.Type),
 		edge.To("import_references", ImportReference.Type),

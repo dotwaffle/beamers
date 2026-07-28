@@ -147,13 +147,15 @@ type SessionEdges struct {
 	CompetitionResultStandings []*CompetitionResultStanding `json:"competition_result_standings,omitempty"`
 	// Votes holds the value of the votes edge.
 	Votes []*Vote `json:"votes,omitempty"`
+	// VotingTallies holds the value of the voting_tallies edge.
+	VotingTallies []*VotingTally `json:"voting_tallies,omitempty"`
 	// Prizegiving holds the value of the prizegiving edge.
 	Prizegiving *Prizegiving `json:"prizegiving,omitempty"`
 	// PrizegivingAssignment holds the value of the prizegiving_assignment edge.
 	PrizegivingAssignment *PrizegivingCompetition `json:"prizegiving_assignment,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [14]bool
+	loadedTypes [15]bool
 }
 
 // EventOrErr returns the Event value or an error if the edge
@@ -272,12 +274,21 @@ func (e SessionEdges) VotesOrErr() ([]*Vote, error) {
 	return nil, &NotLoadedError{edge: "votes"}
 }
 
+// VotingTalliesOrErr returns the VotingTallies value or an error if the edge
+// was not loaded in eager-loading.
+func (e SessionEdges) VotingTalliesOrErr() ([]*VotingTally, error) {
+	if e.loadedTypes[12] {
+		return e.VotingTallies, nil
+	}
+	return nil, &NotLoadedError{edge: "voting_tallies"}
+}
+
 // PrizegivingOrErr returns the Prizegiving value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
 func (e SessionEdges) PrizegivingOrErr() (*Prizegiving, error) {
 	if e.Prizegiving != nil {
 		return e.Prizegiving, nil
-	} else if e.loadedTypes[12] {
+	} else if e.loadedTypes[13] {
 		return nil, &NotFoundError{label: prizegiving.Label}
 	}
 	return nil, &NotLoadedError{edge: "prizegiving"}
@@ -288,7 +299,7 @@ func (e SessionEdges) PrizegivingOrErr() (*Prizegiving, error) {
 func (e SessionEdges) PrizegivingAssignmentOrErr() (*PrizegivingCompetition, error) {
 	if e.PrizegivingAssignment != nil {
 		return e.PrizegivingAssignment, nil
-	} else if e.loadedTypes[13] {
+	} else if e.loadedTypes[14] {
 		return nil, &NotFoundError{label: prizegivingcompetition.Label}
 	}
 	return nil, &NotLoadedError{edge: "prizegiving_assignment"}
@@ -693,6 +704,11 @@ func (_m *Session) QueryCompetitionResultStandings() *CompetitionResultStandingQ
 // QueryVotes queries the "votes" edge of the Session entity.
 func (_m *Session) QueryVotes() *VoteQuery {
 	return NewSessionClient(_m.config).QueryVotes(_m)
+}
+
+// QueryVotingTallies queries the "voting_tallies" edge of the Session entity.
+func (_m *Session) QueryVotingTallies() *VotingTallyQuery {
+	return NewSessionClient(_m.config).QueryVotingTallies(_m)
 }
 
 // QueryPrizegiving queries the "prizegiving" edge of the Session entity.

@@ -17,7 +17,7 @@ var (
 	ErrCompetitionRanking = errors.New("placements do not follow competition ranking")
 	// ErrUnplacedOrder means Unplaced Entries do not retain Locked Entry Order.
 	ErrUnplacedOrder = errors.New("unplaced entries do not retain locked entry order")
-	// ErrCrewReasonRequired means deliberate non-publication lacks a Crew Reason.
+	// ErrCrewReasonRequired means a deliberate Results departure lacks a Crew Reason.
 	ErrCrewReasonRequired = errors.New("results crew reason is required")
 	// ErrDisposition means the current disposition cannot become Ready.
 	ErrDisposition = errors.New("results disposition cannot become ready")
@@ -159,21 +159,40 @@ type EventAward struct {
 
 // Draft is one complete immutable Competition Results proposal.
 type Draft struct {
-	ID                 int
-	EventID            int
-	SessionID          int
-	Revision           int
-	Disposition        Disposition
-	NoPublicReason     string
-	PublicExplanation  string
-	Score              ScorePolicy
-	Standings          []Standing
-	Awards             []Award
-	Ready              bool
-	ReadyByAccountID   int
-	ReadyAt            time.Time
-	CreatedByAccountID int
-	CreatedAt          time.Time
+	ID                  int
+	EventID             int
+	SessionID           int
+	Revision            int
+	Disposition         Disposition
+	NoPublicReason      string
+	VotingTallyID       int
+	TallyOverrideReason string
+	VotingTally         *VotingTally
+	PublicExplanation   string
+	Score               ScorePolicy
+	Standings           []Standing
+	Awards              []Award
+	Ready               bool
+	ReadyByAccountID    int
+	ReadyAt             time.Time
+	CreatedByAccountID  int
+	CreatedAt           time.Time
+}
+
+// VotingTallyEntry is one aggregate Entry score without Account-level Votes.
+type VotingTallyEntry struct {
+	EntryID int
+	Total   int
+	Count   int
+}
+
+// VotingTally is immutable aggregate evidence from the closed Voting Window.
+type VotingTally struct {
+	ID, Participating int
+	Method            string
+	SelfVotePolicy    string
+	Entries           []VotingTallyEntry
+	CreatedAt         time.Time
 }
 
 // ValidateAwards validates ordered Award content without resolving Entry ownership.

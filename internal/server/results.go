@@ -672,11 +672,12 @@ func resultsDraftInput(
 	}
 	return results.SaveInput{
 		EventID: eventID, SessionID: sessionID,
-		CommandID:         request.Form.Get("command_id"),
-		ExpectedRevision:  revision,
-		Disposition:       results.Disposition(request.Form.Get("disposition")),
-		NoPublicReason:    request.Form.Get("no_public_reason"),
-		PublicExplanation: request.Form.Get("public_explanation"),
+		CommandID:           request.Form.Get("command_id"),
+		ExpectedRevision:    revision,
+		Disposition:         results.Disposition(request.Form.Get("disposition")),
+		NoPublicReason:      request.Form.Get("no_public_reason"),
+		TallyOverrideReason: request.Form.Get("tally_override_reason"),
+		PublicExplanation:   request.Form.Get("public_explanation"),
 		Score: results.ScorePolicy{
 			Type:           results.ScoreType(request.Form.Get("score_type")),
 			Visibility:     results.ScoreVisibility(request.Form.Get("score_visibility")),

@@ -73,10 +73,12 @@ import (
 	"github.com/dotwaffle/beamers/ent/vote"
 	"github.com/dotwaffle/beamers/ent/votingeligibility"
 	"github.com/dotwaffle/beamers/ent/votingkey"
+	"github.com/dotwaffle/beamers/ent/votingtally"
 	"github.com/dotwaffle/beamers/ent/webauthncredential"
 	"github.com/dotwaffle/beamers/internal/awardvalue"
 	"github.com/dotwaffle/beamers/internal/prizegivingvalue"
 	"github.com/dotwaffle/beamers/internal/profilevalue"
+	"github.com/dotwaffle/beamers/internal/votingvalue"
 )
 
 const (
@@ -149,6 +151,7 @@ const (
 	TypeVote                        = "Vote"
 	TypeVotingEligibility           = "VotingEligibility"
 	TypeVotingKey                   = "VotingKey"
+	TypeVotingTally                 = "VotingTally"
 	TypeWebAuthnCredential          = "WebAuthnCredential"
 )
 
@@ -11862,40 +11865,43 @@ func (m *CompetitionResultStandingMutation) ResetEdge(name string) error {
 // CompetitionResultsDraftMutation represents an operation that mutates the CompetitionResultsDraft nodes in the graph.
 type CompetitionResultsDraftMutation struct {
 	config
-	op                       Op
-	typ                      string
-	id                       *int
-	revision                 *int
-	addrevision              *int
-	disposition              *competitionresultsdraft.Disposition
-	no_public_crew_reason    *string
-	public_explanation       *string
-	score_type               *competitionresultsdraft.ScoreType
-	score_visibility         *competitionresultsdraft.ScoreVisibility
-	score_unit               *string
-	score_precision          *int
-	addscore_precision       *int
-	score_requirement        *competitionresultsdraft.ScoreRequirement
-	score_interpretation     *competitionresultsdraft.ScoreInterpretation
-	awards                   *[]awardvalue.Competition
-	appendawards             []awardvalue.Competition
-	ready_by_account_id      *int
-	addready_by_account_id   *int
-	ready_at                 *time.Time
-	created_by_account_id    *int
-	addcreated_by_account_id *int
-	created_at               *time.Time
-	clearedFields            map[string]struct{}
-	event                    *int
-	clearedevent             bool
-	competition              *int
-	clearedcompetition       bool
-	standings                map[int]struct{}
-	removedstandings         map[int]struct{}
-	clearedstandings         bool
-	done                     bool
-	oldValue                 func(context.Context) (*CompetitionResultsDraft, error)
-	predicates               []predicate.CompetitionResultsDraft
+	op                         Op
+	typ                        string
+	id                         *int
+	revision                   *int
+	addrevision                *int
+	disposition                *competitionresultsdraft.Disposition
+	no_public_crew_reason      *string
+	public_explanation         *string
+	score_type                 *competitionresultsdraft.ScoreType
+	score_visibility           *competitionresultsdraft.ScoreVisibility
+	score_unit                 *string
+	score_precision            *int
+	addscore_precision         *int
+	score_requirement          *competitionresultsdraft.ScoreRequirement
+	score_interpretation       *competitionresultsdraft.ScoreInterpretation
+	awards                     *[]awardvalue.Competition
+	appendawards               []awardvalue.Competition
+	tally_override_crew_reason *string
+	ready_by_account_id        *int
+	addready_by_account_id     *int
+	ready_at                   *time.Time
+	created_by_account_id      *int
+	addcreated_by_account_id   *int
+	created_at                 *time.Time
+	clearedFields              map[string]struct{}
+	event                      *int
+	clearedevent               bool
+	competition                *int
+	clearedcompetition         bool
+	voting_tally               *int
+	clearedvoting_tally        bool
+	standings                  map[int]struct{}
+	removedstandings           map[int]struct{}
+	clearedstandings           bool
+	done                       bool
+	oldValue                   func(context.Context) (*CompetitionResultsDraft, error)
+	predicates                 []predicate.CompetitionResultsDraft
 }
 
 var _ ent.Mutation = (*CompetitionResultsDraftMutation)(nil)
@@ -12572,6 +12578,104 @@ func (m *CompetitionResultsDraftMutation) ResetAwards() {
 	delete(m.clearedFields, competitionresultsdraft.FieldAwards)
 }
 
+// SetVotingTallyID sets the "voting_tally_id" field.
+func (m *CompetitionResultsDraftMutation) SetVotingTallyID(i int) {
+	m.voting_tally = &i
+}
+
+// VotingTallyID returns the value of the "voting_tally_id" field in the mutation.
+func (m *CompetitionResultsDraftMutation) VotingTallyID() (r int, exists bool) {
+	v := m.voting_tally
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldVotingTallyID returns the old "voting_tally_id" field's value of the CompetitionResultsDraft entity.
+// If the CompetitionResultsDraft object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompetitionResultsDraftMutation) OldVotingTallyID(ctx context.Context) (v *int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldVotingTallyID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldVotingTallyID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldVotingTallyID: %w", err)
+	}
+	return oldValue.VotingTallyID, nil
+}
+
+// ClearVotingTallyID clears the value of the "voting_tally_id" field.
+func (m *CompetitionResultsDraftMutation) ClearVotingTallyID() {
+	m.voting_tally = nil
+	m.clearedFields[competitionresultsdraft.FieldVotingTallyID] = struct{}{}
+}
+
+// VotingTallyIDCleared returns if the "voting_tally_id" field was cleared in this mutation.
+func (m *CompetitionResultsDraftMutation) VotingTallyIDCleared() bool {
+	_, ok := m.clearedFields[competitionresultsdraft.FieldVotingTallyID]
+	return ok
+}
+
+// ResetVotingTallyID resets all changes to the "voting_tally_id" field.
+func (m *CompetitionResultsDraftMutation) ResetVotingTallyID() {
+	m.voting_tally = nil
+	delete(m.clearedFields, competitionresultsdraft.FieldVotingTallyID)
+}
+
+// SetTallyOverrideCrewReason sets the "tally_override_crew_reason" field.
+func (m *CompetitionResultsDraftMutation) SetTallyOverrideCrewReason(s string) {
+	m.tally_override_crew_reason = &s
+}
+
+// TallyOverrideCrewReason returns the value of the "tally_override_crew_reason" field in the mutation.
+func (m *CompetitionResultsDraftMutation) TallyOverrideCrewReason() (r string, exists bool) {
+	v := m.tally_override_crew_reason
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTallyOverrideCrewReason returns the old "tally_override_crew_reason" field's value of the CompetitionResultsDraft entity.
+// If the CompetitionResultsDraft object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *CompetitionResultsDraftMutation) OldTallyOverrideCrewReason(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTallyOverrideCrewReason is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTallyOverrideCrewReason requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTallyOverrideCrewReason: %w", err)
+	}
+	return oldValue.TallyOverrideCrewReason, nil
+}
+
+// ClearTallyOverrideCrewReason clears the value of the "tally_override_crew_reason" field.
+func (m *CompetitionResultsDraftMutation) ClearTallyOverrideCrewReason() {
+	m.tally_override_crew_reason = nil
+	m.clearedFields[competitionresultsdraft.FieldTallyOverrideCrewReason] = struct{}{}
+}
+
+// TallyOverrideCrewReasonCleared returns if the "tally_override_crew_reason" field was cleared in this mutation.
+func (m *CompetitionResultsDraftMutation) TallyOverrideCrewReasonCleared() bool {
+	_, ok := m.clearedFields[competitionresultsdraft.FieldTallyOverrideCrewReason]
+	return ok
+}
+
+// ResetTallyOverrideCrewReason resets all changes to the "tally_override_crew_reason" field.
+func (m *CompetitionResultsDraftMutation) ResetTallyOverrideCrewReason() {
+	m.tally_override_crew_reason = nil
+	delete(m.clearedFields, competitionresultsdraft.FieldTallyOverrideCrewReason)
+}
+
 // SetReadyByAccountID sets the "ready_by_account_id" field.
 func (m *CompetitionResultsDraftMutation) SetReadyByAccountID(i int) {
 	m.ready_by_account_id = &i
@@ -12850,6 +12954,33 @@ func (m *CompetitionResultsDraftMutation) ResetCompetition() {
 	m.clearedcompetition = false
 }
 
+// ClearVotingTally clears the "voting_tally" edge to the VotingTally entity.
+func (m *CompetitionResultsDraftMutation) ClearVotingTally() {
+	m.clearedvoting_tally = true
+	m.clearedFields[competitionresultsdraft.FieldVotingTallyID] = struct{}{}
+}
+
+// VotingTallyCleared reports if the "voting_tally" edge to the VotingTally entity was cleared.
+func (m *CompetitionResultsDraftMutation) VotingTallyCleared() bool {
+	return m.VotingTallyIDCleared() || m.clearedvoting_tally
+}
+
+// VotingTallyIDs returns the "voting_tally" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// VotingTallyID instead. It exists only for internal usage by the builders.
+func (m *CompetitionResultsDraftMutation) VotingTallyIDs() (ids []int) {
+	if id := m.voting_tally; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetVotingTally resets all changes to the "voting_tally" edge.
+func (m *CompetitionResultsDraftMutation) ResetVotingTally() {
+	m.voting_tally = nil
+	m.clearedvoting_tally = false
+}
+
 // AddStandingIDs adds the "standings" edge to the CompetitionResultStanding entity by ids.
 func (m *CompetitionResultsDraftMutation) AddStandingIDs(ids ...int) {
 	if m.standings == nil {
@@ -12938,7 +13069,7 @@ func (m *CompetitionResultsDraftMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *CompetitionResultsDraftMutation) Fields() []string {
-	fields := make([]string, 0, 17)
+	fields := make([]string, 0, 19)
 	if m.event != nil {
 		fields = append(fields, competitionresultsdraft.FieldEventID)
 	}
@@ -12977,6 +13108,12 @@ func (m *CompetitionResultsDraftMutation) Fields() []string {
 	}
 	if m.awards != nil {
 		fields = append(fields, competitionresultsdraft.FieldAwards)
+	}
+	if m.voting_tally != nil {
+		fields = append(fields, competitionresultsdraft.FieldVotingTallyID)
+	}
+	if m.tally_override_crew_reason != nil {
+		fields = append(fields, competitionresultsdraft.FieldTallyOverrideCrewReason)
 	}
 	if m.ready_by_account_id != nil {
 		fields = append(fields, competitionresultsdraft.FieldReadyByAccountID)
@@ -13024,6 +13161,10 @@ func (m *CompetitionResultsDraftMutation) Field(name string) (ent.Value, bool) {
 		return m.ScoreInterpretation()
 	case competitionresultsdraft.FieldAwards:
 		return m.Awards()
+	case competitionresultsdraft.FieldVotingTallyID:
+		return m.VotingTallyID()
+	case competitionresultsdraft.FieldTallyOverrideCrewReason:
+		return m.TallyOverrideCrewReason()
 	case competitionresultsdraft.FieldReadyByAccountID:
 		return m.ReadyByAccountID()
 	case competitionresultsdraft.FieldReadyAt:
@@ -13067,6 +13208,10 @@ func (m *CompetitionResultsDraftMutation) OldField(ctx context.Context, name str
 		return m.OldScoreInterpretation(ctx)
 	case competitionresultsdraft.FieldAwards:
 		return m.OldAwards(ctx)
+	case competitionresultsdraft.FieldVotingTallyID:
+		return m.OldVotingTallyID(ctx)
+	case competitionresultsdraft.FieldTallyOverrideCrewReason:
+		return m.OldTallyOverrideCrewReason(ctx)
 	case competitionresultsdraft.FieldReadyByAccountID:
 		return m.OldReadyByAccountID(ctx)
 	case competitionresultsdraft.FieldReadyAt:
@@ -13174,6 +13319,20 @@ func (m *CompetitionResultsDraftMutation) SetField(name string, value ent.Value)
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetAwards(v)
+		return nil
+	case competitionresultsdraft.FieldVotingTallyID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetVotingTallyID(v)
+		return nil
+	case competitionresultsdraft.FieldTallyOverrideCrewReason:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTallyOverrideCrewReason(v)
 		return nil
 	case competitionresultsdraft.FieldReadyByAccountID:
 		v, ok := value.(int)
@@ -13296,6 +13455,12 @@ func (m *CompetitionResultsDraftMutation) ClearedFields() []string {
 	if m.FieldCleared(competitionresultsdraft.FieldAwards) {
 		fields = append(fields, competitionresultsdraft.FieldAwards)
 	}
+	if m.FieldCleared(competitionresultsdraft.FieldVotingTallyID) {
+		fields = append(fields, competitionresultsdraft.FieldVotingTallyID)
+	}
+	if m.FieldCleared(competitionresultsdraft.FieldTallyOverrideCrewReason) {
+		fields = append(fields, competitionresultsdraft.FieldTallyOverrideCrewReason)
+	}
 	if m.FieldCleared(competitionresultsdraft.FieldReadyByAccountID) {
 		fields = append(fields, competitionresultsdraft.FieldReadyByAccountID)
 	}
@@ -13327,6 +13492,12 @@ func (m *CompetitionResultsDraftMutation) ClearField(name string) error {
 		return nil
 	case competitionresultsdraft.FieldAwards:
 		m.ClearAwards()
+		return nil
+	case competitionresultsdraft.FieldVotingTallyID:
+		m.ClearVotingTallyID()
+		return nil
+	case competitionresultsdraft.FieldTallyOverrideCrewReason:
+		m.ClearTallyOverrideCrewReason()
 		return nil
 	case competitionresultsdraft.FieldReadyByAccountID:
 		m.ClearReadyByAccountID()
@@ -13381,6 +13552,12 @@ func (m *CompetitionResultsDraftMutation) ResetField(name string) error {
 	case competitionresultsdraft.FieldAwards:
 		m.ResetAwards()
 		return nil
+	case competitionresultsdraft.FieldVotingTallyID:
+		m.ResetVotingTallyID()
+		return nil
+	case competitionresultsdraft.FieldTallyOverrideCrewReason:
+		m.ResetTallyOverrideCrewReason()
+		return nil
 	case competitionresultsdraft.FieldReadyByAccountID:
 		m.ResetReadyByAccountID()
 		return nil
@@ -13399,12 +13576,15 @@ func (m *CompetitionResultsDraftMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *CompetitionResultsDraftMutation) AddedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.event != nil {
 		edges = append(edges, competitionresultsdraft.EdgeEvent)
 	}
 	if m.competition != nil {
 		edges = append(edges, competitionresultsdraft.EdgeCompetition)
+	}
+	if m.voting_tally != nil {
+		edges = append(edges, competitionresultsdraft.EdgeVotingTally)
 	}
 	if m.standings != nil {
 		edges = append(edges, competitionresultsdraft.EdgeStandings)
@@ -13424,6 +13604,10 @@ func (m *CompetitionResultsDraftMutation) AddedIDs(name string) []ent.Value {
 		if id := m.competition; id != nil {
 			return []ent.Value{*id}
 		}
+	case competitionresultsdraft.EdgeVotingTally:
+		if id := m.voting_tally; id != nil {
+			return []ent.Value{*id}
+		}
 	case competitionresultsdraft.EdgeStandings:
 		ids := make([]ent.Value, 0, len(m.standings))
 		for id := range m.standings {
@@ -13436,7 +13620,7 @@ func (m *CompetitionResultsDraftMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *CompetitionResultsDraftMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.removedstandings != nil {
 		edges = append(edges, competitionresultsdraft.EdgeStandings)
 	}
@@ -13459,12 +13643,15 @@ func (m *CompetitionResultsDraftMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *CompetitionResultsDraftMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 3)
+	edges := make([]string, 0, 4)
 	if m.clearedevent {
 		edges = append(edges, competitionresultsdraft.EdgeEvent)
 	}
 	if m.clearedcompetition {
 		edges = append(edges, competitionresultsdraft.EdgeCompetition)
+	}
+	if m.clearedvoting_tally {
+		edges = append(edges, competitionresultsdraft.EdgeVotingTally)
 	}
 	if m.clearedstandings {
 		edges = append(edges, competitionresultsdraft.EdgeStandings)
@@ -13480,6 +13667,8 @@ func (m *CompetitionResultsDraftMutation) EdgeCleared(name string) bool {
 		return m.clearedevent
 	case competitionresultsdraft.EdgeCompetition:
 		return m.clearedcompetition
+	case competitionresultsdraft.EdgeVotingTally:
+		return m.clearedvoting_tally
 	case competitionresultsdraft.EdgeStandings:
 		return m.clearedstandings
 	}
@@ -13496,6 +13685,9 @@ func (m *CompetitionResultsDraftMutation) ClearEdge(name string) error {
 	case competitionresultsdraft.EdgeCompetition:
 		m.ClearCompetition()
 		return nil
+	case competitionresultsdraft.EdgeVotingTally:
+		m.ClearVotingTally()
+		return nil
 	}
 	return fmt.Errorf("unknown CompetitionResultsDraft unique edge %s", name)
 }
@@ -13509,6 +13701,9 @@ func (m *CompetitionResultsDraftMutation) ResetEdge(name string) error {
 		return nil
 	case competitionresultsdraft.EdgeCompetition:
 		m.ResetCompetition()
+		return nil
+	case competitionresultsdraft.EdgeVotingTally:
+		m.ResetVotingTally()
 		return nil
 	case competitionresultsdraft.EdgeStandings:
 		m.ResetStandings()
@@ -22447,6 +22642,9 @@ type EventMutation struct {
 	votes                                     map[int]struct{}
 	removedvotes                              map[int]struct{}
 	clearedvotes                              bool
+	voting_tallies                            map[int]struct{}
+	removedvoting_tallies                     map[int]struct{}
+	clearedvoting_tallies                     bool
 	draft_edits                               map[int]struct{}
 	removeddraft_edits                        map[int]struct{}
 	cleareddraft_edits                        bool
@@ -24541,6 +24739,60 @@ func (m *EventMutation) ResetVotes() {
 	m.removedvotes = nil
 }
 
+// AddVotingTallyIDs adds the "voting_tallies" edge to the VotingTally entity by ids.
+func (m *EventMutation) AddVotingTallyIDs(ids ...int) {
+	if m.voting_tallies == nil {
+		m.voting_tallies = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.voting_tallies[ids[i]] = struct{}{}
+	}
+}
+
+// ClearVotingTallies clears the "voting_tallies" edge to the VotingTally entity.
+func (m *EventMutation) ClearVotingTallies() {
+	m.clearedvoting_tallies = true
+}
+
+// VotingTalliesCleared reports if the "voting_tallies" edge to the VotingTally entity was cleared.
+func (m *EventMutation) VotingTalliesCleared() bool {
+	return m.clearedvoting_tallies
+}
+
+// RemoveVotingTallyIDs removes the "voting_tallies" edge to the VotingTally entity by IDs.
+func (m *EventMutation) RemoveVotingTallyIDs(ids ...int) {
+	if m.removedvoting_tallies == nil {
+		m.removedvoting_tallies = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.voting_tallies, ids[i])
+		m.removedvoting_tallies[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedVotingTallies returns the removed IDs of the "voting_tallies" edge to the VotingTally entity.
+func (m *EventMutation) RemovedVotingTalliesIDs() (ids []int) {
+	for id := range m.removedvoting_tallies {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// VotingTalliesIDs returns the "voting_tallies" edge IDs in the mutation.
+func (m *EventMutation) VotingTalliesIDs() (ids []int) {
+	for id := range m.voting_tallies {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetVotingTallies resets all changes to the "voting_tallies" edge.
+func (m *EventMutation) ResetVotingTallies() {
+	m.voting_tallies = nil
+	m.clearedvoting_tallies = false
+	m.removedvoting_tallies = nil
+}
+
 // AddDraftEditIDs adds the "draft_edits" edge to the DraftEdit entity by ids.
 func (m *EventMutation) AddDraftEditIDs(ids ...int) {
 	if m.draft_edits == nil {
@@ -25464,7 +25716,7 @@ func (m *EventMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *EventMutation) AddedEdges() []string {
-	edges := make([]string, 0, 24)
+	edges := make([]string, 0, 25)
 	if m.grants != nil {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -25518,6 +25770,9 @@ func (m *EventMutation) AddedEdges() []string {
 	}
 	if m.votes != nil {
 		edges = append(edges, event.EdgeVotes)
+	}
+	if m.voting_tallies != nil {
+		edges = append(edges, event.EdgeVotingTallies)
 	}
 	if m.draft_edits != nil {
 		edges = append(edges, event.EdgeDraftEdits)
@@ -25650,6 +25905,12 @@ func (m *EventMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case event.EdgeVotingTallies:
+		ids := make([]ent.Value, 0, len(m.voting_tallies))
+		for id := range m.voting_tallies {
+			ids = append(ids, id)
+		}
+		return ids
 	case event.EdgeDraftEdits:
 		ids := make([]ent.Value, 0, len(m.draft_edits))
 		for id := range m.draft_edits {
@@ -25690,7 +25951,7 @@ func (m *EventMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *EventMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 24)
+	edges := make([]string, 0, 25)
 	if m.removedgrants != nil {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -25741,6 +26002,9 @@ func (m *EventMutation) RemovedEdges() []string {
 	}
 	if m.removedvotes != nil {
 		edges = append(edges, event.EdgeVotes)
+	}
+	if m.removedvoting_tallies != nil {
+		edges = append(edges, event.EdgeVotingTallies)
 	}
 	if m.removeddraft_edits != nil {
 		edges = append(edges, event.EdgeDraftEdits)
@@ -25866,6 +26130,12 @@ func (m *EventMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case event.EdgeVotingTallies:
+		ids := make([]ent.Value, 0, len(m.removedvoting_tallies))
+		for id := range m.removedvoting_tallies {
+			ids = append(ids, id)
+		}
+		return ids
 	case event.EdgeDraftEdits:
 		ids := make([]ent.Value, 0, len(m.removeddraft_edits))
 		for id := range m.removeddraft_edits {
@@ -25902,7 +26172,7 @@ func (m *EventMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *EventMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 24)
+	edges := make([]string, 0, 25)
 	if m.clearedgrants {
 		edges = append(edges, event.EdgeGrants)
 	}
@@ -25956,6 +26226,9 @@ func (m *EventMutation) ClearedEdges() []string {
 	}
 	if m.clearedvotes {
 		edges = append(edges, event.EdgeVotes)
+	}
+	if m.clearedvoting_tallies {
+		edges = append(edges, event.EdgeVotingTallies)
 	}
 	if m.cleareddraft_edits {
 		edges = append(edges, event.EdgeDraftEdits)
@@ -26018,6 +26291,8 @@ func (m *EventMutation) EdgeCleared(name string) bool {
 		return m.clearedvoting_keys
 	case event.EdgeVotes:
 		return m.clearedvotes
+	case event.EdgeVotingTallies:
+		return m.clearedvoting_tallies
 	case event.EdgeDraftEdits:
 		return m.cleareddraft_edits
 	case event.EdgeDraftChanges:
@@ -26105,6 +26380,9 @@ func (m *EventMutation) ResetEdge(name string) error {
 		return nil
 	case event.EdgeVotes:
 		m.ResetVotes()
+		return nil
+	case event.EdgeVotingTallies:
+		m.ResetVotingTallies()
 		return nil
 	case event.EdgeDraftEdits:
 		m.ResetDraftEdits()
@@ -46164,6 +46442,9 @@ type SessionMutation struct {
 	votes                                 map[int]struct{}
 	removedvotes                          map[int]struct{}
 	clearedvotes                          bool
+	voting_tallies                        map[int]struct{}
+	removedvoting_tallies                 map[int]struct{}
+	clearedvoting_tallies                 bool
 	prizegiving                           *int
 	clearedprizegiving                    bool
 	prizegiving_assignment                *int
@@ -49117,6 +49398,60 @@ func (m *SessionMutation) ResetVotes() {
 	m.removedvotes = nil
 }
 
+// AddVotingTallyIDs adds the "voting_tallies" edge to the VotingTally entity by ids.
+func (m *SessionMutation) AddVotingTallyIDs(ids ...int) {
+	if m.voting_tallies == nil {
+		m.voting_tallies = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.voting_tallies[ids[i]] = struct{}{}
+	}
+}
+
+// ClearVotingTallies clears the "voting_tallies" edge to the VotingTally entity.
+func (m *SessionMutation) ClearVotingTallies() {
+	m.clearedvoting_tallies = true
+}
+
+// VotingTalliesCleared reports if the "voting_tallies" edge to the VotingTally entity was cleared.
+func (m *SessionMutation) VotingTalliesCleared() bool {
+	return m.clearedvoting_tallies
+}
+
+// RemoveVotingTallyIDs removes the "voting_tallies" edge to the VotingTally entity by IDs.
+func (m *SessionMutation) RemoveVotingTallyIDs(ids ...int) {
+	if m.removedvoting_tallies == nil {
+		m.removedvoting_tallies = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.voting_tallies, ids[i])
+		m.removedvoting_tallies[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedVotingTallies returns the removed IDs of the "voting_tallies" edge to the VotingTally entity.
+func (m *SessionMutation) RemovedVotingTalliesIDs() (ids []int) {
+	for id := range m.removedvoting_tallies {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// VotingTalliesIDs returns the "voting_tallies" edge IDs in the mutation.
+func (m *SessionMutation) VotingTalliesIDs() (ids []int) {
+	for id := range m.voting_tallies {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetVotingTallies resets all changes to the "voting_tallies" edge.
+func (m *SessionMutation) ResetVotingTallies() {
+	m.voting_tallies = nil
+	m.clearedvoting_tallies = false
+	m.removedvoting_tallies = nil
+}
+
 // SetPrizegivingID sets the "prizegiving" edge to the Prizegiving entity by id.
 func (m *SessionMutation) SetPrizegivingID(id int) {
 	m.prizegiving = &id
@@ -50382,7 +50717,7 @@ func (m *SessionMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *SessionMutation) AddedEdges() []string {
-	edges := make([]string, 0, 14)
+	edges := make([]string, 0, 15)
 	if m.event != nil {
 		edges = append(edges, session.EdgeEvent)
 	}
@@ -50418,6 +50753,9 @@ func (m *SessionMutation) AddedEdges() []string {
 	}
 	if m.votes != nil {
 		edges = append(edges, session.EdgeVotes)
+	}
+	if m.voting_tallies != nil {
+		edges = append(edges, session.EdgeVotingTallies)
 	}
 	if m.prizegiving != nil {
 		edges = append(edges, session.EdgePrizegiving)
@@ -50496,6 +50834,12 @@ func (m *SessionMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case session.EdgeVotingTallies:
+		ids := make([]ent.Value, 0, len(m.voting_tallies))
+		for id := range m.voting_tallies {
+			ids = append(ids, id)
+		}
+		return ids
 	case session.EdgePrizegiving:
 		if id := m.prizegiving; id != nil {
 			return []ent.Value{*id}
@@ -50510,7 +50854,7 @@ func (m *SessionMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *SessionMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 14)
+	edges := make([]string, 0, 15)
 	if m.removedpublished_versions != nil {
 		edges = append(edges, session.EdgePublishedVersions)
 	}
@@ -50534,6 +50878,9 @@ func (m *SessionMutation) RemovedEdges() []string {
 	}
 	if m.removedvotes != nil {
 		edges = append(edges, session.EdgeVotes)
+	}
+	if m.removedvoting_tallies != nil {
+		edges = append(edges, session.EdgeVotingTallies)
 	}
 	return edges
 }
@@ -50590,13 +50937,19 @@ func (m *SessionMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case session.EdgeVotingTallies:
+		ids := make([]ent.Value, 0, len(m.removedvoting_tallies))
+		for id := range m.removedvoting_tallies {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *SessionMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 14)
+	edges := make([]string, 0, 15)
 	if m.clearedevent {
 		edges = append(edges, session.EdgeEvent)
 	}
@@ -50632,6 +50985,9 @@ func (m *SessionMutation) ClearedEdges() []string {
 	}
 	if m.clearedvotes {
 		edges = append(edges, session.EdgeVotes)
+	}
+	if m.clearedvoting_tallies {
+		edges = append(edges, session.EdgeVotingTallies)
 	}
 	if m.clearedprizegiving {
 		edges = append(edges, session.EdgePrizegiving)
@@ -50670,6 +51026,8 @@ func (m *SessionMutation) EdgeCleared(name string) bool {
 		return m.clearedcompetition_result_standings
 	case session.EdgeVotes:
 		return m.clearedvotes
+	case session.EdgeVotingTallies:
+		return m.clearedvoting_tallies
 	case session.EdgePrizegiving:
 		return m.clearedprizegiving
 	case session.EdgePrizegivingAssignment:
@@ -50743,6 +51101,9 @@ func (m *SessionMutation) ResetEdge(name string) error {
 		return nil
 	case session.EdgeVotes:
 		m.ResetVotes()
+		return nil
+	case session.EdgeVotingTallies:
+		m.ResetVotingTallies()
 		return nil
 	case session.EdgePrizegiving:
 		m.ResetPrizegiving()
@@ -60559,6 +60920,993 @@ func (m *VotingKeyMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown VotingKey edge %s", name)
+}
+
+// VotingTallyMutation represents an operation that mutates the VotingTally nodes in the graph.
+type VotingTallyMutation struct {
+	config
+	op                       Op
+	typ                      string
+	id                       *int
+	method                   *votingtally.Method
+	self_vote_policy         *votingtally.SelfVotePolicy
+	participating            *int
+	addparticipating         *int
+	entries                  *[]votingvalue.Entry
+	appendentries            []votingvalue.Entry
+	created_by_account_id    *int
+	addcreated_by_account_id *int
+	created_at               *time.Time
+	clearedFields            map[string]struct{}
+	event                    *int
+	clearedevent             bool
+	competition              *int
+	clearedcompetition       bool
+	results_drafts           map[int]struct{}
+	removedresults_drafts    map[int]struct{}
+	clearedresults_drafts    bool
+	done                     bool
+	oldValue                 func(context.Context) (*VotingTally, error)
+	predicates               []predicate.VotingTally
+}
+
+var _ ent.Mutation = (*VotingTallyMutation)(nil)
+
+// votingtallyOption allows management of the mutation configuration using functional options.
+type votingtallyOption func(*VotingTallyMutation)
+
+// newVotingTallyMutation creates new mutation for the VotingTally entity.
+func newVotingTallyMutation(c config, op Op, opts ...votingtallyOption) *VotingTallyMutation {
+	m := &VotingTallyMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeVotingTally,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withVotingTallyID sets the ID field of the mutation.
+func withVotingTallyID(id int) votingtallyOption {
+	return func(m *VotingTallyMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *VotingTally
+		)
+		m.oldValue = func(ctx context.Context) (*VotingTally, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().VotingTally.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withVotingTally sets the old VotingTally of the mutation.
+func withVotingTally(node *VotingTally) votingtallyOption {
+	return func(m *VotingTallyMutation) {
+		m.oldValue = func(context.Context) (*VotingTally, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m VotingTallyMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m VotingTallyMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *VotingTallyMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *VotingTallyMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().VotingTally.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetEventID sets the "event_id" field.
+func (m *VotingTallyMutation) SetEventID(i int) {
+	m.event = &i
+}
+
+// EventID returns the value of the "event_id" field in the mutation.
+func (m *VotingTallyMutation) EventID() (r int, exists bool) {
+	v := m.event
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEventID returns the old "event_id" field's value of the VotingTally entity.
+// If the VotingTally object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *VotingTallyMutation) OldEventID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEventID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEventID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEventID: %w", err)
+	}
+	return oldValue.EventID, nil
+}
+
+// ResetEventID resets all changes to the "event_id" field.
+func (m *VotingTallyMutation) ResetEventID() {
+	m.event = nil
+}
+
+// SetCompetitionSessionID sets the "competition_session_id" field.
+func (m *VotingTallyMutation) SetCompetitionSessionID(i int) {
+	m.competition = &i
+}
+
+// CompetitionSessionID returns the value of the "competition_session_id" field in the mutation.
+func (m *VotingTallyMutation) CompetitionSessionID() (r int, exists bool) {
+	v := m.competition
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCompetitionSessionID returns the old "competition_session_id" field's value of the VotingTally entity.
+// If the VotingTally object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *VotingTallyMutation) OldCompetitionSessionID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCompetitionSessionID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCompetitionSessionID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCompetitionSessionID: %w", err)
+	}
+	return oldValue.CompetitionSessionID, nil
+}
+
+// ResetCompetitionSessionID resets all changes to the "competition_session_id" field.
+func (m *VotingTallyMutation) ResetCompetitionSessionID() {
+	m.competition = nil
+}
+
+// SetMethod sets the "method" field.
+func (m *VotingTallyMutation) SetMethod(v votingtally.Method) {
+	m.method = &v
+}
+
+// Method returns the value of the "method" field in the mutation.
+func (m *VotingTallyMutation) Method() (r votingtally.Method, exists bool) {
+	v := m.method
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMethod returns the old "method" field's value of the VotingTally entity.
+// If the VotingTally object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *VotingTallyMutation) OldMethod(ctx context.Context) (v votingtally.Method, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMethod is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMethod requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMethod: %w", err)
+	}
+	return oldValue.Method, nil
+}
+
+// ResetMethod resets all changes to the "method" field.
+func (m *VotingTallyMutation) ResetMethod() {
+	m.method = nil
+}
+
+// SetSelfVotePolicy sets the "self_vote_policy" field.
+func (m *VotingTallyMutation) SetSelfVotePolicy(vvp votingtally.SelfVotePolicy) {
+	m.self_vote_policy = &vvp
+}
+
+// SelfVotePolicy returns the value of the "self_vote_policy" field in the mutation.
+func (m *VotingTallyMutation) SelfVotePolicy() (r votingtally.SelfVotePolicy, exists bool) {
+	v := m.self_vote_policy
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSelfVotePolicy returns the old "self_vote_policy" field's value of the VotingTally entity.
+// If the VotingTally object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *VotingTallyMutation) OldSelfVotePolicy(ctx context.Context) (v votingtally.SelfVotePolicy, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSelfVotePolicy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSelfVotePolicy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSelfVotePolicy: %w", err)
+	}
+	return oldValue.SelfVotePolicy, nil
+}
+
+// ResetSelfVotePolicy resets all changes to the "self_vote_policy" field.
+func (m *VotingTallyMutation) ResetSelfVotePolicy() {
+	m.self_vote_policy = nil
+}
+
+// SetParticipating sets the "participating" field.
+func (m *VotingTallyMutation) SetParticipating(i int) {
+	m.participating = &i
+	m.addparticipating = nil
+}
+
+// Participating returns the value of the "participating" field in the mutation.
+func (m *VotingTallyMutation) Participating() (r int, exists bool) {
+	v := m.participating
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldParticipating returns the old "participating" field's value of the VotingTally entity.
+// If the VotingTally object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *VotingTallyMutation) OldParticipating(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldParticipating is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldParticipating requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldParticipating: %w", err)
+	}
+	return oldValue.Participating, nil
+}
+
+// AddParticipating adds i to the "participating" field.
+func (m *VotingTallyMutation) AddParticipating(i int) {
+	if m.addparticipating != nil {
+		*m.addparticipating += i
+	} else {
+		m.addparticipating = &i
+	}
+}
+
+// AddedParticipating returns the value that was added to the "participating" field in this mutation.
+func (m *VotingTallyMutation) AddedParticipating() (r int, exists bool) {
+	v := m.addparticipating
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetParticipating resets all changes to the "participating" field.
+func (m *VotingTallyMutation) ResetParticipating() {
+	m.participating = nil
+	m.addparticipating = nil
+}
+
+// SetEntries sets the "entries" field.
+func (m *VotingTallyMutation) SetEntries(v []votingvalue.Entry) {
+	m.entries = &v
+	m.appendentries = nil
+}
+
+// Entries returns the value of the "entries" field in the mutation.
+func (m *VotingTallyMutation) Entries() (r []votingvalue.Entry, exists bool) {
+	v := m.entries
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldEntries returns the old "entries" field's value of the VotingTally entity.
+// If the VotingTally object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *VotingTallyMutation) OldEntries(ctx context.Context) (v []votingvalue.Entry, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldEntries is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldEntries requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldEntries: %w", err)
+	}
+	return oldValue.Entries, nil
+}
+
+// AppendEntries adds v to the "entries" field.
+func (m *VotingTallyMutation) AppendEntries(v []votingvalue.Entry) {
+	m.appendentries = append(m.appendentries, v...)
+}
+
+// AppendedEntries returns the list of values that were appended to the "entries" field in this mutation.
+func (m *VotingTallyMutation) AppendedEntries() ([]votingvalue.Entry, bool) {
+	if len(m.appendentries) == 0 {
+		return nil, false
+	}
+	return m.appendentries, true
+}
+
+// ResetEntries resets all changes to the "entries" field.
+func (m *VotingTallyMutation) ResetEntries() {
+	m.entries = nil
+	m.appendentries = nil
+}
+
+// SetCreatedByAccountID sets the "created_by_account_id" field.
+func (m *VotingTallyMutation) SetCreatedByAccountID(i int) {
+	m.created_by_account_id = &i
+	m.addcreated_by_account_id = nil
+}
+
+// CreatedByAccountID returns the value of the "created_by_account_id" field in the mutation.
+func (m *VotingTallyMutation) CreatedByAccountID() (r int, exists bool) {
+	v := m.created_by_account_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedByAccountID returns the old "created_by_account_id" field's value of the VotingTally entity.
+// If the VotingTally object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *VotingTallyMutation) OldCreatedByAccountID(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedByAccountID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedByAccountID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedByAccountID: %w", err)
+	}
+	return oldValue.CreatedByAccountID, nil
+}
+
+// AddCreatedByAccountID adds i to the "created_by_account_id" field.
+func (m *VotingTallyMutation) AddCreatedByAccountID(i int) {
+	if m.addcreated_by_account_id != nil {
+		*m.addcreated_by_account_id += i
+	} else {
+		m.addcreated_by_account_id = &i
+	}
+}
+
+// AddedCreatedByAccountID returns the value that was added to the "created_by_account_id" field in this mutation.
+func (m *VotingTallyMutation) AddedCreatedByAccountID() (r int, exists bool) {
+	v := m.addcreated_by_account_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetCreatedByAccountID resets all changes to the "created_by_account_id" field.
+func (m *VotingTallyMutation) ResetCreatedByAccountID() {
+	m.created_by_account_id = nil
+	m.addcreated_by_account_id = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *VotingTallyMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *VotingTallyMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the VotingTally entity.
+// If the VotingTally object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *VotingTallyMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *VotingTallyMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// ClearEvent clears the "event" edge to the Event entity.
+func (m *VotingTallyMutation) ClearEvent() {
+	m.clearedevent = true
+	m.clearedFields[votingtally.FieldEventID] = struct{}{}
+}
+
+// EventCleared reports if the "event" edge to the Event entity was cleared.
+func (m *VotingTallyMutation) EventCleared() bool {
+	return m.clearedevent
+}
+
+// EventIDs returns the "event" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// EventID instead. It exists only for internal usage by the builders.
+func (m *VotingTallyMutation) EventIDs() (ids []int) {
+	if id := m.event; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetEvent resets all changes to the "event" edge.
+func (m *VotingTallyMutation) ResetEvent() {
+	m.event = nil
+	m.clearedevent = false
+}
+
+// SetCompetitionID sets the "competition" edge to the Session entity by id.
+func (m *VotingTallyMutation) SetCompetitionID(id int) {
+	m.competition = &id
+}
+
+// ClearCompetition clears the "competition" edge to the Session entity.
+func (m *VotingTallyMutation) ClearCompetition() {
+	m.clearedcompetition = true
+	m.clearedFields[votingtally.FieldCompetitionSessionID] = struct{}{}
+}
+
+// CompetitionCleared reports if the "competition" edge to the Session entity was cleared.
+func (m *VotingTallyMutation) CompetitionCleared() bool {
+	return m.clearedcompetition
+}
+
+// CompetitionID returns the "competition" edge ID in the mutation.
+func (m *VotingTallyMutation) CompetitionID() (id int, exists bool) {
+	if m.competition != nil {
+		return *m.competition, true
+	}
+	return
+}
+
+// CompetitionIDs returns the "competition" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// CompetitionID instead. It exists only for internal usage by the builders.
+func (m *VotingTallyMutation) CompetitionIDs() (ids []int) {
+	if id := m.competition; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetCompetition resets all changes to the "competition" edge.
+func (m *VotingTallyMutation) ResetCompetition() {
+	m.competition = nil
+	m.clearedcompetition = false
+}
+
+// AddResultsDraftIDs adds the "results_drafts" edge to the CompetitionResultsDraft entity by ids.
+func (m *VotingTallyMutation) AddResultsDraftIDs(ids ...int) {
+	if m.results_drafts == nil {
+		m.results_drafts = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.results_drafts[ids[i]] = struct{}{}
+	}
+}
+
+// ClearResultsDrafts clears the "results_drafts" edge to the CompetitionResultsDraft entity.
+func (m *VotingTallyMutation) ClearResultsDrafts() {
+	m.clearedresults_drafts = true
+}
+
+// ResultsDraftsCleared reports if the "results_drafts" edge to the CompetitionResultsDraft entity was cleared.
+func (m *VotingTallyMutation) ResultsDraftsCleared() bool {
+	return m.clearedresults_drafts
+}
+
+// RemoveResultsDraftIDs removes the "results_drafts" edge to the CompetitionResultsDraft entity by IDs.
+func (m *VotingTallyMutation) RemoveResultsDraftIDs(ids ...int) {
+	if m.removedresults_drafts == nil {
+		m.removedresults_drafts = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.results_drafts, ids[i])
+		m.removedresults_drafts[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedResultsDrafts returns the removed IDs of the "results_drafts" edge to the CompetitionResultsDraft entity.
+func (m *VotingTallyMutation) RemovedResultsDraftsIDs() (ids []int) {
+	for id := range m.removedresults_drafts {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResultsDraftsIDs returns the "results_drafts" edge IDs in the mutation.
+func (m *VotingTallyMutation) ResultsDraftsIDs() (ids []int) {
+	for id := range m.results_drafts {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetResultsDrafts resets all changes to the "results_drafts" edge.
+func (m *VotingTallyMutation) ResetResultsDrafts() {
+	m.results_drafts = nil
+	m.clearedresults_drafts = false
+	m.removedresults_drafts = nil
+}
+
+// Where appends a list predicates to the VotingTallyMutation builder.
+func (m *VotingTallyMutation) Where(ps ...predicate.VotingTally) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the VotingTallyMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *VotingTallyMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.VotingTally, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *VotingTallyMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *VotingTallyMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (VotingTally).
+func (m *VotingTallyMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *VotingTallyMutation) Fields() []string {
+	fields := make([]string, 0, 8)
+	if m.event != nil {
+		fields = append(fields, votingtally.FieldEventID)
+	}
+	if m.competition != nil {
+		fields = append(fields, votingtally.FieldCompetitionSessionID)
+	}
+	if m.method != nil {
+		fields = append(fields, votingtally.FieldMethod)
+	}
+	if m.self_vote_policy != nil {
+		fields = append(fields, votingtally.FieldSelfVotePolicy)
+	}
+	if m.participating != nil {
+		fields = append(fields, votingtally.FieldParticipating)
+	}
+	if m.entries != nil {
+		fields = append(fields, votingtally.FieldEntries)
+	}
+	if m.created_by_account_id != nil {
+		fields = append(fields, votingtally.FieldCreatedByAccountID)
+	}
+	if m.created_at != nil {
+		fields = append(fields, votingtally.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *VotingTallyMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case votingtally.FieldEventID:
+		return m.EventID()
+	case votingtally.FieldCompetitionSessionID:
+		return m.CompetitionSessionID()
+	case votingtally.FieldMethod:
+		return m.Method()
+	case votingtally.FieldSelfVotePolicy:
+		return m.SelfVotePolicy()
+	case votingtally.FieldParticipating:
+		return m.Participating()
+	case votingtally.FieldEntries:
+		return m.Entries()
+	case votingtally.FieldCreatedByAccountID:
+		return m.CreatedByAccountID()
+	case votingtally.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *VotingTallyMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case votingtally.FieldEventID:
+		return m.OldEventID(ctx)
+	case votingtally.FieldCompetitionSessionID:
+		return m.OldCompetitionSessionID(ctx)
+	case votingtally.FieldMethod:
+		return m.OldMethod(ctx)
+	case votingtally.FieldSelfVotePolicy:
+		return m.OldSelfVotePolicy(ctx)
+	case votingtally.FieldParticipating:
+		return m.OldParticipating(ctx)
+	case votingtally.FieldEntries:
+		return m.OldEntries(ctx)
+	case votingtally.FieldCreatedByAccountID:
+		return m.OldCreatedByAccountID(ctx)
+	case votingtally.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown VotingTally field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *VotingTallyMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case votingtally.FieldEventID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEventID(v)
+		return nil
+	case votingtally.FieldCompetitionSessionID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCompetitionSessionID(v)
+		return nil
+	case votingtally.FieldMethod:
+		v, ok := value.(votingtally.Method)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMethod(v)
+		return nil
+	case votingtally.FieldSelfVotePolicy:
+		v, ok := value.(votingtally.SelfVotePolicy)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSelfVotePolicy(v)
+		return nil
+	case votingtally.FieldParticipating:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetParticipating(v)
+		return nil
+	case votingtally.FieldEntries:
+		v, ok := value.([]votingvalue.Entry)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEntries(v)
+		return nil
+	case votingtally.FieldCreatedByAccountID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedByAccountID(v)
+		return nil
+	case votingtally.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown VotingTally field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *VotingTallyMutation) AddedFields() []string {
+	var fields []string
+	if m.addparticipating != nil {
+		fields = append(fields, votingtally.FieldParticipating)
+	}
+	if m.addcreated_by_account_id != nil {
+		fields = append(fields, votingtally.FieldCreatedByAccountID)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *VotingTallyMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case votingtally.FieldParticipating:
+		return m.AddedParticipating()
+	case votingtally.FieldCreatedByAccountID:
+		return m.AddedCreatedByAccountID()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *VotingTallyMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case votingtally.FieldParticipating:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddParticipating(v)
+		return nil
+	case votingtally.FieldCreatedByAccountID:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddCreatedByAccountID(v)
+		return nil
+	}
+	return fmt.Errorf("unknown VotingTally numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *VotingTallyMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *VotingTallyMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *VotingTallyMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown VotingTally nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *VotingTallyMutation) ResetField(name string) error {
+	switch name {
+	case votingtally.FieldEventID:
+		m.ResetEventID()
+		return nil
+	case votingtally.FieldCompetitionSessionID:
+		m.ResetCompetitionSessionID()
+		return nil
+	case votingtally.FieldMethod:
+		m.ResetMethod()
+		return nil
+	case votingtally.FieldSelfVotePolicy:
+		m.ResetSelfVotePolicy()
+		return nil
+	case votingtally.FieldParticipating:
+		m.ResetParticipating()
+		return nil
+	case votingtally.FieldEntries:
+		m.ResetEntries()
+		return nil
+	case votingtally.FieldCreatedByAccountID:
+		m.ResetCreatedByAccountID()
+		return nil
+	case votingtally.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown VotingTally field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *VotingTallyMutation) AddedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.event != nil {
+		edges = append(edges, votingtally.EdgeEvent)
+	}
+	if m.competition != nil {
+		edges = append(edges, votingtally.EdgeCompetition)
+	}
+	if m.results_drafts != nil {
+		edges = append(edges, votingtally.EdgeResultsDrafts)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *VotingTallyMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case votingtally.EdgeEvent:
+		if id := m.event; id != nil {
+			return []ent.Value{*id}
+		}
+	case votingtally.EdgeCompetition:
+		if id := m.competition; id != nil {
+			return []ent.Value{*id}
+		}
+	case votingtally.EdgeResultsDrafts:
+		ids := make([]ent.Value, 0, len(m.results_drafts))
+		for id := range m.results_drafts {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *VotingTallyMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.removedresults_drafts != nil {
+		edges = append(edges, votingtally.EdgeResultsDrafts)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *VotingTallyMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case votingtally.EdgeResultsDrafts:
+		ids := make([]ent.Value, 0, len(m.removedresults_drafts))
+		for id := range m.removedresults_drafts {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *VotingTallyMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.clearedevent {
+		edges = append(edges, votingtally.EdgeEvent)
+	}
+	if m.clearedcompetition {
+		edges = append(edges, votingtally.EdgeCompetition)
+	}
+	if m.clearedresults_drafts {
+		edges = append(edges, votingtally.EdgeResultsDrafts)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *VotingTallyMutation) EdgeCleared(name string) bool {
+	switch name {
+	case votingtally.EdgeEvent:
+		return m.clearedevent
+	case votingtally.EdgeCompetition:
+		return m.clearedcompetition
+	case votingtally.EdgeResultsDrafts:
+		return m.clearedresults_drafts
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *VotingTallyMutation) ClearEdge(name string) error {
+	switch name {
+	case votingtally.EdgeEvent:
+		m.ClearEvent()
+		return nil
+	case votingtally.EdgeCompetition:
+		m.ClearCompetition()
+		return nil
+	}
+	return fmt.Errorf("unknown VotingTally unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *VotingTallyMutation) ResetEdge(name string) error {
+	switch name {
+	case votingtally.EdgeEvent:
+		m.ResetEvent()
+		return nil
+	case votingtally.EdgeCompetition:
+		m.ResetCompetition()
+		return nil
+	case votingtally.EdgeResultsDrafts:
+		m.ResetResultsDrafts()
+		return nil
+	}
+	return fmt.Errorf("unknown VotingTally edge %s", name)
 }
 
 // WebAuthnCredentialMutation represents an operation that mutates the WebAuthnCredential nodes in the graph.

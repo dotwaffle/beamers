@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
 	"github.com/dotwaffle/beamers/internal/viewer"
+	"github.com/dotwaffle/beamers/internal/votingvalue"
 )
 
 var (
@@ -47,15 +49,16 @@ var (
 
 // SaveInput contains one whole proposed immutable Draft revision.
 type SaveInput struct {
-	EventID           int         `json:"event_id"`
-	SessionID         int         `json:"session_id"`
-	CommandID         string      `json:"command_id"`
-	ExpectedRevision  int         `json:"expected_revision"`
-	Disposition       Disposition `json:"disposition"`
-	NoPublicReason    string      `json:"no_public_reason,omitempty"`
-	PublicExplanation string      `json:"public_explanation,omitempty"`
-	Score             ScorePolicy `json:"score"`
-	Standings         []Standing  `json:"standings"`
+	EventID             int         `json:"event_id"`
+	SessionID           int         `json:"session_id"`
+	CommandID           string      `json:"command_id"`
+	ExpectedRevision    int         `json:"expected_revision"`
+	Disposition         Disposition `json:"disposition"`
+	NoPublicReason      string      `json:"no_public_reason,omitempty"`
+	TallyOverrideReason string      `json:"tally_override_reason,omitempty"`
+	PublicExplanation   string      `json:"public_explanation,omitempty"`
+	Score               ScorePolicy `json:"score"`
+	Standings           []Standing  `json:"standings"`
 }
 
 // MarkReadyInput identifies one exact Draft revision for Producer review.
@@ -232,7 +235,18 @@ func (service *Service) Get(
 	if err != nil {
 		return Draft{}, err
 	}
-	return draft(found), nil
+	result := draft(found)
+	if found.VotingTallyID > 0 {
+		tally, loadErr := service.storage.LoadVotingTally(
+			actor.Context(ctx), eventID, sessionID,
+		)
+		if loadErr != nil {
+			return Draft{}, loadErr
+		}
+		value := votingTally(tally)
+		result.VotingTally = &value
+	}
+	return result, nil
 }
 
 // Save appends one complete proposed Draft snapshot and clears Ready by versioning.
@@ -280,6 +294,28 @@ func (service *Service) Save(
 			}
 			params := saveParams(input, actor.ID, identity.Now)
 			params.Awards = current.Awards
+			override := false
+			if current.VotingTallyID > 0 {
+				tally, tallyErr := transaction.LoadVotingTally(
+					actor.Context(ctx), input.EventID, input.SessionID,
+				)
+				if tallyErr != nil {
+					return command.Execution[Draft]{}, tallyErr
+				}
+				_, eligible, stateErr := transaction.LoadCompetitionResultsReviewState(
+					actor.Context(ctx), input.EventID, input.SessionID,
+				)
+				if stateErr != nil {
+					return command.Execution[Draft]{}, stateErr
+				}
+				override = !followsVotingTally(input.Standings, tally, eligible)
+				input.TallyOverrideReason = strings.TrimSpace(input.TallyOverrideReason)
+				if override && input.TallyOverrideReason == "" {
+					return command.Execution[Draft]{}, ErrCrewReasonRequired
+				}
+				params.VotingTallyID = current.VotingTallyID
+				params.TallyOverrideReason = input.TallyOverrideReason
+			}
 			stored, saveErr := transaction.SaveCompetitionResultsDraft(
 				actor.Context(ctx), params,
 			)
@@ -290,7 +326,13 @@ func (service *Service) Save(
 			if marshalErr != nil {
 				return command.Execution[Draft]{}, errors.New("encode Results Draft outcome")
 			}
-			return command.Success(draft(stored), string(outcome)), nil
+			execution := command.Success(draft(stored), string(outcome))
+			if override {
+				execution = execution.WithAudit(store.AuditDetails{
+					Reason: input.TallyOverrideReason,
+				})
+			}
+			return execution, nil
 		},
 	})
 }
@@ -627,6 +669,7 @@ func validateSaveInput(input SaveInput) error {
 	if input.EventID <= 0 || input.SessionID <= 0 || input.ExpectedRevision < 0 ||
 		len(input.Standings) > 10000 ||
 		!boundedText(input.NoPublicReason, 10000) ||
+		!boundedText(input.TallyOverrideReason, 1000) ||
 		!boundedText(input.PublicExplanation, 10000) {
 		return ErrInvalidInput
 	}
@@ -708,8 +751,9 @@ func saveParams(
 		EventID: input.EventID, SessionID: input.SessionID,
 		ExpectedRevision: input.ExpectedRevision,
 		Disposition:      string(input.Disposition), NoPublicCrewReason: input.NoPublicReason,
-		PublicExplanation: input.PublicExplanation,
-		ScoreType:         string(input.Score.Type), ScoreVisibility: string(input.Score.Visibility),
+		TallyOverrideReason: input.TallyOverrideReason,
+		PublicExplanation:   input.PublicExplanation,
+		ScoreType:           string(input.Score.Type), ScoreVisibility: string(input.Score.Visibility),
 		ScoreUnit: input.Score.Unit, ScorePrecision: input.Score.Precision,
 		ScoreRequirement:    string(input.Score.Requirement),
 		ScoreInterpretation: string(input.Score.Interpretation),
@@ -736,6 +780,7 @@ func draft(stored store.CompetitionResultsDraft) Draft {
 		ID: stored.ID, EventID: stored.EventID, SessionID: stored.SessionID,
 		Revision: stored.Revision, Disposition: Disposition(stored.Disposition),
 		NoPublicReason: stored.NoPublicCrewReason, PublicExplanation: stored.PublicExplanation,
+		VotingTallyID: stored.VotingTallyID, TallyOverrideReason: stored.TallyOverrideReason,
 		Score: ScorePolicy{
 			Type: ScoreType(stored.ScoreType), Visibility: ScoreVisibility(stored.ScoreVisibility),
 			Unit: stored.ScoreUnit, Precision: stored.ScorePrecision,
@@ -763,6 +808,49 @@ func draft(stored store.CompetitionResultsDraft) Draft {
 	return result
 }
 
+func votingTally(stored store.VotingTally) VotingTally {
+	result := VotingTally{
+		ID: stored.ID, Participating: stored.Participating,
+		Method: stored.Method, SelfVotePolicy: stored.SelfVotePolicy,
+		CreatedAt: stored.CreatedAt,
+		Entries:   make([]VotingTallyEntry, 0, len(stored.Entries)),
+	}
+	for _, entry := range stored.Entries {
+		result.Entries = append(result.Entries, VotingTallyEntry{
+			EntryID: entry.EntryID, Total: entry.Total, Count: entry.Count,
+		})
+	}
+	return result
+}
+
+func followsVotingTally(
+	standings []Standing,
+	tally store.VotingTally,
+	eligible []store.CompetitionResultsEligibleEntry,
+) bool {
+	eligibleIDs := make([]int, 0, len(eligible))
+	for _, entry := range eligible {
+		eligibleIDs = append(eligibleIDs, entry.ID)
+	}
+	expected := votingvalue.Placements(tally.Entries, eligibleIDs)
+	ordered := append([]Standing(nil), standings...)
+	sort.Slice(ordered, func(first, second int) bool {
+		return ordered[first].DisplayOrder < ordered[second].DisplayOrder
+	})
+	if len(ordered) != len(expected) {
+		return false
+	}
+	for index := range expected {
+		if ordered[index].EntryID != expected[index].EntryID ||
+			ordered[index].Standing != Placed ||
+			ordered[index].Placement != expected[index].Placement ||
+			ordered[index].DisplayOrder != expected[index].DisplayOrder {
+			return false
+		}
+	}
+	return true
+}
+
 func cloneCompetitionResultsParams(
 	current store.CompetitionResultsDraft,
 	actorID int,
@@ -782,6 +870,8 @@ func cloneCompetitionResultsParams(
 		ScoreUnit: current.ScoreUnit, ScorePrecision: current.ScorePrecision,
 		ScoreRequirement:    current.ScoreRequirement,
 		ScoreInterpretation: current.ScoreInterpretation,
+		VotingTallyID:       current.VotingTallyID,
+		TallyOverrideReason: current.TallyOverrideReason,
 		CreatedByAccountID:  actorID, Now: now, Standings: standings, Awards: awards,
 	}
 }

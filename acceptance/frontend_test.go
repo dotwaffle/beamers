@@ -2105,14 +2105,165 @@ func TestLiveCompetitionBallotUpdatesAndSurvivesRestart(t *testing.T) {
 		strings.Contains(controlPage.body, `name="value"`) {
 		t.Fatalf("Crew Voting projection leaked or missed participation: %q", controlPage.body)
 	}
-	closed := postFrontendForm(t, administrator, server.address, votingControlPath, url.Values{
+	entryID := strconv.FormatInt(
+		taken.Msg.GetChannel().GetProgramOutput().GetEntryId(),
+		10,
+	)
+	resultsPath := "/backstage/events/1/results"
+	resultsPage := getFrontendPage(t, administrator, server.address, resultsPath)
+	savedBeforeTally := postFrontendForm(
+		t,
+		administrator,
+		server.address,
+		resultsPath,
+		url.Values{
+			"csrf_token":             {requireFrontendCSRF(t, resultsPage)},
+			"action":                 {"save-results-draft"},
+			"command_id":             {"save-pre-tally-results"},
+			"competition_session_id": {strconv.FormatInt(competitionID, 10)},
+			"expected_revision":      {"0"},
+			"disposition":            {"Publish"},
+			"score_type":             {"None"},
+			"score_visibility":       {"Public"},
+			"score_precision":        {"0"},
+			"score_requirement":      {"Optional"},
+			"score_interpretation":   {"Informational"},
+			"standing_entry_id":      {entryID},
+			"standing":               {"Placed"},
+			"placement":              {"1"},
+			"display_order":          {"1"},
+			"score":                  {""},
+		},
+	)
+	if savedBeforeTally.status != http.StatusSeeOther {
+		t.Fatalf(
+			"save pre-Tally Results = %d %q",
+			savedBeforeTally.status,
+			savedBeforeTally.body,
+		)
+	}
+	resultsPage = getFrontendPage(t, administrator, server.address, resultsPath)
+	readyBeforeTally := postFrontendForm(
+		t,
+		administrator,
+		server.address,
+		resultsPath,
+		url.Values{
+			"csrf_token":             {requireFrontendCSRF(t, resultsPage)},
+			"action":                 {"mark-results-ready"},
+			"command_id":             {"ready-pre-tally-results"},
+			"competition_session_id": {strconv.FormatInt(competitionID, 10)},
+			"expected_revision":      {"1"},
+		},
+	)
+	if readyBeforeTally.status != http.StatusSeeOther {
+		t.Fatalf(
+			"ready pre-Tally Results = %d %q",
+			readyBeforeTally.status,
+			readyBeforeTally.body,
+		)
+	}
+	closeValues := url.Values{
 		"csrf_token":        {requireFrontendCSRF(t, controlPage)},
 		"command_id":        {"close-live-ballot"},
 		"action":            {"close"},
 		"expected_revision": {frontendNamedValues(controlPage.body, "expected_revision").Get("expected_revision")},
-	})
+	}
+	closed := postFrontendForm(
+		t,
+		administrator,
+		server.address,
+		votingControlPath,
+		closeValues,
+	)
 	if closed.status != http.StatusSeeOther {
 		t.Fatalf("close live Voting Window = %d %q", closed.status, closed.body)
+	}
+	replayedClose := postFrontendForm(
+		t,
+		administrator,
+		server.address,
+		votingControlPath,
+		closeValues,
+	)
+	if replayedClose.status != http.StatusSeeOther {
+		t.Fatalf(
+			"replay close live Voting Window = %d %q",
+			replayedClose.status,
+			replayedClose.body,
+		)
+	}
+	conflictingCloseValues := closeValues
+	conflictingCloseValues.Set("expected_revision", "0")
+	conflictingClose := postFrontendForm(
+		t,
+		administrator,
+		server.address,
+		votingControlPath,
+		conflictingCloseValues,
+	)
+	if conflictingClose.status != http.StatusConflict {
+		t.Fatalf(
+			"conflicting close live Voting Window = %d %q",
+			conflictingClose.status,
+			conflictingClose.body,
+		)
+	}
+	resultsPage = getFrontendPage(t, administrator, server.address, resultsPath)
+	if resultsPage.status != http.StatusOK ||
+		!strings.Contains(resultsPage.body, "Draft revision 2") ||
+		!strings.Contains(resultsPage.body, "Ready: false") ||
+		!strings.Contains(resultsPage.body, "Voting Tally: 1") ||
+		!strings.Contains(resultsPage.body, "4 total from 1 Ballots") ||
+		strings.Contains(resultsPage.body, "Release standalone Results") {
+		t.Fatalf("seeded Tally Results = %d %q", resultsPage.status, resultsPage.body)
+	}
+	overrideValues := url.Values{
+		"csrf_token":             {requireFrontendCSRF(t, resultsPage)},
+		"action":                 {"save-results-draft"},
+		"command_id":             {"override-tally-results"},
+		"competition_session_id": {strconv.FormatInt(competitionID, 10)},
+		"expected_revision":      {"2"},
+		"disposition":            {"Publish"},
+		"score_type":             {"None"},
+		"score_visibility":       {"Public"},
+		"score_precision":        {"0"},
+		"score_requirement":      {"Optional"},
+		"score_interpretation":   {"Informational"},
+		"standing_entry_id":      {entryID},
+		"standing":               {"Unplaced"},
+		"placement":              {""},
+		"display_order":          {"1"},
+		"score":                  {""},
+	}
+	rejectedOverride := postFrontendForm(
+		t,
+		administrator,
+		server.address,
+		resultsPath,
+		overrideValues,
+	)
+	if rejectedOverride.status != http.StatusUnprocessableEntity {
+		t.Fatalf(
+			"reasonless Tally override = %d %q",
+			rejectedOverride.status,
+			rejectedOverride.body,
+		)
+	}
+	overrideValues.Set("tally_override_reason", "Producer resolved the tied review.")
+	savedOverride := postFrontendForm(
+		t,
+		administrator,
+		server.address,
+		resultsPath,
+		overrideValues,
+	)
+	if savedOverride.status != http.StatusSeeOther {
+		t.Fatalf(
+			"save Tally override = %d %q",
+			savedOverride.status,
+			savedOverride.body,
+		)
 	}
 	readOnly := getFrontendPage(t, voter, server.address, ballotPath)
 	if !strings.Contains(readOnly.body, "Voting is closed.") ||
@@ -2147,7 +2298,63 @@ func TestLiveCompetitionBallotUpdatesAndSurvivesRestart(t *testing.T) {
 		!strings.Contains(restarted.body, "Your score: 4") {
 		t.Fatalf("restarted private Ballot = %d %q", restarted.status, restarted.body)
 	}
+	restartedResults := getFrontendPage(t, administrator, server.address, resultsPath)
+	if restartedResults.status != http.StatusOK ||
+		!strings.Contains(restartedResults.body, "Draft revision 3") ||
+		!strings.Contains(restartedResults.body, "Voting Tally: 1") ||
+		!strings.Contains(
+			restartedResults.body,
+			"Producer resolved the tied review.",
+		) ||
+		strings.Contains(restartedResults.body, "Release standalone Results") {
+		t.Fatalf(
+			"restarted Tally Results = %d %q",
+			restartedResults.status,
+			restartedResults.body,
+		)
+	}
 	server.stop(t)
+	database, err := sql.Open("sqlite", filepath.Join(dataDir, "beamers.db"))
+	if err != nil {
+		t.Fatalf("open Tally database: %v", err)
+	}
+	defer func() { _ = database.Close() }()
+	var tallyCount, publicationCount int
+	var tallyEntries, overrideReason string
+	if err = database.QueryRowContext(
+		t.Context(),
+		"SELECT count(*), entries FROM voting_tallies WHERE competition_session_id = ?",
+		competitionID,
+	).Scan(&tallyCount, &tallyEntries); err != nil {
+		t.Fatalf("read durable Voting Tally: %v", err)
+	}
+	if err = database.QueryRowContext(
+		t.Context(),
+		"SELECT count(*) FROM results_publications WHERE scope_session_id = ?",
+		competitionID,
+	).Scan(&publicationCount); err != nil {
+		t.Fatalf("count isolated Results publications: %v", err)
+	}
+	if err = database.QueryRowContext(
+		t.Context(),
+		"SELECT reason FROM audit_entries "+
+			"WHERE action = 'SaveCompetitionResultsDraft' AND reason <> '' "+
+			"ORDER BY id DESC LIMIT 1",
+	).Scan(&overrideReason); err != nil {
+		t.Fatalf("read Tally override Audit Entry: %v", err)
+	}
+	if tallyCount != 1 ||
+		strings.Contains(tallyEntries, "account") ||
+		publicationCount != 0 ||
+		overrideReason != "Producer resolved the tied review." {
+		t.Fatalf(
+			"Tally persistence = count %d entries %q publications %d audit %q",
+			tallyCount,
+			tallyEntries,
+			publicationCount,
+			overrideReason,
+		)
+	}
 }
 
 func TestBackstageOperatesBackupsAndDiagnostics(t *testing.T) {

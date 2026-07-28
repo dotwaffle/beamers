@@ -37,6 +37,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/vote"
 	"github.com/dotwaffle/beamers/ent/votingeligibility"
 	"github.com/dotwaffle/beamers/ent/votingkey"
+	"github.com/dotwaffle/beamers/ent/votingtally"
 )
 
 // EventUpdate is the builder for updating Event entities.
@@ -707,6 +708,21 @@ func (_u *EventUpdate) AddVotes(v ...*Vote) *EventUpdate {
 	return _u.AddVoteIDs(ids...)
 }
 
+// AddVotingTallyIDs adds the "voting_tallies" edge to the VotingTally entity by IDs.
+func (_u *EventUpdate) AddVotingTallyIDs(ids ...int) *EventUpdate {
+	_u.mutation.AddVotingTallyIDs(ids...)
+	return _u
+}
+
+// AddVotingTallies adds the "voting_tallies" edges to the VotingTally entity.
+func (_u *EventUpdate) AddVotingTallies(v ...*VotingTally) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddVotingTallyIDs(ids...)
+}
+
 // AddDraftEditIDs adds the "draft_edits" edge to the DraftEdit entity by IDs.
 func (_u *EventUpdate) AddDraftEditIDs(ids ...int) *EventUpdate {
 	_u.mutation.AddDraftEditIDs(ids...)
@@ -1167,6 +1183,27 @@ func (_u *EventUpdate) RemoveVotes(v ...*Vote) *EventUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveVoteIDs(ids...)
+}
+
+// ClearVotingTallies clears all "voting_tallies" edges to the VotingTally entity.
+func (_u *EventUpdate) ClearVotingTallies() *EventUpdate {
+	_u.mutation.ClearVotingTallies()
+	return _u
+}
+
+// RemoveVotingTallyIDs removes the "voting_tallies" edge to VotingTally entities by IDs.
+func (_u *EventUpdate) RemoveVotingTallyIDs(ids ...int) *EventUpdate {
+	_u.mutation.RemoveVotingTallyIDs(ids...)
+	return _u
+}
+
+// RemoveVotingTallies removes "voting_tallies" edges to VotingTally entities.
+func (_u *EventUpdate) RemoveVotingTallies(v ...*VotingTally) *EventUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveVotingTallyIDs(ids...)
 }
 
 // ClearDraftEdits clears all "draft_edits" edges to the DraftEdit entity.
@@ -2314,6 +2351,51 @@ func (_u *EventUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.VotingTalliesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.VotingTalliesTable,
+			Columns: []string{event.VotingTalliesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingtally.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedVotingTalliesIDs(); len(nodes) > 0 && !_u.mutation.VotingTalliesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.VotingTalliesTable,
+			Columns: []string{event.VotingTalliesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingtally.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.VotingTalliesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.VotingTalliesTable,
+			Columns: []string{event.VotingTalliesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingtally.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.DraftEditsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -3243,6 +3325,21 @@ func (_u *EventUpdateOne) AddVotes(v ...*Vote) *EventUpdateOne {
 	return _u.AddVoteIDs(ids...)
 }
 
+// AddVotingTallyIDs adds the "voting_tallies" edge to the VotingTally entity by IDs.
+func (_u *EventUpdateOne) AddVotingTallyIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.AddVotingTallyIDs(ids...)
+	return _u
+}
+
+// AddVotingTallies adds the "voting_tallies" edges to the VotingTally entity.
+func (_u *EventUpdateOne) AddVotingTallies(v ...*VotingTally) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddVotingTallyIDs(ids...)
+}
+
 // AddDraftEditIDs adds the "draft_edits" edge to the DraftEdit entity by IDs.
 func (_u *EventUpdateOne) AddDraftEditIDs(ids ...int) *EventUpdateOne {
 	_u.mutation.AddDraftEditIDs(ids...)
@@ -3703,6 +3800,27 @@ func (_u *EventUpdateOne) RemoveVotes(v ...*Vote) *EventUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveVoteIDs(ids...)
+}
+
+// ClearVotingTallies clears all "voting_tallies" edges to the VotingTally entity.
+func (_u *EventUpdateOne) ClearVotingTallies() *EventUpdateOne {
+	_u.mutation.ClearVotingTallies()
+	return _u
+}
+
+// RemoveVotingTallyIDs removes the "voting_tallies" edge to VotingTally entities by IDs.
+func (_u *EventUpdateOne) RemoveVotingTallyIDs(ids ...int) *EventUpdateOne {
+	_u.mutation.RemoveVotingTallyIDs(ids...)
+	return _u
+}
+
+// RemoveVotingTallies removes "voting_tallies" edges to VotingTally entities.
+func (_u *EventUpdateOne) RemoveVotingTallies(v ...*VotingTally) *EventUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveVotingTallyIDs(ids...)
 }
 
 // ClearDraftEdits clears all "draft_edits" edges to the DraftEdit entity.
@@ -4873,6 +4991,51 @@ func (_u *EventUpdateOne) sqlSave(ctx context.Context) (_node *Event, err error)
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(vote.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.VotingTalliesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.VotingTalliesTable,
+			Columns: []string{event.VotingTalliesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingtally.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedVotingTalliesIDs(); len(nodes) > 0 && !_u.mutation.VotingTalliesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.VotingTalliesTable,
+			Columns: []string{event.VotingTalliesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingtally.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.VotingTalliesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.VotingTalliesTable,
+			Columns: []string{event.VotingTalliesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingtally.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

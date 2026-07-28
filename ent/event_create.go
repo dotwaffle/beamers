@@ -35,6 +35,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/vote"
 	"github.com/dotwaffle/beamers/ent/votingeligibility"
 	"github.com/dotwaffle/beamers/ent/votingkey"
+	"github.com/dotwaffle/beamers/ent/votingtally"
 )
 
 // EventCreate is the builder for creating a Event entity.
@@ -604,6 +605,21 @@ func (_c *EventCreate) AddVotes(v ...*Vote) *EventCreate {
 		ids[i] = v[i].ID
 	}
 	return _c.AddVoteIDs(ids...)
+}
+
+// AddVotingTallyIDs adds the "voting_tallies" edge to the VotingTally entity by IDs.
+func (_c *EventCreate) AddVotingTallyIDs(ids ...int) *EventCreate {
+	_c.mutation.AddVotingTallyIDs(ids...)
+	return _c
+}
+
+// AddVotingTallies adds the "voting_tallies" edges to the VotingTally entity.
+func (_c *EventCreate) AddVotingTallies(v ...*VotingTally) *EventCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddVotingTallyIDs(ids...)
 }
 
 // AddDraftEditIDs adds the "draft_edits" edge to the DraftEdit entity by IDs.
@@ -1364,6 +1380,22 @@ func (_c *EventCreate) createSpec() (*Event, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(vote.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.VotingTalliesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   event.VotingTalliesTable,
+			Columns: []string{event.VotingTalliesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingtally.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

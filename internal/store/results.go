@@ -135,6 +135,8 @@ type CompetitionResultsDraft struct {
 	ScorePrecision      int                         `json:"score_precision"`
 	ScoreRequirement    string                      `json:"score_requirement"`
 	ScoreInterpretation string                      `json:"score_interpretation"`
+	VotingTallyID       int                         `json:"voting_tally_id,omitempty"`
+	TallyOverrideReason string                      `json:"tally_override_crew_reason,omitempty"`
 	Ready               bool                        `json:"ready"`
 	ReadyByAccountID    int                         `json:"ready_by_account_id,omitempty"`
 	ReadyAt             time.Time                   `json:"ready_at,omitzero"`
@@ -157,6 +159,8 @@ type SaveCompetitionResultsDraftParams struct {
 	ScorePrecision      int
 	ScoreRequirement    string
 	ScoreInterpretation string
+	VotingTallyID       int
+	TallyOverrideReason string
 	CreatedByAccountID  int
 	Now                 time.Time
 	Standings           []CompetitionResultStandingInput
@@ -540,6 +544,8 @@ func (transaction *CommandTx) SaveCompetitionResultsDraft(
 		SetScoreRequirement(competitionresultsdraft.ScoreRequirement(scoreRequirement)).
 		SetScoreInterpretation(competitionresultsdraft.ScoreInterpretation(scoreInterpretation)).
 		SetAwards(competitionAwardValues(params.Awards)).
+		SetNillableVotingTallyID(optionalPositiveInt(params.VotingTallyID)).
+		SetTallyOverrideCrewReason(params.TallyOverrideReason).
 		SetCreatedByAccountID(params.CreatedByAccountID).
 		SetCreatedAt(params.Now.UTC()).
 		Save(ctx)
@@ -697,6 +703,8 @@ func (transaction *CommandTx) SupersedeCompetitionResultsDraft(
 			ScoreUnit: found.ScoreUnit, ScorePrecision: found.ScorePrecision,
 			ScoreRequirement:    found.ScoreRequirement,
 			ScoreInterpretation: found.ScoreInterpretation,
+			VotingTallyID:       found.VotingTallyID,
+			TallyOverrideReason: found.TallyOverrideReason,
 			CreatedByAccountID:  identity.AccountID, Now: now,
 			Standings: standings,
 			Awards:    awards,
@@ -731,6 +739,7 @@ func competitionResultsDraft(found *ent.CompetitionResultsDraft) CompetitionResu
 		ScoreUnit: found.ScoreUnit, ScorePrecision: found.ScorePrecision,
 		ScoreRequirement:    string(found.ScoreRequirement),
 		ScoreInterpretation: string(found.ScoreInterpretation),
+		TallyOverrideReason: found.TallyOverrideCrewReason,
 		CreatedByAccountID:  found.CreatedByAccountID, CreatedAt: found.CreatedAt,
 		Standings: make([]CompetitionResultStanding, 0, len(found.Edges.Standings)),
 		Awards:    competitionAwards(found.Awards),
@@ -739,6 +748,9 @@ func competitionResultsDraft(found *ent.CompetitionResultsDraft) CompetitionResu
 		result.Ready = true
 		result.ReadyAt = *found.ReadyAt
 		result.ReadyByAccountID = *found.ReadyByAccountID
+	}
+	if found.VotingTallyID != nil {
+		result.VotingTallyID = *found.VotingTallyID
 	}
 	for _, standing := range found.Edges.Standings {
 		item := CompetitionResultStanding{

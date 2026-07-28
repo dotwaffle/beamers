@@ -25,6 +25,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/sessionpublishedversion"
 	"github.com/dotwaffle/beamers/ent/sessionrun"
 	"github.com/dotwaffle/beamers/ent/vote"
+	"github.com/dotwaffle/beamers/ent/votingtally"
 	"github.com/dotwaffle/beamers/internal/prizegivingvalue"
 )
 
@@ -807,6 +808,21 @@ func (_c *SessionCreate) AddVotes(v ...*Vote) *SessionCreate {
 	return _c.AddVoteIDs(ids...)
 }
 
+// AddVotingTallyIDs adds the "voting_tallies" edge to the VotingTally entity by IDs.
+func (_c *SessionCreate) AddVotingTallyIDs(ids ...int) *SessionCreate {
+	_c.mutation.AddVotingTallyIDs(ids...)
+	return _c
+}
+
+// AddVotingTallies adds the "voting_tallies" edges to the VotingTally entity.
+func (_c *SessionCreate) AddVotingTallies(v ...*VotingTally) *SessionCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddVotingTallyIDs(ids...)
+}
+
 // SetPrizegivingID sets the "prizegiving" edge to the Prizegiving entity by ID.
 func (_c *SessionCreate) SetPrizegivingID(id int) *SessionCreate {
 	_c.mutation.SetPrizegivingID(id)
@@ -1523,6 +1539,22 @@ func (_c *SessionCreate) createSpec() (*Session, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(vote.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.VotingTalliesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   session.VotingTalliesTable,
+			Columns: []string{session.VotingTalliesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(votingtally.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {

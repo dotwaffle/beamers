@@ -110,6 +110,21 @@ templ Results(page ResultsPage) {
 								Draft revision { strconv.Itoa(competition.Draft.Revision) }.
 								Ready: { strconv.FormatBool(competition.Draft.Ready) }.
 							</p>
+							if competition.Draft.VotingTally != nil {
+								<p>
+									Voting Tally: { strconv.Itoa(competition.Draft.VotingTally.Participating) }
+									participating Ballots; { competition.Draft.VotingTally.Method };
+									Self-Vote Policy { competition.Draft.VotingTally.SelfVotePolicy }.
+								</p>
+								<ul>
+									for _, entry := range competition.Draft.VotingTally.Entries {
+										<li>
+											Entry { strconv.Itoa(entry.EntryID) }:
+											{ strconv.Itoa(entry.Total) } total from { strconv.Itoa(entry.Count) } Ballots.
+										</li>
+									}
+								</ul>
+							}
 							if page.CanManage {
 								<form method="post">
 									<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
@@ -125,6 +140,9 @@ templ Results(page ResultsPage) {
 										</select>
 									</label>
 									<label>Crew Reason <textarea name="no_public_reason">{ competition.Draft.NoPublicReason }</textarea></label>
+									if competition.Draft.VotingTally != nil {
+										<label>Tally override Crew Reason <textarea name="tally_override_reason">{ competition.Draft.TallyOverrideReason }</textarea></label>
+									}
 									<label>Public explanation <textarea name="public_explanation">{ competition.Draft.PublicExplanation }</textarea></label>
 									<fieldset>
 										<legend>Score policy</legend>

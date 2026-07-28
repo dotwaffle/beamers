@@ -136,6 +136,8 @@ type Tx struct {
 	VotingEligibility *VotingEligibilityClient
 	// VotingKey is the client for interacting with the VotingKey builders.
 	VotingKey *VotingKeyClient
+	// VotingTally is the client for interacting with the VotingTally builders.
+	VotingTally *VotingTallyClient
 	// WebAuthnCredential is the client for interacting with the WebAuthnCredential builders.
 	WebAuthnCredential *WebAuthnCredentialClient
 
@@ -330,6 +332,7 @@ func (tx *Tx) init() {
 	tx.Vote = NewVoteClient(tx.config)
 	tx.VotingEligibility = NewVotingEligibilityClient(tx.config)
 	tx.VotingKey = NewVotingKeyClient(tx.config)
+	tx.VotingTally = NewVotingTallyClient(tx.config)
 	tx.WebAuthnCredential = NewWebAuthnCredentialClient(tx.config)
 }
 

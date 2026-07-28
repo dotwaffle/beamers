@@ -360,12 +360,14 @@ var (
 		{Name: "score_requirement", Type: field.TypeEnum, Enums: []string{"Optional", "Required"}, Default: "Optional"},
 		{Name: "score_interpretation", Type: field.TypeEnum, Enums: []string{"HigherWins", "LowerWins", "Informational"}, Default: "Informational"},
 		{Name: "awards", Type: field.TypeJSON, Nullable: true},
+		{Name: "tally_override_crew_reason", Type: field.TypeString, Nullable: true, Size: 1000},
 		{Name: "ready_by_account_id", Type: field.TypeInt, Nullable: true},
 		{Name: "ready_at", Type: field.TypeTime, Nullable: true},
 		{Name: "created_by_account_id", Type: field.TypeInt},
 		{Name: "created_at", Type: field.TypeTime},
 		{Name: "event_id", Type: field.TypeInt},
 		{Name: "competition_session_id", Type: field.TypeInt},
+		{Name: "voting_tally_id", Type: field.TypeInt, Nullable: true},
 	}
 	// CompetitionResultsDraftsTable holds the schema information for the "competition_results_drafts" table.
 	CompetitionResultsDraftsTable = &schema.Table{
@@ -375,27 +377,33 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "competition_results_drafts_events_competition_results_drafts",
-				Columns:    []*schema.Column{CompetitionResultsDraftsColumns[16]},
+				Columns:    []*schema.Column{CompetitionResultsDraftsColumns[17]},
 				RefColumns: []*schema.Column{EventsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "competition_results_drafts_sessions_competition_results_drafts",
-				Columns:    []*schema.Column{CompetitionResultsDraftsColumns[17]},
+				Columns:    []*schema.Column{CompetitionResultsDraftsColumns[18]},
 				RefColumns: []*schema.Column{SessionsColumns[0]},
 				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "competition_results_drafts_voting_tallies_results_drafts",
+				Columns:    []*schema.Column{CompetitionResultsDraftsColumns[19]},
+				RefColumns: []*schema.Column{VotingTalliesColumns[0]},
+				OnDelete:   schema.SetNull,
 			},
 		},
 		Indexes: []*schema.Index{
 			{
 				Name:    "competitionresultsdraft_competition_session_id_revision",
 				Unique:  true,
-				Columns: []*schema.Column{CompetitionResultsDraftsColumns[17], CompetitionResultsDraftsColumns[1]},
+				Columns: []*schema.Column{CompetitionResultsDraftsColumns[18], CompetitionResultsDraftsColumns[1]},
 			},
 			{
 				Name:    "competitionresultsdraft_event_id_competition_session_id_revision",
 				Unique:  false,
-				Columns: []*schema.Column{CompetitionResultsDraftsColumns[16], CompetitionResultsDraftsColumns[17], CompetitionResultsDraftsColumns[1]},
+				Columns: []*schema.Column{CompetitionResultsDraftsColumns[17], CompetitionResultsDraftsColumns[18], CompetitionResultsDraftsColumns[1]},
 			},
 		},
 	}
@@ -1959,6 +1967,50 @@ var (
 			},
 		},
 	}
+	// VotingTalliesColumns holds the columns for the "voting_tallies" table.
+	VotingTalliesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "method", Type: field.TypeEnum, Enums: []string{"Range1To5"}},
+		{Name: "self_vote_policy", Type: field.TypeEnum, Enums: []string{"Allowed", "Neutral"}},
+		{Name: "participating", Type: field.TypeInt},
+		{Name: "entries", Type: field.TypeJSON},
+		{Name: "created_by_account_id", Type: field.TypeInt},
+		{Name: "created_at", Type: field.TypeTime},
+		{Name: "event_id", Type: field.TypeInt},
+		{Name: "competition_session_id", Type: field.TypeInt},
+	}
+	// VotingTalliesTable holds the schema information for the "voting_tallies" table.
+	VotingTalliesTable = &schema.Table{
+		Name:       "voting_tallies",
+		Columns:    VotingTalliesColumns,
+		PrimaryKey: []*schema.Column{VotingTalliesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "voting_tallies_events_voting_tallies",
+				Columns:    []*schema.Column{VotingTalliesColumns[7]},
+				RefColumns: []*schema.Column{EventsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "voting_tallies_sessions_voting_tallies",
+				Columns:    []*schema.Column{VotingTalliesColumns[8]},
+				RefColumns: []*schema.Column{SessionsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "votingtally_competition_session_id",
+				Unique:  true,
+				Columns: []*schema.Column{VotingTalliesColumns[8]},
+			},
+			{
+				Name:    "votingtally_event_id_competition_session_id",
+				Unique:  false,
+				Columns: []*schema.Column{VotingTalliesColumns[7], VotingTalliesColumns[8]},
+			},
+		},
+	}
 	// WebAuthnCredentialsColumns holds the columns for the "web_authn_credentials" table.
 	WebAuthnCredentialsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -2205,6 +2257,7 @@ var (
 		VotesTable,
 		VotingEligibilitiesTable,
 		VotingKeysTable,
+		VotingTalliesTable,
 		WebAuthnCredentialsTable,
 		SessionDraftLanesTable,
 		SessionDraftLocationsTable,
@@ -2231,6 +2284,7 @@ func init() {
 	CompetitionResultStandingsTable.ForeignKeys[3].RefTable = SessionsTable
 	CompetitionResultsDraftsTable.ForeignKeys[0].RefTable = EventsTable
 	CompetitionResultsDraftsTable.ForeignKeys[1].RefTable = SessionsTable
+	CompetitionResultsDraftsTable.ForeignKeys[2].RefTable = VotingTalliesTable
 	DisplayAssignmentsTable.ForeignKeys[0].RefTable = DisplaysTable
 	DisplayAssignmentsTable.ForeignKeys[1].RefTable = EventsTable
 	DisplayAssignmentsTable.ForeignKeys[2].RefTable = LocationsTable
@@ -2299,6 +2353,8 @@ func init() {
 	VotingEligibilitiesTable.ForeignKeys[1].RefTable = EventsTable
 	VotingKeysTable.ForeignKeys[0].RefTable = AccountsTable
 	VotingKeysTable.ForeignKeys[1].RefTable = EventsTable
+	VotingTalliesTable.ForeignKeys[0].RefTable = EventsTable
+	VotingTalliesTable.ForeignKeys[1].RefTable = SessionsTable
 	WebAuthnCredentialsTable.ForeignKeys[0].RefTable = AccountsTable
 	SessionDraftLanesTable.ForeignKeys[0].RefTable = SessionDraftsTable
 	SessionDraftLanesTable.ForeignKeys[1].RefTable = LanesTable

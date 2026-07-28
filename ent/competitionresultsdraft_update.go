@@ -184,6 +184,9 @@ func (_u *CompetitionResultsDraftUpdate) sqlSave(ctx context.Context) (_node int
 	if _u.mutation.AwardsCleared() {
 		_spec.ClearField(competitionresultsdraft.FieldAwards, field.TypeJSON)
 	}
+	if _u.mutation.TallyOverrideCrewReasonCleared() {
+		_spec.ClearField(competitionresultsdraft.FieldTallyOverrideCrewReason, field.TypeString)
+	}
 	if value, ok := _u.mutation.ReadyByAccountID(); ok {
 		_spec.SetField(competitionresultsdraft.FieldReadyByAccountID, field.TypeInt, value)
 	}
@@ -448,6 +451,9 @@ func (_u *CompetitionResultsDraftUpdateOne) sqlSave(ctx context.Context) (_node 
 	}
 	if _u.mutation.AwardsCleared() {
 		_spec.ClearField(competitionresultsdraft.FieldAwards, field.TypeJSON)
+	}
+	if _u.mutation.TallyOverrideCrewReasonCleared() {
+		_spec.ClearField(competitionresultsdraft.FieldTallyOverrideCrewReason, field.TypeString)
 	}
 	if value, ok := _u.mutation.ReadyByAccountID(); ok {
 		_spec.SetField(competitionresultsdraft.FieldReadyByAccountID, field.TypeInt, value)

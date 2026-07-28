@@ -13,6 +13,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/competitionresultsdraft"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/session"
+	"github.com/dotwaffle/beamers/ent/votingtally"
 	"github.com/dotwaffle/beamers/internal/awardvalue"
 )
 
@@ -47,6 +48,10 @@ type CompetitionResultsDraft struct {
 	ScoreInterpretation competitionresultsdraft.ScoreInterpretation `json:"score_interpretation,omitempty"`
 	// Awards holds the value of the "awards" field.
 	Awards []awardvalue.Competition `json:"awards,omitempty"`
+	// VotingTallyID holds the value of the "voting_tally_id" field.
+	VotingTallyID *int `json:"voting_tally_id,omitempty"`
+	// TallyOverrideCrewReason holds the value of the "tally_override_crew_reason" field.
+	TallyOverrideCrewReason string `json:"tally_override_crew_reason,omitempty"`
 	// ReadyByAccountID holds the value of the "ready_by_account_id" field.
 	ReadyByAccountID *int `json:"ready_by_account_id,omitempty"`
 	// ReadyAt holds the value of the "ready_at" field.
@@ -67,11 +72,13 @@ type CompetitionResultsDraftEdges struct {
 	Event *Event `json:"event,omitempty"`
 	// Competition holds the value of the competition edge.
 	Competition *Session `json:"competition,omitempty"`
+	// VotingTally holds the value of the voting_tally edge.
+	VotingTally *VotingTally `json:"voting_tally,omitempty"`
 	// Standings holds the value of the standings edge.
 	Standings []*CompetitionResultStanding `json:"standings,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [3]bool
+	loadedTypes [4]bool
 }
 
 // EventOrErr returns the Event value or an error if the edge
@@ -96,10 +103,21 @@ func (e CompetitionResultsDraftEdges) CompetitionOrErr() (*Session, error) {
 	return nil, &NotLoadedError{edge: "competition"}
 }
 
+// VotingTallyOrErr returns the VotingTally value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e CompetitionResultsDraftEdges) VotingTallyOrErr() (*VotingTally, error) {
+	if e.VotingTally != nil {
+		return e.VotingTally, nil
+	} else if e.loadedTypes[2] {
+		return nil, &NotFoundError{label: votingtally.Label}
+	}
+	return nil, &NotLoadedError{edge: "voting_tally"}
+}
+
 // StandingsOrErr returns the Standings value or an error if the edge
 // was not loaded in eager-loading.
 func (e CompetitionResultsDraftEdges) StandingsOrErr() ([]*CompetitionResultStanding, error) {
-	if e.loadedTypes[2] {
+	if e.loadedTypes[3] {
 		return e.Standings, nil
 	}
 	return nil, &NotLoadedError{edge: "standings"}
@@ -112,9 +130,9 @@ func (*CompetitionResultsDraft) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case competitionresultsdraft.FieldAwards:
 			values[i] = new([]byte)
-		case competitionresultsdraft.FieldID, competitionresultsdraft.FieldEventID, competitionresultsdraft.FieldCompetitionSessionID, competitionresultsdraft.FieldRevision, competitionresultsdraft.FieldScorePrecision, competitionresultsdraft.FieldReadyByAccountID, competitionresultsdraft.FieldCreatedByAccountID:
+		case competitionresultsdraft.FieldID, competitionresultsdraft.FieldEventID, competitionresultsdraft.FieldCompetitionSessionID, competitionresultsdraft.FieldRevision, competitionresultsdraft.FieldScorePrecision, competitionresultsdraft.FieldVotingTallyID, competitionresultsdraft.FieldReadyByAccountID, competitionresultsdraft.FieldCreatedByAccountID:
 			values[i] = new(sql.NullInt64)
-		case competitionresultsdraft.FieldDisposition, competitionresultsdraft.FieldNoPublicCrewReason, competitionresultsdraft.FieldPublicExplanation, competitionresultsdraft.FieldScoreType, competitionresultsdraft.FieldScoreVisibility, competitionresultsdraft.FieldScoreUnit, competitionresultsdraft.FieldScoreRequirement, competitionresultsdraft.FieldScoreInterpretation:
+		case competitionresultsdraft.FieldDisposition, competitionresultsdraft.FieldNoPublicCrewReason, competitionresultsdraft.FieldPublicExplanation, competitionresultsdraft.FieldScoreType, competitionresultsdraft.FieldScoreVisibility, competitionresultsdraft.FieldScoreUnit, competitionresultsdraft.FieldScoreRequirement, competitionresultsdraft.FieldScoreInterpretation, competitionresultsdraft.FieldTallyOverrideCrewReason:
 			values[i] = new(sql.NullString)
 		case competitionresultsdraft.FieldReadyAt, competitionresultsdraft.FieldCreatedAt:
 			values[i] = new(sql.NullTime)
@@ -219,6 +237,19 @@ func (_m *CompetitionResultsDraft) assignValues(columns []string, values []any) 
 					return fmt.Errorf("unmarshal field awards: %w", err)
 				}
 			}
+		case competitionresultsdraft.FieldVotingTallyID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field voting_tally_id", values[i])
+			} else if value.Valid {
+				_m.VotingTallyID = new(int)
+				*_m.VotingTallyID = int(value.Int64)
+			}
+		case competitionresultsdraft.FieldTallyOverrideCrewReason:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field tally_override_crew_reason", values[i])
+			} else if value.Valid {
+				_m.TallyOverrideCrewReason = value.String
+			}
 		case competitionresultsdraft.FieldReadyByAccountID:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
 				return fmt.Errorf("unexpected type %T for field ready_by_account_id", values[i])
@@ -266,6 +297,11 @@ func (_m *CompetitionResultsDraft) QueryEvent() *EventQuery {
 // QueryCompetition queries the "competition" edge of the CompetitionResultsDraft entity.
 func (_m *CompetitionResultsDraft) QueryCompetition() *SessionQuery {
 	return NewCompetitionResultsDraftClient(_m.config).QueryCompetition(_m)
+}
+
+// QueryVotingTally queries the "voting_tally" edge of the CompetitionResultsDraft entity.
+func (_m *CompetitionResultsDraft) QueryVotingTally() *VotingTallyQuery {
+	return NewCompetitionResultsDraftClient(_m.config).QueryVotingTally(_m)
 }
 
 // QueryStandings queries the "standings" edge of the CompetitionResultsDraft entity.
@@ -334,6 +370,14 @@ func (_m *CompetitionResultsDraft) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("awards=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Awards))
+	builder.WriteString(", ")
+	if v := _m.VotingTallyID; v != nil {
+		builder.WriteString("voting_tally_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("tally_override_crew_reason=")
+	builder.WriteString(_m.TallyOverrideCrewReason)
 	builder.WriteString(", ")
 	if v := _m.ReadyByAccountID; v != nil {
 		builder.WriteString("ready_by_account_id=")

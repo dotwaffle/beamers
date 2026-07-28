@@ -68,7 +68,7 @@ func (service *Service) Configure(
 		actor, "ConfigureCompetitionVoting", input.EventID, input.SessionID,
 		input.CommandID, input.ExpectedRevision, input.MethodOverride, input.SelfVoteOverride,
 	)
-	return command.Execute(actor.Context(ctx), command.Plan[Window]{
+	window, err := command.Execute(actor.Context(ctx), command.Plan[Window]{
 		Storage: service.storage, Identity: identity, Replay: replayWindow,
 		Apply: func(transaction *store.CommandTx) (command.Execution[Window], error) {
 			window, err := transaction.ConfigureVoting(ctx, store.ConfigureVotingParams{
@@ -82,6 +82,7 @@ func (service *Service) Configure(
 			return encodedBallotSuccess(window)
 		},
 	})
+	return window, ballotError(err)
 }
 
 func validateConfigure(input ConfigureInput) error {
@@ -109,7 +110,7 @@ func (service *Service) Open(
 	return service.changeWindow(ctx, actor, input, true)
 }
 
-// Close stops Ballot mutation for the later immutable tally.
+// Close stops Ballot mutation, creates the immutable Tally, and seeds Results review.
 func (service *Service) Close(
 	ctx context.Context,
 	actor auth.Account,
@@ -139,7 +140,7 @@ func (service *Service) changeWindow(
 		actor, action, input.EventID, input.SessionID,
 		input.CommandID, input.ExpectedRevision,
 	)
-	return command.Execute(actor.Context(ctx), command.Plan[Window]{
+	window, err := command.Execute(actor.Context(ctx), command.Plan[Window]{
 		Storage: service.storage, Identity: identity, Replay: replayWindow,
 		Apply: func(transaction *store.CommandTx) (command.Execution[Window], error) {
 			params := store.VotingWindowParams{
@@ -153,6 +154,7 @@ func (service *Service) changeWindow(
 			if open {
 				window, err = transaction.OpenVotingWindow(ctx, params)
 			} else {
+				params.CreatedByAccountID = actor.ID
 				window, err = transaction.CloseVotingWindow(ctx, params)
 			}
 			if err != nil {
@@ -161,6 +163,7 @@ func (service *Service) changeWindow(
 			return encodedBallotSuccess(window)
 		},
 	})
+	return window, ballotError(err)
 }
 
 // Vote replaces one explicit score and returns a fresh private snapshot.
@@ -309,6 +312,8 @@ func ballotError(err error) error {
 	case err == nil:
 		return nil
 	case errors.Is(err, store.ErrVotingRevision):
+		return ErrVotingRevision
+	case errors.Is(err, store.ErrCommandConflict):
 		return ErrVotingRevision
 	case errors.Is(err, store.ErrVotingIneligible):
 		return ErrVotingIneligible

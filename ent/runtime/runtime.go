@@ -68,6 +68,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/vote"
 	"github.com/dotwaffle/beamers/ent/votingeligibility"
 	"github.com/dotwaffle/beamers/ent/votingkey"
+	"github.com/dotwaffle/beamers/ent/votingtally"
 	"github.com/dotwaffle/beamers/ent/webauthncredential"
 
 	"entgo.io/ent"
@@ -742,16 +743,24 @@ func init() {
 	competitionresultsdraft.DefaultScorePrecision = competitionresultsdraftDescScorePrecision.Default.(int)
 	// competitionresultsdraft.ScorePrecisionValidator is a validator for the "score_precision" field. It is called by the builders before save.
 	competitionresultsdraft.ScorePrecisionValidator = competitionresultsdraftDescScorePrecision.Validators[0].(func(int) error)
+	// competitionresultsdraftDescVotingTallyID is the schema descriptor for voting_tally_id field.
+	competitionresultsdraftDescVotingTallyID := competitionresultsdraftFields[13].Descriptor()
+	// competitionresultsdraft.VotingTallyIDValidator is a validator for the "voting_tally_id" field. It is called by the builders before save.
+	competitionresultsdraft.VotingTallyIDValidator = competitionresultsdraftDescVotingTallyID.Validators[0].(func(int) error)
+	// competitionresultsdraftDescTallyOverrideCrewReason is the schema descriptor for tally_override_crew_reason field.
+	competitionresultsdraftDescTallyOverrideCrewReason := competitionresultsdraftFields[14].Descriptor()
+	// competitionresultsdraft.TallyOverrideCrewReasonValidator is a validator for the "tally_override_crew_reason" field. It is called by the builders before save.
+	competitionresultsdraft.TallyOverrideCrewReasonValidator = competitionresultsdraftDescTallyOverrideCrewReason.Validators[0].(func(string) error)
 	// competitionresultsdraftDescReadyByAccountID is the schema descriptor for ready_by_account_id field.
-	competitionresultsdraftDescReadyByAccountID := competitionresultsdraftFields[13].Descriptor()
+	competitionresultsdraftDescReadyByAccountID := competitionresultsdraftFields[15].Descriptor()
 	// competitionresultsdraft.ReadyByAccountIDValidator is a validator for the "ready_by_account_id" field. It is called by the builders before save.
 	competitionresultsdraft.ReadyByAccountIDValidator = competitionresultsdraftDescReadyByAccountID.Validators[0].(func(int) error)
 	// competitionresultsdraftDescCreatedByAccountID is the schema descriptor for created_by_account_id field.
-	competitionresultsdraftDescCreatedByAccountID := competitionresultsdraftFields[15].Descriptor()
+	competitionresultsdraftDescCreatedByAccountID := competitionresultsdraftFields[17].Descriptor()
 	// competitionresultsdraft.CreatedByAccountIDValidator is a validator for the "created_by_account_id" field. It is called by the builders before save.
 	competitionresultsdraft.CreatedByAccountIDValidator = competitionresultsdraftDescCreatedByAccountID.Validators[0].(func(int) error)
 	// competitionresultsdraftDescCreatedAt is the schema descriptor for created_at field.
-	competitionresultsdraftDescCreatedAt := competitionresultsdraftFields[16].Descriptor()
+	competitionresultsdraftDescCreatedAt := competitionresultsdraftFields[18].Descriptor()
 	// competitionresultsdraft.DefaultCreatedAt holds the default value on creation for the created_at field.
 	competitionresultsdraft.DefaultCreatedAt = competitionresultsdraftDescCreatedAt.Default.(func() time.Time)
 	display.Policy = privacy.NewPolicies(schema.Display{})
@@ -2666,6 +2675,29 @@ func init() {
 	votingkeyDescCreatedAt := votingkeyFields[2].Descriptor()
 	// votingkey.DefaultCreatedAt holds the default value on creation for the created_at field.
 	votingkey.DefaultCreatedAt = votingkeyDescCreatedAt.Default.(func() time.Time)
+	votingtally.Policy = privacy.NewPolicies(schema.VotingTally{})
+	votingtally.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := votingtally.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
+	votingtallyFields := schema.VotingTally{}.Fields()
+	_ = votingtallyFields
+	// votingtallyDescParticipating is the schema descriptor for participating field.
+	votingtallyDescParticipating := votingtallyFields[4].Descriptor()
+	// votingtally.ParticipatingValidator is a validator for the "participating" field. It is called by the builders before save.
+	votingtally.ParticipatingValidator = votingtallyDescParticipating.Validators[0].(func(int) error)
+	// votingtallyDescCreatedByAccountID is the schema descriptor for created_by_account_id field.
+	votingtallyDescCreatedByAccountID := votingtallyFields[6].Descriptor()
+	// votingtally.CreatedByAccountIDValidator is a validator for the "created_by_account_id" field. It is called by the builders before save.
+	votingtally.CreatedByAccountIDValidator = votingtallyDescCreatedByAccountID.Validators[0].(func(int) error)
+	// votingtallyDescCreatedAt is the schema descriptor for created_at field.
+	votingtallyDescCreatedAt := votingtallyFields[7].Descriptor()
+	// votingtally.DefaultCreatedAt holds the default value on creation for the created_at field.
+	votingtally.DefaultCreatedAt = votingtallyDescCreatedAt.Default.(func() time.Time)
 	webauthncredential.Policy = privacy.NewPolicies(schema.WebAuthnCredential{})
 	webauthncredential.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {

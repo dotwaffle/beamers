@@ -39,6 +39,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/vote"
 	"github.com/dotwaffle/beamers/ent/votingeligibility"
 	"github.com/dotwaffle/beamers/ent/votingkey"
+	"github.com/dotwaffle/beamers/ent/votingtally"
 )
 
 // EventQuery is the builder for querying Event entities.
@@ -66,6 +67,7 @@ type EventQuery struct {
 	withVotingEligibilities        *VotingEligibilityQuery
 	withVotingKeys                 *VotingKeyQuery
 	withVotes                      *VoteQuery
+	withVotingTallies              *VotingTallyQuery
 	withDraftEdits                 *DraftEditQuery
 	withDraftChanges               *DraftChangeQuery
 	withImportReferences           *ImportReferenceQuery
@@ -504,6 +506,28 @@ func (_q *EventQuery) QueryVotes() *VoteQuery {
 	return query
 }
 
+// QueryVotingTallies chains the current query on the "voting_tallies" edge.
+func (_q *EventQuery) QueryVotingTallies() *VotingTallyQuery {
+	query := (&VotingTallyClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(event.Table, event.FieldID, selector),
+			sqlgraph.To(votingtally.Table, votingtally.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, event.VotingTalliesTable, event.VotingTalliesColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
 // QueryDraftEdits chains the current query on the "draft_edits" edge.
 func (_q *EventQuery) QueryDraftEdits() *DraftEditQuery {
 	query := (&DraftEditClient{config: _q.config}).Query()
@@ -846,6 +870,7 @@ func (_q *EventQuery) Clone() *EventQuery {
 		withVotingEligibilities:        _q.withVotingEligibilities.Clone(),
 		withVotingKeys:                 _q.withVotingKeys.Clone(),
 		withVotes:                      _q.withVotes.Clone(),
+		withVotingTallies:              _q.withVotingTallies.Clone(),
 		withDraftEdits:                 _q.withDraftEdits.Clone(),
 		withDraftChanges:               _q.withDraftChanges.Clone(),
 		withImportReferences:           _q.withImportReferences.Clone(),
@@ -1056,6 +1081,17 @@ func (_q *EventQuery) WithVotes(opts ...func(*VoteQuery)) *EventQuery {
 	return _q
 }
 
+// WithVotingTallies tells the query-builder to eager-load the nodes that are connected to
+// the "voting_tallies" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *EventQuery) WithVotingTallies(opts ...func(*VotingTallyQuery)) *EventQuery {
+	query := (&VotingTallyClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withVotingTallies = query
+	return _q
+}
+
 // WithDraftEdits tells the query-builder to eager-load the nodes that are connected to
 // the "draft_edits" edge. The optional arguments are used to configure the query builder of the edge.
 func (_q *EventQuery) WithDraftEdits(opts ...func(*DraftEditQuery)) *EventQuery {
@@ -1206,7 +1242,7 @@ func (_q *EventQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Event,
 	var (
 		nodes       = []*Event{}
 		_spec       = _q.querySpec()
-		loadedTypes = [24]bool{
+		loadedTypes = [25]bool{
 			_q.withGrants != nil,
 			_q.withSlugs != nil,
 			_q.withRundown != nil,
@@ -1225,6 +1261,7 @@ func (_q *EventQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Event,
 			_q.withVotingEligibilities != nil,
 			_q.withVotingKeys != nil,
 			_q.withVotes != nil,
+			_q.withVotingTallies != nil,
 			_q.withDraftEdits != nil,
 			_q.withDraftChanges != nil,
 			_q.withImportReferences != nil,
@@ -1387,6 +1424,13 @@ func (_q *EventQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Event,
 		if err := _q.loadVotes(ctx, query, nodes,
 			func(n *Event) { n.Edges.Votes = []*Vote{} },
 			func(n *Event, e *Vote) { n.Edges.Votes = append(n.Edges.Votes, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withVotingTallies; query != nil {
+		if err := _q.loadVotingTallies(ctx, query, nodes,
+			func(n *Event) { n.Edges.VotingTallies = []*VotingTally{} },
+			func(n *Event, e *VotingTally) { n.Edges.VotingTallies = append(n.Edges.VotingTallies, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -1958,6 +2002,36 @@ func (_q *EventQuery) loadVotes(ctx context.Context, query *VoteQuery, nodes []*
 	}
 	query.Where(predicate.Vote(func(s *sql.Selector) {
 		s.Where(sql.InValues(s.C(event.VotesColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.EventID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "event_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *EventQuery) loadVotingTallies(ctx context.Context, query *VotingTallyQuery, nodes []*Event, init func(*Event), assign func(*Event, *VotingTally)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int]*Event)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(votingtally.FieldEventID)
+	}
+	query.Where(predicate.VotingTally(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(event.VotingTalliesColumn), fks...))
 	}))
 	neighbors, err := query.All(ctx)
 	if err != nil {

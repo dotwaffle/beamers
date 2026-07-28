@@ -2186,6 +2186,29 @@ func HasVotesWith(preds ...predicate.Vote) predicate.Session {
 	})
 }
 
+// HasVotingTallies applies the HasEdge predicate on the "voting_tallies" edge.
+func HasVotingTallies() predicate.Session {
+	return predicate.Session(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, VotingTalliesTable, VotingTalliesColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasVotingTalliesWith applies the HasEdge predicate on the "voting_tallies" edge with a given conditions (other predicates).
+func HasVotingTalliesWith(preds ...predicate.VotingTally) predicate.Session {
+	return predicate.Session(func(s *sql.Selector) {
+		step := newVotingTalliesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasPrizegiving applies the HasEdge predicate on the "prizegiving" edge.
 func HasPrizegiving() predicate.Session {
 	return predicate.Session(func(s *sql.Selector) {

@@ -73,6 +73,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/vote"
 	"github.com/dotwaffle/beamers/ent/votingeligibility"
 	"github.com/dotwaffle/beamers/ent/votingkey"
+	"github.com/dotwaffle/beamers/ent/votingtally"
 	"github.com/dotwaffle/beamers/ent/webauthncredential"
 )
 
@@ -195,6 +196,7 @@ func checkColumn(t, c string) error {
 			vote.Table:                        vote.ValidColumn,
 			votingeligibility.Table:           votingeligibility.ValidColumn,
 			votingkey.Table:                   votingkey.ValidColumn,
+			votingtally.Table:                 votingtally.ValidColumn,
 			webauthncredential.Table:          webauthncredential.ValidColumn,
 		})
 	})

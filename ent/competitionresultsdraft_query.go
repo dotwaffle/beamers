@@ -18,6 +18,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/predicate"
 	"github.com/dotwaffle/beamers/ent/session"
+	"github.com/dotwaffle/beamers/ent/votingtally"
 )
 
 // CompetitionResultsDraftQuery is the builder for querying CompetitionResultsDraft entities.
@@ -29,6 +30,7 @@ type CompetitionResultsDraftQuery struct {
 	predicates      []predicate.CompetitionResultsDraft
 	withEvent       *EventQuery
 	withCompetition *SessionQuery
+	withVotingTally *VotingTallyQuery
 	withStandings   *CompetitionResultStandingQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
@@ -103,6 +105,28 @@ func (_q *CompetitionResultsDraftQuery) QueryCompetition() *SessionQuery {
 			sqlgraph.From(competitionresultsdraft.Table, competitionresultsdraft.FieldID, selector),
 			sqlgraph.To(session.Table, session.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, competitionresultsdraft.CompetitionTable, competitionresultsdraft.CompetitionColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryVotingTally chains the current query on the "voting_tally" edge.
+func (_q *CompetitionResultsDraftQuery) QueryVotingTally() *VotingTallyQuery {
+	query := (&VotingTallyClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(competitionresultsdraft.Table, competitionresultsdraft.FieldID, selector),
+			sqlgraph.To(votingtally.Table, votingtally.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, competitionresultsdraft.VotingTallyTable, competitionresultsdraft.VotingTallyColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -326,6 +350,7 @@ func (_q *CompetitionResultsDraftQuery) Clone() *CompetitionResultsDraftQuery {
 		predicates:      append([]predicate.CompetitionResultsDraft{}, _q.predicates...),
 		withEvent:       _q.withEvent.Clone(),
 		withCompetition: _q.withCompetition.Clone(),
+		withVotingTally: _q.withVotingTally.Clone(),
 		withStandings:   _q.withStandings.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
@@ -352,6 +377,17 @@ func (_q *CompetitionResultsDraftQuery) WithCompetition(opts ...func(*SessionQue
 		opt(query)
 	}
 	_q.withCompetition = query
+	return _q
+}
+
+// WithVotingTally tells the query-builder to eager-load the nodes that are connected to
+// the "voting_tally" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *CompetitionResultsDraftQuery) WithVotingTally(opts ...func(*VotingTallyQuery)) *CompetitionResultsDraftQuery {
+	query := (&VotingTallyClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withVotingTally = query
 	return _q
 }
 
@@ -450,9 +486,10 @@ func (_q *CompetitionResultsDraftQuery) sqlAll(ctx context.Context, hooks ...que
 	var (
 		nodes       = []*CompetitionResultsDraft{}
 		_spec       = _q.querySpec()
-		loadedTypes = [3]bool{
+		loadedTypes = [4]bool{
 			_q.withEvent != nil,
 			_q.withCompetition != nil,
+			_q.withVotingTally != nil,
 			_q.withStandings != nil,
 		}
 	)
@@ -483,6 +520,12 @@ func (_q *CompetitionResultsDraftQuery) sqlAll(ctx context.Context, hooks ...que
 	if query := _q.withCompetition; query != nil {
 		if err := _q.loadCompetition(ctx, query, nodes, nil,
 			func(n *CompetitionResultsDraft, e *Session) { n.Edges.Competition = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withVotingTally; query != nil {
+		if err := _q.loadVotingTally(ctx, query, nodes, nil,
+			func(n *CompetitionResultsDraft, e *VotingTally) { n.Edges.VotingTally = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -556,6 +599,38 @@ func (_q *CompetitionResultsDraftQuery) loadCompetition(ctx context.Context, que
 	}
 	return nil
 }
+func (_q *CompetitionResultsDraftQuery) loadVotingTally(ctx context.Context, query *VotingTallyQuery, nodes []*CompetitionResultsDraft, init func(*CompetitionResultsDraft), assign func(*CompetitionResultsDraft, *VotingTally)) error {
+	ids := make([]int, 0, len(nodes))
+	nodeids := make(map[int][]*CompetitionResultsDraft)
+	for i := range nodes {
+		if nodes[i].VotingTallyID == nil {
+			continue
+		}
+		fk := *nodes[i].VotingTallyID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(votingtally.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "voting_tally_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
 func (_q *CompetitionResultsDraftQuery) loadStandings(ctx context.Context, query *CompetitionResultStandingQuery, nodes []*CompetitionResultsDraft, init func(*CompetitionResultsDraft), assign func(*CompetitionResultsDraft, *CompetitionResultStanding)) error {
 	fks := make([]driver.Value, 0, len(nodes))
 	nodeids := make(map[int]*CompetitionResultsDraft)
@@ -617,6 +692,9 @@ func (_q *CompetitionResultsDraftQuery) querySpec() *sqlgraph.QuerySpec {
 		}
 		if _q.withCompetition != nil {
 			_spec.Node.AddColumnOnce(competitionresultsdraft.FieldCompetitionSessionID)
+		}
+		if _q.withVotingTally != nil {
+			_spec.Node.AddColumnOnce(competitionresultsdraft.FieldVotingTallyID)
 		}
 	}
 	if ps := _q.predicates; len(ps) > 0 {

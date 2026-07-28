@@ -42,6 +42,10 @@ const (
 	FieldScoreInterpretation = "score_interpretation"
 	// FieldAwards holds the string denoting the awards field in the database.
 	FieldAwards = "awards"
+	// FieldVotingTallyID holds the string denoting the voting_tally_id field in the database.
+	FieldVotingTallyID = "voting_tally_id"
+	// FieldTallyOverrideCrewReason holds the string denoting the tally_override_crew_reason field in the database.
+	FieldTallyOverrideCrewReason = "tally_override_crew_reason"
 	// FieldReadyByAccountID holds the string denoting the ready_by_account_id field in the database.
 	FieldReadyByAccountID = "ready_by_account_id"
 	// FieldReadyAt holds the string denoting the ready_at field in the database.
@@ -54,6 +58,8 @@ const (
 	EdgeEvent = "event"
 	// EdgeCompetition holds the string denoting the competition edge name in mutations.
 	EdgeCompetition = "competition"
+	// EdgeVotingTally holds the string denoting the voting_tally edge name in mutations.
+	EdgeVotingTally = "voting_tally"
 	// EdgeStandings holds the string denoting the standings edge name in mutations.
 	EdgeStandings = "standings"
 	// Table holds the table name of the competitionresultsdraft in the database.
@@ -72,6 +78,13 @@ const (
 	CompetitionInverseTable = "sessions"
 	// CompetitionColumn is the table column denoting the competition relation/edge.
 	CompetitionColumn = "competition_session_id"
+	// VotingTallyTable is the table that holds the voting_tally relation/edge.
+	VotingTallyTable = "competition_results_drafts"
+	// VotingTallyInverseTable is the table name for the VotingTally entity.
+	// It exists in this package in order to avoid circular dependency with the "votingtally" package.
+	VotingTallyInverseTable = "voting_tallies"
+	// VotingTallyColumn is the table column denoting the voting_tally relation/edge.
+	VotingTallyColumn = "voting_tally_id"
 	// StandingsTable is the table that holds the standings relation/edge.
 	StandingsTable = "competition_result_standings"
 	// StandingsInverseTable is the table name for the CompetitionResultStanding entity.
@@ -97,6 +110,8 @@ var Columns = []string{
 	FieldScoreRequirement,
 	FieldScoreInterpretation,
 	FieldAwards,
+	FieldVotingTallyID,
+	FieldTallyOverrideCrewReason,
 	FieldReadyByAccountID,
 	FieldReadyAt,
 	FieldCreatedByAccountID,
@@ -133,6 +148,10 @@ var (
 	DefaultScorePrecision int
 	// ScorePrecisionValidator is a validator for the "score_precision" field. It is called by the builders before save.
 	ScorePrecisionValidator func(int) error
+	// VotingTallyIDValidator is a validator for the "voting_tally_id" field. It is called by the builders before save.
+	VotingTallyIDValidator func(int) error
+	// TallyOverrideCrewReasonValidator is a validator for the "tally_override_crew_reason" field. It is called by the builders before save.
+	TallyOverrideCrewReasonValidator func(string) error
 	// ReadyByAccountIDValidator is a validator for the "ready_by_account_id" field. It is called by the builders before save.
 	ReadyByAccountIDValidator func(int) error
 	// CreatedByAccountIDValidator is a validator for the "created_by_account_id" field. It is called by the builders before save.
@@ -336,6 +355,16 @@ func ByScoreInterpretation(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldScoreInterpretation, opts...).ToFunc()
 }
 
+// ByVotingTallyID orders the results by the voting_tally_id field.
+func ByVotingTallyID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldVotingTallyID, opts...).ToFunc()
+}
+
+// ByTallyOverrideCrewReason orders the results by the tally_override_crew_reason field.
+func ByTallyOverrideCrewReason(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldTallyOverrideCrewReason, opts...).ToFunc()
+}
+
 // ByReadyByAccountID orders the results by the ready_by_account_id field.
 func ByReadyByAccountID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldReadyByAccountID, opts...).ToFunc()
@@ -370,6 +399,13 @@ func ByCompetitionField(field string, opts ...sql.OrderTermOption) OrderOption {
 	}
 }
 
+// ByVotingTallyField orders the results by voting_tally field.
+func ByVotingTallyField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newVotingTallyStep(), sql.OrderByField(field, opts...))
+	}
+}
+
 // ByStandingsCount orders the results by standings count.
 func ByStandingsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -395,6 +431,13 @@ func newCompetitionStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(CompetitionInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, CompetitionTable, CompetitionColumn),
+	)
+}
+func newVotingTallyStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(VotingTallyInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, true, VotingTallyTable, VotingTallyColumn),
 	)
 }
 func newStandingsStep() *sqlgraph.Step {
