@@ -77,6 +77,29 @@ type Event struct {
 	TargetAdjustmentPresetsSeconds []int  `json:"-"`
 }
 
+// AttachmentReleasePolicy selects when eligible Final Versions become public.
+type AttachmentReleasePolicy = store.AttachmentReleasePolicy
+
+// Attachment release policies describe the supported Event-wide release points.
+const (
+	AttachmentReleaseOnLive     = store.AttachmentReleaseOnLive
+	AttachmentReleaseOnEnded    = store.AttachmentReleaseOnEnded
+	AttachmentReleaseOnEventCue = store.AttachmentReleaseOnEventCue
+)
+
+// AttachmentReleaseState is the Event-wide release status shown to crew.
+type AttachmentReleaseState struct {
+	Policy AttachmentReleasePolicy
+	CueAt  time.Time
+}
+
+// CrewEventOverview is one Event's Backstage landing-page projection.
+type CrewEventOverview struct {
+	Event             Event
+	Active            bool
+	AttachmentRelease AttachmentReleaseState
+}
+
 // CreateInput contains an Administrator's proposed Event configuration.
 type CreateInput struct {
 	Name                           string `json:"name"`
@@ -432,6 +455,34 @@ func (service *Service) CrewEvent(
 		return Event{}, err
 	}
 	return event(found)
+}
+
+// CrewEventOverview returns the Event status visible to any granted crew role.
+func (service *Service) CrewEventOverview(
+	ctx context.Context,
+	actor auth.Account,
+	eventID int,
+) (CrewEventOverview, error) {
+	found, err := service.storage.FindCrewEventOverview(
+		actor.Context(ctx),
+		actor.ID,
+		eventID,
+	)
+	if err != nil {
+		return CrewEventOverview{}, err
+	}
+	event, err := event(found.Event)
+	if err != nil {
+		return CrewEventOverview{}, err
+	}
+	return CrewEventOverview{
+		Event:  event,
+		Active: found.Active,
+		AttachmentRelease: AttachmentReleaseState{
+			Policy: found.AttachmentRelease.Policy,
+			CueAt:  found.AttachmentRelease.CueAt,
+		},
+	}, nil
 }
 
 // Update replaces Event configuration for a Producer.

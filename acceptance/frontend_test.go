@@ -613,7 +613,7 @@ func TestBrowserPublishesEventsUnderCurrentSlugs(t *testing.T) {
 
 	submitEvent := func(eventID int, name, slug, start, end, locale string, listed bool) frontendResponse {
 		t.Helper()
-		path := "/backstage/events/" + strconv.Itoa(eventID) + "/planning"
+		path := "/backstage/events/" + strconv.Itoa(eventID) + "/settings"
 		page := getFrontendPage(t, administrator, server.address, path)
 		values := frontendNamedValues(
 			page.body,
@@ -621,7 +621,6 @@ func TestBrowserPublishesEventsUnderCurrentSlugs(t *testing.T) {
 			"expected_event_revision",
 		)
 		values.Set("csrf_token", requireFrontendCSRF(t, page))
-		values.Set("action", "event")
 		values.Set("event_name", name)
 		values.Set("public_slug", slug)
 		values.Set("planned_start_date", start)
@@ -631,6 +630,9 @@ func TestBrowserPublishesEventsUnderCurrentSlugs(t *testing.T) {
 		values.Set("content_language", "en-GB")
 		values.Set("event_day_boundary", "06:00")
 		values.Set("entry_default_disposition", "Pending")
+		values.Set("submission_eligibility", "AllAccounts")
+		values.Set("voting_method", "Range1To5")
+		values.Set("self_vote_policy", "Allowed")
 		values.Set("target_adjustment_presets_seconds", "-300,300,600")
 		if listed {
 			values.Set("public", "true")
@@ -825,10 +827,9 @@ func TestBrowserPublishesEventsUnderCurrentSlugs(t *testing.T) {
 		t,
 		administrator,
 		server.address,
-		"/backstage/events/3/planning",
+		"/backstage/events/3/settings",
 		url.Values{
 			"csrf_token": {requireFrontendCSRF(t, root)},
-			"action":     {"event"},
 			"public":     {"true"},
 		},
 	)
@@ -1582,9 +1583,9 @@ func TestBackstageNavigationReflectsAuthorityAndInterface(t *testing.T) {
 	adminNavigation := frontendBackstageNavigation(t, adminPage)
 	for _, text := range []string{
 		"Installation",
-		"Event #1",
+		"Revision 2026",
 		"Producer",
-		"Event #2",
+		"Revision 2027",
 		"Observer",
 	} {
 		if adminPage.status != http.StatusOK || !strings.Contains(adminNavigation, text) {
@@ -1596,7 +1597,7 @@ func TestBackstageNavigationReflectsAuthorityAndInterface(t *testing.T) {
 		[]string{"Plan and publish", "Competition Entries and Attachments", "Results and Prizegiving"},
 		[]string{"Installation"},
 	)
-	assertBackstage(
+	operator := assertBackstage(
 		"Opal Operator",
 		[]string{
 			"Sessions and Displays",
@@ -1606,11 +1607,40 @@ func TestBackstageNavigationReflectsAuthorityAndInterface(t *testing.T) {
 		},
 		[]string{"Plan and publish", "Competition Entries and Attachments", "Installation"},
 	)
-	assertBackstage(
+	observer := assertBackstage(
 		"Olive Observer",
 		[]string{"Event overview"},
 		[]string{"Sessions and Displays", "Results and Prizegiving", "Installation"},
 	)
+	for role, client := range map[string]*http.Client{
+		"Producer": producer,
+		"Operator": operator,
+		"Observer": observer,
+	} {
+		if overview := getFrontendPage(
+			t, client, server.address, "/backstage/events/1",
+		); overview.status != http.StatusOK {
+			t.Errorf("%s Event overview = %d, want 200", role, overview.status)
+		}
+		settings := getFrontendPage(t, client, server.address, "/backstage/events/1/settings")
+		wantStatus := http.StatusNotFound
+		if role == "Producer" {
+			wantStatus = http.StatusOK
+		}
+		if settings.status != wantStatus {
+			t.Errorf("%s Event settings = %d, want %d", role, settings.status, wantStatus)
+		}
+	}
+	if overview := getFrontendPage(
+		t, administrator, server.address, "/backstage/events/2",
+	); overview.status != http.StatusOK {
+		t.Errorf("Administrator Observer Event overview = %d, want 200", overview.status)
+	}
+	if settings := getFrontendPage(
+		t, administrator, server.address, "/backstage/events/2/settings",
+	); settings.status != http.StatusNotFound {
+		t.Errorf("Administrator Observer Event settings = %d, want 404", settings.status)
+	}
 	if forbidden := getFrontendPage(
 		t,
 		producer,
@@ -1649,6 +1679,123 @@ func TestBackstageNavigationReflectsAuthorityAndInterface(t *testing.T) {
 		t.Fatalf("public-listener Frontend = %d, want 200", frontend.status)
 	} else if strings.Contains(frontend.body, `href="/backstage"`) {
 		t.Fatalf("public-listener Frontend advertises private Backstage: %q", frontend.body)
+	}
+	server.stop(t)
+}
+
+func TestBrowserEventOverviewAndSettings(t *testing.T) {
+	administrator, server := startAuthenticatedAdministratorWithPublicListener(t)
+	administrator.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/events",
+		validEventInput(), http.StatusCreated,
+		"{\"id\":1,\"name\":\"Revision 2026\",\"planned_start_date\":\"2026-08-21\",\"planned_end_date\":\"2026-08-23\",\"timezone\":\"Europe/Berlin\",\"event_locale\":\"de-DE\",\"content_language\":\"en-GB\",\"event_day_boundary\":\"06:00\",\"revision\":1}\n",
+	)
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/events/1/grants",
+		map[string]any{
+			"account_id": 1,
+			"role":       "Producer",
+			"command_id": "grant-overview-producer",
+		},
+		http.StatusCreated,
+		"{\"event_id\":1,\"account_id\":1,\"role\":\"Producer\"}\n",
+	)
+
+	backstage := getFrontendPage(t, administrator, server.address, "/backstage")
+	overviewPath := frontendLinkPath(t, backstage, "Event overview")
+	overview := getFrontendPage(t, administrator, server.address, overviewPath)
+	for _, want := range []string{
+		"Revision 2026",
+		"Not listed",
+		"Not active",
+		"No Rundown published",
+		"On Ended",
+		"Event settings",
+		"Plan and publish",
+	} {
+		if overview.status != http.StatusOK || !strings.Contains(overview.body, want) {
+			t.Fatalf("Event overview lacks %q: %d %q", want, overview.status, overview.body)
+		}
+	}
+	if strings.Contains(overview.body, ">Attachment release</a>") {
+		t.Fatalf("Event overview links unavailable release controls: %q", overview.body)
+	}
+
+	settingsPath := frontendLinkPath(t, overview, "Event settings")
+	settings := getFrontendPage(t, administrator, server.address, settingsPath)
+	configured := postFrontendForm(t, administrator, server.address, settingsPath, url.Values{
+		"csrf_token":                        {requireFrontendCSRF(t, settings)},
+		"command_id":                        {"browser-update-event-settings"},
+		"expected_event_revision":           {"1"},
+		"event_name":                        {"Revision Browser"},
+		"public":                            {"true"},
+		"public_slug":                       {"revision-browser"},
+		"planned_start_date":                {"2026-08-21"},
+		"planned_end_date":                  {"2026-08-23"},
+		"timezone":                          {"Europe/Berlin"},
+		"event_locale":                      {"de-DE"},
+		"content_language":                  {"en-GB"},
+		"event_day_boundary":                {"06:00"},
+		"entry_default_disposition":         {"Included"},
+		"submission_eligibility":            {"AllAccounts"},
+		"voting_method":                     {"Range1To5"},
+		"self_vote_policy":                  {"Allowed"},
+		"target_adjustment_presets_seconds": {"-300,300,600"},
+	})
+	if configured.status != http.StatusSeeOther ||
+		configured.header.Get("Location") != settingsPath {
+		t.Fatalf("Event settings update = %d Location %q %q", configured.status, configured.header.Get("Location"), configured.body)
+	}
+	settings = getFrontendPage(t, administrator, server.address, settingsPath)
+	if !strings.Contains(settings.body, "Revision Browser") ||
+		!strings.Contains(frontendBackstageNavigation(t, settings), "Revision Browser") {
+		t.Fatalf("updated Event settings = %d %q", settings.status, settings.body)
+	}
+
+	stale := postFrontendForm(t, administrator, server.address, settingsPath, url.Values{
+		"csrf_token":                        {requireFrontendCSRF(t, settings)},
+		"command_id":                        {"browser-stale-event-settings"},
+		"expected_event_revision":           {"1"},
+		"event_name":                        {"Stale Event"},
+		"public":                            {"true"},
+		"public_slug":                       {"stale-event"},
+		"planned_start_date":                {"2026-08-21"},
+		"planned_end_date":                  {"2026-08-23"},
+		"timezone":                          {"Europe/Berlin"},
+		"event_locale":                      {"de-DE"},
+		"content_language":                  {"en-GB"},
+		"event_day_boundary":                {"06:00"},
+		"entry_default_disposition":         {"Included"},
+		"submission_eligibility":            {"AllAccounts"},
+		"voting_method":                     {"Range1To5"},
+		"self_vote_policy":                  {"Allowed"},
+		"target_adjustment_presets_seconds": {"-300,300,600"},
+	})
+	if stale.status != http.StatusConflict ||
+		!strings.Contains(stale.body, "Event changed") ||
+		strings.Contains(stale.body, `value="Stale Event"`) {
+		t.Fatalf("stale Event settings = %d %q", stale.status, stale.body)
+	}
+
+	planning := getFrontendPage(
+		t,
+		administrator,
+		server.address,
+		"/backstage/events/1/planning",
+	)
+	if planning.status != http.StatusOK ||
+		strings.Contains(planning.body, `name="event_name"`) {
+		t.Fatalf("Planning retained general Event settings: %d %q", planning.status, planning.body)
+	}
+	for _, path := range []string{overviewPath, settingsPath} {
+		if public := getFrontendPage(
+			t, administrator, server.publicAddress, path,
+		); public.status != http.StatusNotFound {
+			t.Fatalf("public-listener %s = %d, want 404", path, public.status)
+		}
 	}
 	server.stop(t)
 }
@@ -2907,9 +3054,9 @@ func TestBrowserAdministersAccountsAndEventGrants(t *testing.T) {
 	}
 	operatorBackstage := getFrontendPage(t, operator, server.address, "/backstage")
 	operatorNavigation := frontendBackstageNavigation(t, operatorBackstage)
-	if !strings.Contains(operatorNavigation, "Event #1") ||
+	if !strings.Contains(operatorNavigation, "Revision 2026") ||
 		!strings.Contains(operatorNavigation, "Emergency Alerts") ||
-		strings.Contains(operatorNavigation, "Event #2") {
+		strings.Contains(operatorNavigation, "Revision 2027") {
 		t.Fatalf("Event Grant crossed Event boundary: %q", operatorNavigation)
 	}
 	if forbidden := getFrontendPage(
@@ -3877,7 +4024,6 @@ func TestBrowserPlansAndPublishesEvent(t *testing.T) {
 	page := getFrontendPage(t, administrator, server.address, path)
 	for _, want := range []string{
 		"Plan and publish",
-		`name="event_name"`,
 		`name="location_name"`,
 		`name="csv_data"`,
 		`name="icalendar_data"`,
@@ -3889,9 +4035,10 @@ func TestBrowserPlansAndPublishesEvent(t *testing.T) {
 		}
 	}
 
-	configured := postFrontendForm(t, administrator, server.address, path, url.Values{
-		"csrf_token":                        {requireFrontendCSRF(t, page)},
-		"action":                            {"event"},
+	settingsPath := "/backstage/events/1/settings"
+	settingsPage := getFrontendPage(t, administrator, server.address, settingsPath)
+	configured := postFrontendForm(t, administrator, server.address, settingsPath, url.Values{
+		"csrf_token":                        {requireFrontendCSRF(t, settingsPage)},
 		"command_id":                        {"browser-update-event"},
 		"expected_event_revision":           {"1"},
 		"event_name":                        {"Revision Browser"},
@@ -3902,9 +4049,12 @@ func TestBrowserPlansAndPublishesEvent(t *testing.T) {
 		"content_language":                  {"en-GB"},
 		"event_day_boundary":                {"06:00"},
 		"entry_default_disposition":         {"Included"},
+		"submission_eligibility":            {"AllAccounts"},
+		"voting_method":                     {"Range1To5"},
+		"self_vote_policy":                  {"Allowed"},
 		"target_adjustment_presets_seconds": {"-300,300,600"},
 	})
-	if configured.status != http.StatusSeeOther || configured.header.Get("Location") != path {
+	if configured.status != http.StatusSeeOther || configured.header.Get("Location") != settingsPath {
 		t.Fatalf("configure Event = %d %q", configured.status, configured.body)
 	}
 
@@ -4831,13 +4981,12 @@ func TestAccountSubmissionsHonorPolicyOwnershipAndReopenWindows(t *testing.T) {
 	entriesPath := "/backstage/events/1/competitions/" +
 		strconv.FormatInt(competitionID, 10) + "/entries"
 
-	planningPath := "/backstage/events/1/planning"
-	planning := getFrontendPage(t, administrator, server.address, planningPath)
-	eventRevision := frontendNamedValues(planning.body, "expected_event_revision").
+	settingsPath := "/backstage/events/1/settings"
+	settings := getFrontendPage(t, administrator, server.address, settingsPath)
+	eventRevision := frontendNamedValues(settings.body, "expected_event_revision").
 		Get("expected_event_revision")
-	published := postFrontendForm(t, administrator, server.address, planningPath, url.Values{
-		"csrf_token":                        {requireFrontendCSRF(t, planning)},
-		"action":                            {"event"},
+	published := postFrontendForm(t, administrator, server.address, settingsPath, url.Values{
+		"csrf_token":                        {requireFrontendCSRF(t, settings)},
 		"command_id":                        {"publish-submission-event"},
 		"expected_event_revision":           {eventRevision},
 		"event_name":                        {"Revision 2099"},
@@ -4850,6 +4999,8 @@ func TestAccountSubmissionsHonorPolicyOwnershipAndReopenWindows(t *testing.T) {
 		"event_day_boundary":                {"06:00"},
 		"entry_default_disposition":         {"Pending"},
 		"submission_eligibility":            {"AllAccounts"},
+		"voting_method":                     {"Range1To5"},
+		"self_vote_policy":                  {"Allowed"},
 		"target_adjustment_presets_seconds": {"-300,300,600"},
 	})
 	if published.status != http.StatusSeeOther {
@@ -6337,6 +6488,16 @@ func frontendBackstageNavigation(t *testing.T, response frontendResponse) string
 		t.Fatalf("Backstage navigation is unclosed: %q", response.body)
 	}
 	return response.body[startAt : startAt+endAt]
+}
+
+func frontendLinkPath(t *testing.T, response frontendResponse, label string) string {
+	t.Helper()
+	link := regexp.MustCompile(`href="([^"]+)">` + regexp.QuoteMeta(label) + `</a>`).
+		FindStringSubmatch(response.body)
+	if response.status != http.StatusOK || len(link) != 2 {
+		t.Fatalf("%q link page = %d %q", label, response.status, response.body)
+	}
+	return strings.ReplaceAll(link[1], "&amp;", "&")
 }
 
 func frontendResponseCookie(

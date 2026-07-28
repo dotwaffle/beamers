@@ -20,6 +20,12 @@ func TestBackstageNavigationReflectsEffectiveAuthority(t *testing.T) {
 			2: viewer.Operator,
 			4: viewer.Operator,
 		},
+		EventNames: map[int]string{
+			1: "First Event",
+			2: "Second Event",
+			3: "Third Event",
+			4: "Fourth Event",
+		},
 		EventScopes: map[int]viewer.EventScope{
 			2: {
 				LaneIDs:          map[int]struct{}{7: {}},
@@ -44,8 +50,12 @@ func TestBackstageNavigationReflectsEffectiveAuthority(t *testing.T) {
 	if got := backstageEventIDs(navigation); !reflect.DeepEqual(got, []int{1, 2, 3, 4}) {
 		t.Fatalf("Event order = %v, want [1 2 3 4]", got)
 	}
+	if navigation.Events[0].Name != "First Event" {
+		t.Fatalf("Event name = %q, want First Event", navigation.Events[0].Name)
+	}
 	if got := backstageSectionLabels(navigation.Events[0]); !reflect.DeepEqual(got, []string{
 		"Event overview",
+		"Event settings",
 		"Plan and publish",
 		"Event Theme",
 		"Voting Keys",
@@ -116,6 +126,8 @@ func TestBackstageNavigationRejectsAttendeeAndSeparatesRouteInterfaces(t *testin
 		"/backstage":                      crewInterface,
 		"/backstage/administration":       crewInterface,
 		"/admin/registration":             crewInterface,
+		"/backstage/events/1":             crewInterface,
+		"/backstage/events/1/settings":    crewInterface,
 		"/backstage/events/1/planning":    crewInterface,
 		"/backstage/events/1/operations":  crewInterface,
 		"/backstage/events/1/control":     crewInterface,
