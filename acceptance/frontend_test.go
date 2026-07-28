@@ -27,12 +27,16 @@ import (
 	"connectrpc.com/connect"
 	virtualwebauthn "github.com/descope/virtualwebauthn"
 
+	"google.golang.org/protobuf/proto"
+
 	competitionv1 "github.com/dotwaffle/beamers/gen/beamers/competition/v1"
 	"github.com/dotwaffle/beamers/gen/beamers/competition/v1/competitionv1connect"
 	programv1 "github.com/dotwaffle/beamers/gen/beamers/program/v1"
 	"github.com/dotwaffle/beamers/gen/beamers/program/v1/programv1connect"
 	rundownv1 "github.com/dotwaffle/beamers/gen/beamers/rundown/v1"
 	"github.com/dotwaffle/beamers/gen/beamers/rundown/v1/rundownv1connect"
+	sessionv1 "github.com/dotwaffle/beamers/gen/beamers/session/v1"
+	"github.com/dotwaffle/beamers/gen/beamers/session/v1/sessionv1connect"
 	"github.com/dotwaffle/beamers/internal/backup"
 	frontendui "github.com/dotwaffle/beamers/internal/frontend"
 )
@@ -1594,7 +1598,12 @@ func TestBackstageNavigationReflectsAuthorityAndInterface(t *testing.T) {
 	}
 	producer := assertBackstage(
 		"Pat Producer",
-		[]string{"Plan and publish", "Competition Entries and Attachments", "Results and Prizegiving"},
+		[]string{
+			"Event Displays",
+			"Plan and publish",
+			"Competition Entries and Attachments",
+			"Results and Prizegiving",
+		},
 		[]string{"Installation"},
 	)
 	operator := assertBackstage(
@@ -1605,12 +1614,12 @@ func TestBackstageNavigationReflectsAuthorityAndInterface(t *testing.T) {
 			"Emergency Alerts",
 			"Results and Prizegiving",
 		},
-		[]string{"Plan and publish", "Competition Entries and Attachments", "Installation"},
+		[]string{"Event Displays", "Plan and publish", "Competition Entries and Attachments", "Installation"},
 	)
 	observer := assertBackstage(
 		"Olive Observer",
 		[]string{"Event overview"},
-		[]string{"Sessions and Displays", "Results and Prizegiving", "Installation"},
+		[]string{"Event Displays", "Sessions and Displays", "Results and Prizegiving", "Installation"},
 	)
 	for role, client := range map[string]*http.Client{
 		"Producer": producer,
@@ -1630,6 +1639,32 @@ func TestBackstageNavigationReflectsAuthorityAndInterface(t *testing.T) {
 		if settings.status != wantStatus {
 			t.Errorf("%s Event settings = %d, want %d", role, settings.status, wantStatus)
 		}
+		displaySettingsPath := "/backstage/events/1/display-settings"
+		displaySettings := getFrontendPage(t, client, server.address, displaySettingsPath)
+		if displaySettings.status != wantStatus {
+			t.Errorf(
+				"%s Event Display settings = %d, want %d",
+				role,
+				displaySettings.status,
+				wantStatus,
+			)
+		}
+		if role != "Producer" {
+			submitted := postFrontendForm(
+				t,
+				client,
+				server.address,
+				displaySettingsPath,
+				url.Values{},
+			)
+			if submitted.status != http.StatusNotFound {
+				t.Errorf(
+					"%s Event Display settings submit = %d, want 404",
+					role,
+					submitted.status,
+				)
+			}
+		}
 	}
 	if overview := getFrontendPage(
 		t, administrator, server.address, "/backstage/events/2",
@@ -1640,6 +1675,11 @@ func TestBackstageNavigationReflectsAuthorityAndInterface(t *testing.T) {
 		t, administrator, server.address, "/backstage/events/2/settings",
 	); settings.status != http.StatusNotFound {
 		t.Errorf("Administrator Observer Event settings = %d, want 404", settings.status)
+	}
+	if settings := getFrontendPage(
+		t, administrator, server.address, "/backstage/events/2/display-settings",
+	); settings.status != http.StatusNotFound {
+		t.Errorf("Administrator Observer Event Display settings = %d, want 404", settings.status)
 	}
 	if forbidden := getFrontendPage(
 		t,
@@ -1798,6 +1838,181 @@ func TestBrowserEventOverviewAndSettings(t *testing.T) {
 		}
 	}
 	server.stop(t)
+}
+
+func TestBrowserConfiguresEventDisplays(t *testing.T) {
+	administrator, server := startAuthenticatedAdministratorWithPublicListener(t)
+	administrator.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	sessionID := prepareActiveSchedule(t, administrator, server)
+	displayClient := enrollAndAssignDisplay(
+		t,
+		administrator,
+		server,
+		"Browser configured timer",
+		"stage-timer",
+	)
+
+	const path = "/backstage/events/1/display-settings"
+	page := getFrontendPage(t, administrator, server.address, path)
+	for _, want := range []string{
+		"Event Display settings",
+		"Rotation interval",
+		"Default timer thresholds",
+		"Session-type overrides",
+		"Opening Keynote",
+		"Event Theme",
+	} {
+		if page.status != http.StatusOK || !strings.Contains(page.body, want) {
+			t.Fatalf("Event Display settings lack %q: %d %q", want, page.status, page.body)
+		}
+	}
+	if strings.Contains(page.body, "session_timer_thresholds") ||
+		strings.Contains(page.body, "session_type_timer_thresholds") {
+		t.Fatalf("Event Display settings expose configuration maps: %q", page.body)
+	}
+
+	form := url.Values{
+		"csrf_token":                                   {requireFrontendCSRF(t, page)},
+		"command_id":                                   {"browser-configure-event-displays"},
+		"expected_event_revision":                      {"1"},
+		"rotation_seconds":                             {"30"},
+		"reduced_effects":                              {"true"},
+		"timer_threshold_seconds":                      {"600"},
+		"timer_threshold_emphasis":                     {"attention"},
+		"session_type.Presentation.threshold_override": {"true"},
+		"session_type.Presentation.threshold_seconds":  {"180"},
+		"session_type.Presentation.threshold_emphasis": {"attention"},
+		"session." + strconv.FormatInt(sessionID, 10) + ".threshold_override": {
+			"true",
+		},
+		"session." + strconv.FormatInt(sessionID, 10) + ".threshold_seconds": {
+			"45",
+		},
+		"session." + strconv.FormatInt(sessionID, 10) + ".threshold_emphasis": {
+			"urgent",
+		},
+	}
+	saved := postFrontendForm(t, administrator, server.address, path, form)
+	if saved.status != http.StatusSeeOther || saved.header.Get("Location") != path {
+		t.Fatalf(
+			"save Event Display settings = %d Location %q %q",
+			saved.status,
+			saved.header.Get("Location"),
+			saved.body,
+		)
+	}
+
+	sessionClient := sessionv1connect.NewSessionControlServiceClient(
+		administrator,
+		"http://"+server.address,
+		connect.WithProtoJSON(),
+	)
+	if _, err := sessionClient.StartSession(t.Context(), connect.NewRequest(
+		&sessionv1.StartSessionRequest{
+			EventId: 1, SessionId: sessionID,
+			CommandId:                 "start-browser-configured-timer",
+			ExpectedLiveStateRevision: proto.Int64(0),
+		},
+	)); err != nil {
+		t.Fatalf("start browser-configured Session: %v", err)
+	}
+	snapshot := requestJSON(
+		t.Context(),
+		displayClient,
+		server.address,
+		"/beamers.display.v1.DisplayService/GetSnapshot",
+		map[string]any{},
+	)
+	if snapshot.status != http.StatusOK ||
+		!strings.Contains(snapshot.body, `"rotationSeconds":30`) ||
+		!strings.Contains(snapshot.body, `"remainingSeconds":"45"`) ||
+		strings.Contains(snapshot.body, `"remainingSeconds":"180"`) ||
+		strings.Contains(snapshot.body, `"remainingSeconds":"600"`) {
+		t.Fatalf("resolved browser Display configuration = %d %q", snapshot.status, snapshot.body)
+	}
+
+	latest := getFrontendPage(t, administrator, server.address, path)
+	invalid := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":               {requireFrontendCSRF(t, latest)},
+		"command_id":               {"reject-browser-display-threshold"},
+		"expected_event_revision":  {"2"},
+		"rotation_seconds":         {"30"},
+		"timer_threshold_seconds":  {"600"},
+		"timer_threshold_emphasis": {"attention"},
+		"session." + strconv.FormatInt(sessionID, 10) + ".threshold_override": {
+			"true",
+		},
+		"session." + strconv.FormatInt(sessionID, 10) + ".threshold_seconds": {
+			"0",
+		},
+		"session." + strconv.FormatInt(sessionID, 10) + ".threshold_emphasis": {
+			"urgent",
+		},
+	})
+	if invalid.status != http.StatusUnprocessableEntity ||
+		!strings.Contains(
+			invalid.body,
+			"Opening Keynote (Presentation) Session timer threshold remaining seconds row 1",
+		) ||
+		!strings.Contains(invalid.body, `value="0"`) ||
+		!strings.Contains(invalid.body, `aria-invalid="true"`) ||
+		!strings.Contains(
+			invalid.body,
+			`<details open><summary>Individual Session overrides</summary>`,
+		) {
+		t.Fatalf("invalid Event Display settings = %d %q", invalid.status, invalid.body)
+	}
+
+	stale := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":               {requireFrontendCSRF(t, latest)},
+		"command_id":               {"stale-browser-display-settings"},
+		"expected_event_revision":  {"1"},
+		"rotation_seconds":         {"31"},
+		"timer_threshold_seconds":  {"600"},
+		"timer_threshold_emphasis": {"attention"},
+	})
+	if stale.status != http.StatusConflict ||
+		!strings.Contains(stale.body, "Event changed") ||
+		!strings.Contains(stale.body, `value="31"`) {
+		t.Fatalf("stale Event Display settings = %d %q", stale.status, stale.body)
+	}
+	committed := requestJSONMethod(
+		t.Context(),
+		http.MethodGet,
+		administrator,
+		server.address,
+		"/crew/events/1/display-configuration",
+		nil,
+	)
+	if committed.status != http.StatusOK ||
+		!strings.Contains(committed.body, `"rotation_seconds":30`) ||
+		!strings.Contains(committed.body, `"reduced_effects":true`) ||
+		!strings.Contains(committed.body, `"Presentation":[{"remaining_seconds":180`) ||
+		!strings.Contains(committed.body, `"`+strconv.FormatInt(sessionID, 10)+`":[{"remaining_seconds":45`) ||
+		strings.Contains(committed.body, `"rotation_seconds":31`) {
+		t.Fatalf("committed Event Display settings after conflict = %d %q", committed.status, committed.body)
+	}
+	if public := getFrontendPage(
+		t,
+		administrator,
+		server.publicAddress,
+		path,
+	); public.status != http.StatusNotFound {
+		t.Fatalf("public-listener Event Display settings = %d, want 404", public.status)
+	}
+
+	server.stop(t)
+	restarted := startBeamers(t, server.bin, server.dataDir)
+	persisted := getFrontendPage(t, administrator, restarted.address, path)
+	if persisted.status != http.StatusOK ||
+		!strings.Contains(persisted.body, `name="rotation_seconds"`) ||
+		!strings.Contains(persisted.body, `value="30"`) ||
+		!strings.Contains(persisted.body, `value="45"`) {
+		t.Fatalf("persisted Event Display settings = %d %q", persisted.status, persisted.body)
+	}
+	restarted.stop(t)
 }
 
 func TestVotingKeysIssueRedeemAndSurviveRestart(t *testing.T) {

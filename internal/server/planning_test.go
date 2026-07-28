@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dotwaffle/beamers/internal/displayviews"
 	"github.com/dotwaffle/beamers/internal/rundown"
 )
 
@@ -55,6 +56,50 @@ func TestPlanningLocalTimeRequiresValidExplicitOccurrence(t *testing.T) {
 	}
 	if !switched.Equal(later) {
 		t.Fatalf("switched occurrence = %v, want %v", switched, later)
+	}
+}
+
+func TestDisplaySettingsInputDistinguishesEmptyOverridesFromInheritance(t *testing.T) {
+	const sessionID = 42
+	draft := rundown.DraftRundown{
+		Sessions: []rundown.CrewSession{{
+			ID: sessionID, Title: "Opening Keynote", Type: rundown.SessionPresentation,
+		}},
+	}
+	values := url.Values{
+		"rotation_seconds":        {"15"},
+		"expected_event_revision": {"1"},
+		"command_id":              {"configure-empty-overrides"},
+		"session_type.Presentation.threshold_override": {"true"},
+		"session.42.threshold_override":                {"true"},
+	}
+	input, err := displaySettingsInput(values, displayviews.DefaultConfiguration(), draft)
+	if err != nil {
+		t.Fatalf("parse explicit empty overrides: %v", err)
+	}
+	typeThresholds, typeExists := input.SessionTypeTimerThresholds["Presentation"]
+	sessionThresholds, sessionExists := input.SessionTimerThresholds[sessionID]
+	if !typeExists || typeThresholds == nil || !sessionExists || sessionThresholds == nil {
+		t.Fatalf(
+			"explicit empty overrides = type (%t, %#v), Session (%t, %#v)",
+			typeExists,
+			typeThresholds,
+			sessionExists,
+			sessionThresholds,
+		)
+	}
+
+	delete(values, "session_type.Presentation.threshold_override")
+	delete(values, "session.42.threshold_override")
+	inherited, err := displaySettingsInput(values, input.Configuration, draft)
+	if err != nil {
+		t.Fatalf("parse inherited thresholds: %v", err)
+	}
+	if _, exists := inherited.SessionTypeTimerThresholds["Presentation"]; exists {
+		t.Error("unchecked Session type retained an override")
+	}
+	if _, exists := inherited.SessionTimerThresholds[sessionID]; exists {
+		t.Error("unchecked Session retained an override")
 	}
 }
 

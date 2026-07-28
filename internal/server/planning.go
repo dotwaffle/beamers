@@ -7,13 +7,16 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"maps"
 	"net/http"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/displayviews"
 	"github.com/dotwaffle/beamers/internal/events"
 	"github.com/dotwaffle/beamers/internal/frontend"
 	"github.com/dotwaffle/beamers/internal/rundown"
@@ -51,6 +54,11 @@ func registerPlanningRoutes(
 	route.maxBodyBytes = maxRundownRPCBodyBytes
 	mux.HandleFunc("/backstage/events/{eventID}", route, handlers.overview)
 	mux.HandleFunc("/backstage/events/{eventID}/settings", route, handlers.settings)
+	mux.HandleFunc(
+		"/backstage/events/{eventID}/display-settings",
+		route,
+		handlers.displaySettings,
+	)
 	mux.HandleFunc("/backstage/events/{eventID}/planning", route, handlers.planning)
 	mux.HandleFunc("/backstage/events/new", route, handlers.newEvent)
 }
@@ -169,6 +177,448 @@ func (handlers planningHandlers) renderSettings(
 			Event: event, CommandID: commandID, Error: message,
 		},
 	))
+}
+
+func (handlers planningHandlers) displaySettings(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	actor, ok := handlers.browser.browserAccount(response, request)
+	if !ok {
+		return
+	}
+	eventID, err := positivePathID(request, "eventID")
+	if err != nil || !actor.CanProduceEvent(eventID) {
+		http.NotFound(response, request)
+		return
+	}
+	event, err := handlers.events.CrewEvent(request.Context(), actor, eventID)
+	if err != nil {
+		handlers.browser.frontendError(response, request, "read Event", err)
+		return
+	}
+	configuration, err := handlers.events.DisplayConfiguration(
+		request.Context(),
+		actor,
+		eventID,
+	)
+	if err != nil {
+		handlers.browser.frontendError(response, request, "read Display configuration", err)
+		return
+	}
+	draft, err := handlers.queries.DraftRundown(request.Context(), actor, eventID)
+	if err != nil {
+		handlers.browser.frontendError(response, request, "read named Sessions", err)
+		return
+	}
+	csrfToken, err := handlers.browser.csrfToken(response, request)
+	if err != nil {
+		handlers.browser.frontendError(response, request, "create CSRF proof", err)
+		return
+	}
+	form := displaySettingsFormFromConfiguration(configuration.Configuration, draft)
+	switch request.Method {
+	case http.MethodGet, http.MethodHead:
+	case http.MethodPost:
+		if !handlers.browser.validForm(response, request) {
+			return
+		}
+		form = displaySettingsFormFromValues(request.Form, draft)
+		input, inputErr := displaySettingsInput(request.Form, configuration.Configuration, draft)
+		if inputErr == nil {
+			_, inputErr = handlers.events.ConfigureDisplays(
+				request.Context(),
+				actor,
+				eventID,
+				input,
+			)
+		}
+		if inputErr != nil {
+			status, feedback, known := displaySettingsError(inputErr)
+			if !known {
+				handlers.browser.frontendError(
+					response,
+					request,
+					"configure Event Displays",
+					inputErr,
+				)
+				return
+			}
+			handlers.renderDisplaySettings(
+				response,
+				request,
+				actor,
+				event,
+				configuration.EventRevision,
+				draft,
+				csrfToken,
+				form,
+				status,
+				feedback,
+			)
+			return
+		}
+		handlers.notifyDisplays()
+		http.Redirect(
+			response,
+			request,
+			"/backstage/events/"+strconv.Itoa(eventID)+"/display-settings",
+			http.StatusSeeOther,
+		)
+		return
+	default:
+		frontendMethodNotAllowed(response, http.MethodGet+", "+http.MethodHead+", "+http.MethodPost)
+		return
+	}
+	handlers.renderDisplaySettings(
+		response,
+		request,
+		actor,
+		event,
+		configuration.EventRevision,
+		draft,
+		csrfToken,
+		form,
+		http.StatusOK,
+		frontend.DisplaySettingsError{},
+	)
+}
+
+func (handlers planningHandlers) renderDisplaySettings(
+	response http.ResponseWriter,
+	request *http.Request,
+	actor auth.Account,
+	event events.Event,
+	eventRevision int,
+	draft rundown.DraftRundown,
+	csrfToken string,
+	form frontend.DisplaySettingsForm,
+	status int,
+	formError frontend.DisplaySettingsError,
+) {
+	commandID, err := planningCommandID(handlers.browser.random)
+	if err != nil {
+		handlers.browser.frontendError(response, request, "create Display command identity", err)
+		return
+	}
+	handlers.browser.render(response, request, status, frontend.DisplaySettings(
+		frontend.DisplaySettingsPage{
+			AccountName: actor.Name, CSRFToken: csrfToken,
+			ReducedEffects: reducedEffectsCookie(request), Navigation: backstageNavigation(actor),
+			Event: event, EventRevision: eventRevision, Draft: draft,
+			SessionTypes: displaySessionTypes(), Form: form,
+			CommandID: commandID, Error: formError,
+		},
+	))
+}
+
+type displaySettingsInputError struct {
+	fieldID string
+	field   string
+	message string
+	section string
+}
+
+func (err *displaySettingsInputError) Error() string {
+	return err.field + ": " + err.message
+}
+
+func displaySettingsError(
+	err error,
+) (int, frontend.DisplaySettingsError, bool) {
+	var inputError *displaySettingsInputError
+	if errors.As(err, &inputError) {
+		return http.StatusUnprocessableEntity, frontend.DisplaySettingsError{
+			Message: inputError.Error(), FieldID: inputError.fieldID,
+			FieldMessage: inputError.message, Section: inputError.section,
+		}, true
+	}
+	status, message := planningError(err)
+	if status == http.StatusInternalServerError {
+		return status, frontend.DisplaySettingsError{}, false
+	}
+	feedback := frontend.DisplaySettingsError{Message: message}
+	var validation *events.ValidationError
+	if errors.As(err, &validation) && validation.Field == "rotation_seconds" {
+		feedback.FieldID = "rotation_seconds"
+		feedback.FieldMessage = validation.Message
+	}
+	return status, feedback, true
+}
+
+func displaySettingsInput(
+	values url.Values,
+	current displayviews.Configuration,
+	draft rundown.DraftRundown,
+) (events.DisplayConfigurationInput, error) {
+	rotation, err := strconv.Atoi(strings.TrimSpace(values.Get("rotation_seconds")))
+	if err != nil {
+		return events.DisplayConfigurationInput{}, &displaySettingsInputError{
+			fieldID: "rotation_seconds", field: "Rotation interval",
+			message: "must be an integer",
+		}
+	}
+	revision, err := strconv.Atoi(values.Get("expected_event_revision"))
+	if err != nil || revision <= 0 {
+		return events.DisplayConfigurationInput{}, &events.ValidationError{
+			Field: "expected_event_revision", Message: "must be a positive Event revision",
+		}
+	}
+	thresholds, err := displayThresholds(
+		values,
+		"timer_threshold",
+		"Default timer threshold",
+		"",
+	)
+	if err != nil {
+		return events.DisplayConfigurationInput{}, err
+	}
+	current.RotationSeconds = rotation
+	current.ReducedEffects = values.Get("reduced_effects") == "true"
+	current.TimerThresholds = thresholds
+	current.SessionTypeTimerThresholds = maps.Clone(current.SessionTypeTimerThresholds)
+	if current.SessionTypeTimerThresholds == nil {
+		current.SessionTypeTimerThresholds = make(map[string][]displayviews.TimerThreshold)
+	}
+	for _, sessionType := range displaySessionTypes() {
+		prefix := "session_type." + sessionType + ".threshold"
+		if values.Get(prefix+"_override") != "true" {
+			delete(current.SessionTypeTimerThresholds, sessionType)
+			continue
+		}
+		thresholds, thresholdErr := displayThresholds(
+			values,
+			prefix,
+			sessionType+" Session type timer threshold",
+			"session-type",
+		)
+		if thresholdErr != nil {
+			return events.DisplayConfigurationInput{}, thresholdErr
+		}
+		current.SessionTypeTimerThresholds[sessionType] = thresholds
+	}
+	current.SessionTimerThresholds = maps.Clone(current.SessionTimerThresholds)
+	if current.SessionTimerThresholds == nil {
+		current.SessionTimerThresholds = make(map[int][]displayviews.TimerThreshold)
+	}
+	for _, session := range draft.Sessions {
+		prefix := "session." + strconv.Itoa(session.ID) + ".threshold"
+		if values.Get(prefix+"_override") != "true" {
+			delete(current.SessionTimerThresholds, session.ID)
+			continue
+		}
+		thresholds, thresholdErr := displayThresholds(
+			values,
+			prefix,
+			session.Title+" ("+string(session.Type)+") Session timer threshold",
+			"session",
+		)
+		if thresholdErr != nil {
+			return events.DisplayConfigurationInput{}, thresholdErr
+		}
+		current.SessionTimerThresholds[session.ID] = thresholds
+	}
+	return events.DisplayConfigurationInput{
+		Configuration:         current,
+		ExpectedEventRevision: revision,
+		CommandID:             values.Get("command_id"),
+	}, nil
+}
+
+func displayThresholds(
+	values url.Values,
+	prefix string,
+	fieldLabel string,
+	section string,
+) ([]displayviews.TimerThreshold, error) {
+	secondsValues := values[prefix+"_seconds"]
+	emphasisValues := values[prefix+"_emphasis"]
+	count := max(len(secondsValues), len(emphasisValues))
+	if count > 16 {
+		return nil, &displaySettingsInputError{
+			fieldID: displayThresholdFieldID(prefix, "seconds", 16),
+			field:   fieldLabel, message: "must contain at most 16 thresholds",
+			section: section,
+		}
+	}
+	result := make([]displayviews.TimerThreshold, 0, count)
+	remaining := make(map[int]struct{}, count)
+	for index := range count {
+		secondsValue := formValue(secondsValues, index)
+		emphasis := formValue(emphasisValues, index)
+		if secondsValue == "" && emphasis == "" {
+			continue
+		}
+		fieldID := displayThresholdFieldID(prefix, "seconds", index)
+		field := fieldLabel + " remaining seconds row " + strconv.Itoa(index+1)
+		seconds, err := strconv.Atoi(strings.TrimSpace(secondsValue))
+		if err != nil || seconds <= 0 || seconds > 24*60*60 {
+			return nil, &displaySettingsInputError{
+				fieldID: fieldID, field: field,
+				message: "must be an integer from 1 to 86400", section: section,
+			}
+		}
+		if emphasis != displayviews.EmphasisAttention &&
+			emphasis != displayviews.EmphasisUrgent {
+			return nil, &displaySettingsInputError{
+				fieldID: displayThresholdFieldID(prefix, "emphasis", index),
+				field:   fieldLabel + " emphasis row " + strconv.Itoa(index+1),
+				message: "must be attention or urgent", section: section,
+			}
+		}
+		if _, duplicate := remaining[seconds]; duplicate {
+			return nil, &displaySettingsInputError{
+				fieldID: fieldID, field: field,
+				message: "must not repeat remaining seconds", section: section,
+			}
+		}
+		remaining[seconds] = struct{}{}
+		result = append(result, displayviews.TimerThreshold{
+			RemainingSeconds: seconds,
+			Emphasis:         emphasis,
+		})
+	}
+	return result, nil
+}
+
+func displaySettingsFormFromConfiguration(
+	configuration displayviews.Configuration,
+	draft rundown.DraftRundown,
+) frontend.DisplaySettingsForm {
+	form := frontend.DisplaySettingsForm{
+		RotationSeconds: strconv.Itoa(configuration.RotationSeconds),
+		ReducedEffects:  configuration.ReducedEffects,
+		TimerThresholds: displayThresholdFields(configuration.TimerThresholds),
+		SessionTypeOverrides: make(
+			map[string]bool,
+			len(displaySessionTypes()),
+		),
+		SessionTypeThresholds: make(
+			map[string][]frontend.DisplayThresholdFields,
+			len(displaySessionTypes()),
+		),
+		SessionOverrides: make(
+			map[int]bool,
+			len(draft.Sessions),
+		),
+		SessionThresholds: make(
+			map[int][]frontend.DisplayThresholdFields,
+			len(draft.Sessions),
+		),
+	}
+	for _, sessionType := range displaySessionTypes() {
+		_, form.SessionTypeOverrides[sessionType] =
+			configuration.SessionTypeTimerThresholds[sessionType]
+		form.SessionTypeThresholds[sessionType] = displayThresholdFields(
+			configuration.SessionTypeTimerThresholds[sessionType],
+		)
+	}
+	for _, session := range draft.Sessions {
+		_, form.SessionOverrides[session.ID] =
+			configuration.SessionTimerThresholds[session.ID]
+		form.SessionThresholds[session.ID] = displayThresholdFields(
+			configuration.SessionTimerThresholds[session.ID],
+		)
+	}
+	return form
+}
+
+func displaySettingsFormFromValues(
+	values url.Values,
+	draft rundown.DraftRundown,
+) frontend.DisplaySettingsForm {
+	form := frontend.DisplaySettingsForm{
+		RotationSeconds: values.Get("rotation_seconds"),
+		ReducedEffects:  values.Get("reduced_effects") == "true",
+		TimerThresholds: displayThresholdFieldsFromValues(values, "timer_threshold"),
+		SessionTypeOverrides: make(
+			map[string]bool,
+			len(displaySessionTypes()),
+		),
+		SessionTypeThresholds: make(
+			map[string][]frontend.DisplayThresholdFields,
+			len(displaySessionTypes()),
+		),
+		SessionOverrides: make(
+			map[int]bool,
+			len(draft.Sessions),
+		),
+		SessionThresholds: make(
+			map[int][]frontend.DisplayThresholdFields,
+			len(draft.Sessions),
+		),
+	}
+	for _, sessionType := range displaySessionTypes() {
+		form.SessionTypeOverrides[sessionType] =
+			values.Get("session_type."+sessionType+".threshold_override") == "true"
+		form.SessionTypeThresholds[sessionType] = displayThresholdFieldsFromValues(
+			values,
+			"session_type."+sessionType+".threshold",
+		)
+	}
+	for _, session := range draft.Sessions {
+		form.SessionOverrides[session.ID] = values.Get(
+			"session."+strconv.Itoa(session.ID)+".threshold_override",
+		) == "true"
+		form.SessionThresholds[session.ID] = displayThresholdFieldsFromValues(
+			values,
+			"session."+strconv.Itoa(session.ID)+".threshold",
+		)
+	}
+	return form
+}
+
+func displayThresholdFields(
+	thresholds []displayviews.TimerThreshold,
+) []frontend.DisplayThresholdFields {
+	result := make([]frontend.DisplayThresholdFields, 0, len(thresholds)+1)
+	for _, threshold := range thresholds {
+		result = append(result, frontend.DisplayThresholdFields{
+			Seconds:  strconv.Itoa(threshold.RemainingSeconds),
+			Emphasis: threshold.Emphasis,
+		})
+	}
+	return append(result, frontend.DisplayThresholdFields{})
+}
+
+func displayThresholdFieldsFromValues(
+	values url.Values,
+	prefix string,
+) []frontend.DisplayThresholdFields {
+	secondsValues := values[prefix+"_seconds"]
+	emphasisValues := values[prefix+"_emphasis"]
+	count := max(len(secondsValues), len(emphasisValues))
+	result := make([]frontend.DisplayThresholdFields, 0, count+1)
+	for index := range count {
+		result = append(result, frontend.DisplayThresholdFields{
+			Seconds:  formValue(secondsValues, index),
+			Emphasis: formValue(emphasisValues, index),
+		})
+	}
+	return append(result, frontend.DisplayThresholdFields{})
+}
+
+func displaySessionTypes() []string {
+	return []string{
+		string(rundown.SessionPresentation),
+		string(rundown.SessionCompetition),
+		string(rundown.SessionBreak),
+		string(rundown.SessionActivity),
+		string(rundown.SessionCeremony),
+		string(rundown.SessionPerformance),
+		string(rundown.SessionHold),
+	}
+}
+
+func formValue(values []string, index int) string {
+	if index >= len(values) {
+		return ""
+	}
+	return values[index]
+}
+
+func displayThresholdFieldID(prefix, kind string, index int) string {
+	return prefix + "-" + kind + "-" + strconv.Itoa(index)
 }
 
 func (handlers planningHandlers) newEvent(response http.ResponseWriter, request *http.Request) {
@@ -517,7 +967,7 @@ func planningError(err error) (int, string) {
 	case errors.As(err, &rundownValidation):
 		return http.StatusUnprocessableEntity, rundownValidation.Error()
 	case errors.Is(err, events.ErrRevisionConflict):
-		return http.StatusConflict, "Event changed. Reload and review the latest revision."
+		return http.StatusConflict, "Event changed. Reload, review the latest revision, and try again."
 	case errors.Is(err, events.ErrEventSlugUnavailable):
 		return http.StatusConflict, "Event Slug is already in use."
 	case errors.Is(err, rundown.ErrDraftRevisionConflict):

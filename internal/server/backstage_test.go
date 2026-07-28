@@ -56,6 +56,7 @@ func TestBackstageNavigationReflectsEffectiveAuthority(t *testing.T) {
 	if got := backstageSectionLabels(navigation.Events[0]); !reflect.DeepEqual(got, []string{
 		"Event overview",
 		"Event settings",
+		"Event Displays",
 		"Plan and publish",
 		"Event Theme",
 		"Voting Keys",
