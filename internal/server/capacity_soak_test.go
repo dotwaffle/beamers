@@ -276,6 +276,20 @@ func TestCapacityBackgroundCancellationDoesNotReportError(t *testing.T) {
 	}
 }
 
+func TestCapacityScheduleCacheCoalescesRevalidation(t *testing.T) {
+	refreshedAt := time.Now()
+	cache := capacityScheduleCache{
+		expires:     refreshedAt.Add(publicPollingInterval),
+		refreshedAt: refreshedAt,
+	}
+	if !cache.fresh(true, refreshedAt.Add(-time.Second), refreshedAt) {
+		t.Error("cache missed a refresh completed after the request started")
+	}
+	if cache.fresh(true, refreshedAt.Add(time.Second), refreshedAt.Add(time.Second)) {
+		t.Error("cache suppressed an independent revalidation")
+	}
+}
+
 func TestCapacityFanoutSummarizesEachCommandFirst(t *testing.T) {
 	found := summarizeCapacityFanout([][]time.Duration{
 		{10 * time.Millisecond, 20 * time.Millisecond, 30 * time.Millisecond},
@@ -2345,12 +2359,13 @@ func sendCapacityFreshnessResult(
 }
 
 type capacityScheduleCache struct {
-	mu        sync.RWMutex
-	origin    string
-	client    *http.Client
-	body      []byte
-	etagValue string
-	expires   time.Time
+	mu          sync.RWMutex
+	origin      string
+	client      *http.Client
+	body        []byte
+	etagValue   string
+	expires     time.Time
+	refreshedAt time.Time
 }
 
 func newCapacityScheduleCache(origin string, client *http.Client) *capacityScheduleCache {
@@ -2361,9 +2376,10 @@ func (cache *capacityScheduleCache) ServeHTTP(
 	response http.ResponseWriter,
 	request *http.Request,
 ) {
+	requestedAt := time.Now()
 	revalidate := request.Header.Get("Cache-Control") == "no-cache"
 	cache.mu.RLock()
-	if !revalidate && time.Now().Before(cache.expires) {
+	if cache.fresh(revalidate, requestedAt, time.Now()) {
 		etag := cache.etagValue
 		body := cache.body
 		cache.mu.RUnlock()
@@ -2373,7 +2389,7 @@ func (cache *capacityScheduleCache) ServeHTTP(
 	cache.mu.RUnlock()
 
 	cache.mu.Lock()
-	if revalidate || time.Now().After(cache.expires) {
+	if !cache.fresh(revalidate, requestedAt, time.Now()) {
 		if err := cache.refresh(request.Context()); err != nil {
 			cache.mu.Unlock()
 			http.Error(response, err.Error(), http.StatusBadGateway)
@@ -2384,6 +2400,15 @@ func (cache *capacityScheduleCache) ServeHTTP(
 	body := cache.body
 	cache.mu.Unlock()
 	writeCapacityScheduleCache(response, request, etag, body)
+}
+
+func (cache *capacityScheduleCache) fresh(
+	revalidate bool,
+	requestedAt time.Time,
+	now time.Time,
+) bool {
+	return now.Before(cache.expires) &&
+		(!revalidate || cache.refreshedAt.After(requestedAt))
 }
 
 func writeCapacityScheduleCache(
@@ -2418,9 +2443,13 @@ func (cache *capacityScheduleCache) refresh(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	cache.expires = time.Now().Add(publicPollingInterval)
 	if response.StatusCode == http.StatusNotModified {
-		return response.Body.Close()
+		if closeErr := response.Body.Close(); closeErr != nil {
+			return closeErr
+		}
+		cache.refreshedAt = time.Now()
+		cache.expires = cache.refreshedAt.Add(publicPollingInterval)
+		return nil
 	}
 	if response.StatusCode != http.StatusOK {
 		_ = response.Body.Close()
@@ -2436,6 +2465,8 @@ func (cache *capacityScheduleCache) refresh(ctx context.Context) error {
 	if cache.etagValue == "" {
 		return errors.New("origin Schedule has no ETag")
 	}
+	cache.refreshedAt = time.Now()
+	cache.expires = cache.refreshedAt.Add(publicPollingInterval)
 	return nil
 }
 
