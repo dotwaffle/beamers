@@ -231,7 +231,8 @@ body[data-reduced-effects="false"] main { animation: %s; }
 %sbody[data-reduced-effects="true"]::before { animation: none; opacity: 0.08; }
 body[data-reduced-effects="true"] main { animation: none; }
 @media (prefers-reduced-motion: reduce) {
-  body::before, main { animation: none; }
+  body[data-reduced-effects]::before,
+  body[data-reduced-effects] main { animation: none; }
 }
 @media (forced-colors: active) {
   body { background: Canvas; }

@@ -325,8 +325,8 @@ body[data-reduced-effects="true"] main {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  body::before,
-  main {
+  body[data-reduced-effects]::before,
+  body[data-reduced-effects] main {
     animation: none;
   }
 }

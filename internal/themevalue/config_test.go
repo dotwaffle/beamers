@@ -137,6 +137,8 @@ func TestStylesheetUsesControlledTokensAndAccessibilityOverrides(t *testing.T) {
 		"body::before { display: none; }",
 		"body[data-reduced-effects=\"true\"]",
 		"@media (prefers-reduced-motion: reduce)",
+		"body[data-reduced-effects]::before,",
+		"body[data-reduced-effects] main { animation: none; }",
 		"@media (forced-colors: active)",
 	} {
 		if !strings.Contains(stylesheet, want) {
