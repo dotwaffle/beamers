@@ -17,6 +17,8 @@ var (
 
 // PublicResultsEvent contains immutable Event identity safe for publication.
 type PublicResultsEvent struct {
+	ID              int    `json:"id"`
+	Slug            string `json:"slug"`
 	Name            string `json:"name"`
 	EventLocale     string `json:"event_locale"`
 	ContentLanguage string `json:"content_language"`
@@ -111,8 +113,10 @@ const publicResultsHTMLSource = `<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="/assets/frontend.css">
 <link rel="stylesheet" href="/assets/schedule.css">
+<link rel="stylesheet" href="/assets/events/{{ .Event.ID }}/theme.css">
 <title>{{ .Event.Name }} Results</title></head>
-<body><main id="main-content" tabindex="-1"><a href="/schedule">Schedule</a><h1>{{ .Event.Name }} Results</h1>
+<body data-reduced-effects="false"><a class="skip-link" href="#main-content">Skip to content</a>
+<main id="main-content" tabindex="-1"><a href="/events/{{ .Event.Slug }}/schedule">Schedule</a><h1>{{ .Event.Name }} Results</h1>
 <p>Published <time datetime="{{ datetime .PublishedAt }}">{{ publishedAt .PublishedAt .Event.EventLocale }}</time></p>
 {{ with .Correction }}<aside><strong>Corrected</strong>{{ with .Note }} — {{ . }}{{ end }}</aside>{{ end }}
 {{ range .Items }}{{ with .Competition }}<section><h2>{{ .Title }}</h2>
@@ -134,6 +138,9 @@ func RenderPublicResults(
 	publication PublicResultsPublication,
 	textTemplate TextTemplate,
 ) (RenderedPublicResults, error) {
+	if publication.Event.ID <= 0 || strings.TrimSpace(publication.Event.Slug) == "" {
+		return RenderedPublicResults{}, ErrResultsRendering
+	}
 	parsedText, err := parseResultsTextTemplate(textTemplate)
 	if err != nil {
 		return RenderedPublicResults{}, ErrResultsRendering

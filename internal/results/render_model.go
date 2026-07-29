@@ -10,6 +10,8 @@ import (
 
 // PublicResultsSource contains the exact facts captured for one release.
 type PublicResultsSource struct {
+	EventID         int
+	EventSlug       string
 	EventName       string
 	EventLocale     string
 	ContentLanguage string
@@ -55,7 +57,9 @@ type PublicResultsSourceAward struct {
 func BuildPublicResultsModel(
 	source PublicResultsSource,
 ) (PublicResultsPublication, error) {
-	if strings.TrimSpace(source.EventName) == "" ||
+	if source.EventID <= 0 ||
+		strings.TrimSpace(source.EventSlug) == "" ||
+		strings.TrimSpace(source.EventName) == "" ||
 		source.Revision <= 0 ||
 		source.Status != ResultsPublicationPartial &&
 			source.Status != ResultsPublicationFinal {
@@ -64,6 +68,8 @@ func BuildPublicResultsModel(
 	model := PublicResultsPublication{
 		SchemaVersion: "1",
 		Event: PublicResultsEvent{
+			ID:              source.EventID,
+			Slug:            source.EventSlug,
 			Name:            source.EventName,
 			EventLocale:     resultsLocale(source.EventLocale),
 			ContentLanguage: source.ContentLanguage,

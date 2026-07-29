@@ -229,10 +229,37 @@ func TestResultsPublicationRenderSourceFreezesEventLocaleAndContentLanguage(t *t
 	if err != nil {
 		t.Fatalf("load Results Publication render source: %v", err)
 	}
-	if source.EventName != event.Name ||
+	if source.EventID != event.ID ||
+		source.EventSlug != event.PublicSlug ||
+		source.EventName != event.Name ||
 		source.EventLocale != "de-DE" ||
 		source.ContentLanguage != "fr" {
 		t.Fatalf("Results Publication Event metadata = %+v", source)
+	}
+
+	legacy, err := installation.LoadResultsPublicationRenderSource(
+		t.Context(),
+		event.ID,
+		PrizegivingPreflightLock{
+			RenderSource: []byte(`{"event_name":"Frozen Event"}`),
+		},
+	)
+	if err != nil {
+		t.Fatalf("load legacy Results Publication render source: %v", err)
+	}
+	if legacy.EventID != event.ID ||
+		legacy.EventSlug != event.PublicSlug ||
+		legacy.EventName != "Frozen Event" {
+		t.Fatalf("legacy Results Publication Event metadata = %+v", legacy)
+	}
+	if _, err = installation.LoadResultsPublicationRenderSource(
+		t.Context(),
+		event.ID,
+		PrizegivingPreflightLock{
+			RenderSource: []byte(`{"event_id":999,"event_slug":"other"}`),
+		},
+	); !errors.Is(err, ErrResultsPublicationTransition) {
+		t.Fatalf("mismatched Results Publication Event error = %v", err)
 	}
 }
 

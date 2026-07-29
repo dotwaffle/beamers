@@ -554,6 +554,26 @@ func validateCorrectionProposal(
 	if json.Unmarshal([]byte(base.RenderedJSON), &currentModel) != nil {
 		return store.ResultsPublication{}, ErrCorrectionBase
 	}
+	if missingPublicResultsEventIdentity(currentModel.Event) {
+		source, sourceErr := transaction.LoadResultsPublicationRenderSource(
+			ctx,
+			eventID,
+			base.Lock,
+		)
+		if sourceErr != nil {
+			return store.ResultsPublication{}, sourceErr
+		}
+		backfillPublicResultsEventIdentity(
+			&currentModel.Event,
+			source.EventID,
+			source.EventSlug,
+		)
+		upgraded, marshalErr := json.Marshal(currentModel)
+		if marshalErr != nil {
+			return store.ResultsPublication{}, ErrResultsRendering
+		}
+		base.RenderedJSON = string(upgraded)
+	}
 	corrected, err := BuildCorrectedResultsPublication(
 		currentModel,
 		publicationFromStore(base).Items,

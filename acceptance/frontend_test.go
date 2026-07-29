@@ -1507,7 +1507,7 @@ func TestBrowserFollowsCanonicalPublicEventJourney(t *testing.T) {
 		connect.WithProtoJSON(),
 	)
 	for _, version := range []attachmentVersionResponse{publicVersion, crewVersion} {
-		if _, err := competitionClient.SetEntryAttachmentReadiness(
+		if _, err = competitionClient.SetEntryAttachmentReadiness(
 			t.Context(),
 			connect.NewRequest(&competitionv1.SetEntryAttachmentReadinessRequest{
 				EventId: 1, SessionId: competitionID, EntryId: entryID,
@@ -1521,7 +1521,7 @@ func TestBrowserFollowsCanonicalPublicEventJourney(t *testing.T) {
 			t.Fatalf("finalize Competition Attachment %d: %v", version.ID, err)
 		}
 	}
-	if _, err := sessionClient.StartSession(
+	if _, err = sessionClient.StartSession(
 		t.Context(),
 		connect.NewRequest(&sessionv1.StartSessionRequest{
 			EventId: 1, SessionId: competitionID,
@@ -1585,36 +1585,56 @@ func TestBrowserFollowsCanonicalPublicEventJourney(t *testing.T) {
 	)
 	if results.status != http.StatusOK ||
 		!strings.Contains(results.body, "Browser Certified Result") ||
-		!strings.Contains(results.body, `href="/events/beamconf-2099/schedule"`) {
+		!strings.Contains(results.body, `href="/events/beamconf-2099/schedule"`) ||
+		!strings.Contains(results.body, `href="/assets/events/1/theme.css"`) ||
+		!strings.Contains(results.body, `data-reduced-effects="false"`) ||
+		!strings.Contains(results.body, `class="skip-link" href="#main-content"`) {
 		t.Fatalf("canonical published Event Results = %d %q", results.status, results.body)
 	}
 	if strings.Contains(results.body, `href="/schedule"`) {
 		t.Fatalf("canonical published Event Results lost Event context: %q", results.body)
 	}
-	assertFrontendSignedOutNavigation(t, results)
-	assertFrontendEventShell(
-		t,
-		results,
-		"/events/beamconf-2099/results",
-		"Events",
-		"BeamConf 2099",
-		"Results",
-	)
 	signedInResults := getFrontendPage(
 		t,
 		administrator,
 		server.address,
 		"/events/beamconf-2099/results",
 	)
-	assertFrontendPrimaryNavigation(t, signedInResults, true)
-	assertFrontendEventShell(
+	reducedResultsClient := authenticatedClient(t)
+	resultsURL, err := url.Parse("http://" + server.publicAddress)
+	if err != nil {
+		t.Fatalf("parse public Results URL: %v", err)
+	}
+	reducedResultsClient.Jar.SetCookies(resultsURL, []*http.Cookie{{
+		Name: "beamers_reduced_effects", Value: "true",
+	}})
+	reducedResults := getFrontendPage(
 		t,
-		signedInResults,
+		reducedResultsClient,
+		server.publicAddress,
 		"/events/beamconf-2099/results",
-		"Events",
-		"BeamConf 2099",
-		"Results",
 	)
+	for label, response := range map[string]frontendResponse{
+		"signed in":       signedInResults,
+		"reduced effects": reducedResults,
+	} {
+		if response.status != http.StatusOK ||
+			response.body != results.body ||
+			response.header.Get("ETag") != results.header.Get("ETag") {
+			t.Fatalf(
+				"%s Results differ from anonymous: %d %q %q",
+				label,
+				response.status,
+				response.header.Get("ETag"),
+				response.body,
+			)
+		}
+	}
+	if results.header.Get("Cache-Control") != "public, max-age=15, must-revalidate" ||
+		results.header.Get("ETag") == "" ||
+		results.header.Get("Vary") != "" {
+		t.Fatalf("public Results cache headers = %#v", results.header)
+	}
 
 	removedPaths := []string{
 		"/schedule",

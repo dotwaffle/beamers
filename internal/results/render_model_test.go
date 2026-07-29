@@ -7,6 +7,8 @@ import (
 
 func TestBuildPublicResultsModelAppliesVisibilityAndPublicationOrder(t *testing.T) {
 	model, err := BuildPublicResultsModel(PublicResultsSource{
+		EventID:         41,
+		EventSlug:       "demo",
 		EventName:       "Demo",
 		EventLocale:     "de-DE",
 		ContentLanguage: "fr",
@@ -81,6 +83,7 @@ func TestBuildPublicResultsModelAppliesVisibilityAndPublicationOrder(t *testing.
 func TestBuildPublicResultsModelFormatsPublicScoresAndIndependentAwards(t *testing.T) {
 	duration := 90*time.Second + 250*time.Millisecond
 	model, err := BuildPublicResultsModel(PublicResultsSource{
+		EventID: 41, EventSlug: "demo",
 		EventName: "Demo", Revision: 2, Status: ResultsPublicationFinal,
 		Items: []PublicResultsSourceItem{
 			{

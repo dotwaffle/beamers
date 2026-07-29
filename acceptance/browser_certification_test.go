@@ -2938,6 +2938,7 @@ func certifyFrontendNavigationJourney(
 		"/events/beamconf-2099/competitions/"+strconv.FormatInt(competitionID, 10),
 	)
 	clickBrowserLink(t, driver, "Event Results", "/events/beamconf-2099/results")
+	clickBrowserLink(t, driver, "Schedule", "/events/beamconf-2099/schedule")
 	clickBrowserLink(t, driver, "Profile", "/profile")
 	clickBrowserLink(t, driver, "My Participation", "/my-participation")
 	clickBrowserLink(t, driver, "Backstage", "/backstage")

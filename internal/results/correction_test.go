@@ -2,6 +2,7 @@ package results
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 func TestBuildCorrectedResultsPublicationPreservesCoverageAndAllowsReorder(t *testing.T) {
 	now := time.Date(2026, 8, 21, 16, 0, 0, 0, time.UTC)
 	current := correctionTestPublication()
+	backfillPublicResultsEventIdentity(&current.Event, 41, "demo")
 	order := []ResultItemRef{
 		{Kind: ResultItemCompetition, CompetitionSessionID: 10, DisplayOrder: 1},
 		{Kind: ResultItemEventAward, AwardKey: "community", DisplayOrder: 2},
@@ -56,6 +58,13 @@ func TestBuildCorrectedResultsPublicationPreservesCoverageAndAllowsReorder(t *te
 		corrected.Items[0].Award == nil ||
 		corrected.Items[1].Competition.Title != "Corrected Final" {
 		t.Fatalf("corrected Results Publication = %+v", corrected)
+	}
+	rendered, err := RenderPublicResults(corrected, DefaultResultsTextTemplate())
+	if err != nil {
+		t.Fatalf("render corrected legacy Results Publication: %v", err)
+	}
+	if !strings.Contains(rendered.HTML, `href="/events/demo/schedule"`) {
+		t.Fatalf("corrected legacy Results HTML = %q", rendered.HTML)
 	}
 }
 
@@ -221,7 +230,7 @@ func TestPreservePublishedResultsMatchesCorrectedItemsByIdentity(t *testing.T) {
 	}
 	model := PublicResultsPublication{
 		Event: PublicResultsEvent{
-			Name: "Current Event", EventLocale: "en-US",
+			ID: 41, Slug: "current-event", Name: "Current Event", EventLocale: "en-US",
 			ContentLanguage: "en", Language: "en",
 		},
 		Items: []PublicResultsItem{
@@ -253,7 +262,9 @@ func TestPreservePublishedResultsMatchesCorrectedItemsByIdentity(t *testing.T) {
 			{Kind: ResultItemCompetition, CompetitionSessionID: 11, DisplayOrder: 3},
 		},
 	)
-	if model.Event.Name != "Frozen Event" ||
+	if model.Event.ID != 41 ||
+		model.Event.Slug != "current-event" ||
+		model.Event.Name != "Frozen Event" ||
 		model.Event.EventLocale != "de-DE" ||
 		model.Event.ContentLanguage != "fr" ||
 		model.Event.Language != "fr" ||

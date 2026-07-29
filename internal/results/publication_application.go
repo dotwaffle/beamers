@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/dotwaffle/beamers/internal/auth"
@@ -725,6 +726,11 @@ func buildEventResultsPublication(
 ) (RenderedPublicResults, store.AppendResultsPublicationParams, error) {
 	order := eventResultsOrder(state, current)
 	items := make(map[eventResultIdentity]eventAggregateItem)
+	var scopedModel PublicResultsPublication
+	if json.Unmarshal([]byte(scoped.RenderedJSON), &scopedModel) != nil {
+		return RenderedPublicResults{}, store.AppendResultsPublicationParams{},
+			ErrResultsRendering
+	}
 	var event PublicResultsEvent
 	for _, publication := range state.Publications {
 		var model PublicResultsPublication
@@ -753,6 +759,11 @@ func buildEventResultsPublication(
 		}
 		event = model.Event
 	}
+	backfillPublicResultsEventIdentity(
+		&event,
+		scopedModel.Event.ID,
+		scopedModel.Event.Slug,
+	)
 	model := PublicResultsPublication{
 		SchemaVersion: "1",
 		Event:         event,
@@ -956,6 +967,23 @@ func renderResultsPublication(
 	return RenderPublicResults(model, template)
 }
 
+func backfillPublicResultsEventIdentity(
+	event *PublicResultsEvent,
+	eventID int,
+	eventSlug string,
+) {
+	if event.ID <= 0 {
+		event.ID = eventID
+	}
+	if strings.TrimSpace(event.Slug) == "" {
+		event.Slug = eventSlug
+	}
+}
+
+func missingPublicResultsEventIdentity(event PublicResultsEvent) bool {
+	return event.ID <= 0 || strings.TrimSpace(event.Slug) == ""
+}
+
 func preservePublishedResults(
 	model *PublicResultsPublication,
 	frozen PublicResultsPublication,
@@ -968,6 +996,11 @@ func preservePublishedResults(
 	for index, ref := range currentItems {
 		frozenByIdentity[resultItemIdentityFromRef(ref)] = frozen.Items[index]
 	}
+	backfillPublicResultsEventIdentity(
+		&frozen.Event,
+		model.Event.ID,
+		model.Event.Slug,
+	)
 	model.Event = frozen.Event
 	model.EventTitle = frozen.Event.Name
 	model.Correction = frozen.Correction
@@ -999,6 +1032,7 @@ func publicResultsSource(
 		entryNames[entry.ID] = entry.Name
 	}
 	result := PublicResultsSource{
+		EventID: source.EventID, EventSlug: source.EventSlug,
 		EventName: source.EventName, EventLocale: source.EventLocale,
 		ContentLanguage: source.ContentLanguage, Revision: next.Revision,
 		Status: next.Status, PublishedAt: publishedAt,
