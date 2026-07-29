@@ -196,6 +196,13 @@ func (handlers scheduleHandlers) eventCompetition(
 	}
 	if signedIn {
 		snapshot.AccountName = account.Name
+		snapshot.Backstage = backstageAccessible(request) &&
+			backstageAvailable(backstageNavigation(account))
+		snapshot.CSRFToken, err = handlers.frontend.csrfToken(response, request)
+		if err != nil {
+			handlers.frontend.frontendError(response, request, "create CSRF proof", err)
+			return
+		}
 	}
 	entryAction, entryPath := "", ""
 	votingAction, votingPath, votingStatus := "", "", ""
@@ -357,6 +364,8 @@ func (handlers scheduleHandlers) schedulePage(
 	}
 	if signedIn {
 		snapshot.AccountName = account.Name
+		snapshot.Backstage = backstageAccessible(request) &&
+			backstageAvailable(backstageNavigation(account))
 		snapshot.CSRFToken, err = handlers.frontend.csrfToken(response, request)
 		if err != nil {
 			handlers.frontend.frontendError(response, request, "create CSRF proof", err)
@@ -584,6 +593,8 @@ func (handlers scheduleHandlers) sessionPage(
 	}
 	if signedIn {
 		snapshot.AccountName = account.Name
+		snapshot.Backstage = backstageAccessible(request) &&
+			backstageAvailable(backstageNavigation(account))
 		snapshot.CSRFToken, err = handlers.frontend.csrfToken(response, request)
 		if err != nil {
 			handlers.frontend.frontendError(response, request, "create CSRF proof", err)

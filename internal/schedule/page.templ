@@ -29,16 +29,16 @@ templ Page(snapshot Snapshot) {
 			hx-ext="sse"
 			sse-connect={ snapshot.EventsPath() }
 			>
-			@ScheduleNavigation(snapshot, snapshot.ViewPath())
-			<main
-				id="schedule"
-				hx-get={ snapshot.ViewPath() }
-				hx-trigger="sse:schedule"
-				hx-target="this"
-				hx-select="#schedule"
-				hx-swap="outerHTML"
-				hx-headers={ `{"Cache-Control":"no-cache"}` }
-			>
+			@ScheduleShell(snapshot, snapshot.ViewPath(), "Schedule", "") {
+				<main
+					id="schedule"
+					hx-get={ snapshot.ViewPath() }
+					hx-trigger="sse:schedule"
+					hx-target="this"
+					hx-select="#schedule"
+					hx-swap="outerHTML"
+					hx-headers={ `{"Cache-Control":"no-cache"}` }
+				>
 				if snapshot.MySchedule {
 					<h1 id="schedule-heading" tabindex="-1">My Schedule</h1>
 				} else {
@@ -90,7 +90,8 @@ templ Page(snapshot Snapshot) {
 					<p>No Favorite Sessions yet.</p>
 				}
 				<p id="schedule-status" role="status" aria-live="polite" aria-atomic="true">Schedule updated.</p>
-			</main>
+				</main>
+			}
 		</body>
 	</html>
 }
@@ -110,9 +111,13 @@ templ SessionPage(snapshot Snapshot, session Session, presentationPath string) {
 			<title>{ session.Title } · { snapshot.EventName } Schedule</title>
 		</head>
 		<body data-reduced-effects={ strconv.FormatBool(snapshot.ReducedEffects) }>
-			@ScheduleNavigation(snapshot, session.PathWithTimezone(snapshot.ViewerTimezone))
-			<main>
-				<a href={ snapshot.SchedulePath() }>Schedule</a>
+			@ScheduleShell(
+				snapshot,
+				session.PathWithTimezone(snapshot.ViewerTimezone),
+				"Schedule",
+				session.Title,
+			) {
+				<main>
 				<h1>{ session.Title }</h1>
 				@SessionDetails(session)
 				@SessionAttachments(session)
@@ -129,7 +134,8 @@ templ SessionPage(snapshot Snapshot, session Session, presentationPath string) {
 					</section>
 				}
 				@FavoriteControl(snapshot, session, session.PathWithTimezone(snapshot.ViewerTimezone))
-			</main>
+				</main>
+			}
 		</body>
 	</html>
 }
@@ -146,8 +152,13 @@ templ CompetitionsPage(snapshot Snapshot) {
 			<title>{ snapshot.EventName } Competitions</title>
 		</head>
 		<body data-reduced-effects={ strconv.FormatBool(snapshot.ReducedEffects) }>
-			@ScheduleNavigation(snapshot, "/events/" + snapshot.EventSlug + "/competitions")
-			<main>
+			@ScheduleShell(
+				snapshot,
+				"/events/" + snapshot.EventSlug + "/competitions",
+				"Competitions",
+				"",
+			) {
+				<main>
 				<h1>{ snapshot.EventName } Competitions</h1>
 				if len(snapshot.Sessions) == 0 {
 					<p>No public Competitions are available yet.</p>
@@ -161,7 +172,8 @@ templ CompetitionsPage(snapshot Snapshot) {
 						</article>
 					}
 				}
-			</main>
+				</main>
+			}
 		</body>
 	</html>
 }
@@ -177,28 +189,66 @@ templ UnavailablePage(snapshot Snapshot, section string) {
 			<title>{ snapshot.EventName } { section }</title>
 		</head>
 		<body data-reduced-effects={ strconv.FormatBool(snapshot.ReducedEffects) }>
-			@ScheduleNavigation(snapshot, "/events/" + snapshot.EventSlug + "/" + strings.ToLower(section))
-			<main>
+			@ScheduleShell(
+				snapshot,
+				"/events/" + snapshot.EventSlug + "/" + strings.ToLower(section),
+				section,
+				"",
+			) {
+				<main>
 				<h1>{ snapshot.EventName } { section }</h1>
 				<p>{ section } is unavailable.</p>
-			</main>
+				</main>
+			}
 		</body>
 	</html>
 }
 
-templ ScheduleNavigation(snapshot Snapshot, returnTo string) {
-	<nav aria-label="Schedule">
-		<a href="/">Beamers</a>
-		<a href={ snapshot.SchedulePath() }>Schedule</a>
-		if snapshot.AccountName == "" {
-			<a href={ SignInPath(returnTo) }>Sign in</a>
-			<a href="/register">Register</a>
-		} else {
-			<a href="/my-schedule">My Schedule</a>
-			<span>{ snapshot.AccountName }</span>
+templ ScheduleShell(snapshot Snapshot, returnTo string, section string, current string) {
+	if snapshot.EventSlug == "" {
+		@frontend.ShellNavigation(frontend.Shell{
+			AccountName: snapshot.AccountName,
+			CSRFToken: snapshot.CSRFToken,
+			ReturnTo: returnTo,
+			ReducedEffects: snapshot.ReducedEffects,
+			Backstage: snapshot.Backstage,
+		})
+		{ children... }
+	} else {
+		@frontend.EventShell(frontend.Shell{
+			AccountName: snapshot.AccountName,
+			CSRFToken: snapshot.CSRFToken,
+			ReturnTo: returnTo,
+			ReducedEffects: snapshot.ReducedEffects,
+			Backstage: snapshot.Backstage,
+			Event: frontend.EventContext{
+				Name: snapshot.EventName,
+				Slug: snapshot.EventSlug,
+				ActivePath: "/events/" + snapshot.EventSlug + "/" + strings.ToLower(section),
+				Breadcrumbs: eventBreadcrumbs(snapshot, section, current),
+			},
+		}) {
+			{ children... }
 		}
-		@frontend.EffectsLink(returnTo, snapshot.ReducedEffects)
-	</nav>
+	}
+}
+
+func eventBreadcrumbs(snapshot Snapshot, section string, current string) []frontend.Breadcrumb {
+	breadcrumbs := []frontend.Breadcrumb{
+		{Label: "Events", Href: "/"},
+		{Label: snapshot.EventName, Href: "/events/" + snapshot.EventSlug},
+	}
+	if current == "" {
+		return append(breadcrumbs, frontend.Breadcrumb{Label: section})
+	}
+	return append(
+		breadcrumbs,
+		frontend.Breadcrumb{
+			Label: section,
+			Href: "/events/" + snapshot.EventSlug + "/" + strings.ToLower(section),
+		},
+		frontend.Breadcrumb{Label: current},
+	)
 }
 
 templ FavoriteControl(snapshot Snapshot, session Session, returnTo string) {
@@ -317,9 +367,8 @@ templ CompetitionPage(
 			<title>{ session.Title } · { snapshot.EventName }</title>
 		</head>
 		<body data-reduced-effects={ strconv.FormatBool(snapshot.ReducedEffects) }>
-			@ScheduleNavigation(snapshot, session.CompetitionPath())
-			<main>
-				<a href={ "/events/" + snapshot.EventSlug + "/competitions" }>Competitions</a>
+			@ScheduleShell(snapshot, session.CompetitionPath(), "Competitions", session.Title) {
+				<main>
 				<h1>{ session.Title }</h1>
 				if session.PublicDetails != "" {
 					<p>{ session.PublicDetails }</p>
@@ -367,7 +416,8 @@ templ CompetitionPage(
 				} else {
 					<p><a href={ session.ResultsPath }>View Competition Results</a></p>
 				}
-			</main>
+				</main>
+			}
 		</body>
 	</html>
 }

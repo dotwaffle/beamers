@@ -54,6 +54,7 @@ type Snapshot struct {
 	Days           []Day          `json:"days"`
 	AccountName    string         `json:"-"`
 	CSRFToken      string         `json:"-"`
+	Backstage      bool           `json:"-"`
 	MySchedule     bool           `json:"-"`
 	ReducedEffects bool           `json:"-"`
 }

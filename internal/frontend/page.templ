@@ -26,6 +26,27 @@ type BackstageSection struct {
 	Href  string
 }
 
+type Shell struct {
+	AccountName    string
+	CSRFToken      string
+	ReturnTo       string
+	ReducedEffects bool
+	Backstage      bool
+	Event          EventContext
+}
+
+type EventContext struct {
+	Name        string
+	Slug        string
+	ActivePath  string
+	Breadcrumbs []Breadcrumb
+}
+
+type Breadcrumb struct {
+	Label string
+	Href  string
+}
+
 func EffectsPath(returnTo string) string {
 	return "/effects?return_to=" + url.QueryEscape(returnTo)
 }
@@ -76,42 +97,144 @@ templ EventHead(title string, eventID int) {
 }
 
 templ Navigation(accountName string, csrfToken string, reducedEffects bool, backstage bool) {
+	@ShellNavigation(Shell{
+		AccountName: accountName,
+		CSRFToken: csrfToken,
+		ReducedEffects: reducedEffects,
+		Backstage: backstage,
+	})
+}
+
+templ ShellNavigation(shell Shell) {
 	<header>
-		<nav aria-label="Primary">
-			<a href="/">Beamers</a>
-			<a href="/schedule">Schedule</a>
-			if accountName == "" {
-				<a href="/sign-in">Sign in</a>
+		<nav aria-label="Primary" class="primary-navigation">
+			<a class="brand" href="/">Beamers</a>
+			<a href="/">Events</a>
+			if shell.AccountName == "" {
+				if shell.ReturnTo == "" {
+					<a href="/sign-in">Sign in</a>
+				} else {
+					<a href={ templ.SafeURL("/sign-in?return_to=" + url.QueryEscape(shell.ReturnTo)) }>Sign in</a>
+				}
 				<a href="/register">Register</a>
 			} else {
-				<span>{ accountName }</span>
+				<span>{ shell.AccountName }</span>
 				<a href="/profile">Profile</a>
 				<a href="/my-participation">My Participation</a>
-				if backstage {
+				<a href="/my-schedule">My Schedule</a>
+				if shell.Backstage {
 					<a href="/backstage">Backstage</a>
 				}
 				<form method="post" action="/sign-out">
-					<input type="hidden" name="csrf_token" value={ csrfToken }/>
+					<input type="hidden" name="csrf_token" value={ shell.CSRFToken }/>
 					<button type="submit">Sign out</button>
 				</form>
 			}
-			<form method="post" action="/effects">
-				<input type="hidden" name="csrf_token" value={ csrfToken }/>
-				<button
-					type="submit"
-					name="reduce_effects"
-					value={ strconv.FormatBool(!reducedEffects) }
-					aria-pressed={ strconv.FormatBool(reducedEffects) }
-				>
-					if reducedEffects {
-						Resume effects
-					} else {
-						Pause effects
+			if shell.CSRFToken == "" {
+				@EffectsLink(shell.ReturnTo, shell.ReducedEffects)
+			} else {
+				<form method="post" action="/effects">
+					<input type="hidden" name="csrf_token" value={ shell.CSRFToken }/>
+					if shell.ReturnTo != "" {
+						<input type="hidden" name="return_to" value={ shell.ReturnTo }/>
 					}
-				</button>
-			</form>
+					<button
+						type="submit"
+						name="reduce_effects"
+						value={ strconv.FormatBool(!shell.ReducedEffects) }
+						aria-pressed={ strconv.FormatBool(shell.ReducedEffects) }
+					>
+						if shell.ReducedEffects {
+							Resume effects
+						} else {
+							Pause effects
+						}
+					</button>
+				</form>
+			}
 		</nav>
 	</header>
+}
+
+templ EventShell(shell Shell) {
+	@ShellNavigation(shell)
+	<div class="event-layout">
+		@EventNavigationViews(shell.Event)
+		<div class="event-content">
+			@EventBreadcrumbs(shell.Event.Breadcrumbs)
+			{ children... }
+		</div>
+	</div>
+}
+
+templ EventNavigationViews(event EventContext) {
+	<details class="event-drawer">
+		<summary>{ event.Name } navigation</summary>
+		@EventLinks(event)
+	</details>
+	<aside class="event-sidebar">
+		@EventLinks(event)
+	</aside>
+}
+
+templ EventLinks(event EventContext) {
+	<nav aria-label="Event" class="event-links">
+		<h2>{ event.Name }</h2>
+		<ul>
+			<li>
+				@EventLink(
+					"Overview",
+					"/events/" + event.Slug,
+					event.ActivePath == "/events/"+event.Slug,
+				)
+			</li>
+			<li>
+				@EventLink(
+					"Event Schedule",
+					"/events/" + event.Slug + "/schedule",
+					event.ActivePath == "/events/"+event.Slug+"/schedule",
+				)
+			</li>
+			<li>
+				@EventLink(
+					"Competitions",
+					"/events/" + event.Slug + "/competitions",
+					event.ActivePath == "/events/"+event.Slug+"/competitions",
+				)
+			</li>
+			<li>
+				@EventLink(
+					"Event Results",
+					"/events/" + event.Slug + "/results",
+					event.ActivePath == "/events/"+event.Slug+"/results",
+				)
+			</li>
+		</ul>
+	</nav>
+}
+
+templ EventLink(label string, href string, active bool) {
+	if active {
+		<a href={ templ.SafeURL(href) } aria-current="page">{ label }</a>
+	} else {
+		<a href={ templ.SafeURL(href) }>{ label }</a>
+	}
+}
+
+templ EventBreadcrumbs(breadcrumbs []Breadcrumb) {
+	<nav aria-label="Breadcrumb" class="breadcrumbs">
+		<ol>
+			for _, breadcrumb := range breadcrumbs {
+				<li>
+					if breadcrumb.Href == "" {
+						<span aria-current="page">{ breadcrumb.Label }</span>
+					} else {
+						<a href={ templ.SafeURL(breadcrumb.Href) }>{ breadcrumb.Label }</a>
+					}
+				</li>
+			}
+		</ol>
+	</nav>
 }
 
 templ Effects(csrfToken string, reducedEffects bool, returnTo string) {
@@ -499,20 +622,31 @@ templ PublicEventHub(
 		<html lang={ event.EventLocale }>
 		@EventHead(event.Name + " · Beamers", event.ID)
 		<body data-reduced-effects={ strconv.FormatBool(reducedEffects) }>
-			@Navigation(accountName, csrfToken, reducedEffects, backstage)
-			<main>
-				<h1>{ event.Name }</h1>
-				<p>
-					<time datetime={ event.PlannedStartDate }>{ publicEventDate(event.PlannedStartDate, event.EventLocale) }</time>
-					–
-					<time datetime={ event.PlannedEndDate }>{ publicEventDate(event.PlannedEndDate, event.EventLocale) }</time>
-				</p>
-				<nav aria-label="Event">
-					<a href={ templ.SafeURL("/events/" + event.Slug + "/schedule") }>Event Schedule</a>
-					<a href={ templ.SafeURL("/events/" + event.Slug + "/competitions") }>Competitions</a>
-					<a href={ templ.SafeURL("/events/" + event.Slug + "/results") }>Event Results</a>
-				</nav>
-			</main>
+			@EventShell(Shell{
+				AccountName: accountName,
+				CSRFToken: csrfToken,
+				ReturnTo: "/events/" + event.Slug,
+				ReducedEffects: reducedEffects,
+				Backstage: backstage,
+				Event: EventContext{
+					Name: event.Name,
+					Slug: event.Slug,
+					ActivePath: "/events/" + event.Slug,
+					Breadcrumbs: []Breadcrumb{
+						{Label: "Events", Href: "/"},
+						{Label: event.Name},
+					},
+				},
+			}) {
+				<main>
+					<h1>{ event.Name }</h1>
+					<p>
+						<time datetime={ event.PlannedStartDate }>{ publicEventDate(event.PlannedStartDate, event.EventLocale) }</time>
+						–
+						<time datetime={ event.PlannedEndDate }>{ publicEventDate(event.PlannedEndDate, event.EventLocale) }</time>
+					</p>
+				</main>
+			}
 		</body>
 	</html>
 }
@@ -530,11 +664,28 @@ templ PublicEventUnavailable(
 	<html lang={ event.EventLocale }>
 		@EventHead(event.Name + " " + section, event.ID)
 		<body data-reduced-effects={ strconv.FormatBool(reducedEffects) }>
-			@Navigation(accountName, csrfToken, reducedEffects, backstage)
-			<main>
-				<h1>{ event.Name } { section }</h1>
-				<p>{ message }</p>
-			</main>
+			@EventShell(Shell{
+				AccountName: accountName,
+				CSRFToken: csrfToken,
+				ReturnTo: "/events/" + event.Slug + "/" + strings.ToLower(section),
+				ReducedEffects: reducedEffects,
+				Backstage: backstage,
+				Event: EventContext{
+					Name: event.Name,
+					Slug: event.Slug,
+					ActivePath: "/events/" + event.Slug + "/" + strings.ToLower(section),
+					Breadcrumbs: []Breadcrumb{
+						{Label: "Events", Href: "/"},
+						{Label: event.Name, Href: "/events/" + event.Slug},
+						{Label: section},
+					},
+				},
+			}) {
+				<main>
+					<h1>{ event.Name } { section }</h1>
+					<p>{ message }</p>
+				</main>
+			}
 		</body>
 	</html>
 }

@@ -106,7 +106,7 @@ nav form:first-of-type {
   margin-inline-start: auto;
 }
 
-nav > a:first-child {
+.primary-navigation > .brand {
   color: var(--accent);
   font-family: var(--heading-font);
   font-size: 1.25rem;
@@ -123,6 +123,25 @@ nav > a:first-child {
   padding: 0 clamp(1rem, 4vw, 3rem) clamp(1rem, 4vw, 3rem);
 }
 
+.event-layout {
+  display: grid;
+  gap: 1rem;
+  margin: 0 auto;
+  max-width: 90rem;
+  padding: 0 clamp(1rem, 4vw, 3rem) clamp(1rem, 4vw, 3rem);
+}
+
+.event-content {
+  min-width: 0;
+}
+
+.event-content main {
+  margin: 0;
+  max-width: none;
+  overflow-wrap: anywhere;
+  width: 100%;
+}
+
 .backstage-layout main {
   margin: 0;
   max-width: none;
@@ -130,14 +149,16 @@ nav > a:first-child {
   width: 100%;
 }
 
-.backstage-drawer {
+.backstage-drawer,
+.event-drawer {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 0.75rem;
   padding: 0.75rem 1rem;
 }
 
-.backstage-drawer summary {
+.backstage-drawer summary,
+.event-drawer summary {
   color: var(--accent);
   cursor: pointer;
   font-family: var(--heading-font);
@@ -146,13 +167,47 @@ nav > a:first-child {
   padding-block: 0.55rem;
 }
 
-.backstage-sidebar {
+.backstage-sidebar,
+.event-sidebar {
   display: none;
 }
 
 .backstage-links {
   align-items: stretch;
   display: grid;
+}
+
+.event-links {
+  align-items: stretch;
+  display: grid;
+}
+
+.event-links h2 {
+  font-size: 1rem;
+}
+
+.event-links ul {
+  margin: 0;
+  padding-inline-start: 1.25rem;
+}
+
+.breadcrumbs {
+  margin-block-end: 1rem;
+}
+
+.breadcrumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.breadcrumbs li + li::before {
+  color: var(--muted);
+  content: "/";
+  margin-inline-end: 0.75rem;
 }
 
 .backstage-links h2 {
@@ -332,15 +387,18 @@ body[data-reduced-effects="true"] main {
 }
 
 @media (min-width: 48rem) {
-  .backstage-layout {
+  .backstage-layout,
+  .event-layout {
     grid-template-columns: minmax(15rem, 20rem) minmax(0, 1fr);
   }
 
-  .backstage-drawer {
+  .backstage-drawer,
+  .event-drawer {
     display: none;
   }
 
-  .backstage-sidebar {
+  .backstage-sidebar,
+  .event-sidebar {
     align-self: start;
     background: var(--surface);
     border: 1px solid var(--border);

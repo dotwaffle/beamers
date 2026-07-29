@@ -962,11 +962,23 @@ func TestBrowserFollowsCanonicalPublicEventJourney(t *testing.T) {
 	if !strings.Contains(root.body, `href="/events/revision-2099"`) {
 		t.Fatalf("root has no public Event journey: %q", root.body)
 	}
+	assertFrontendPrimaryNavigation(t, root, true)
+	assertFrontendPrimaryNavigation(
+		t,
+		getFrontendPage(t, administrator, server.address, "/profile"),
+		true,
+	)
+	assertFrontendPrimaryNavigation(
+		t,
+		getFrontendPage(t, administrator, server.address, "/my-participation"),
+		true,
+	)
+	hubPath := frontendLinkPath(t, root, "Revision 2099")
 	hub := getFrontendPage(
 		t,
 		administrator,
 		server.address,
-		frontendLinkPath(t, root, "Revision 2099"),
+		hubPath,
 	)
 	for _, want := range []string{
 		"Ada Admin",
@@ -980,6 +992,14 @@ func TestBrowserFollowsCanonicalPublicEventJourney(t *testing.T) {
 			t.Fatalf("public Event hub lacks %q: %d %q", want, hub.status, hub.body)
 		}
 	}
+	assertFrontendPrimaryNavigation(t, hub, true)
+	assertFrontendEventShell(
+		t,
+		hub,
+		hubPath,
+		"Events",
+		"Revision 2099",
+	)
 
 	publicClient := authenticatedClient(t)
 	schedule := getFrontendPage(
@@ -1000,6 +1020,29 @@ func TestBrowserFollowsCanonicalPublicEventJourney(t *testing.T) {
 	if got := schedule.header.Get("Cache-Control"); got != "public, max-age=15, must-revalidate" {
 		t.Errorf("canonical Event Schedule Cache-Control = %q", got)
 	}
+	assertFrontendSignedOutNavigation(t, schedule)
+	signedInSchedule := getFrontendPage(
+		t,
+		administrator,
+		server.address,
+		"/events/revision-2099/schedule",
+	)
+	assertFrontendPrimaryNavigation(t, signedInSchedule, true)
+	assertFrontendEventShell(
+		t,
+		signedInSchedule,
+		"/events/revision-2099/schedule",
+		"Events",
+		"Revision 2099",
+		"Schedule",
+	)
+	publicListenerSchedule := getFrontendPage(
+		t,
+		administrator,
+		server.publicAddress,
+		"/events/revision-2099/schedule",
+	)
+	assertFrontendPrimaryNavigation(t, publicListenerSchedule, false)
 	sessionPath := frontendLinkPath(t, schedule, "Opening Keynote")
 	sessionPage := getFrontendPage(
 		t,
@@ -1023,6 +1066,15 @@ func TestBrowserFollowsCanonicalPublicEventJourney(t *testing.T) {
 	if strings.Contains(sessionPage.body, "Call Pat") {
 		t.Fatalf("canonical Session leaked Crew Notes: %q", sessionPage.body)
 	}
+	assertFrontendEventShell(
+		t,
+		sessionPage,
+		"/events/revision-2099/schedule",
+		"Events",
+		"Revision 2099",
+		"Schedule",
+		"Opening Keynote",
+	)
 	initialSessionETag := sessionPage.header.Get("ETag")
 	publicPresentationVersion := decodeAttachmentVersion(t, requestMultipart(
 		t.Context(),
@@ -1182,6 +1234,14 @@ func TestBrowserFollowsCanonicalPublicEventJourney(t *testing.T) {
 		strings.Contains(competitions.body, "Browser Certified Result") {
 		t.Fatalf("canonical Competitions index = %d %q", competitions.status, competitions.body)
 	}
+	assertFrontendEventShell(
+		t,
+		competitions,
+		"/events/revision-2099/competitions",
+		"Events",
+		"Revision 2099",
+		"Competitions",
+	)
 	competitionPath := frontendLinkPath(t, competitions, "Demo Competition")
 	competition := getFrontendPage(
 		t,
@@ -1193,6 +1253,20 @@ func TestBrowserFollowsCanonicalPublicEventJourney(t *testing.T) {
 		!strings.Contains(competition.body, "Results have not been published yet.") {
 		t.Fatalf("canonical Competition state = %d %q", competition.status, competition.body)
 	}
+	assertFrontendEventShell(
+		t,
+		competition,
+		"/events/revision-2099/competitions",
+		"Events",
+		"Revision 2099",
+		"Competitions",
+		"Demo Competition",
+	)
+	assertFrontendPrimaryNavigation(
+		t,
+		getFrontendPage(t, administrator, server.address, competitionPath),
+		true,
+	)
 	initialCompetitionETag := competition.header.Get("ETag")
 
 	results := getFrontendPage(
@@ -1205,6 +1279,14 @@ func TestBrowserFollowsCanonicalPublicEventJourney(t *testing.T) {
 		!strings.Contains(results.body, "Results have not been published yet.") {
 		t.Fatalf("canonical Event Results state = %d %q", results.status, results.body)
 	}
+	assertFrontendEventShell(
+		t,
+		results,
+		"/events/revision-2099/results",
+		"Events",
+		"Revision 2099",
+		"Results",
+	)
 	entryID := prepareReleasedBrowserResults(t, administrator, server, competitionID)
 	publicVersion := decodeAttachmentVersion(t, requestMultipart(
 		t.Context(),
@@ -1334,6 +1416,33 @@ func TestBrowserFollowsCanonicalPublicEventJourney(t *testing.T) {
 		!strings.Contains(results.body, `href="/events/revision-2099/schedule"`) {
 		t.Fatalf("canonical published Event Results = %d %q", results.status, results.body)
 	}
+	if strings.Contains(results.body, `href="/schedule"`) {
+		t.Fatalf("canonical published Event Results lost Event context: %q", results.body)
+	}
+	assertFrontendSignedOutNavigation(t, results)
+	assertFrontendEventShell(
+		t,
+		results,
+		"/events/revision-2099/results",
+		"Events",
+		"Revision 2099",
+		"Results",
+	)
+	signedInResults := getFrontendPage(
+		t,
+		administrator,
+		server.address,
+		"/events/revision-2099/results",
+	)
+	assertFrontendPrimaryNavigation(t, signedInResults, true)
+	assertFrontendEventShell(
+		t,
+		signedInResults,
+		"/events/revision-2099/results",
+		"Events",
+		"Revision 2099",
+		"Results",
+	)
 
 	for _, path := range []string{
 		"/events/unknown/schedule",
@@ -7916,6 +8025,117 @@ func frontendBackstageNavigation(t *testing.T, response frontendResponse) string
 		t.Fatalf("Backstage navigation is unclosed: %q", response.body)
 	}
 	return response.body[startAt : startAt+endAt]
+}
+
+func assertFrontendPrimaryNavigation(
+	t *testing.T,
+	response frontendResponse,
+	backstage bool,
+) {
+	t.Helper()
+	const start = `<nav aria-label="Primary"`
+	startAt := strings.Index(response.body, start)
+	if response.status != http.StatusOK || startAt < 0 {
+		t.Fatalf("primary navigation page = %d %q", response.status, response.body)
+	}
+	endAt := strings.Index(response.body[startAt:], "</nav>")
+	if endAt < 0 {
+		t.Fatalf("primary navigation is unclosed: %q", response.body)
+	}
+	navigation := response.body[startAt : startAt+endAt]
+	for _, want := range []string{
+		`href="/">Events</a>`,
+		`href="/profile">Profile</a>`,
+		`href="/my-participation">My Participation</a>`,
+		`href="/my-schedule">My Schedule</a>`,
+		`action="/sign-out"`,
+		">Ada Admin</span>",
+	} {
+		if !strings.Contains(navigation, want) {
+			t.Errorf("primary navigation lacks %q: %q", want, navigation)
+		}
+	}
+	if got := strings.Contains(navigation, `href="/backstage">Backstage</a>`); got != backstage {
+		t.Errorf("primary navigation Backstage = %t, want %t: %q", got, backstage, navigation)
+	}
+	if !regexp.MustCompile(`name="csrf_token" value="[^"]+"`).MatchString(navigation) {
+		t.Errorf("primary navigation lacks a CSRF proof: %q", navigation)
+	}
+}
+
+func assertFrontendSignedOutNavigation(t *testing.T, response frontendResponse) {
+	t.Helper()
+	const start = `<nav aria-label="Primary"`
+	startAt := strings.Index(response.body, start)
+	if response.status != http.StatusOK || startAt < 0 {
+		t.Fatalf("signed-out navigation page = %d %q", response.status, response.body)
+	}
+	endAt := strings.Index(response.body[startAt:], "</nav>")
+	if endAt < 0 {
+		t.Fatalf("signed-out navigation is unclosed: %q", response.body)
+	}
+	navigation := response.body[startAt : startAt+endAt]
+	for _, want := range []string{`href="/">Events</a>`, ">Sign in</a>"} {
+		if !strings.Contains(navigation, want) {
+			t.Errorf("signed-out navigation lacks %q: %q", want, navigation)
+		}
+	}
+	for _, private := range []string{
+		`href="/profile"`,
+		`href="/my-participation"`,
+		`href="/backstage"`,
+		`action="/sign-out"`,
+	} {
+		if strings.Contains(navigation, private) {
+			t.Errorf("signed-out navigation exposes %q: %q", private, navigation)
+		}
+	}
+}
+
+func assertFrontendEventShell(
+	t *testing.T,
+	response frontendResponse,
+	activePath string,
+	breadcrumbs ...string,
+) {
+	t.Helper()
+	if response.status != http.StatusOK {
+		t.Fatalf("Event shell page = %d %q", response.status, response.body)
+	}
+	for _, want := range []string{
+		`<details class="event-drawer">`,
+		`<aside class="event-sidebar">`,
+		`<nav aria-label="Breadcrumb"`,
+		`<nav aria-label="Event"`,
+		"Revision 2099",
+	} {
+		if !strings.Contains(response.body, want) {
+			t.Errorf("Event shell lacks %q: %q", want, response.body)
+		}
+	}
+	if count := strings.Count(response.body, `<nav aria-label="Event"`); count != 2 {
+		t.Errorf("Event navigation copies = %d, want 2: %q", count, response.body)
+	}
+	active := regexp.MustCompile(
+		`href="` + regexp.QuoteMeta(activePath) + `"[^>]*aria-current="page"`,
+	)
+	if !active.MatchString(response.body) {
+		t.Errorf("Event shell has no active %q destination: %q", activePath, response.body)
+	}
+	breadcrumbAt := strings.Index(response.body, `<nav aria-label="Breadcrumb"`)
+	if breadcrumbAt < 0 {
+		return
+	}
+	breadcrumbEnd := strings.Index(response.body[breadcrumbAt:], "</nav>")
+	if breadcrumbEnd < 0 {
+		return
+	}
+	breadcrumb := response.body[breadcrumbAt : breadcrumbAt+breadcrumbEnd]
+	for _, want := range breadcrumbs {
+		if !strings.Contains(breadcrumb, want) {
+			t.Errorf("Event breadcrumb lacks %q: %q", want, breadcrumb)
+		}
+	}
 }
 
 func frontendLinkPath(t *testing.T, response frontendResponse, label string) string {

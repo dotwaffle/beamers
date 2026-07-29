@@ -547,12 +547,12 @@ func (driver *webDriver) navigate(ctx context.Context, target string) error {
 	return err
 }
 
-func (driver *webDriver) setWindowSize(ctx context.Context, width, height int) error {
+func (driver *webDriver) setWindowSize(ctx context.Context, width int) error {
 	_, err := driver.command(
 		ctx,
 		http.MethodPost,
 		driver.sessionPath("/window/rect"),
-		map[string]int{"width": width, "height": height},
+		map[string]int{"width": width, "height": 900},
 	)
 	return err
 }
@@ -836,6 +836,20 @@ func TestBrowserCertification(t *testing.T) {
 	assertResponsivePageWidths(t, crewDriver, origin+"/", 320, 375, 768, 1024, 1440)
 	assertResponsivePageWidths(t, crewDriver, origin+"/events/revision-2099", 320, 1440)
 	assertResponsivePageWidths(t, crewDriver, origin+"/schedule", 320, 375, 768, 1024, 1440)
+	assertResponsivePageWidths(
+		t,
+		crewDriver,
+		origin+"/events/revision-2099/schedule",
+		320,
+		1440,
+	)
+	assertResponsivePageWidths(
+		t,
+		crewDriver,
+		origin+"/events/revision-2099/results",
+		320,
+		1440,
+	)
 	assertResponsivePageZoom(t, crewDriver, origin+"/schedule", 1024, 2)
 	certifyLiveScheduleUpdate(
 		t,
@@ -863,6 +877,14 @@ func TestBrowserCertification(t *testing.T) {
 		"beamers_session",
 		"/",
 	))
+	assertEventNavigationModes(t, crewDriver, origin)
+	certifyFrontendNavigationJourney(
+		t,
+		crewDriver,
+		origin,
+		publicSessionID,
+		crewSessionID,
+	)
 	certifyWebAuthnAvailability(t, crewDriver, origin)
 	if config.Engine == "chromium" {
 		certifyWebAuthnCeremonies(t, crewDriver, origin)
@@ -2352,7 +2374,7 @@ func assertResponsivePageWidths(
 		t.Fatalf("navigate to responsive page: %v", err)
 	}
 	for _, width := range widths {
-		if err := driver.setWindowSize(t.Context(), width, 900); err != nil {
+		if err := driver.setWindowSize(t.Context(), width); err != nil {
 			t.Fatalf("set browser width %d: %v", width, err)
 		}
 		fits, err := driver.evaluateBool(
@@ -2380,7 +2402,7 @@ func assertResponsivePageZoom(
 		t.Fatalf("navigate to zoomed page: %v", err)
 	}
 	equivalentWidth := width / zoom
-	if err := driver.setWindowSize(t.Context(), equivalentWidth, 900); err != nil {
+	if err := driver.setWindowSize(t.Context(), equivalentWidth); err != nil {
 		t.Fatalf("set %d%% zoom-equivalent browser width %d: %v", zoom*100, equivalentWidth, err)
 	}
 	fits, err := driver.evaluateBool(
@@ -2522,7 +2544,7 @@ func assertBackstageNavigationModes(
 		{width: 320, wantDrawer: true},
 		{width: 1440, wantDrawer: false},
 	} {
-		if err := driver.setWindowSize(t.Context(), check.width, 900); err != nil {
+		if err := driver.setWindowSize(t.Context(), check.width); err != nil {
 			t.Fatalf("set Backstage width %d: %v", check.width, err)
 		}
 		drawer, err := driver.evaluateBool(
@@ -2547,6 +2569,129 @@ func assertBackstageNavigationModes(
 				sidebar,
 			)
 		}
+	}
+}
+
+func assertEventNavigationModes(
+	t *testing.T,
+	driver *webDriver,
+	origin string,
+) {
+	t.Helper()
+	if err := driver.navigate(t.Context(), origin+"/events/revision-2099"); err != nil {
+		t.Fatalf("navigate to public Event: %v", err)
+	}
+	if err := driver.setWindowSize(t.Context(), 320); err != nil {
+		t.Fatalf("set Event mobile width: %v", err)
+	}
+	mobile, err := driver.evaluateBool(t.Context(), `
+		const drawer = document.querySelector(".event-drawer");
+		const sidebar = document.querySelector(".event-sidebar");
+		const links = selector => Array.from(
+			document.querySelectorAll(selector),
+			link => link.href,
+		);
+		return getComputedStyle(drawer).display !== "none" &&
+			getComputedStyle(sidebar).display === "none" &&
+			JSON.stringify(links(".event-drawer a")) ===
+				JSON.stringify(links(".event-sidebar a"));`)
+	if err != nil || !mobile {
+		t.Fatalf("mobile Event navigation = %t, %v", mobile, err)
+	}
+	focused, err := driver.evaluateBool(
+		t.Context(),
+		`const summary = document.querySelector(".event-drawer summary");
+		summary.focus();
+		return document.activeElement === summary;`,
+	)
+	if err != nil || !focused {
+		t.Fatalf("focus mobile Event drawer = %t, %v", focused, err)
+	}
+	if err = driver.pressKey(t.Context(), "\uE007"); err != nil {
+		t.Fatalf("open mobile Event drawer: %v", err)
+	}
+	if err = driver.waitFor(
+		t.Context(),
+		5*time.Second,
+		`return document.querySelector(".event-drawer").open;`,
+	); err != nil {
+		t.Fatalf("mobile Event drawer did not open: %v", err)
+	}
+	if err = driver.setWindowSize(t.Context(), 1440); err != nil {
+		t.Fatalf("set Event desktop width: %v", err)
+	}
+	desktop, err := driver.evaluateBool(t.Context(), `
+		const drawer = document.querySelector(".event-drawer");
+		const sidebar = document.querySelector(".event-sidebar");
+		return getComputedStyle(drawer).display === "none" &&
+			getComputedStyle(sidebar).display !== "none";`)
+	if err != nil || !desktop {
+		t.Fatalf("desktop Event navigation = %t, %v", desktop, err)
+	}
+}
+
+func certifyFrontendNavigationJourney(
+	t *testing.T,
+	driver *webDriver,
+	origin string,
+	sessionID int64,
+	competitionID int64,
+) {
+	t.Helper()
+	if err := driver.navigate(t.Context(), origin+"/"); err != nil {
+		t.Fatalf("navigate to Frontend root: %v", err)
+	}
+	clickBrowserLink(t, driver, "Revision 2099", "/events/revision-2099")
+	clickBrowserLink(t, driver, "Event Schedule", "/events/revision-2099/schedule")
+	clickBrowserLink(
+		t,
+		driver,
+		"Live Browser Keynote",
+		"/events/revision-2099/schedule/sessions/"+strconv.FormatInt(sessionID, 10),
+	)
+	clickBrowserLink(t, driver, "Competitions", "/events/revision-2099/competitions")
+	clickBrowserLink(
+		t,
+		driver,
+		"Demo Competition",
+		"/events/revision-2099/competitions/"+strconv.FormatInt(competitionID, 10),
+	)
+	clickBrowserLink(t, driver, "Event Results", "/events/revision-2099/results")
+	clickBrowserLink(t, driver, "Profile", "/profile")
+	clickBrowserLink(t, driver, "My Participation", "/my-participation")
+	clickBrowserLink(t, driver, "Backstage", "/backstage")
+	clickBrowserLink(t, driver, "Events", "/")
+}
+
+func clickBrowserLink(
+	t *testing.T,
+	driver *webDriver,
+	label string,
+	expectedPath string,
+) {
+	t.Helper()
+	clicked, err := driver.evaluateBool(
+		t.Context(),
+		`const label = arguments[0];
+		const link = Array.from(document.querySelectorAll("a")).find(candidate =>
+			candidate.textContent.trim() === label &&
+			candidate.getClientRects().length > 0
+		);
+		if (!link) return false;
+		link.click();
+		return true;`,
+		label,
+	)
+	if err != nil || !clicked {
+		t.Fatalf("click %q link = %t, %v", label, clicked, err)
+	}
+	if err = driver.waitFor(
+		t.Context(),
+		5*time.Second,
+		`return location.pathname === arguments[0];`,
+		expectedPath,
+	); err != nil {
+		t.Fatalf("wait for %q link to %q: %v", label, expectedPath, err)
 	}
 }
 
