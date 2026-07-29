@@ -61,7 +61,7 @@ func registerFederationRoutes(
 	}
 	route := browserPageRoute()
 	route.maxBodyBytes = maxAuthBodyBytes
-	mux.HandleFunc("/auth/federation/providers", browserPageRoute(), handlers.providers)
+	mux.HandleFunc("/auth/federation/providers", publicRoute(), handlers.providers)
 	mux.HandleFunc("/auth/federation/sceneid/begin", route, handlers.begin)
 	mux.HandleFunc("/auth/federation/sceneid/callback", browserPageRoute(), handlers.callback)
 }

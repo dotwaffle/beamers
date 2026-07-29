@@ -714,6 +714,21 @@ templ PublicEventUnavailable(
 	</html>
 }
 
+templ RecoveryPage(title string, message string) {
+	<!doctype html>
+	<html lang="en">
+		@Head(title + " · Beamers")
+		<body data-reduced-effects="false">
+			@ShellNavigation(Shell{})
+			<main id="main-content" tabindex="-1">
+				<h1>{ title }</h1>
+				<p>{ message }</p>
+				<p><a href="/">Return to Events</a></p>
+			</main>
+		</body>
+	</html>
+}
+
 templ Setup(csrfToken string, message string, reducedEffects bool) {
 	<!doctype html>
 	<html lang="en">

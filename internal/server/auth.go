@@ -46,7 +46,7 @@ func registerAuthenticationRoutes(
 	mux.HandleFunc("/auth/sign-in", crewRoute(), handlers.signIn)
 	mux.HandleFunc("/auth/session", crewRoute(), handlers.session)
 	mux.HandleFunc("/auth/sign-out", crewRoute(), handlers.signOut)
-	webAuthnRoute := browserPageRoute()
+	webAuthnRoute := publicRoute()
 	webAuthnRoute.maxBodyBytes = maxWebAuthnBodyBytes
 	mux.HandleFunc("/auth/webauthn/register/begin", webAuthnRoute, handlers.beginWebAuthnRegistration)
 	mux.HandleFunc("/auth/webauthn/register/finish", webAuthnRoute, handlers.finishWebAuthnRegistration)

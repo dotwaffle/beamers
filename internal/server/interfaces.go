@@ -4,12 +4,16 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"mime"
 	"net"
 	"net/http"
 	"net/netip"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
+
+	"github.com/dotwaffle/beamers/internal/frontend"
 )
 
 const (
@@ -148,17 +152,6 @@ func protectInterfaces(
 ) http.Handler {
 	recoveryLimiter := newAuthFailureLimiter(time.Now)
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
-		contract, found := next.contract(request)
-		if !found {
-			http.NotFound(response, request)
-			return
-		}
-		kind := contract.kind
-		if policy.publicOnly && kind != publicInterface {
-			http.NotFound(response, request)
-			return
-		}
-
 		peer := remoteAddress(request.RemoteAddr)
 		trustedPeer := addressInPrefixes(peer, policy.trustedProxies)
 		secure := request.TLS != nil
@@ -170,6 +163,26 @@ func protectInterfaces(
 			secure = forwardedSchemeIsHTTPS(request.Header.Get("X-Forwarded-Proto"))
 			clientAddress = forwardedClientAddress(request.Header.Values("X-Forwarded-For"), peer, policy.trustedProxies)
 		}
+		setBrowserProtectionHeaders(response, secure)
+
+		contract, found := next.contract(request)
+		if !found {
+			if unmatchedBrowserRequest(request) {
+				serveBrowserRecovery(response, request, http.StatusNotFound)
+			} else {
+				http.NotFound(response, request)
+			}
+			return
+		}
+		kind := contract.kind
+		if policy.publicOnly && kind != publicInterface {
+			if contract.browserWarningPage && acceptsHTML(request) {
+				serveBrowserRecovery(response, request, http.StatusNotFound)
+			} else {
+				http.NotFound(response, request)
+			}
+			return
+		}
 
 		allowPlaintext := listenerIsLoopback(policy.listenerAddress) ||
 			kind == publicInterface ||
@@ -177,8 +190,13 @@ func protectInterfaces(
 			kind == crewInterface && policy.allowInsecureCrew ||
 			kind == displayInterface && policy.allowInsecureDisplay
 		if !secure && !allowPlaintext {
-			setBrowserProtectionHeaders(response, false)
-			http.Error(response, "secure transport required", http.StatusForbidden)
+			serveRouteError(
+				response,
+				request,
+				contract,
+				http.StatusForbidden,
+				"secure transport required",
+			)
 			return
 		}
 
@@ -198,17 +216,28 @@ func protectInterfaces(
 		}
 		defer cancel()
 		request = request.WithContext(requestContext)
-		setBrowserProtectionHeaders(response, secure)
 		if deadline, ok := requestContext.Deadline(); ok {
 			controller := http.NewResponseController(response)
 			if err := controller.SetReadDeadline(deadline); err != nil &&
 				!errors.Is(err, http.ErrNotSupported) {
-				http.Error(response, "request deadline unavailable", http.StatusInternalServerError)
+				serveRouteError(
+					response,
+					request,
+					contract,
+					http.StatusInternalServerError,
+					"request deadline unavailable",
+				)
 				return
 			}
 			if err := controller.SetWriteDeadline(deadline); err != nil &&
 				!errors.Is(err, http.ErrNotSupported) {
-				http.Error(response, "request deadline unavailable", http.StatusInternalServerError)
+				serveRouteError(
+					response,
+					request,
+					contract,
+					http.StatusInternalServerError,
+					"request deadline unavailable",
+				)
 				return
 			}
 			defer func() {
@@ -242,6 +271,14 @@ func protectInterfaces(
 			}()
 		}
 		request.Body = http.MaxBytesReader(response, request.Body, contract.requestBodyLimit())
+		if contract.browserWarningPage && !contract.persistent && acceptsHTML(request) {
+			recoveryResponse := &browserRecoveryResponse{
+				ResponseWriter: response,
+				request:        request,
+			}
+			response = recoveryResponse
+			defer recoveryResponse.flush()
+		}
 		if warnings != "" && contract.browserWarningPage {
 			warningResponse := &crewWarningResponse{
 				ResponseWriter: response,
@@ -253,6 +290,143 @@ func protectInterfaces(
 		}
 		next.ServeHTTP(response, request)
 	})
+}
+
+func serveRouteError(
+	response http.ResponseWriter,
+	request *http.Request,
+	contract routeContract,
+	status int,
+	message string,
+) {
+	if contract.browserWarningPage && acceptsHTML(request) && browserRecoveryStatus(status) {
+		serveBrowserRecovery(response, request, status)
+		return
+	}
+	http.Error(response, message, status)
+}
+
+func unmatchedBrowserRequest(request *http.Request) bool {
+	if !acceptsHTML(request) {
+		return false
+	}
+	if strings.HasPrefix(request.URL.Path, "/results/") &&
+		(strings.HasSuffix(request.URL.Path, ".json") ||
+			strings.HasSuffix(request.URL.Path, ".txt")) {
+		return false
+	}
+	for _, prefix := range []string{
+		"/admin/",
+		"/api/",
+		"/assets/",
+		"/auth/",
+		"/beamers.",
+		"/crew/",
+		"/diagnostics",
+		"/display",
+		"/livez",
+		"/public/",
+		"/readyz",
+		"/schedule/events",
+		"/upload/",
+	} {
+		if strings.HasPrefix(request.URL.Path, prefix) {
+			return false
+		}
+	}
+	return true
+}
+
+func acceptsHTML(request *http.Request) bool {
+	for _, value := range request.Header.Values("Accept") {
+		for item := range strings.SplitSeq(value, ",") {
+			mediaType, parameters, err := mime.ParseMediaType(strings.TrimSpace(item))
+			if err != nil || mediaType != "text/html" {
+				continue
+			}
+			quality := 1.0
+			if value := parameters["q"]; value != "" {
+				quality, err = strconv.ParseFloat(value, 64)
+			}
+			if err == nil && quality > 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+type browserRecoveryResponse struct {
+	http.ResponseWriter
+	request     *http.Request
+	status      int
+	wroteHeader bool
+	recovering  bool
+}
+
+func (response *browserRecoveryResponse) WriteHeader(status int) {
+	if response.wroteHeader {
+		return
+	}
+	response.status = status
+	response.wroteHeader = true
+	response.recovering = browserRecoveryStatus(status)
+	if !response.recovering {
+		response.ResponseWriter.WriteHeader(status)
+	}
+}
+
+func (response *browserRecoveryResponse) Write(content []byte) (int, error) {
+	if !response.wroteHeader {
+		response.WriteHeader(http.StatusOK)
+	}
+	if response.recovering {
+		return len(content), nil
+	}
+	return response.ResponseWriter.Write(content)
+}
+
+func (response *browserRecoveryResponse) flush() {
+	if response.recovering {
+		serveBrowserRecovery(response.ResponseWriter, response.request, response.status)
+	}
+}
+
+func browserRecoveryStatus(status int) bool {
+	return status == http.StatusForbidden ||
+		status == http.StatusNotFound ||
+		status == http.StatusInternalServerError
+}
+
+func serveBrowserRecovery(
+	response http.ResponseWriter,
+	request *http.Request,
+	status int,
+) {
+	title, message := browserRecoveryCopy(status)
+	var content bytes.Buffer
+	if err := frontend.RecoveryPage(title, message).Render(request.Context(), &content); err != nil {
+		http.Error(response, http.StatusText(status), status)
+		return
+	}
+	response.Header().Del("Content-Length")
+	response.Header().Set("Cache-Control", "no-store")
+	response.Header().Set("Content-Type", "text/html; charset=utf-8")
+	response.WriteHeader(status)
+	if request.Method != http.MethodHead {
+		_, _ = response.Write(content.Bytes())
+	}
+}
+
+func browserRecoveryCopy(status int) (string, string) {
+	switch status {
+	case http.StatusForbidden:
+		return "Access denied", "You do not have access to this page."
+	case http.StatusNotFound:
+		return "Page not found", "The page could not be found."
+	default:
+		return "Something went wrong", "Beamers could not load this page."
+	}
 }
 
 type statusResponse struct {

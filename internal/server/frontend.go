@@ -63,7 +63,7 @@ func registerFrontendRoutes(
 	}
 	formRoute := browserPageRoute()
 	formRoute.maxBodyBytes = maxAuthBodyBytes
-	mux.HandleFunc("/", browserPageRoute(), handlers.root)
+	mux.HandleFunc("/{$}", browserPageRoute(), handlers.root)
 	mux.HandleFunc("/setup", formRoute, handlers.setup)
 	mux.HandleFunc("/register", formRoute, handlers.register)
 	mux.HandleFunc("/sign-in", formRoute, handlers.signIn)
