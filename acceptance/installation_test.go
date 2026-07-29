@@ -168,13 +168,11 @@ func TestAdministratorRevisesPreviewsActivatesAndRestoresInstallationTheme(t *te
 		http.StatusNoContent,
 		"",
 	)
-	assertGETResponse(
+	assertFrontendRecovery(
 		t,
-		observer,
-		server.address,
-		"/backstage/themes",
+		getFrontendPage(t, observer, server.address, "/backstage/themes"),
 		http.StatusForbidden,
-		"Administrator authority required\n",
+		"Access denied",
 	)
 	csrf := browserCSRFToken(t, administrator, server.address, "/backstage/themes")
 	profileCSRF := browserCSRFToken(t, administrator, server.address, "/profile")

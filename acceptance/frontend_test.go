@@ -259,6 +259,151 @@ func TestBrowserSetupAndSessionSurviveRestart(t *testing.T) {
 	server.stop(t)
 }
 
+func TestBrowserRecoveryPagesPreserveProgrammaticContracts(t *testing.T) {
+	_, server := startAuthenticatedAdministratorWithPublicListener(t)
+	defer server.stop(t)
+
+	client := authenticatedClient(t)
+	client.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+
+	missing := getFrontendPage(t, client, server.publicAddress, "/missing")
+	assertFrontendRecovery(t, missing, http.StatusNotFound, "Page not found")
+	hidden := getFrontendPage(t, client, server.publicAddress, "/backstage")
+	assertFrontendRecovery(t, hidden, http.StatusNotFound, "Page not found")
+	if hidden.body != missing.body {
+		t.Error("Crew-only and unknown public recovery pages differ")
+	}
+	for _, accept := range []string{"", "*/*", "text/html;q=0"} {
+		missing = getFrontendPageAccept(t, client, server.publicAddress, "/missing", accept)
+		hidden = getFrontendPageAccept(t, client, server.publicAddress, "/backstage", accept)
+		if hidden.status != missing.status ||
+			hidden.header.Get("Content-Type") != missing.header.Get("Content-Type") ||
+			hidden.body != missing.body {
+			t.Errorf("Crew-only and unknown public responses differ for Accept %q", accept)
+		}
+	}
+
+	forbidden := postFrontendForm(t, client, server.address, "/effects", url.Values{})
+	assertFrontendRecovery(t, forbidden, http.StatusForbidden, "Access denied")
+
+	machine := getFrontendPage(
+		t,
+		client,
+		server.publicAddress,
+		"/results/events/999/revisions/1/results.json",
+	)
+	if machine.status != http.StatusNotFound ||
+		machine.header.Get("Content-Type") != "text/plain; charset=utf-8" ||
+		machine.body != "404 page not found\n" {
+		t.Fatalf(
+			"machine Results recovery = %d %q %q",
+			machine.status,
+			machine.header.Get("Content-Type"),
+			machine.body,
+		)
+	}
+	webAuthn := requestJSON(
+		t.Context(),
+		client,
+		server.address,
+		"/auth/webauthn/sign-in/begin",
+		map[string]string{"handle": "Ada Admin"},
+	)
+	if webAuthn.status != http.StatusForbidden ||
+		webAuthn.header.Get("Content-Type") != "text/plain; charset=utf-8" ||
+		webAuthn.body != "WebAuthn requires a secure origin\n" {
+		t.Fatalf(
+			"WebAuthn recovery = %d %q %q",
+			webAuthn.status,
+			webAuthn.header.Get("Content-Type"),
+			webAuthn.body,
+		)
+	}
+	unknownAPI := requestJSON(
+		t.Context(),
+		client,
+		server.address,
+		"/auth/unknown",
+		map[string]string{},
+	)
+	if unknownAPI.status != http.StatusNotFound ||
+		unknownAPI.header.Get("Content-Type") != "text/plain; charset=utf-8" ||
+		unknownAPI.body != "404 page not found\n" {
+		t.Fatalf(
+			"unknown API recovery = %d %q %q",
+			unknownAPI.status,
+			unknownAPI.header.Get("Content-Type"),
+			unknownAPI.body,
+		)
+	}
+	unknownAPIRequest, err := http.NewRequestWithContext(
+		t.Context(),
+		http.MethodGet,
+		"http://"+server.address+"/auth/unknown",
+		http.NoBody,
+	)
+	if err != nil {
+		t.Fatalf("create unknown API request: %v", err)
+	}
+	unknownAPIRequest.Header.Set("Accept", "text/html")
+	unknownAPIPage := doFrontendRequest(t, client, unknownAPIRequest)
+	if unknownAPIPage.status != http.StatusNotFound ||
+		unknownAPIPage.header.Get("Content-Type") != "text/plain; charset=utf-8" ||
+		unknownAPIPage.body != "404 page not found\n" {
+		t.Fatalf(
+			"unknown API HTML recovery = %d %q %q",
+			unknownAPIPage.status,
+			unknownAPIPage.header.Get("Content-Type"),
+			unknownAPIPage.body,
+		)
+	}
+
+	signIn := getFrontendPage(t, client, server.address, "/sign-in")
+	databasePath := filepath.Join(server.dataDir, "beamers.db")
+	if err := storetest.FailCommandEvidence(t.Context(), databasePath); err != nil {
+		t.Fatalf("fail command evidence: %v", err)
+	}
+	defer func() {
+		if err := storetest.AllowCommandEvidence(t.Context(), databasePath); err != nil {
+			t.Errorf("restore command evidence: %v", err)
+		}
+	}()
+
+	browserFailure := postFrontendForm(t, client, server.address, "/sign-in", url.Values{
+		"csrf_token": {requireFrontendCSRF(t, signIn)},
+		"handle":     {"Ada Admin"},
+		"password":   {"correct horse battery staple"},
+	})
+	assertFrontendRecovery(
+		t,
+		browserFailure,
+		http.StatusInternalServerError,
+		"Something went wrong",
+	)
+	apiFailure := requestJSON(
+		t.Context(),
+		client,
+		server.address,
+		"/auth/sign-in",
+		map[string]string{
+			"name":     "Ada Admin",
+			"password": "correct horse battery staple",
+		},
+	)
+	if apiFailure.status != http.StatusInternalServerError ||
+		apiFailure.header.Get("Content-Type") != "text/plain; charset=utf-8" ||
+		apiFailure.body != "authentication unavailable\n" {
+		t.Fatalf(
+			"programmatic sign-in failure = %d %q %q",
+			apiFailure.status,
+			apiFailure.header.Get("Content-Type"),
+			apiFailure.body,
+		)
+	}
+}
+
 func TestBrowserWebAuthnCredentialsSurviveRestartAndRevokeIndependently(t *testing.T) {
 	administrator, server := startAuthenticatedAdministratorWithPublicListener(t)
 	administrator.CheckRedirect = func(*http.Request, []*http.Request) error {
@@ -1464,18 +1609,7 @@ func TestBrowserFollowsCanonicalPublicEventJourney(t *testing.T) {
 	} {
 		for _, path := range removedPaths {
 			response := getFrontendPage(t, listener.client, listener.address, path)
-			if response.status != http.StatusNotFound ||
-				response.header.Get("Location") != "" ||
-				response.body != "404 page not found\n" {
-				t.Errorf(
-					"%s listener removed path %s = %d Location %q body %q",
-					listener.name,
-					path,
-					response.status,
-					response.header.Get("Location"),
-					response.body,
-				)
-			}
+			assertFrontendRecovery(t, response, http.StatusNotFound, "Page not found")
 		}
 	}
 
@@ -3947,8 +4081,8 @@ func TestBackstageOperatesBackupsAndDiagnostics(t *testing.T) {
 		strings.Contains(preparedPage.body, server.dataDir) {
 		t.Fatalf("prepared Restore exposed replacement or host paths: %q", preparedPage.body)
 	}
-	assertJSONRequest(
-		t,
+	removedRestore := requestJSON(
+		t.Context(),
 		administrator,
 		server.address,
 		"/admin/restores/apply",
@@ -3956,9 +4090,17 @@ func TestBackstageOperatesBackupsAndDiagnostics(t *testing.T) {
 			"password":                "correct horse battery staple",
 			"acknowledge_replacement": true,
 		},
-		http.StatusNotFound,
-		"404 page not found\n",
 	)
+	if removedRestore.status != http.StatusNotFound ||
+		removedRestore.header.Get("Content-Type") != "text/plain; charset=utf-8" ||
+		removedRestore.body != "404 page not found\n" {
+		t.Fatalf(
+			"removed Restore API = %d %q %q",
+			removedRestore.status,
+			removedRestore.header.Get("Content-Type"),
+			removedRestore.body,
+		)
+	}
 
 	uploadReader, uploadWriter := io.Pipe()
 	uploadForm := multipart.NewWriter(uploadWriter)
@@ -7986,6 +8128,17 @@ func getFrontendPage(
 	path string,
 ) frontendResponse {
 	t.Helper()
+	return getFrontendPageAccept(t, client, address, path, "text/html")
+}
+
+func getFrontendPageAccept(
+	t *testing.T,
+	client *http.Client,
+	address string,
+	path string,
+	accept string,
+) frontendResponse {
+	t.Helper()
 	request, err := http.NewRequestWithContext(
 		t.Context(),
 		http.MethodGet,
@@ -7994,6 +8147,9 @@ func getFrontendPage(
 	)
 	if err != nil {
 		t.Fatalf("create GET %s: %v", path, err)
+	}
+	if accept != "" {
+		request.Header.Set("Accept", accept)
 	}
 	return doFrontendRequest(t, client, request)
 }
@@ -8016,6 +8172,7 @@ func postFrontendForm(
 		t.Fatalf("create POST %s: %v", path, err)
 	}
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	request.Header.Set("Accept", "text/html")
 	request.Header.Set("Origin", "http://"+address)
 	return doFrontendRequest(t, client, request)
 }
@@ -8058,6 +8215,7 @@ func postFrontendMultipart(
 		t.Fatalf("create multipart POST %s: %v", path, err)
 	}
 	request.Header.Set("Content-Type", writer.FormDataContentType())
+	request.Header.Set("Accept", "text/html")
 	request.Header.Set("Origin", "http://"+address)
 	return doFrontendRequest(t, client, request)
 }
@@ -8080,6 +8238,49 @@ func doFrontendRequest(
 		status: response.StatusCode,
 		header: response.Header.Clone(),
 		body:   string(body),
+	}
+}
+
+func assertFrontendRecovery(
+	t *testing.T,
+	response frontendResponse,
+	status int,
+	heading string,
+) {
+	t.Helper()
+	if response.status != status ||
+		response.header.Get("Content-Type") != "text/html; charset=utf-8" ||
+		response.header.Get("Cache-Control") != "no-store" ||
+		response.header.Get("Location") != "" {
+		t.Fatalf(
+			"browser recovery = %d Content-Type %q Cache-Control %q Location %q",
+			response.status,
+			response.header.Get("Content-Type"),
+			response.header.Get("Cache-Control"),
+			response.header.Get("Location"),
+		)
+	}
+	for _, want := range []string{
+		`<html lang="en">`,
+		`class="skip-link" href="#main-content"`,
+		`<main id="main-content" tabindex="-1">`,
+		"<h1>" + heading + "</h1>",
+		`<a href="/">Return to Events</a>`,
+	} {
+		if !strings.Contains(response.body, want) {
+			t.Errorf("browser recovery lacks %q: %q", want, response.body)
+		}
+	}
+	for _, name := range []string{
+		"Content-Security-Policy",
+		"Permissions-Policy",
+		"Referrer-Policy",
+		"X-Content-Type-Options",
+		"X-Frame-Options",
+	} {
+		if response.header.Get(name) == "" {
+			t.Errorf("browser recovery lacks %s", name)
+		}
 	}
 }
 
