@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -157,5 +158,44 @@ func TestSessionFormTargetsOnlyFactsChangedFromViewedDraft(t *testing.T) {
 		len(input.AddLanes) != 1 || input.AddLanes[0].ID != 2 ||
 		len(input.RemoveLanes) != 1 || input.RemoveLanes[0].ID != 1 {
 		t.Fatalf("membership edit = %+v", input)
+	}
+}
+
+func TestPlanningFormErrorsTargetSessionRelationships(t *testing.T) {
+	for _, test := range []struct {
+		field, target, want string
+	}{
+		{"sessions.lanes", "", "draft-session-lane-id"},
+		{"sessions.locations", "", "draft-session-location-id"},
+		{"sessions.tracks", "", "draft-session-track-id"},
+		{"sessions.locations", "42", "session-42-session-location-ids"},
+		{"sessions.tracks", "42", "session-42-session-track-ids"},
+	} {
+		t.Run(test.field+"/"+test.target, func(t *testing.T) {
+			values := url.Values{}
+			if test.target != "" {
+				values.Set("session_id", test.target)
+			}
+			_, errors := planningFormErrors(&rundown.ValidationError{
+				Field: test.field, Message: "invalid relationship",
+			}, values)
+			if len(errors) != 1 || errors[0].FieldID != test.want {
+				t.Fatalf("errors = %#v, want field %q", errors, test.want)
+			}
+		})
+	}
+}
+
+func TestPlanningFormErrorsTargetImportProposals(t *testing.T) {
+	for _, action := range []string{"csv-import", "icalendar-import"} {
+		t.Run(action, func(t *testing.T) {
+			_, errors := planningFormErrors(&rundown.ValidationError{
+				Field: "proposal_ids", Message: "must select a proposal",
+			}, url.Values{"action": {action}})
+			want := strings.TrimSuffix(action, "-import") + "-proposal-ids"
+			if len(errors) != 1 || errors[0].FieldID != want {
+				t.Fatalf("errors = %#v, want field %q", errors, want)
+			}
+		})
 	}
 }

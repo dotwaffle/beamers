@@ -2,6 +2,7 @@ package frontend
 
 import (
 	"fmt"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -30,7 +31,8 @@ type PlanningPage struct {
 	ICalendarChoices string
 	CommandID       string
 	SubmittedAction string
-	Error           string
+	Form            url.Values
+	Errors          FormErrors
 }
 
 type BackstageSessionsPage struct {
@@ -102,6 +104,161 @@ func planningContains(values []int, wanted int) bool {
 	return false
 }
 
+func PlanningFieldID(target string, id int, field string) string {
+	prefix := target
+	if id > 0 {
+		prefix += "-" + strconv.Itoa(id)
+	}
+	return prefix + "-" + strings.ReplaceAll(field, "_", "-")
+}
+
+func (page PlanningPage) draftSubmitted(target string, id int) bool {
+	if page.SubmittedAction != "draft" {
+		return false
+	}
+	if target == "draft" {
+		return page.Form.Get("location_id") == "" &&
+			page.Form.Get("lane_id") == "" &&
+			page.Form.Get("track_id") == "" &&
+			page.Form.Get("session_id") == ""
+	}
+	return page.Form.Get(target+"_id") == strconv.Itoa(id)
+}
+
+func (page PlanningPage) draftValue(target string, id int, field, fallback string) string {
+	if page.draftSubmitted(target, id) {
+		if _, ok := page.Form[field]; ok {
+			return page.Form.Get(field)
+		}
+	}
+	return fallback
+}
+
+func (page PlanningPage) draftChecked(
+	target string,
+	id int,
+	field, value string,
+	fallback bool,
+) bool {
+	if page.draftSubmitted(target, id) {
+		return slices.Contains(page.Form[field], value)
+	}
+	return fallback
+}
+
+templ planningDraftInput(
+	page PlanningPage,
+	field, label, inputType, fallback string,
+	required bool,
+) {
+	<label for={ PlanningFieldID("draft", 0, field) }>{ label }</label>
+	<input
+		id={ PlanningFieldID("draft", 0, field) }
+		type={ inputType }
+		name={ field }
+		value={ page.draftValue("draft", 0, field, fallback) }
+		required?={ required }
+		{ page.Errors.Attributes(PlanningFieldID("draft", 0, field))... }
+	/>
+	@FieldError(page.Errors, PlanningFieldID("draft", 0, field))
+}
+
+templ planningDraftTextarea(page PlanningPage, field, label string) {
+	<label for={ PlanningFieldID("draft", 0, field) }>{ label }</label>
+	<textarea
+		id={ PlanningFieldID("draft", 0, field) }
+		name={ field }
+		{ page.Errors.Attributes(PlanningFieldID("draft", 0, field))... }
+	>{ page.draftValue("draft", 0, field, "") }</textarea>
+	@FieldError(page.Errors, PlanningFieldID("draft", 0, field))
+}
+
+templ planningDraftSelect(
+	page PlanningPage,
+	field, label string,
+	options []string,
+	fallback string,
+) {
+	<label for={ PlanningFieldID("draft", 0, field) }>{ label }</label>
+	<select
+		id={ PlanningFieldID("draft", 0, field) }
+		name={ field }
+		{ page.Errors.Attributes(PlanningFieldID("draft", 0, field))... }
+	>
+		for _, option := range options {
+			<option value={ option } selected?={ page.draftValue("draft", 0, field, fallback) == option }>
+				if option == "" {
+					Unambiguous
+				} else {
+					{ option }
+				}
+			</option>
+		}
+	</select>
+	@FieldError(page.Errors, PlanningFieldID("draft", 0, field))
+}
+
+templ planningEditInput(
+	page PlanningPage,
+	target string,
+	id int,
+	field, label, inputType, fallback string,
+	required bool,
+) {
+	<label for={ PlanningFieldID(target, id, field) }>{ label }</label>
+	<input
+		id={ PlanningFieldID(target, id, field) }
+		type={ inputType }
+		name={ field }
+		value={ page.draftValue(target, id, field, fallback) }
+		required?={ required }
+		{ page.Errors.Attributes(PlanningFieldID(target, id, field))... }
+	/>
+	@FieldError(page.Errors, PlanningFieldID(target, id, field))
+}
+
+templ planningEditTextarea(
+	page PlanningPage,
+	target string,
+	id int,
+	field, label, fallback string,
+) {
+	<label for={ PlanningFieldID(target, id, field) }>{ label }</label>
+	<textarea
+		id={ PlanningFieldID(target, id, field) }
+		name={ field }
+		{ page.Errors.Attributes(PlanningFieldID(target, id, field))... }
+	>{ page.draftValue(target, id, field, fallback) }</textarea>
+	@FieldError(page.Errors, PlanningFieldID(target, id, field))
+}
+
+templ planningEditSelect(
+	page PlanningPage,
+	target string,
+	id int,
+	field, label string,
+	options []string,
+	fallback string,
+) {
+	<label for={ PlanningFieldID(target, id, field) }>{ label }</label>
+	<select
+		id={ PlanningFieldID(target, id, field) }
+		name={ field }
+		{ page.Errors.Attributes(PlanningFieldID(target, id, field))... }
+	>
+		for _, option := range options {
+			<option value={ option } selected?={ page.draftValue(target, id, field, fallback) == option }>
+				if option == "" {
+					Unchanged or unambiguous
+				} else {
+					{ option }
+				}
+			</option>
+		}
+	</select>
+	@FieldError(page.Errors, PlanningFieldID(target, id, field))
+}
+
 templ Planning(page PlanningPage) {
 	<!doctype html>
 		<html lang={ page.Event.EventLocale } data-locale={ page.Event.EventLocale }>
@@ -116,9 +273,7 @@ templ Planning(page PlanningPage) {
 						Draft revision { strconv.Itoa(page.CurrentPreview.DraftRevision) }.
 						Published revision { strconv.Itoa(page.CurrentPreview.PublishedRevision) }.
 					</p>
-					if page.Error != "" {
-						<p class="error" role="alert">{ page.Error }</p>
-					}
+					@ErrorSummary(page.Errors)
 					<section>
 						<h2>Published Rundown</h2>
 						<ul>
@@ -176,88 +331,74 @@ templ Planning(page PlanningPage) {
 							<input type="hidden" name="expected_draft_revision" value={ strconv.Itoa(page.CurrentPreview.DraftRevision) }/>
 							<fieldset>
 								<legend>Location</legend>
-								<label>Name <input name="location_name"/></label>
+								<label for="draft-location-name">Name</label>
+								<input
+									id="draft-location-name"
+									name="location_name"
+									value={ page.draftValue("draft", 0, "location_name", "") }
+									{ page.Errors.Attributes("draft-location-name")... }
+								/>
+								@FieldError(page.Errors, "draft-location-name")
 							</fieldset>
 							<fieldset>
 								<legend>Lane</legend>
-								<label>Name <input name="lane_name"/></label>
-								<label>Current Draft Location ID <input type="number" min="1" name="lane_location_id"/></label>
+								<label for="draft-lane-name">Name</label>
+								<input
+									id="draft-lane-name"
+									name="lane_name"
+									value={ page.draftValue("draft", 0, "lane_name", "") }
+									{ page.Errors.Attributes("draft-lane-name")... }
+								/>
+								@FieldError(page.Errors, "draft-lane-name")
+								<label for="draft-lane-location-id">Current Draft Location ID</label>
+								<input
+									id="draft-lane-location-id"
+									type="number"
+									min="1"
+									name="lane_location_id"
+									value={ page.draftValue("draft", 0, "lane_location_id", "") }
+									{ page.Errors.Attributes("draft-lane-location-id")... }
+								/>
+								@FieldError(page.Errors, "draft-lane-location-id")
 							</fieldset>
 							<fieldset>
 								<legend>Track</legend>
-								<label>Name <input name="track_name"/></label>
+								<label for="draft-track-name">Name</label>
+								<input
+									id="draft-track-name"
+									name="track_name"
+									value={ page.draftValue("draft", 0, "track_name", "") }
+									{ page.Errors.Attributes("draft-track-name")... }
+								/>
+								@FieldError(page.Errors, "draft-track-name")
 							</fieldset>
 							<fieldset>
 								<legend>Session</legend>
-								<label>Title <input name="session_title"/></label>
-								<label>Speaker <input name="session_speaker"/></label>
-								<label>Type
-									<select name="session_type">
-										<option>Presentation</option>
-										<option>Competition</option>
-										<option>Break</option>
-										<option>Activity</option>
-										<option>Ceremony</option>
-										<option>Performance</option>
-										<option>Hold</option>
-									</select>
-								</label>
-								<label>Audience visibility
-									<select name="audience_visibility">
-										<option>Public</option>
-										<option>CrewOnly</option>
-									</select>
-								</label>
-								<label>Public details <textarea name="public_details"></textarea></label>
-								<label>Crew notes <textarea name="crew_notes"></textarea></label>
-								<label>Planned start <input type="datetime-local" name="planned_start"/></label>
-								<label>Planned start occurrence
-									<select name="planned_start_occurrence">
-										<option value="">Unambiguous</option><option>Earlier</option><option>Later</option>
-									</select>
-								</label>
-								<label>Planned end <input type="datetime-local" name="planned_end"/></label>
-								<label>Planned end occurrence
-									<select name="planned_end_occurrence">
-										<option value="">Unambiguous</option><option>Earlier</option><option>Later</option>
-									</select>
-								</label>
-								<label>Timing policy
-									<select name="timing_policy">
-										<option>FixedEnd</option>
-										<option>FixedDuration</option>
-										<option>ManualEnd</option>
-									</select>
-								</label>
-								<label>Minimum duration <input name="minimum_duration" value="15m"/></label>
-								<label>Start boundary
-									<select name="start_boundary"><option>Soft</option><option>Hard</option></select>
-								</label>
-								<label>End boundary
-									<select name="end_boundary"><option>Soft</option><option>Hard</option></select>
-								</label>
-								<label>Current Draft Lane ID <input type="number" min="1" name="session_lane_id"/></label>
-								<label>Current Draft Location ID <input type="number" min="1" name="session_location_id"/></label>
-								<label>Current Draft Track ID <input type="number" min="1" name="session_track_id"/></label>
-								<label>Presentation upload deadline <input type="datetime-local" name="upload_deadline"/></label>
-								<label>Upload deadline occurrence
-									<select name="upload_deadline_occurrence">
-										<option value="">Unambiguous</option><option>Earlier</option><option>Later</option>
-									</select>
-								</label>
-								<label>Competition submission deadline <input type="datetime-local" name="submission_deadline"/></label>
-								<label>Submission deadline occurrence
-									<select name="submission_deadline_occurrence">
-										<option value="">Unambiguous</option><option>Earlier</option><option>Later</option>
-									</select>
-								</label>
-								<label>New Entry disposition
-									<select name="session_entry_default_disposition">
-										<option>Pending</option>
-										<option>Included</option>
-										<option>Rejected</option>
-									</select>
-								</label>
+								@planningDraftInput(page, "session_title", "Title", "text", "", false)
+								@planningDraftInput(page, "session_speaker", "Speaker", "text", "", false)
+								@planningDraftSelect(page, "session_type", "Type", []string{
+									"Presentation", "Competition", "Break", "Activity",
+									"Ceremony", "Performance", "Hold",
+								}, "Presentation")
+								@planningDraftSelect(page, "audience_visibility", "Audience visibility", []string{"Public", "CrewOnly"}, "Public")
+								@planningDraftTextarea(page, "public_details", "Public details")
+								@planningDraftTextarea(page, "crew_notes", "Crew notes")
+								@planningDraftInput(page, "planned_start", "Planned start", "datetime-local", "", false)
+								@planningDraftSelect(page, "planned_start_occurrence", "Planned start occurrence", []string{"", "Earlier", "Later"}, "")
+								@planningDraftInput(page, "planned_end", "Planned end", "datetime-local", "", false)
+								@planningDraftSelect(page, "planned_end_occurrence", "Planned end occurrence", []string{"", "Earlier", "Later"}, "")
+								@planningDraftSelect(page, "timing_policy", "Timing policy", []string{"FixedEnd", "FixedDuration", "ManualEnd"}, "FixedEnd")
+								@planningDraftInput(page, "minimum_duration", "Minimum duration", "text", "15m", false)
+								@planningDraftSelect(page, "start_boundary", "Start boundary", []string{"Soft", "Hard"}, "Soft")
+								@planningDraftSelect(page, "end_boundary", "End boundary", []string{"Soft", "Hard"}, "Soft")
+								@planningDraftInput(page, "session_lane_id", "Current Draft Lane ID", "number", "", false)
+								@planningDraftInput(page, "session_location_id", "Current Draft Location ID", "number", "", false)
+								@planningDraftInput(page, "session_track_id", "Current Draft Track ID", "number", "", false)
+								@planningDraftInput(page, "upload_deadline", "Presentation upload deadline", "datetime-local", "", false)
+								@planningDraftSelect(page, "upload_deadline_occurrence", "Upload deadline occurrence", []string{"", "Earlier", "Later"}, "")
+								@planningDraftInput(page, "submission_deadline", "Competition submission deadline", "datetime-local", "", false)
+								@planningDraftSelect(page, "submission_deadline_occurrence", "Submission deadline occurrence", []string{"", "Earlier", "Later"}, "")
+								@planningDraftSelect(page, "session_entry_default_disposition", "New Entry disposition", []string{"Pending", "Included", "Rejected"}, "Pending")
 							</fieldset>
 							<button type="submit">Apply Draft edit</button>
 						</form>
@@ -272,9 +413,17 @@ templ Planning(page PlanningPage) {
 								<input type="hidden" name="expected_draft_revision" value={ strconv.Itoa(page.Draft.DraftRevision) }/>
 								<input type="hidden" name="location_id" value={ strconv.Itoa(location.ID) }/>
 								<input type="hidden" name="base_location_name" value={ location.Name }/>
-								<label>Location #{ strconv.Itoa(location.ID) } name
-									<input name="location_name" value={ location.Name } required/>
+								<label for={ PlanningFieldID("location", location.ID, "location_name") }>
+									Location #{ strconv.Itoa(location.ID) } name
 								</label>
+								<input
+									id={ PlanningFieldID("location", location.ID, "location_name") }
+									name="location_name"
+									value={ page.draftValue("location", location.ID, "location_name", location.Name) }
+									required
+									{ page.Errors.Attributes(PlanningFieldID("location", location.ID, "location_name"))... }
+								/>
+								@FieldError(page.Errors, PlanningFieldID("location", location.ID, "location_name"))
 								<button type="submit">Update Location</button>
 							</form>
 						}
@@ -287,12 +436,28 @@ templ Planning(page PlanningPage) {
 								<input type="hidden" name="lane_id" value={ strconv.Itoa(lane.ID) }/>
 								<input type="hidden" name="base_lane_name" value={ lane.Name }/>
 								<input type="hidden" name="base_lane_location_id" value={ strconv.Itoa(lane.LocationID) }/>
-								<label>Lane #{ strconv.Itoa(lane.ID) } name
-									<input name="lane_name" value={ lane.Name } required/>
+								<label for={ PlanningFieldID("lane", lane.ID, "lane_name") }>
+									Lane #{ strconv.Itoa(lane.ID) } name
 								</label>
-								<label>Location ID
-									<input type="number" min="1" name="lane_location_id" value={ strconv.Itoa(lane.LocationID) } required/>
-								</label>
+								<input
+									id={ PlanningFieldID("lane", lane.ID, "lane_name") }
+									name="lane_name"
+									value={ page.draftValue("lane", lane.ID, "lane_name", lane.Name) }
+									required
+									{ page.Errors.Attributes(PlanningFieldID("lane", lane.ID, "lane_name"))... }
+								/>
+								@FieldError(page.Errors, PlanningFieldID("lane", lane.ID, "lane_name"))
+								<label for={ PlanningFieldID("lane", lane.ID, "lane_location_id") }>Location ID</label>
+								<input
+									id={ PlanningFieldID("lane", lane.ID, "lane_location_id") }
+									type="number"
+									min="1"
+									name="lane_location_id"
+									value={ page.draftValue("lane", lane.ID, "lane_location_id", strconv.Itoa(lane.LocationID)) }
+									required
+									{ page.Errors.Attributes(PlanningFieldID("lane", lane.ID, "lane_location_id"))... }
+								/>
+								@FieldError(page.Errors, PlanningFieldID("lane", lane.ID, "lane_location_id"))
 								<button type="submit">Update Lane</button>
 							</form>
 						}
@@ -304,9 +469,17 @@ templ Planning(page PlanningPage) {
 								<input type="hidden" name="expected_draft_revision" value={ strconv.Itoa(page.Draft.DraftRevision) }/>
 								<input type="hidden" name="track_id" value={ strconv.Itoa(track.ID) }/>
 								<input type="hidden" name="base_track_name" value={ track.Name }/>
-								<label>Track #{ strconv.Itoa(track.ID) } name
-									<input name="track_name" value={ track.Name } required/>
+								<label for={ PlanningFieldID("track", track.ID, "track_name") }>
+									Track #{ strconv.Itoa(track.ID) } name
 								</label>
+								<input
+									id={ PlanningFieldID("track", track.ID, "track_name") }
+									name="track_name"
+									value={ page.draftValue("track", track.ID, "track_name", track.Name) }
+									required
+									{ page.Errors.Attributes(PlanningFieldID("track", track.ID, "track_name"))... }
+								/>
+								@FieldError(page.Errors, PlanningFieldID("track", track.ID, "track_name"))
 								<button type="submit">Update Track</button>
 							</form>
 						}
@@ -318,123 +491,86 @@ templ Planning(page PlanningPage) {
 								<input type="hidden" name="expected_draft_revision" value={ strconv.Itoa(page.Draft.DraftRevision) }/>
 								<input type="hidden" name="session_id" value={ strconv.Itoa(session.ID) }/>
 								<input type="hidden" name="base_session" value={ page.SessionBases[session.ID] }/>
-								<label>Session #{ strconv.Itoa(session.ID) } title
-									<input name="session_title" value={ session.Title } required/>
-								</label>
-								<label>Speaker <input name="session_speaker" value={ session.Speaker }/></label>
-								<label>Type
-									<select name="session_type">
-										for _, value := range []rundown.SessionType{
-											rundown.SessionPresentation, rundown.SessionCompetition, rundown.SessionBreak,
-											rundown.SessionActivity, rundown.SessionCeremony, rundown.SessionPerformance,
-											rundown.SessionHold,
-										} {
-											<option selected?={ session.Type == value }>{ string(value) }</option>
-										}
-									</select>
-								</label>
-								<label>Audience visibility
-									<select name="audience_visibility">
-										<option selected?={ session.AudienceVisibility == rundown.AudiencePublic }>Public</option>
-										<option selected?={ session.AudienceVisibility == rundown.AudienceCrewOnly }>CrewOnly</option>
-									</select>
-								</label>
-								<label>Public details <textarea name="public_details">{ session.PublicDetails }</textarea></label>
-								<label>Crew notes <textarea name="crew_notes">{ session.CrewNotes }</textarea></label>
-								<label>Planned start
-									<input type="datetime-local" name="planned_start" value={ planningDateTime(session.PlannedStart, page.Event.Timezone) } required/>
-									<span>{ planningZone(session.PlannedStart, page.Event.Timezone) }</span>
-								</label>
-								<label>Planned start occurrence
-									<select name="planned_start_occurrence">
-										<option value="">Unchanged or unambiguous</option><option>Earlier</option><option>Later</option>
-									</select>
-								</label>
-								<label>Planned end
-									<input type="datetime-local" name="planned_end" value={ planningDateTime(session.PlannedEnd, page.Event.Timezone) } required/>
-									<span>{ planningZone(session.PlannedEnd, page.Event.Timezone) }</span>
-								</label>
-								<label>Planned end occurrence
-									<select name="planned_end_occurrence">
-										<option value="">Unchanged or unambiguous</option><option>Earlier</option><option>Later</option>
-									</select>
-								</label>
-								<label>Timing policy
-									<select name="timing_policy">
-										for _, value := range []rundown.TimingPolicy{
-											rundown.TimingFixedEnd, rundown.TimingFixedDuration, rundown.TimingManualEnd,
-										} {
-											<option selected?={ session.TimingPolicy == value }>{ string(value) }</option>
-										}
-									</select>
-								</label>
-								<label>Minimum duration
-									<input name="minimum_duration" value={ session.MinimumDuration.String() } required/>
-								</label>
-								<label>Start boundary
-									<select name="start_boundary">
-										<option selected?={ session.StartBoundary == rundown.BoundarySoft }>Soft</option>
-										<option selected?={ session.StartBoundary == rundown.BoundaryHard }>Hard</option>
-									</select>
-								</label>
-								<label>End boundary
-									<select name="end_boundary">
-										<option selected?={ session.EndBoundary == rundown.BoundarySoft }>Soft</option>
-										<option selected?={ session.EndBoundary == rundown.BoundaryHard }>Hard</option>
-									</select>
-								</label>
-								<label>Presentation upload deadline
-									<input type="datetime-local" name="upload_deadline" value={ planningDateTime(session.UploadDeadline, page.Event.Timezone) }/>
-									<span>{ planningZone(session.UploadDeadline, page.Event.Timezone) }</span>
-								</label>
-								<label>Upload deadline occurrence
-									<select name="upload_deadline_occurrence">
-										<option value="">Unchanged or unambiguous</option><option>Earlier</option><option>Later</option>
-									</select>
-								</label>
-								<label>Competition submission deadline
-									<input type="datetime-local" name="submission_deadline" value={ planningDateTime(session.SubmissionDeadline, page.Event.Timezone) }/>
-									<span>{ planningZone(session.SubmissionDeadline, page.Event.Timezone) }</span>
-								</label>
-								<label>Submission deadline occurrence
-									<select name="submission_deadline_occurrence">
-										<option value="">Unchanged or unambiguous</option><option>Earlier</option><option>Later</option>
-									</select>
-								</label>
-								<label>New Entry disposition
-									<select name="session_entry_default_disposition">
-										<option value="" selected?={ session.EntryDefault == "" }>Not applicable</option>
-										<option selected?={ session.EntryDefault == rundown.EntryPending }>Pending</option>
-										<option selected?={ session.EntryDefault == rundown.EntryIncluded }>Included</option>
-									</select>
-								</label>
-								<fieldset>
+								@planningEditInput(page, "session", session.ID, "session_title", "Session #" + strconv.Itoa(session.ID) + " title", "text", session.Title, true)
+								@planningEditInput(page, "session", session.ID, "session_speaker", "Speaker", "text", session.Speaker, false)
+								@planningEditSelect(page, "session", session.ID, "session_type", "Type", []string{
+									"Presentation", "Competition", "Break", "Activity",
+									"Ceremony", "Performance", "Hold",
+								}, string(session.Type))
+								@planningEditSelect(page, "session", session.ID, "audience_visibility", "Audience visibility", []string{"Public", "CrewOnly"}, string(session.AudienceVisibility))
+								@planningEditTextarea(page, "session", session.ID, "public_details", "Public details", session.PublicDetails)
+								@planningEditTextarea(page, "session", session.ID, "crew_notes", "Crew notes", session.CrewNotes)
+								@planningEditInput(page, "session", session.ID, "planned_start", "Planned start", "datetime-local", planningDateTime(session.PlannedStart, page.Event.Timezone), true)
+								<span>{ planningZone(session.PlannedStart, page.Event.Timezone) }</span>
+								@planningEditSelect(page, "session", session.ID, "planned_start_occurrence", "Planned start occurrence", []string{"", "Earlier", "Later"}, "")
+								@planningEditInput(page, "session", session.ID, "planned_end", "Planned end", "datetime-local", planningDateTime(session.PlannedEnd, page.Event.Timezone), true)
+								<span>{ planningZone(session.PlannedEnd, page.Event.Timezone) }</span>
+								@planningEditSelect(page, "session", session.ID, "planned_end_occurrence", "Planned end occurrence", []string{"", "Earlier", "Later"}, "")
+								@planningEditSelect(page, "session", session.ID, "timing_policy", "Timing policy", []string{"FixedEnd", "FixedDuration", "ManualEnd"}, string(session.TimingPolicy))
+								@planningEditInput(page, "session", session.ID, "minimum_duration", "Minimum duration", "text", session.MinimumDuration.String(), true)
+								@planningEditSelect(page, "session", session.ID, "start_boundary", "Start boundary", []string{"Soft", "Hard"}, string(session.StartBoundary))
+								@planningEditSelect(page, "session", session.ID, "end_boundary", "End boundary", []string{"Soft", "Hard"}, string(session.EndBoundary))
+								@planningEditInput(page, "session", session.ID, "upload_deadline", "Presentation upload deadline", "datetime-local", planningDateTime(session.UploadDeadline, page.Event.Timezone), false)
+								<span>{ planningZone(session.UploadDeadline, page.Event.Timezone) }</span>
+								@planningEditSelect(page, "session", session.ID, "upload_deadline_occurrence", "Upload deadline occurrence", []string{"", "Earlier", "Later"}, "")
+								@planningEditInput(page, "session", session.ID, "submission_deadline", "Competition submission deadline", "datetime-local", planningDateTime(session.SubmissionDeadline, page.Event.Timezone), false)
+								<span>{ planningZone(session.SubmissionDeadline, page.Event.Timezone) }</span>
+								@planningEditSelect(page, "session", session.ID, "submission_deadline_occurrence", "Submission deadline occurrence", []string{"", "Earlier", "Later"}, "")
+								@planningEditSelect(page, "session", session.ID, "session_entry_default_disposition", "New Entry disposition", []string{"", "Pending", "Included"}, string(session.EntryDefault))
+								<fieldset
+									id={ PlanningFieldID("session", session.ID, "session_lane_ids") }
+									{ page.Errors.Attributes(PlanningFieldID("session", session.ID, "session_lane_ids"))... }
+								>
 									<legend>Lanes</legend>
 									for _, lane := range page.Draft.Lanes {
 										<label>
-											<input type="checkbox" name="session_lane_ids" value={ strconv.Itoa(lane.ID) } checked?={ slices.Contains(session.LaneIDs, lane.ID) }/>
+											<input
+												type="checkbox"
+												name="session_lane_ids"
+												value={ strconv.Itoa(lane.ID) }
+												checked?={ page.draftChecked("session", session.ID, "session_lane_ids", strconv.Itoa(lane.ID), slices.Contains(session.LaneIDs, lane.ID)) }
+											/>
 											#{ strconv.Itoa(lane.ID) } { lane.Name }
 										</label>
 									}
 								</fieldset>
-								<fieldset>
+								@FieldError(page.Errors, PlanningFieldID("session", session.ID, "session_lane_ids"))
+								<fieldset
+									id={ PlanningFieldID("session", session.ID, "session_location_ids") }
+									{ page.Errors.Attributes(PlanningFieldID("session", session.ID, "session_location_ids"))... }
+								>
 									<legend>Locations</legend>
 									for _, location := range page.Draft.Locations {
 										<label>
-											<input type="checkbox" name="session_location_ids" value={ strconv.Itoa(location.ID) } checked?={ slices.Contains(session.LocationIDs, location.ID) }/>
+											<input
+												type="checkbox"
+												name="session_location_ids"
+												value={ strconv.Itoa(location.ID) }
+												checked?={ page.draftChecked("session", session.ID, "session_location_ids", strconv.Itoa(location.ID), slices.Contains(session.LocationIDs, location.ID)) }
+											/>
 											#{ strconv.Itoa(location.ID) } { location.Name }
 										</label>
 									}
 								</fieldset>
-								<fieldset>
+								@FieldError(page.Errors, PlanningFieldID("session", session.ID, "session_location_ids"))
+								<fieldset
+									id={ PlanningFieldID("session", session.ID, "session_track_ids") }
+									{ page.Errors.Attributes(PlanningFieldID("session", session.ID, "session_track_ids"))... }
+								>
 									<legend>Tracks</legend>
 									for _, track := range page.Draft.Tracks {
 										<label>
-											<input type="checkbox" name="session_track_ids" value={ strconv.Itoa(track.ID) } checked?={ slices.Contains(session.TrackIDs, track.ID) }/>
+											<input
+												type="checkbox"
+												name="session_track_ids"
+												value={ strconv.Itoa(track.ID) }
+												checked?={ page.draftChecked("session", session.ID, "session_track_ids", strconv.Itoa(track.ID), slices.Contains(session.TrackIDs, track.ID)) }
+											/>
 											#{ strconv.Itoa(track.ID) } { track.Name }
 										</label>
 									}
 								</fieldset>
+								@FieldError(page.Errors, PlanningFieldID("session", session.ID, "session_track_ids"))
 								<button type="submit">Update Session</button>
 							</form>
 						}
@@ -460,14 +596,21 @@ templ Planning(page PlanningPage) {
 								<form method="post">
 									<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
 									<input type="hidden" name="action" value="publish-preview"/>
-									for _, change := range page.CurrentPreview.Changes {
-										if change.Status == "Effective" {
-											<label>
-												<input type="checkbox" name="change_id" value={ strconv.Itoa(change.ID) } checked/>
-												Change #{ strconv.Itoa(change.ID) }
-											</label>
+									<fieldset
+										id="publish-changes"
+										{ page.Errors.Attributes("publish-changes")... }
+									>
+										<legend>Draft changes</legend>
+										for _, change := range page.CurrentPreview.Changes {
+											if change.Status == "Effective" {
+												<label>
+													<input type="checkbox" name="change_id" value={ strconv.Itoa(change.ID) } checked/>
+													Change #{ strconv.Itoa(change.ID) }
+												</label>
+											}
 										}
-									}
+									</fieldset>
+									@FieldError(page.Errors, "publish-changes")
 									<button type="submit">Preview publish</button>
 								</form>
 							}
@@ -514,7 +657,13 @@ templ Planning(page PlanningPage) {
 									for _, changeID := range page.PublishPreview.ChangeIDs {
 										<input type="hidden" name="change_id" value={ strconv.Itoa(changeID) }/>
 									}
-									<label>Publish note <textarea name="publish_note"></textarea></label>
+									<label for="publish-note">Publish note</label>
+									<textarea
+										id="publish-note"
+										name="publish_note"
+										{ page.Errors.Attributes("publish-note")... }
+									>{ page.Form.Get("publish_note") }</textarea>
+									@FieldError(page.Errors, "publish-note")
 									<button type="submit">Publish reviewed selection</button>
 								</form>
 							}
@@ -525,10 +674,20 @@ templ Planning(page PlanningPage) {
 						<form class="stack" method="post">
 							<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
 							<input type="hidden" name="action" value="csv-preview"/>
-							<label>Field mappings, one <code>source=target</code> per line
-								<textarea name="csv_mappings">{ page.CSVMappings }</textarea>
-							</label>
-							<label>CSV data <textarea name="csv_data">{ page.CSVData }</textarea></label>
+							<label for="csv-mappings">Field mappings, one <code>source=target</code> per line</label>
+							<textarea
+								id="csv-mappings"
+								name="csv_mappings"
+								{ page.Errors.Attributes("csv-mappings")... }
+							>{ page.CSVMappings }</textarea>
+							@FieldError(page.Errors, "csv-mappings")
+							<label for="csv-data">CSV data</label>
+							<textarea
+								id="csv-data"
+								name="csv_data"
+								{ page.Errors.Attributes("csv-data")... }
+							>{ page.CSVData }</textarea>
+							@FieldError(page.Errors, "csv-data")
 							<button type="submit">Preview CSV import</button>
 						</form>
 						if page.CSVPreview != nil {
@@ -541,14 +700,23 @@ templ Planning(page PlanningPage) {
 								<input type="hidden" name="fingerprint" value={ page.CSVPreview.Fingerprint }/>
 								<textarea hidden name="csv_mappings">{ page.CSVMappings }</textarea>
 								<textarea hidden name="csv_data">{ page.CSVData }</textarea>
-								for _, proposal := range page.CSVPreview.Proposals {
-									if proposal.Classification == rundown.CSVProposalAddition || proposal.Classification == rundown.CSVProposalUpdate {
-										<label>
-											<input type="checkbox" name="proposal_id" value={ proposal.ID } checked/>
-											Apply { proposal.ProposedValue }
-										</label>
+								<fieldset id="csv-proposal-ids" { page.Errors.Attributes("csv-proposal-ids")... }>
+									<legend>Proposals to apply</legend>
+									for _, proposal := range page.CSVPreview.Proposals {
+										if proposal.Classification == rundown.CSVProposalAddition || proposal.Classification == rundown.CSVProposalUpdate {
+											<label>
+												<input
+													type="checkbox"
+													name="proposal_id"
+													value={ proposal.ID }
+													checked?={ page.SubmittedAction != "csv-import" || slices.Contains(page.Form["proposal_id"], proposal.ID) }
+												/>
+												Apply { proposal.ProposedValue }
+											</label>
+										}
 									}
-								}
+								</fieldset>
+								@FieldError(page.Errors, "csv-proposal-ids")
 								<button type="submit">Confirm CSV import</button>
 							</form>
 						}
@@ -558,10 +726,20 @@ templ Planning(page PlanningPage) {
 						<form class="stack" method="post">
 							<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
 							<input type="hidden" name="action" value="icalendar-preview"/>
-							<label>Occurrence choices, one <code>UID,PROPERTY,Earlier|Later</code> per line
-								<textarea name="icalendar_choices">{ page.ICalendarChoices }</textarea>
-							</label>
-							<label>iCalendar data <textarea name="icalendar_data">{ page.ICalendarData }</textarea></label>
+							<label for="icalendar-choices">Occurrence choices, one <code>UID,PROPERTY,Earlier|Later</code> per line</label>
+							<textarea
+								id="icalendar-choices"
+								name="icalendar_choices"
+								{ page.Errors.Attributes("icalendar-choices")... }
+							>{ page.ICalendarChoices }</textarea>
+							@FieldError(page.Errors, "icalendar-choices")
+							<label for="icalendar-data">iCalendar data</label>
+							<textarea
+								id="icalendar-data"
+								name="icalendar_data"
+								{ page.Errors.Attributes("icalendar-data")... }
+							>{ page.ICalendarData }</textarea>
+							@FieldError(page.Errors, "icalendar-data")
 							<button type="submit">Preview iCalendar import</button>
 						</form>
 						if page.ICalendarPreview != nil {
@@ -577,14 +755,23 @@ templ Planning(page PlanningPage) {
 								<input type="hidden" name="fingerprint" value={ page.ICalendarPreview.Fingerprint }/>
 								<textarea hidden name="icalendar_choices">{ page.ICalendarChoices }</textarea>
 								<textarea hidden name="icalendar_data">{ page.ICalendarData }</textarea>
-								for _, proposal := range page.ICalendarPreview.Proposals {
-									if proposal.Classification == rundown.CSVProposalAddition || proposal.Classification == rundown.CSVProposalUpdate {
-										<label>
-											<input type="checkbox" name="proposal_id" value={ proposal.ID } checked/>
-											Apply { proposal.ProposedValue }
-										</label>
+								<fieldset id="icalendar-proposal-ids" { page.Errors.Attributes("icalendar-proposal-ids")... }>
+									<legend>Proposals to apply</legend>
+									for _, proposal := range page.ICalendarPreview.Proposals {
+										if proposal.Classification == rundown.CSVProposalAddition || proposal.Classification == rundown.CSVProposalUpdate {
+											<label>
+												<input
+													type="checkbox"
+													name="proposal_id"
+													value={ proposal.ID }
+													checked?={ page.SubmittedAction != "icalendar-import" || slices.Contains(page.Form["proposal_id"], proposal.ID) }
+												/>
+												Apply { proposal.ProposedValue }
+											</label>
+										}
 									}
-								}
+								</fieldset>
+								@FieldError(page.Errors, "icalendar-proposal-ids")
 								<button type="submit">Confirm iCalendar import</button>
 							</form>
 						}

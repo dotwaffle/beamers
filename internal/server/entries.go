@@ -5,9 +5,11 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/dotwaffle/beamers/internal/attachments"
 	"github.com/dotwaffle/beamers/internal/auth"
@@ -133,7 +135,7 @@ func (handlers entryHandlers) entries(response http.ResponseWriter, request *htt
 	}
 	switch request.Method {
 	case http.MethodGet, http.MethodHead:
-		handlers.render(response, request, actor, eventID, sessionID, csrfToken, http.StatusOK, "")
+		handlers.render(response, request, actor, eventID, sessionID, csrfToken, http.StatusOK, nil)
 	case http.MethodPost:
 		if !handlers.browser.validForm(response, request) {
 			return
@@ -170,8 +172,8 @@ func (handlers entryHandlers) submit(
 		)
 		return
 	}
-	status, message := entryError(err)
-	handlers.render(response, request, actor, eventID, sessionID, csrfToken, status, message)
+	status, formErrors := entryFormErrors(err, request.Form)
+	handlers.render(response, request, actor, eventID, sessionID, csrfToken, status, formErrors)
 }
 
 func publicScheduleEntryAction(action string) bool {
@@ -435,6 +437,9 @@ func (handlers entryHandlers) submitEntryAttachment(
 		if err != nil {
 			return err
 		}
+		if strings.TrimSpace(request.Form.Get("reason")) == "" {
+			return formValidationError("reason", "is required")
+		}
 		event, err := handlers.events.CrewEvent(request.Context(), actor, eventID)
 		if err != nil {
 			return err
@@ -449,7 +454,7 @@ func (handlers entryHandlers) submitEntryAttachment(
 			location,
 		)
 		if err != nil {
-			return competition.ErrInvalidInput
+			return formValidationError("expires_at", "must be a valid local date and time")
 		}
 		_, err = handlers.attachments.CreateReopenWindow(
 			request.Context(),
@@ -520,7 +525,7 @@ func (handlers entryHandlers) updateReopenWindow(
 	switch request.Form.Get("action") {
 	case "close-reopen-window":
 		if request.Form.Get("confirm_close") != "true" {
-			return attachments.ErrInvalidInput
+			return formValidationError("confirm_close", "must be checked")
 		}
 		input.Close = true
 	case "extend-reopen-window":
@@ -538,7 +543,7 @@ func (handlers entryHandlers) updateReopenWindow(
 			location,
 		)
 		if err != nil {
-			return attachments.ErrInvalidInput
+			return formValidationError("expires_at", "must be a valid local date and time")
 		}
 		input.ExpiresAt = input.ExpiresAt.UTC()
 	default:
@@ -710,8 +715,11 @@ func (handlers entryHandlers) upload(response http.ResponseWriter, request *http
 		http.NotFound(response, request)
 		return
 	}
-	name, filename, mediaType, body, ok := multipartUpload(response, request)
-	if !ok {
+	name, filename, mediaType, body, uploadErr := readMultipartUpload(request)
+	if uploadErr != nil {
+		handlers.renderEntryUploadFailure(
+			response, request, actor, eventID, sessionID, entryID, uploadErr,
+		)
 		return
 	}
 	defer func() {
@@ -730,8 +738,9 @@ func (handlers entryHandlers) upload(response http.ResponseWriter, request *http
 		},
 	)
 	if err != nil {
-		status, message := attachmentEntryError(err)
-		http.Error(response, message, status)
+		handlers.renderEntryUploadFailure(
+			response, request, actor, eventID, sessionID, entryID, err,
+		)
 		return
 	}
 	http.Redirect( //nolint:gosec // Target has fixed segments and validated integer IDs.
@@ -739,6 +748,56 @@ func (handlers entryHandlers) upload(response http.ResponseWriter, request *http
 		request,
 		competitionEntriesPath(eventID, sessionID),
 		http.StatusSeeOther,
+	)
+}
+
+func (handlers entryHandlers) renderEntryUploadFailure(
+	response http.ResponseWriter,
+	request *http.Request,
+	actor auth.Account,
+	eventID, sessionID, entryID int,
+	err error,
+) {
+	csrfToken, csrfErr := handlers.browser.csrfToken(response, request)
+	if csrfErr != nil {
+		handlers.browser.frontendError(response, request, "create CSRF proof", csrfErr)
+		return
+	}
+	request.Form.Set("action", "upload-entry")
+	status, message := attachmentEntryError(err)
+	var typedErrors frontend.FormErrors
+	if errors.Is(err, attachments.ErrInvalidName) {
+		typedErrors = append(typedErrors, frontend.FormError{
+			FieldID: frontend.WorkflowFieldID("upload-entry", entryID, 0, 0, "name"),
+			Label:   "Attachment name", Message: "Enter an Attachment name.",
+		})
+	}
+	if errors.Is(err, attachments.ErrInvalidFilename) {
+		typedErrors = append(typedErrors, frontend.FormError{
+			FieldID: frontend.WorkflowFieldID("upload-entry", entryID, 0, 0, "file"),
+			Label:   "File", Message: "Choose a file with a valid name.",
+		})
+	}
+	if len(typedErrors) > 0 {
+		handlers.render(
+			response, request, actor, eventID, sessionID, csrfToken, status, typedErrors,
+		)
+		return
+	}
+	field, label := "", ""
+	switch {
+	case errors.Is(err, errInvalidUpload):
+		status, message = http.StatusBadRequest, "Invalid upload."
+	case errors.Is(err, errUploadFileRequired):
+		status, field, label, message = http.StatusUnprocessableEntity, "file", "File", "Choose a file."
+	}
+	formErrors := frontend.FormErrors{{Message: message}}
+	if field != "" {
+		formErrors[0].FieldID = frontend.WorkflowFieldID("upload-entry", entryID, 0, 0, field)
+		formErrors[0].Label = label
+	}
+	handlers.render(
+		response, request, actor, eventID, sessionID, csrfToken, status, formErrors,
 	)
 }
 
@@ -827,7 +886,7 @@ func (handlers entryHandlers) render(
 	eventID, sessionID int,
 	csrfToken string,
 	status int,
-	message string,
+	formErrors frontend.FormErrors,
 ) {
 	state, err := handlers.competition.Get(request.Context(), actor, eventID, sessionID)
 	if err != nil {
@@ -893,14 +952,140 @@ func (handlers entryHandlers) render(
 			ReducedEffects: reducedEffectsCookie(request),
 			Navigation:     backstageNavigation(actor, request.URL.Path),
 			CommandID:      commandID, Event: event, State: state, Preflight: preflight,
-			Attachments: attachmentState, Program: programState, Error: message,
+			Attachments: attachmentState, Program: programState,
 			SubmissionAccounts: submissionAccounts,
+			SubmittedAction:    request.Form.Get("action"), Form: request.Form, Errors: formErrors,
 		},
 	))
 }
 
-func entryError(err error) (int, string) {
+func entryFormErrors(err error, values url.Values) (int, frontend.FormErrors) {
+	status, message := entryError(err)
+	if err == nil {
+		return status, nil
+	}
+	action := values.Get("action")
+	entryID, _ := strconv.Atoi(values.Get("entry_id"))
+	versionID, _ := strconv.Atoi(values.Get("version_id"))
+	windowID, _ := strconv.Atoi(values.Get("window_id"))
+	if action == "create-reopen-window" {
+		if validationErrors := createReopenWindowFormErrors(values, entryID); len(validationErrors) > 0 {
+			return status, validationErrors
+		}
+	}
+	if action == "create-entry" || action == "update-entry" {
+		var result frontend.FormErrors
+		if errors.Is(err, competition.ErrInvalidEntryName) {
+			result = append(result, frontend.FormError{
+				FieldID: frontend.WorkflowFieldID(action, entryID, 0, 0, "entry_name"),
+				Label:   "Entry name", Message: "Enter an Entry name.",
+			})
+		}
+		if errors.Is(err, competition.ErrInvalidEntryPublicDetails) {
+			result = append(result, frontend.FormError{
+				FieldID: frontend.WorkflowFieldID(action, entryID, 0, 0, "public_details"),
+				Label:   "Public details", Message: "Enter no more than 10000 characters.",
+			})
+		}
+		if utf8.RuneCountInString(values.Get("crew_notes")) > 10000 {
+			result = append(result, frontend.FormError{
+				FieldID: frontend.WorkflowFieldID(action, entryID, 0, 0, "crew_notes"),
+				Label:   "Crew notes", Message: "Enter no more than 10000 characters.",
+			})
+		}
+		if len(result) > 0 {
+			return status, result
+		}
+	}
+	if action == "resolve-entry" && errors.Is(err, competition.ErrCrewReasonRequired) {
+		var result frontend.FormErrors
+		crewReason := strings.TrimSpace(values.Get("crew_reason"))
+		if crewReason == "" || utf8.RuneCountInString(crewReason) > 10000 {
+			result = append(result, frontend.FormError{
+				FieldID: frontend.WorkflowFieldID(action, entryID, 0, 0, "crew_reason"),
+				Label:   "Crew Reason", Message: "Enter a Crew Reason of no more than 10000 characters.",
+			})
+		}
+		if utf8.RuneCountInString(strings.TrimSpace(values.Get("public_disqualification_message"))) > 10000 {
+			result = append(result, frontend.FormError{
+				FieldID: frontend.WorkflowFieldID(action, entryID, 0, 0, "public_disqualification_message"),
+				Label:   "Public disqualification message", Message: "Enter no more than 10000 characters.",
+			})
+		}
+		if len(result) > 0 {
+			return status, result
+		}
+	}
+	field, label, fieldMessage := "", "", message
+	var validation *rundown.ValidationError
 	switch {
+	case errors.As(err, &validation):
+		field, fieldMessage = validation.Field, validation.Message
+	case errors.Is(err, competition.ErrInvalidEntryName):
+		field, label, fieldMessage = "entry_name", "Entry name", "Enter an Entry name."
+	case errors.Is(err, competition.ErrInvalidEntryPublicDetails):
+		field, label, fieldMessage = "public_details", "Public details", "Enter no more than 10000 characters."
+	case errors.Is(err, competition.ErrCrewReasonRequired):
+		field, label = "crew_reason", "Crew Reason"
+	case errors.Is(err, competition.ErrEntryOrderInvalid):
+		field, label = "manual_entry_ids", "Manual Entry IDs"
+	case errors.Is(err, competition.ErrLiveDispositionConfirmation):
+		field, label = "confirmed_live_override", "Live disposition confirmation"
+	case errors.Is(err, competition.ErrInvalidInput) &&
+		(action == "create-entry" || action == "update-entry"):
+		field, label, fieldMessage = "crew_notes", "Crew notes", "Enter no more than 10000 characters."
+	case errors.Is(err, competition.ErrInvalidInput) && action == "assign-submitter":
+		field, label = "account_id", "Submitter Account"
+	case errors.Is(err, competition.ErrInvalidInput) && action == "change-disposition":
+		field, label = "disposition", "Disposition"
+	case errors.Is(err, competition.ErrInvalidInput) && action == "configure-submission-eligibility":
+		field, label = "submission_eligibility", "Eligibility"
+	case errors.Is(err, attachments.ErrReleasePolicy):
+		field, label = "release_policy", "Release Policy"
+	case errors.Is(err, attachments.ErrReopenWindowExtension),
+		errors.Is(err, attachments.ErrReopenWindowExpiry):
+		field, label = "expires_at", "Expiry"
+	case errors.Is(err, attachments.ErrInvalidInput) && action == "create-reopen-window":
+		field, label = "expires_at", "Expiry"
+	case errors.Is(err, attachments.ErrInvalidInput) && action == "close-reopen-window":
+		field, label = "confirm_close", "Early closure confirmation"
+	case errors.Is(err, attachments.ErrInvalidInput) && action == "attachment-readiness":
+		field, label = "primary", "Primary Attachment"
+	}
+	if field == "" {
+		return status, frontend.FormErrors{{Message: message}}
+	}
+	if label == "" {
+		label = strings.ReplaceAll(field, "_", " ")
+	}
+	return status, frontend.FormErrors{{
+		FieldID: frontend.WorkflowFieldID(action, entryID, versionID, windowID, field),
+		Label:   label, Message: fieldMessage,
+	}}
+}
+
+func createReopenWindowFormErrors(values url.Values, targetID int) frontend.FormErrors {
+	var result frontend.FormErrors
+	if strings.TrimSpace(values.Get("reason")) == "" {
+		result = append(result, frontend.FormError{
+			FieldID: frontend.WorkflowFieldID("create-reopen-window", targetID, 0, 0, "reason"),
+			Label:   "Reopen reason", Message: "is required",
+		})
+	}
+	if _, err := time.Parse("2006-01-02T15:04", strings.TrimSpace(values.Get("expires_at"))); err != nil {
+		result = append(result, frontend.FormError{
+			FieldID: frontend.WorkflowFieldID("create-reopen-window", targetID, 0, 0, "expires_at"),
+			Label:   "Expiry", Message: "must be a valid local date and time",
+		})
+	}
+	return result
+}
+
+func entryError(err error) (int, string) {
+	var validation *rundown.ValidationError
+	switch {
+	case errors.As(err, &validation):
+		return http.StatusUnprocessableEntity, validation.Error()
 	case errors.Is(err, competition.ErrInvalidInput), errors.Is(err, command.ErrInvalidID):
 		return http.StatusUnprocessableEntity, "Check the Entry details and try again."
 	case errors.Is(err, competition.ErrSubmissionClosed):

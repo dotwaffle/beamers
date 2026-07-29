@@ -1,5 +1,6 @@
 package frontend
 
+import "net/url"
 import "strconv"
 
 import "github.com/dotwaffle/beamers/internal/attachments"
@@ -29,7 +30,29 @@ type EventSettingsPage struct {
 	Release         attachments.ReleaseCuePreview
 	Ceremonies      []rundown.CrewSession
 	CommandID       string
-	Error           string
+	SubmittedAction string
+	Form            url.Values
+	Errors          FormErrors
+}
+
+func (page EventSettingsPage) submitted(action string) bool {
+	return page.Form != nil && page.SubmittedAction == action
+}
+
+func (page EventSettingsPage) value(action, field, fallback string) string {
+	if page.submitted(action) {
+		if _, ok := page.Form[field]; ok {
+			return page.Form.Get(field)
+		}
+	}
+	return fallback
+}
+
+func (page EventSettingsPage) checked(action, field string, fallback bool) bool {
+	if page.submitted(action) {
+		return page.Form.Get(field) == "true"
+	}
+	return fallback
 }
 
 // DisplayThresholdFields holds one editable timer-emphasis row.
@@ -49,14 +72,6 @@ type DisplaySettingsForm struct {
 	SessionThresholds     map[int][]DisplayThresholdFields
 }
 
-// DisplaySettingsError identifies one accessible form error.
-type DisplaySettingsError struct {
-	Message      string
-	FieldID      string
-	FieldMessage string
-	Section      string
-}
-
 // DisplaySettingsPage contains one Producer's Event Display settings workflow.
 type DisplaySettingsPage struct {
 	AccountName    string
@@ -69,7 +84,8 @@ type DisplaySettingsPage struct {
 	SessionTypes   []string
 	Form           DisplaySettingsForm
 	CommandID      string
-	Error          DisplaySettingsError
+	Errors         FormErrors
+	ErrorSection   string
 }
 
 templ EventOverview(page EventOverviewPage) {
@@ -170,9 +186,7 @@ templ EventSettings(page EventSettingsPage) {
 				<main id="main-content" tabindex="-1">
 					<h1>Event settings</h1>
 					<p>{ page.Event.Name }</p>
-					if page.Error != "" {
-						<p class="error" role="alert">{ page.Error }</p>
-					}
+					@ErrorSummary(page.Errors)
 					<p>
 						Related:
 						<a href={ templ.SafeURL("/backstage/events/" + strconv.Itoa(page.Event.ID) + "/display-settings") }>Event Display settings</a>
@@ -183,7 +197,15 @@ templ EventSettings(page EventSettingsPage) {
 						<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
 						<input type="hidden" name="command_id" value={ page.CommandID }/>
 						<input type="hidden" name="expected_event_revision" value={ strconv.Itoa(page.Event.Revision) }/>
-						<label>Event name <input name="event_name" value={ page.Event.Name } required/></label>
+						<label for="event-name">Event name</label>
+						<input
+							id="event-name"
+							name="event_name"
+							value={ page.value("", "event_name", page.Event.Name) }
+							required
+							{ page.Errors.Attributes("event-name")... }
+						/>
+						@FieldError(page.Errors, "event-name")
 						if page.Event.PublicSlug == "" {
 							<p>A current Event Slug will be assigned when this Event first joins the Public Event Listing.</p>
 						} else {
@@ -193,53 +215,132 @@ templ EventSettings(page EventSettingsPage) {
 									/events/{ page.Event.PublicSlug }
 								</a>
 							</p>
-							<label>
-								Current Event Slug
-								<input name="public_slug" value={ page.Event.PublicSlug } required/>
-							</label>
+							<label for="public-slug">Current Event Slug</label>
+							<input
+								id="public-slug"
+								name="public_slug"
+								value={ page.value("", "public_slug", page.Event.PublicSlug) }
+								required
+								{ page.Errors.Attributes("public-slug")... }
+							/>
+							@FieldError(page.Errors, "public-slug")
 							<p>Previously public slugs are retained as redirects.</p>
 						}
-						<label>
-							<input type="checkbox" name="public" value="true" checked?={ page.Event.Public }/>
+						<label for="event-public">
+							<input
+								id="event-public"
+								type="checkbox"
+								name="public"
+								value="true"
+								checked?={ page.checked("", "public", page.Event.Public) }
+								{ page.Errors.Attributes("event-public")... }
+							/>
 							Include in the Public Event Listing
 						</label>
-						<label>Planned start <input type="date" name="planned_start_date" value={ page.Event.PlannedStartDate } required/></label>
-						<label>Planned end <input type="date" name="planned_end_date" value={ page.Event.PlannedEndDate } required/></label>
-						<label>Timezone <input name="timezone" value={ page.Event.Timezone } required/></label>
-						<label>Event locale <input name="event_locale" value={ page.Event.EventLocale } required/></label>
-						<label>Content language <input name="content_language" value={ page.Event.ContentLanguage }/></label>
-						<label>Event day boundary <input type="time" name="event_day_boundary" value={ page.Event.EventDayBoundary } required/></label>
-						<label>
-							New Competition Entry disposition
-							<select name="entry_default_disposition">
-								<option value="Pending" selected?={ page.Event.EntryDefaultDisposition == "Pending" }>Pending</option>
-								<option value="Included" selected?={ page.Event.EntryDefaultDisposition == "Included" }>Included</option>
-							</select>
-						</label>
-						<label>
-							New Competition Submission Eligibility
-							<select name="submission_eligibility">
-								<option value="AllAccounts" selected?={ page.Event.SubmissionEligibility == "AllAccounts" }>All Accounts</option>
-								<option value="VotingEligibleAccounts" selected?={ page.Event.SubmissionEligibility == "VotingEligibleAccounts" }>Voting Eligible Accounts</option>
-							</select>
-						</label>
-						<label>
-							Competition Voting Method
-							<select name="voting_method">
+						@FieldError(page.Errors, "event-public")
+						<label for="planned-start-date">Planned start</label>
+						<input
+							id="planned-start-date"
+							type="date"
+							name="planned_start_date"
+							value={ page.value("", "planned_start_date", page.Event.PlannedStartDate) }
+							required
+							{ page.Errors.Attributes("planned-start-date")... }
+						/>
+						@FieldError(page.Errors, "planned-start-date")
+						<label for="planned-end-date">Planned end</label>
+						<input
+							id="planned-end-date"
+							type="date"
+							name="planned_end_date"
+							value={ page.value("", "planned_end_date", page.Event.PlannedEndDate) }
+							required
+							{ page.Errors.Attributes("planned-end-date")... }
+						/>
+						@FieldError(page.Errors, "planned-end-date")
+						<label for="event-timezone">Timezone</label>
+						<input
+							id="event-timezone"
+							name="timezone"
+							value={ page.value("", "timezone", page.Event.Timezone) }
+							required
+							{ page.Errors.Attributes("event-timezone")... }
+						/>
+						@FieldError(page.Errors, "event-timezone")
+						<label for="event-locale">Event locale</label>
+						<input
+							id="event-locale"
+							name="event_locale"
+							value={ page.value("", "event_locale", page.Event.EventLocale) }
+							required
+							{ page.Errors.Attributes("event-locale")... }
+						/>
+						@FieldError(page.Errors, "event-locale")
+						<label for="content-language">Content language</label>
+						<input
+							id="content-language"
+							name="content_language"
+							value={ page.value("", "content_language", page.Event.ContentLanguage) }
+							{ page.Errors.Attributes("content-language")... }
+						/>
+						@FieldError(page.Errors, "content-language")
+						<label for="event-day-boundary">Event day boundary</label>
+						<input
+							id="event-day-boundary"
+							type="time"
+							name="event_day_boundary"
+							value={ page.value("", "event_day_boundary", page.Event.EventDayBoundary) }
+							required
+							{ page.Errors.Attributes("event-day-boundary")... }
+						/>
+						@FieldError(page.Errors, "event-day-boundary")
+						<label for="entry-default-disposition">New Competition Entry disposition</label>
+						<select
+							id="entry-default-disposition"
+							name="entry_default_disposition"
+							{ page.Errors.Attributes("entry-default-disposition")... }
+						>
+							<option value="Pending" selected?={ page.value("", "entry_default_disposition", page.Event.EntryDefaultDisposition) == "Pending" }>Pending</option>
+							<option value="Included" selected?={ page.value("", "entry_default_disposition", page.Event.EntryDefaultDisposition) == "Included" }>Included</option>
+						</select>
+						@FieldError(page.Errors, "entry-default-disposition")
+						<label for="submission-eligibility">New Competition Submission Eligibility</label>
+						<select
+							id="submission-eligibility"
+							name="submission_eligibility"
+							{ page.Errors.Attributes("submission-eligibility")... }
+						>
+							<option value="AllAccounts" selected?={ page.value("", "submission_eligibility", page.Event.SubmissionEligibility) == "AllAccounts" }>All Accounts</option>
+							<option value="VotingEligibleAccounts" selected?={ page.value("", "submission_eligibility", page.Event.SubmissionEligibility) == "VotingEligibleAccounts" }>Voting Eligible Accounts</option>
+						</select>
+						@FieldError(page.Errors, "submission-eligibility")
+						<label for="voting-method">Competition Voting Method</label>
+						<select
+							id="voting-method"
+							name="voting_method"
+							{ page.Errors.Attributes("voting-method")... }
+						>
 								<option value="Range1To5">Range 1–5</option>
-							</select>
-						</label>
-						<label>
-							Competition Self-Vote Policy
-							<select name="self_vote_policy">
-								<option value="Allowed" selected?={ page.Event.SelfVotePolicy == "Allowed" }>Allowed</option>
-								<option value="Neutral" selected?={ page.Event.SelfVotePolicy == "Neutral" }>Neutral substitution</option>
-							</select>
-						</label>
-						<label>
-							Target adjustment presets in seconds
-							<input name="target_adjustment_presets_seconds" value={ planningPresets(page.Event.TargetAdjustmentPresetsSeconds) }/>
-						</label>
+						</select>
+						@FieldError(page.Errors, "voting-method")
+						<label for="self-vote-policy">Competition Self-Vote Policy</label>
+						<select
+							id="self-vote-policy"
+							name="self_vote_policy"
+							{ page.Errors.Attributes("self-vote-policy")... }
+						>
+							<option value="Allowed" selected?={ page.value("", "self_vote_policy", page.Event.SelfVotePolicy) == "Allowed" }>Allowed</option>
+							<option value="Neutral" selected?={ page.value("", "self_vote_policy", page.Event.SelfVotePolicy) == "Neutral" }>Neutral substitution</option>
+						</select>
+						@FieldError(page.Errors, "self-vote-policy")
+						<label for="target-adjustment-presets">Target adjustment presets in seconds</label>
+						<input
+							id="target-adjustment-presets"
+							name="target_adjustment_presets_seconds"
+							value={ page.value("", "target_adjustment_presets_seconds", planningPresets(page.Event.TargetAdjustmentPresetsSeconds)) }
+							{ page.Errors.Attributes("target-adjustment-presets")... }
+						/>
+						@FieldError(page.Errors, "target-adjustment-presets")
 						<button type="submit">Save Event settings</button>
 					</form>
 					<section>
@@ -250,26 +351,32 @@ templ EventSettings(page EventSettingsPage) {
 							<input type="hidden" name="action" value="configure-attachment-release"/>
 							<input type="hidden" name="command_id" value={ page.CommandID }/>
 							<input type="hidden" name="expected_release_revision" value={ strconv.Itoa(page.Release.Configuration.Revision) }/>
-							<label>
-								Event Release Policy
-								<select name="release_policy">
-									<option value="OnLive" selected?={ page.Release.Configuration.Policy == attachments.ReleaseOnLive }>On Live</option>
-									<option value="OnEnded" selected?={ page.Release.Configuration.Policy == attachments.ReleaseOnEnded }>On Ended</option>
-									<option value="OnEventReleaseCue" selected?={ page.Release.Configuration.Policy == attachments.ReleaseOnEventCue }>On Event Release Cue</option>
-								</select>
-							</label>
-							<label>
-								Optional release Ceremony
-								<select name="cue_session_id">
+							<label for="release-policy">Event Release Policy</label>
+							<select
+								id="release-policy"
+								name="release_policy"
+								{ page.Errors.Attributes("release-policy")... }
+							>
+								<option value="OnLive" selected?={ page.value("configure-attachment-release", "release_policy", string(page.Release.Configuration.Policy)) == "OnLive" }>On Live</option>
+								<option value="OnEnded" selected?={ page.value("configure-attachment-release", "release_policy", string(page.Release.Configuration.Policy)) == "OnEnded" }>On Ended</option>
+								<option value="OnEventReleaseCue" selected?={ page.value("configure-attachment-release", "release_policy", string(page.Release.Configuration.Policy)) == "OnEventReleaseCue" }>On Event Release Cue</option>
+							</select>
+							@FieldError(page.Errors, "release-policy")
+							<label for="cue-session">Optional release Ceremony</label>
+							<select
+								id="cue-session"
+								name="cue_session_id"
+								{ page.Errors.Attributes("cue-session")... }
+							>
 									<option value="">No ceremony binding</option>
 									for _, session := range page.Ceremonies {
 										<option
 											value={ strconv.Itoa(session.ID) }
-											selected?={ page.Release.Configuration.CueSessionID == session.ID }
+											selected?={ page.value("configure-attachment-release", "cue_session_id", strconv.Itoa(page.Release.Configuration.CueSessionID)) == strconv.Itoa(session.ID) }
 										>{ session.Title }</option>
 									}
-								</select>
-							</label>
+							</select>
+							@FieldError(page.Errors, "cue-session")
 							<button type="submit">Save Attachment release</button>
 						</form>
 						<h3>Event Release Cue</h3>
@@ -301,10 +408,18 @@ templ EventSettings(page EventSettingsPage) {
 								<input type="hidden" name="command_id" value={ page.CommandID }/>
 								<input type="hidden" name="expected_release_revision" value={ strconv.Itoa(page.Release.Configuration.Revision) }/>
 								<input type="hidden" name="preview_fingerprint" value={ page.Release.Fingerprint }/>
-								<label>
-									<input type="checkbox" name="confirmed" value="true" required/>
+								<label for="release-cue-confirmed">
+									<input
+										id="release-cue-confirmed"
+										type="checkbox"
+										name="confirmed"
+										value="true"
+										required
+										{ page.Errors.Attributes("release-cue-confirmed")... }
+									/>
 									I reviewed this impact and confirm the Event Release Cue.
 								</label>
+								@FieldError(page.Errors, "release-cue-confirmed")
 								<button type="submit">Fire Event Release Cue</button>
 							</form>
 						}
@@ -331,44 +446,23 @@ templ DisplaySettings(page DisplaySettingsPage) {
 						<a href={ templ.SafeURL("/backstage/events/" + strconv.Itoa(page.Event.ID) + "/theme") }>Event Theme</a>
 						workflow.
 					</p>
-					if page.Error.Message != "" {
-						if page.Error.FieldID == "" {
-							<p class="error" role="alert">{ page.Error.Message }</p>
-						} else {
-							<p class="error" role="alert">
-								<a href={ templ.SafeURL("#" + page.Error.FieldID) }>{ page.Error.Message }</a>
-							</p>
-						}
-					}
+					@ErrorSummary(page.Errors)
 					<form class="stack" method="post">
 						<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
 						<input type="hidden" name="command_id" value={ page.CommandID }/>
 						<input type="hidden" name="expected_event_revision" value={ strconv.Itoa(page.EventRevision) }/>
 						<label for="rotation_seconds">Rotation interval in seconds</label>
-						if page.Error.FieldID == "rotation_seconds" {
-							<input
-								id="rotation_seconds"
-								type="number"
-								name="rotation_seconds"
-								min="5"
-								max="300"
-								value={ page.Form.RotationSeconds }
-								required
-								aria-invalid="true"
-								aria-describedby="rotation_seconds-error"
-							/>
-							<p id="rotation_seconds-error" class="error">{ page.Error.FieldMessage }</p>
-						} else {
-							<input
-								id="rotation_seconds"
-								type="number"
-								name="rotation_seconds"
-								min="5"
-								max="300"
-								value={ page.Form.RotationSeconds }
-								required
-							/>
-						}
+						<input
+							id="rotation_seconds"
+							type="number"
+							name="rotation_seconds"
+							min="5"
+							max="300"
+							value={ page.Form.RotationSeconds }
+							required
+							{ page.Errors.Attributes("rotation_seconds")... }
+						/>
+						@FieldError(page.Errors, "rotation_seconds")
 						<label>
 							<input
 								type="checkbox"
@@ -381,9 +475,9 @@ templ DisplaySettings(page DisplaySettingsPage) {
 						<fieldset>
 							<legend>Default timer thresholds</legend>
 							<p>Set remaining seconds and an attention or urgent emphasis. Leave a row empty to remove it.</p>
-							@displayThresholdRows("timer_threshold", page.Form.TimerThresholds, page.Error)
+							@displayThresholdRows("timer_threshold", page.Form.TimerThresholds, page.Errors)
 						</fieldset>
-						<details open?={ page.Error.Section == "session-type" }>
+						<details open?={ page.ErrorSection == "session-type" }>
 							<summary>Session-type overrides</summary>
 							for _, sessionType := range page.SessionTypes {
 								<fieldset>
@@ -401,12 +495,12 @@ templ DisplaySettings(page DisplaySettingsPage) {
 									@displayThresholdRows(
 										"session_type." + sessionType + ".threshold",
 										page.Form.SessionTypeThresholds[sessionType],
-										page.Error,
+										page.Errors,
 									)
 								</fieldset>
 							}
 						</details>
-						<details open?={ page.Error.Section == "session" }>
+						<details open?={ page.ErrorSection == "session" }>
 							<summary>Individual Session overrides</summary>
 							if len(page.Draft.Sessions) == 0 {
 								<p>Add named Sessions in Plan and publish before configuring overrides.</p>
@@ -427,7 +521,7 @@ templ DisplaySettings(page DisplaySettingsPage) {
 									@displayThresholdRows(
 										"session." + strconv.Itoa(session.ID) + ".threshold",
 										page.Form.SessionThresholds[session.ID],
-										page.Error,
+										page.Errors,
 									)
 								</fieldset>
 							}
@@ -440,55 +534,31 @@ templ DisplaySettings(page DisplaySettingsPage) {
 	</html>
 }
 
-templ displayThresholdRows(prefix string, rows []DisplayThresholdFields, formError DisplaySettingsError) {
+templ displayThresholdRows(prefix string, rows []DisplayThresholdFields, errors FormErrors) {
 	for index, row := range rows {
 		<div>
 			<label for={ displayThresholdFieldID(prefix, "seconds", index) }>Remaining seconds</label>
-			if formError.FieldID == displayThresholdFieldID(prefix, "seconds", index) {
-				<input
-					id={ displayThresholdFieldID(prefix, "seconds", index) }
-					type="number"
-					name={ prefix + "_seconds" }
-					min="1"
-					max="86400"
-					value={ row.Seconds }
-					aria-invalid="true"
-					aria-describedby={ formError.FieldID + "-error" }
-				/>
-				<p id={ formError.FieldID + "-error" } class="error">{ formError.FieldMessage }</p>
-			} else {
-				<input
-					id={ displayThresholdFieldID(prefix, "seconds", index) }
-					type="number"
-					name={ prefix + "_seconds" }
-					min="1"
-					max="86400"
-					value={ row.Seconds }
-				/>
-			}
+			<input
+				id={ displayThresholdFieldID(prefix, "seconds", index) }
+				type="number"
+				name={ prefix + "_seconds" }
+				min="1"
+				max="86400"
+				value={ row.Seconds }
+				{ errors.Attributes(displayThresholdFieldID(prefix, "seconds", index))... }
+			/>
+			@FieldError(errors, displayThresholdFieldID(prefix, "seconds", index))
 			<label for={ displayThresholdFieldID(prefix, "emphasis", index) }>Emphasis</label>
-			if formError.FieldID == displayThresholdFieldID(prefix, "emphasis", index) {
-				<select
-					id={ displayThresholdFieldID(prefix, "emphasis", index) }
-					name={ prefix + "_emphasis" }
-					aria-invalid="true"
-					aria-describedby={ formError.FieldID + "-error" }
-				>
-					<option value="" selected?={ row.Emphasis == "" }>No threshold</option>
-					<option value="attention" selected?={ row.Emphasis == "attention" }>Attention</option>
-					<option value="urgent" selected?={ row.Emphasis == "urgent" }>Urgent</option>
-				</select>
-				<p id={ formError.FieldID + "-error" } class="error">{ formError.FieldMessage }</p>
-			} else {
-				<select
-					id={ displayThresholdFieldID(prefix, "emphasis", index) }
-					name={ prefix + "_emphasis" }
-				>
-					<option value="" selected?={ row.Emphasis == "" }>No threshold</option>
-					<option value="attention" selected?={ row.Emphasis == "attention" }>Attention</option>
-					<option value="urgent" selected?={ row.Emphasis == "urgent" }>Urgent</option>
-				</select>
-			}
+			<select
+				id={ displayThresholdFieldID(prefix, "emphasis", index) }
+				name={ prefix + "_emphasis" }
+				{ errors.Attributes(displayThresholdFieldID(prefix, "emphasis", index))... }
+			>
+				<option value="" selected?={ row.Emphasis == "" }>No threshold</option>
+				<option value="attention" selected?={ row.Emphasis == "attention" }>Attention</option>
+				<option value="urgent" selected?={ row.Emphasis == "urgent" }>Urgent</option>
+			</select>
+			@FieldError(errors, displayThresholdFieldID(prefix, "emphasis", index))
 			<span class="visually-hidden">Threshold row { strconv.Itoa(index + 1) }</span>
 		</div>
 	}
