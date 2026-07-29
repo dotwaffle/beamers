@@ -1206,8 +1206,8 @@ var (
 		{Name: "name", Type: field.TypeString, Unique: true},
 		{Name: "checksum", Type: field.TypeString, Size: 64},
 		{Name: "safety", Type: field.TypeEnum, Enums: []string{"Baseline", "NonDestructive", "Destructive", "Unclassified"}, Default: "Baseline"},
-		{Name: "minimum_reader_schema_version", Type: field.TypeInt, Default: 48},
-		{Name: "minimum_writer_schema_version", Type: field.TypeInt, Default: 48},
+		{Name: "minimum_reader_schema_version", Type: field.TypeInt, Default: 1},
+		{Name: "minimum_writer_schema_version", Type: field.TypeInt, Default: 1},
 		{Name: "applied_at", Type: field.TypeTime},
 	}
 	// BeamersSchemaMigrationsTable holds the schema information for the "beamers_schema_migrations" table.

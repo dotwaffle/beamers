@@ -4,7 +4,10 @@ Version one uses Ent for its persistence schema and generated data-access code, 
 Production builds therefore do not require CGo.
 SQLite remains the authoritative store described in ADR 0011.
 
-Schema changes use versioned migration files generated from the Ent schema and committed with the application.
+Before the first version-one release, there are no supported existing installations.
+Schema changes therefore regenerate the single committed `0001_baseline.sql` migration instead of adding another migration.
+The regenerated baseline must include the complete Ent schema plus the custom SQLite triggers and seed data that Ent cannot express.
+The first version-one release freezes that baseline; later schema changes append versioned migrations beginning with `0002`.
 Normal service startup never invokes Ent's automatic `Schema.Create` migration path.
 
 Migration execution follows ADR 0051: safe committed migrations run automatically against staged state in Maintenance Mode, while unsafe plans require explicit approval or host authority.
@@ -12,7 +15,7 @@ Every path requires a verified backup and applies pending migrations transaction
 It refuses a database with an unknown or newer schema version.
 Version one does not provide down migrations; operational rollback restores the verified backup and runs the prior application binary.
 
-Ent's schema remains the source for application persistence behavior, while the committed migration history remains the source for upgrading existing databases.
+Ent's schema remains the source for application persistence behavior, while the committed baseline and post-version-one migration history remain the source for initializing and upgrading databases.
 
 Ent privacy policies form the final application authorization boundary for all operational entities.
 They deny queries and mutations without an authenticated viewer and enforce Event Grants, roles, Lane and Display scopes, and separately granted capabilities.
