@@ -53,6 +53,8 @@ type Plan[T any] struct {
 	Identity store.CommandIdentity
 	Replay   func(string) (T, error)
 	Apply    func(*store.CommandTx) (Execution[T], error)
+	// Notify synchronously publishes a best-effort freshness hint after success.
+	Notify func()
 }
 
 // Execute owns transaction, retry, conflict, evidence, and commit ordering for
@@ -88,7 +90,15 @@ func Execute[T any](ctx context.Context, plan Plan[T]) (T, error) {
 		return zero, err
 	}
 	if retry {
-		return plan.Replay(original)
+		value, replayErr := plan.Replay(original)
+		if replayErr != nil {
+			return zero, replayErr
+		}
+		_ = transaction.Rollback()
+		if plan.Notify != nil {
+			plan.Notify()
+		}
+		return value, nil
 	}
 
 	execution, err := plan.Apply(transaction)
@@ -118,6 +128,12 @@ func Execute[T any](ctx context.Context, plan Plan[T]) (T, error) {
 	}
 	if err := transaction.Commit(); err != nil {
 		return zero, errors.Join(execution.returnError, err)
+	}
+	if execution.returnError == nil &&
+		execution.rejection == nil &&
+		!execution.rejected &&
+		plan.Notify != nil {
+		plan.Notify()
 	}
 	return execution.value, execution.returnError
 }
