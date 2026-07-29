@@ -13,6 +13,51 @@ The JSON report fails validation unless every required surface is present and id
 
 Hosted evidence does not certify Safari, kiosk fullscreen, kiosk hardware, an actual version upgrade, screen readers, touch input, or 400% zoom.
 
+## Role-to-workflow matrix
+
+Every hosted role journey starts at `/`, then follows visible rendered links.
+Hard-coded deep URLs may set up responsive checks, but they do not count as workflow discovery evidence.
+
+| Role | Rendered-link journey | Command and authorization evidence |
+| --- | --- | --- |
+| Anonymous attendee | Events → Event overview → Schedule, Competitions, Session, Competition, and Results | Public navigation and non-disclosure: `TestBrowserFollowsCanonicalPublicEventJourney`; registration and Reduced Effects: `TestBrowserSetupAndSessionSurviveRestart` and `TestBrowserRegistrationProfileAndDisablement` |
+| Account | Events → Profile, My Participation, and My Schedule | Profile, credentials, recovery, sign-out, and favorites: `TestBrowserSetupAndSessionSurviveRestart`, `TestBrowserWebAuthnCredentialsSurviveRestartAndRevokeIndependently`, `TestBrowserRegistrationProfileAndDisablement`, `TestBrowserRecoversAccountWithoutEmail`, and `TestBrowserBuildsPrivateMyScheduleFromFavoriteSessions` |
+| Submitter Account | Events → My Participation → View Competition → Manage My Entry, or Schedule → Presentation | Entry submission, upload, Presentation upload, and Reopen Window access: `TestAccountSubmissionsHonorPolicyOwnershipAndReopenWindows` |
+| Voting Eligible attendee | Events → My Participation → Vote | Voting Key redemption and Ballot save: `TestVotingKeysIssueRedeemAndSurviveRestart` and `TestLiveCompetitionBallotUpdatesAndSurvivesRestart` |
+| Producer | Events → Backstage → Event overview, settings, Displays, Sessions and Competitions, live operations, Program Output, Results, Voting Keys, and Event Theme | Event, Rundown, Competition, live, Results, release, Display, and Theme commands: the Producer rows in the command inventory below |
+| Scoped Operator | Events → Backstage → Event overview, Sessions and Competitions, live operations, and Program Output | Scoped controls succeed while Producer configuration is absent: `TestBackstageNavigationReflectsAuthorityAndInterface`, `TestBrowserOperatesSessionDurably`, `TestBrowserPreviewsAdjustsCancelsAndReinstatesSession`, and `TestBrowserControlsProgramOutputAndOverrides` |
+| Observer | Events → Backstage → Event overview and Sessions and Competitions | Crew state remains visible while command controls and Producer destinations are absent: `TestBackstageNavigationReflectsAuthorityAndInterface` |
+| Administrator | Events → Backstage → Create Event, Accounts and Event Grants, Installation Theme, Registration, and Backups and diagnostics; authorized Event → Final Files | Installation, Account, Grant, activation, Display, Theme, backup, restore, and export commands: the Administrator rows in the command inventory below |
+
+The hosted real-browser report uses the `demo-anonymous`, `demo-attendee`, `demo-submission`, `demo-voter`, `demo-producer`, `demo-operator`, `demo-observer`, and `demo-administrator` surfaces for this matrix.
+Producer and Operator journeys prove authorized Competition workflow links.
+The Observer journey proves those command links are absent.
+`TestBackstageNavigationReflectsEffectiveAuthority` and `TestBackstageControlHidesUnavailableActions` prove temporarily blocked authorized actions remain visible with reasons.
+`TestBackstageNavigationReflectsAuthorityAndInterface` proves unauthorized routes and controls remain unavailable through the launched executable.
+
+### Human command inventory
+
+Adding or removing a human-facing command requires updating its owning row and acceptance test.
+These tests drive the launched executable through served browser routes rather than application internals.
+
+| Owning workflow | Successful command coverage | No-JavaScript baseline |
+| --- | --- | --- |
+| Account and identity | Setup, registration, sign-in, sign-out, Profile, recovery, Recovery Codes, password and WebAuthn credentials: `TestBrowserSetupAndSessionSurviveRestart`, `TestBrowserWebAuthnCredentialsSurviveRestartAndRevokeIndependently`, `TestBrowserRegistrationProfileAndDisablement`, and `TestBrowserRecoversAccountWithoutEmail` | All except WebAuthn registration and authentication; credential listing and removal work without JavaScript |
+| Participation and voting | Favorites, Voting Keys, Ballots, Entry submissions, Presentation uploads, Attachments, and Reopen Windows: `TestBrowserBuildsPrivateMyScheduleFromFavoriteSessions`, `TestVotingKeysIssueRedeemAndSurviveRestart`, `TestLiveCompetitionBallotUpdatesAndSurvivesRestart`, and `TestAccountSubmissionsHonorPolicyOwnershipAndReopenWindows` | Favorites, submissions, uploads, attachments, Reopen Windows, and Ballot forms; live Ballot updates use JavaScript |
+| Event configuration | Create and update Event, slug aliases, Event settings, Display settings, Attachment release policy and cue, and activation: `TestBrowserPublishesEventsUnderCurrentSlugs`, `TestBrowserEventOverviewAndSettings`, `TestBrowserConfiguresEventDisplays`, `TestBrowserControlsEventAttachmentRelease`, and `TestBrowserPreflightsAndActivatesEvent` | Yes |
+| Rundown and Competition | Draft edits, imports, Publish, Entry management, review, readiness, release policy, ordering, deferral, and resolution: `TestBrowserPlansAndPublishesEvent`, `TestBrowserManagesCompetitionEntries`, and `TestBrowserDefersAndResolvesCompetitionEntries` | Yes |
+| Live operations | Start, End, target adjustment, pull-forward, Cancel, Reinstate, Program control, Preview, Take, Override, and Emergency Alert: `TestBrowserOperatesSessionDurably`, `TestBrowserPreviewsAdjustsCancelsAndReinstatesSession`, and `TestBrowserControlsProgramOutputAndOverrides` | Ordinary forms; Program streaming and Display rendering use JavaScript |
+| Results and Prizegiving | Draft, Ready review, disposition, Prizegiving plan and preflight, reveal, publication, and correction: `TestBrowserStagesAndReviewsCompetitionResults` and `TestBrowserPublishesAndCorrectsStandaloneResults` | Yes |
+| Themes | Installation Theme and Event Theme draft, preview, activation, rollback, inheritance, and validation: `TestAdministratorRevisesPreviewsActivatesAndRestoresInstallationTheme` and `TestProducerActivatesInheritedEventThemeAcrossPublicSchedule` | Yes |
+| Installation administration | Accounts, Event Grants, registration policy, Active Event, Display Enrollment and assignment, backups, restore preparation, and diagnostics: `TestBrowserAdministersAccountsAndEventGrants`, `TestBrowserPreflightsAndActivatesEvent`, `TestBrowserAdministersDisplaysAndRecovery`, and `TestBackstageOperatesBackupsAndDiagnostics` | Yes |
+| Final Files | Preview, digest-bound ZIP download, stale preview rejection, and archive verification: `TestBackstageExportsFinalFiles` | Yes |
+
+### No-JavaScript acceptance
+
+The full-process command tests above use ordinary HTTP navigation and form submission without executing page JavaScript.
+This proves public browsing, setup, registration, sign-in, recovery, Profile, My Schedule, submissions, uploads, Event configuration, planning, Results, administration, backup, restore preparation, and other ordinary Backstage forms retain their server-owned baseline.
+WebAuthn ceremonies, voting live updates, Program control streaming, and Display rendering receive separate JavaScript-enabled browser certification because their live behavior requires it.
+
 ## Release gate
 
 The `Release` workflow requires all evidence to identify the exact candidate commit:
@@ -90,7 +135,10 @@ Keep timestamps, screenshots or video, server logs, browser logs, and a written 
 
 ## Representative manual accessibility review
 
-Across Schedule, released Results, Enrollment, Crew control, and Display, review:
+Start every applicable journey at the root or signed-in landing page and use only rendered links.
+Record the role, destination path, authorized controls present, unauthorized controls absent, and any temporarily blocked action with its displayed reason.
+
+Across the role-to-workflow matrix, Enrollment, Crew control, and Display, review:
 
 - Keyboard order, operation, traps, and visible focus.
 - VoiceOver plus one desktop screen reader appropriate to the deployment.
@@ -101,4 +149,6 @@ Across Schedule, released Results, Enrollment, Crew control, and Display, review
 - Non-color status, document language, reading order, and reduced motion.
 
 Automated results support this review; they do not replace it.
-Attach the completed manual and kiosk evidence to the certification issue before closing it.
+Record the exact Beamers commit, browser and operating-system versions, hardware where relevant, screenshots or video, and a written result for every row.
+Attach the completed role matrix, Safari, manual accessibility, touch, zoom, and kiosk evidence to issue #51 before closing it.
+Leave unperformed rows explicitly pending; never infer manual evidence from hosted automation.

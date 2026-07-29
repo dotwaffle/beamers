@@ -184,6 +184,7 @@ func (report browserCertificationReport) validate() error {
 		{"demo-producer", 1},
 		{"demo-administrator", 1},
 		{"demo-operator", 1},
+		{"demo-observer", 1},
 		{"frontend", 1},
 		{"event", 1},
 		{"schedule", 1},
@@ -244,6 +245,7 @@ func TestBrowserCertificationReportRequiresDurableTwoDisplayTake(t *testing.T) {
 				validBrowserPageEvidence("demo-producer"),
 				validBrowserPageEvidence("demo-administrator"),
 				validBrowserPageEvidence("demo-operator"),
+				validBrowserPageEvidence("demo-observer"),
 				validBrowserPageEvidence("frontend"),
 				validBrowserPageEvidence("event"),
 				validBrowserPageEvidence("schedule"),
@@ -318,6 +320,14 @@ func TestBrowserCertificationReportRequiresDurableTwoDisplayTake(t *testing.T) {
 		"missing demo voter evidence": func(report *browserCertificationReport) {
 			for index, page := range report.Pages {
 				if page.Surface == "demo-voter" {
+					report.Pages = append(report.Pages[:index], report.Pages[index+1:]...)
+					return
+				}
+			}
+		},
+		"missing demo observer evidence": func(report *browserCertificationReport) {
+			for index, page := range report.Pages {
+				if page.Surface == "demo-observer" {
 					report.Pages = append(report.Pages[:index], report.Pages[index+1:]...)
 					return
 				}
@@ -2239,6 +2249,13 @@ func certifyDemoBrowserJourneys(
 	evidence := []browserPageEvidence{
 		certifyInteractivePage(t, driver, origin+"/", "demo-anonymous"),
 	}
+	clickBrowserLink(t, driver, "Revision Demo", "/events/revision-demo")
+	clickBrowserLink(t, driver, "Event Results", "/events/revision-demo/results")
+	focusKeyboardControl(t, driver, "demo-results")
+	resultsEvidence, err := driver.auditPage(t.Context(), "demo-results")
+	if err != nil {
+		t.Fatalf("audit demo-results: %v", err)
+	}
 	if err = driver.navigate(t.Context(), origin+"/display"); err != nil {
 		t.Fatalf("navigate to demo Display: %v", err)
 	}
@@ -2248,25 +2265,105 @@ func certifyDemoBrowserJourneys(
 	}
 	evidence = append(
 		evidence,
+		resultsEvidence,
 		displayEvidence,
-		certifyInteractivePage(
-			t,
-			driver,
-			origin+"/events/revision-demo/results",
-			"demo-results",
-		),
 	)
+	type journeyLink struct{ label, path string }
+	backstageLink := journeyLink{"Backstage", "/backstage"}
 	for _, journey := range []struct {
 		handle, path, surface string
 		backstage             bool
+		links                 []journeyLink
 	}{
-		{"attendee", "/my-schedule", "demo-attendee", false},
-		{"attendee", "/my-participation", "demo-submission", false},
-		{"voter", "/voting/3?event_id=1", "demo-voter", false},
-		{"producer", "/backstage/events/1/results", "demo-producer", true},
-		{"administrator", "/backstage/themes", "demo-administrator", true},
-		{"operator", "/backstage/events/1/operations", "demo-operator", true},
-		{"observer", "/backstage/events/1", "demo-observer", true},
+		{
+			"attendee", "/my-schedule", "demo-attendee", false,
+			[]journeyLink{
+				{"Profile", "/profile"},
+				{"My Participation", "/my-participation"},
+				{"My Schedule", "/my-schedule"},
+			},
+		},
+		{
+			"attendee", "/my-participation", "demo-submission", false,
+			[]journeyLink{
+				{"My Participation", "/my-participation"},
+				{"View Competition", "/events/revision-demo/competitions/2"},
+				{"Manage My Entry", "/my-participation"},
+			},
+		},
+		{
+			"voter", "/voting/3?event_id=1", "demo-voter", false,
+			[]journeyLink{
+				{"My Participation", "/my-participation"},
+				{"Vote", "/voting/3"},
+			},
+		},
+		{
+			"producer", "/backstage/events/1/results", "demo-producer", true,
+			[]journeyLink{
+				backstageLink,
+				{"Event overview", "/backstage/events/1"},
+				backstageLink,
+				{"Event settings", "/backstage/events/1/settings"},
+				backstageLink,
+				{"Event Displays", "/backstage/events/1/display-settings"},
+				backstageLink,
+				{"Sessions and Competitions", "/backstage/events/1/sessions"},
+				backstageLink,
+				{"Plan and publish", "/backstage/events/1/planning"},
+				backstageLink,
+				{"Event Theme", "/backstage/events/1/theme"},
+				backstageLink,
+				{"Voting Keys", "/backstage/events/1/voting-keys"},
+				backstageLink,
+				{"Live operations", "/backstage/events/1/operations"},
+				backstageLink,
+				{"Program Output and Overrides", "/backstage/events/1/control"},
+				backstageLink,
+				{"Emergency Alerts", "/backstage/events/1/control/emergency-alerts"},
+				backstageLink,
+				{"Results and Prizegiving", "/backstage/events/1/results"},
+			},
+		},
+		{
+			"administrator", "/admin/registration", "demo-administrator", true,
+			[]journeyLink{
+				backstageLink,
+				{"Create Event", "/backstage/events/new"},
+				backstageLink,
+				{"Accounts, Event Grants, and activation", "/backstage/administration"},
+				backstageLink,
+				{"Installation Theme", "/backstage/themes"},
+				backstageLink,
+				{"Backups and diagnostics", "/backstage/installation"},
+				backstageLink,
+				{"Final Files Export", "/backstage/events/1/final-files"},
+				backstageLink,
+				{"Registration", "/admin/registration"},
+			},
+		},
+		{
+			"operator", "/backstage/events/1/operations", "demo-operator", true,
+			[]journeyLink{
+				backstageLink,
+				{"Event overview", "/backstage/events/1"},
+				backstageLink,
+				{"Sessions and Competitions", "/backstage/events/1/sessions"},
+				backstageLink,
+				{"Program Output and Overrides", "/backstage/events/1/control"},
+				backstageLink,
+				{"Live operations", "/backstage/events/1/operations"},
+			},
+		},
+		{
+			"observer", "/backstage/events/1", "demo-observer", true,
+			[]journeyLink{
+				backstageLink,
+				{"Sessions and Competitions", "/backstage/events/1/sessions"},
+				backstageLink,
+				{"Event overview", "/backstage/events/1"},
+			},
+		},
 	} {
 		account := authenticatedClient(t)
 		assertJSONRequest(
@@ -2289,12 +2386,17 @@ func certifyDemoBrowserJourneys(
 			"beamers_session",
 			"/",
 		))
-		pageEvidence := certifyInteractivePage(
-			t,
-			driver,
-			origin+journey.path,
-			journey.surface,
-		)
+		if err = driver.navigate(t.Context(), origin+"/"); err != nil {
+			t.Fatalf("navigate to %s signed-in landing page: %v", journey.handle, err)
+		}
+		for _, link := range journey.links {
+			clickBrowserLink(t, driver, link.label, link.path)
+		}
+		focusKeyboardControl(t, driver, journey.surface)
+		pageEvidence, auditErr := driver.auditPage(t.Context(), journey.surface)
+		if auditErr != nil {
+			t.Fatalf("audit %s: %v", journey.surface, auditErr)
+		}
 		if journey.surface == "demo-voter" {
 			assertResponsivePageWidths(t, driver, origin+journey.path, 320)
 			assertResponsivePageZoom(t, driver, origin+journey.path, 1280, 4)

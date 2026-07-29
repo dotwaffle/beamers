@@ -175,6 +175,16 @@ func seedDemoInstallation(ctx context.Context, dataDir string) (returnErr error)
 	); err != nil {
 		return err
 	}
+	if _, err = installation.Events().GrantEventAccess(
+		ctx,
+		administrator,
+		event.ID,
+		administrator.ID,
+		string(viewer.Producer),
+		"demo-grant-administrator-producer",
+	); err != nil {
+		return err
+	}
 	producer := accounts["producer"]
 	producer.EventRoles = map[int]viewer.Role{event.ID: viewer.Producer}
 	event, err = installation.Events().Update(ctx, producer, event.ID, events.CreateInput{
