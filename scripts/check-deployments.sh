@@ -132,8 +132,8 @@ compose up --detach --wait --wait-timeout 30
 container=$(compose ps --quiet beamers)
 test "$(docker exec "$container" cat /proc/1/comm)" = "beamers"
 docker exec "$container" wget --no-check-certificate --quiet \
-	--output-document=- https://127.0.0.1:8443/schedule |
-	grep -F '/assets/schedule.css'
+	--output-document=- https://127.0.0.1:8443/ |
+	grep -F '/assets/frontend.css'
 docker exec "$container" wget --no-check-certificate --quiet \
 	--output-document=- https://127.0.0.1:8443/assets/schedule.css |
 	grep -F 'grid-template-columns'

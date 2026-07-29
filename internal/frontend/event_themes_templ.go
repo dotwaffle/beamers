@@ -385,7 +385,7 @@ func EventThemeAdministration(page EventThemePage) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "\"><article class=\"theme-preview\"><h3>Public Event and Schedule</h3><p class=\"theme-preview-muted\">Inherited public presentation.</p><a href=\"#\">Public link</a></article><article class=\"theme-preview\"><h3>Display Views</h3><p class=\"theme-preview-muted\">Event Overview, signage, Competition Output, and Standby.</p></article></div><div class=\"theme-preview-grid\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "\"><article class=\"theme-preview\"><h3>Public Event and Schedule</h3><p class=\"theme-preview-muted\">Inherited public presentation.</p><span>Public link</span></article><article class=\"theme-preview\"><h3>Display Views</h3><p class=\"theme-preview-muted\">Event Overview, signage, Competition Output, and Standby.</p></article></div><div class=\"theme-preview-grid\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

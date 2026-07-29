@@ -91,7 +91,6 @@ func registerScheduleRoutes(
 		metrics:      metrics,
 		logger:       logger,
 	}
-	mux.HandleFunc("/schedule", browserPageRoute(), handlers.list)
 	mux.HandleFunc("/events/{slug}/schedule", browserPageRoute(), handlers.eventSchedule)
 	mux.HandleFunc(
 		"/events/{slug}/competitions",
@@ -109,7 +108,6 @@ func registerScheduleRoutes(
 		routeContract{kind: publicInterface, persistent: true},
 		handlers.events,
 	)
-	mux.HandleFunc("/schedule/sessions/{sessionID}", browserPageRoute(), handlers.session)
 	mux.HandleFunc(
 		"/events/{slug}/schedule/sessions/{sessionID}",
 		browserPageRoute(),
@@ -124,10 +122,6 @@ func registerScheduleRoutes(
 	)
 	mux.HandleFunc("/assets/schedule.css", publicRoute(), handlers.stylesheet)
 	mux.HandleFunc("/assets/schedule.js", publicRoute(), handlers.script)
-}
-
-func (handlers scheduleHandlers) list(response http.ResponseWriter, request *http.Request) {
-	handlers.schedulePage(response, request, false, nil, false)
 }
 
 func (handlers scheduleHandlers) mySchedule(response http.ResponseWriter, request *http.Request) {
@@ -342,6 +336,25 @@ func (handlers scheduleHandlers) schedulePage(
 		strings.Contains(request.Header.Get("Cache-Control"), "no-cache") {
 		handlers.metrics.resnapshots.Add(1)
 	}
+	if favoritesOnly && event == nil {
+		publicEvents, listErr := handlers.eventService.PublicListing(request.Context())
+		if listErr != nil {
+			handlers.logger.ErrorContext(
+				request.Context(),
+				"read public Event Slug",
+				"error",
+				listErr,
+			)
+			http.Error(response, "Schedule unavailable", http.StatusInternalServerError)
+			return
+		}
+		for _, publicEvent := range publicEvents {
+			if publicEvent.ID == snapshot.EventID {
+				setScheduleEventSlug(&snapshot, publicEvent.Slug)
+				break
+			}
+		}
+	}
 	unavailable := event != nil && snapshot.EventID != event.ID
 	if event != nil {
 		if unavailable {
@@ -351,15 +364,7 @@ func (handlers scheduleHandlers) schedulePage(
 				ETag: fmt.Sprintf(`"event-%d-schedule-unavailable"`, event.ID),
 			}
 		} else {
-			snapshot.EventSlug = event.Slug
-			for index := range snapshot.Sessions {
-				snapshot.Sessions[index].EventSlug = event.Slug
-			}
-			for dayIndex := range snapshot.Days {
-				for sessionIndex := range snapshot.Days[dayIndex].Sessions {
-					snapshot.Days[dayIndex].Sessions[sessionIndex].EventSlug = event.Slug
-				}
-			}
+			setScheduleEventSlug(&snapshot, event.Slug)
 		}
 	}
 	if signedIn {
@@ -409,6 +414,18 @@ func (handlers scheduleHandlers) schedulePage(
 		component,
 		name,
 	)
+}
+
+func setScheduleEventSlug(snapshot *schedule.Snapshot, slug string) {
+	snapshot.EventSlug = slug
+	for index := range snapshot.Sessions {
+		snapshot.Sessions[index].EventSlug = slug
+	}
+	for dayIndex := range snapshot.Days {
+		for sessionIndex := range snapshot.Days[dayIndex].Sessions {
+			snapshot.Days[dayIndex].Sessions[sessionIndex].EventSlug = slug
+		}
+	}
 }
 
 func currentScheduleSnapshot(
@@ -508,10 +525,6 @@ func writeScheduleInvalidation(
 		"id: %d\nevent: schedule\ndata: refresh\n\n",
 		cursor.Position,
 	))
-}
-
-func (handlers scheduleHandlers) session(response http.ResponseWriter, request *http.Request) {
-	handlers.sessionPage(response, request, nil)
 }
 
 func (handlers scheduleHandlers) eventSession(
@@ -679,8 +692,8 @@ func (handlers scheduleHandlers) favorite(response http.ResponseWriter, request 
 		publicSessionNotFound(response)
 		return
 	}
-	sessionPath := "/schedule/sessions/" + strconv.Itoa(sessionID)
-	account, _, ok := handlers.account(response, request, true, sessionPath)
+	const fallbackPath = "/my-schedule"
+	account, _, ok := handlers.account(response, request, true, fallbackPath)
 	if !ok {
 		return
 	}
@@ -709,7 +722,7 @@ func (handlers scheduleHandlers) favorite(response http.ResponseWriter, request 
 		http.Error(response, "Schedule unavailable", http.StatusInternalServerError)
 		return
 	}
-	returnTo := safeFrontendReturnTo(request.Form.Get("return_to"), sessionPath)
+	returnTo := safeFrontendReturnTo(request.Form.Get("return_to"), fallbackPath)
 	if request.Header.Get("HX-Request") == "true" {
 		returnURL, _ := url.ParseRequestURI(returnTo)
 		if !favorite && returnURL.Path == "/my-schedule" {

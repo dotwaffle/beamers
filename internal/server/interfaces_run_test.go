@@ -118,7 +118,7 @@ func TestRunTerminatesTLSAndIsolatesPublicListener(t *testing.T) {
 	publicScheduleRequest, err := http.NewRequestWithContext(
 		t.Context(),
 		http.MethodGet,
-		"http://"+publicAddress+"/schedule",
+		"http://"+publicAddress+"/",
 		http.NoBody,
 	)
 	if err != nil {
@@ -148,7 +148,7 @@ func waitForPublicSchedule(t *testing.T, client *http.Client, address string) {
 		request, err := http.NewRequestWithContext(
 			t.Context(),
 			http.MethodGet,
-			"http://"+address+"/schedule",
+			"http://"+address+"/",
 			http.NoBody,
 		)
 		if err != nil {

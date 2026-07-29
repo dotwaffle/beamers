@@ -767,27 +767,6 @@ func TestBrowserCertification(t *testing.T) {
 		"",
 	)
 	publicSessionID := prepareActiveSchedule(t, administrator, server)
-	assertJSONMethodRequest(
-		t,
-		http.MethodPut,
-		administrator,
-		server.address,
-		"/crew/events/1",
-		map[string]any{
-			"name":               "Revision 2099",
-			"public":             true,
-			"planned_start_date": "2099-08-21",
-			"planned_end_date":   "2099-08-23",
-			"timezone":           "Europe/Berlin",
-			"event_locale":       "en-GB",
-			"content_language":   "en-GB",
-			"event_day_boundary": "06:00",
-			"expected_revision":  1,
-			"command_id":         "certify-public-event",
-		},
-		http.StatusOK,
-		"{\"id\":1,\"name\":\"Revision 2099\",\"planned_start_date\":\"2099-08-21\",\"planned_end_date\":\"2099-08-23\",\"timezone\":\"Europe/Berlin\",\"event_locale\":\"en-GB\",\"content_language\":\"en-GB\",\"event_day_boundary\":\"06:00\",\"revision\":2}\n",
-	)
 	crewSessionID, _ := addCompetitionSession(t, administrator, server)
 	prepareReleasedBrowserResults(t, administrator, server, crewSessionID)
 	prizegivingSessionID := prepareBrowserPrizegiving(t, administrator, server)
@@ -835,7 +814,6 @@ func TestBrowserCertification(t *testing.T) {
 	}
 	assertResponsivePageWidths(t, crewDriver, origin+"/", 320, 375, 768, 1024, 1440)
 	assertResponsivePageWidths(t, crewDriver, origin+"/events/revision-2099", 320, 1440)
-	assertResponsivePageWidths(t, crewDriver, origin+"/schedule", 320, 375, 768, 1024, 1440)
 	assertResponsivePageWidths(
 		t,
 		crewDriver,
@@ -850,7 +828,7 @@ func TestBrowserCertification(t *testing.T) {
 		320,
 		1440,
 	)
-	assertResponsivePageZoom(t, crewDriver, origin+"/schedule", 1024, 2)
+	assertResponsivePageZoom(t, crewDriver, origin+"/events/revision-2099/schedule", 1024, 2)
 	certifyLiveScheduleUpdate(
 		t,
 		crewDriver,
@@ -867,8 +845,13 @@ func TestBrowserCertification(t *testing.T) {
 			origin+"/events/revision-2099",
 			"event",
 		),
-		certifyInteractivePage(t, crewDriver, origin+"/schedule", "schedule"),
-		certifyResultsPage(t, crewDriver, origin, crewSessionID),
+		certifyInteractivePage(
+			t,
+			crewDriver,
+			origin+"/events/revision-2099/schedule",
+			"schedule",
+		),
+		certifyResultsPage(t, crewDriver, origin),
 	)
 	addBrowserCookie(t, crewDriver, browserCookie(
 		t,
@@ -967,7 +950,7 @@ func TestBrowserCertification(t *testing.T) {
 	overrideDriver := startBrowserSession(
 		t, client, secondCrewDriverEndpoint, config,
 	)
-	if err := overrideDriver.navigate(t.Context(), origin+"/schedule"); err != nil {
+	if err := overrideDriver.navigate(t.Context(), origin+"/events/revision-2099/schedule"); err != nil {
 		t.Fatalf("navigate Override console to cookie origin: %v", err)
 	}
 	addBrowserCookie(t, overrideDriver, browserCookie(
@@ -1388,7 +1371,7 @@ func openSecondaryCrewControl(
 ) (*webDriver, browserPageEvidence) {
 	t.Helper()
 	driver := startBrowserSession(t, client, driverEndpoint, config)
-	if err := driver.navigate(t.Context(), origin+"/schedule"); err != nil {
+	if err := driver.navigate(t.Context(), origin+"/events/revision-2099/schedule"); err != nil {
 		t.Fatalf("navigate second Crew console to cookie origin: %v", err)
 	}
 	addBrowserCookie(t, driver, browserCookie(
@@ -1747,14 +1730,12 @@ func certifyResultsPage(
 	t *testing.T,
 	driver *webDriver,
 	origin string,
-	competitionID int64,
 ) browserPageEvidence {
 	t.Helper()
 	evidence := certifyInteractivePage(
 		t,
 		driver,
-		origin+"/results/events/1/standalone/"+
-			strconv.FormatInt(competitionID, 10),
+		origin+"/events/revision-2099/results",
 		"results",
 	)
 	metadata, err := driver.evaluateString(
@@ -1777,7 +1758,7 @@ func startCertifiedBrowserDisplay(
 ) browserPageEvidence {
 	t.Helper()
 	display.driver = startBrowserSession(t, client, display.driverEndpoint, config)
-	if err := display.driver.navigate(t.Context(), origin+"/schedule"); err != nil {
+	if err := display.driver.navigate(t.Context(), origin+"/events/revision-2099/schedule"); err != nil {
 		t.Fatalf("navigate to Display cookie origin: %v", err)
 	}
 	for _, path := range []string{"/display", "/beamers.display.v1.DisplayService"} {
@@ -2183,7 +2164,7 @@ func certifyDemoBrowserJourneys(
 		certifyInteractivePage(
 			t,
 			driver,
-			origin+"/results/events/1/standalone/4",
+			origin+"/events/revision-demo/results",
 			"demo-results",
 		),
 	)
@@ -2483,7 +2464,7 @@ func certifyLiveScheduleUpdate(
 	sessionID int64,
 ) {
 	t.Helper()
-	target := "http://" + server.address + "/schedule?location=1"
+	target := "http://" + server.address + "/events/revision-2099/schedule?location=1"
 	if err := driver.navigate(t.Context(), target); err != nil {
 		t.Fatalf("navigate to live Schedule: %v", err)
 	}
@@ -3388,7 +3369,7 @@ func TestWebDriverUsesNavigationCookieKeyboardAndScriptCommands(t *testing.T) {
 	if err != nil {
 		t.Fatalf("start WebDriver session: %v", err)
 	}
-	if err = driver.navigate(t.Context(), "http://beamers.test/schedule"); err != nil {
+	if err = driver.navigate(t.Context(), "http://beamers.test/"); err != nil {
 		t.Fatalf("navigate: %v", err)
 	}
 	if err = driver.addCookie(t.Context(), &http.Cookie{

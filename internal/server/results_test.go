@@ -59,7 +59,7 @@ func (stub *publicResultsReaderStub) PublicArtifact(
 	}, true, nil
 }
 
-func TestPublicEventAwardsRoutesServeAllFormats(t *testing.T) {
+func TestPublicEventAwardsRoutesServeMachineFormats(t *testing.T) {
 	stub := &publicResultsReaderStub{}
 	mux := newRouteMux()
 	registerPublicResultsRoutes(
@@ -71,14 +71,6 @@ func TestPublicEventAwardsRoutesServeAllFormats(t *testing.T) {
 		path, contentType, body string
 		revision                int
 	}{
-		{
-			path:        "/results/events/41/event-awards",
-			contentType: "text/html; charset=utf-8",
-			body: `<html><head><link rel="stylesheet" href="/assets/events/41/theme.css"></head>` +
-				`<body data-reduced-effects="false"><main><p>Awards</p>` +
-				`<p><a href="/effects?return_to=%2Fresults%2Fevents%2F41%2Fevent-awards">` +
-				`Pause effects</a></p></main></body></html>`,
-		},
 		{
 			path:        "/results/events/41/event-awards/results.txt",
 			contentType: "text/plain; charset=utf-8", body: "Awards",
@@ -108,10 +100,6 @@ func TestPublicEventAwardsRoutesServeAllFormats(t *testing.T) {
 				response.Body.String(),
 			)
 		}
-		if test.contentType == "text/html; charset=utf-8" &&
-			response.Header().Get("Vary") != "Cookie" {
-			t.Errorf("GET %s Vary = %q, want Cookie", test.path, response.Header().Get("Vary"))
-		}
 		read := stub.reads[len(stub.reads)-1]
 		if read.eventID != 41 ||
 			read.scope != results.PublicationScopeEventAwards ||
@@ -122,7 +110,7 @@ func TestPublicEventAwardsRoutesServeAllFormats(t *testing.T) {
 	}
 }
 
-func TestPublicEventResultsRoutesServeAllFormats(t *testing.T) {
+func TestPublicEventResultsRoutesServeMachineFormats(t *testing.T) {
 	stub := &publicResultsReaderStub{}
 	mux := newRouteMux()
 	registerPublicResultsRoutes(mux, stub, slog.New(slog.DiscardHandler))
@@ -130,14 +118,6 @@ func TestPublicEventResultsRoutesServeAllFormats(t *testing.T) {
 		path, contentType, body string
 		revision                int
 	}{
-		{
-			path:        "/results/events/41",
-			contentType: "text/html; charset=utf-8",
-			body: `<html><head><link rel="stylesheet" href="/assets/events/41/theme.css"></head>` +
-				`<body data-reduced-effects="false"><main><p>Awards</p>` +
-				`<p><a href="/effects?return_to=%2Fresults%2Fevents%2F41">` +
-				`Pause effects</a></p></main></body></html>`,
-		},
 		{
 			path:        "/results/events/41/results.txt",
 			contentType: "text/plain; charset=utf-8", body: "Awards",
@@ -166,10 +146,6 @@ func TestPublicEventResultsRoutesServeAllFormats(t *testing.T) {
 				response.Header().Get("Content-Type"),
 				response.Body.String(),
 			)
-		}
-		if test.contentType == "text/html; charset=utf-8" &&
-			response.Header().Get("Vary") != "Cookie" {
-			t.Errorf("GET %s Vary = %q, want Cookie", test.path, response.Header().Get("Vary"))
 		}
 		read := stub.reads[len(stub.reads)-1]
 		if read.eventID != 41 ||

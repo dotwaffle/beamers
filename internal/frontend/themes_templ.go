@@ -647,7 +647,7 @@ func ThemeAdministration(page ThemePage) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "<h3>Public Profile</h3><p class=\"theme-preview-muted\">Released work and public Event information.</p><a href=\"#\">Public link</a></article><article class=\"theme-preview\" data-theme-preview=\"account\"><h3>Account</h3><p class=\"theme-preview-muted\">Sign-in, Profile, submissions, and voting.</p><a href=\"#\">Account link</a> <button type=\"button\">Account action</button></article><article class=\"theme-preview\" data-theme-preview=\"backstage\"><h3>Backstage</h3><p class=\"theme-preview-muted\">Crew and installation administration.</p><a href=\"#\">Backstage link</a></article></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 66, "<h3>Public Profile</h3><p class=\"theme-preview-muted\">Released work and public Event information.</p><span>Public link</span></article><article class=\"theme-preview\" data-theme-preview=\"account\"><h3>Account</h3><p class=\"theme-preview-muted\">Sign-in, Profile, submissions, and voting.</p><span>Account link</span> <button type=\"button\">Account action</button></article><article class=\"theme-preview\" data-theme-preview=\"backstage\"><h3>Backstage</h3><p class=\"theme-preview-muted\">Crew and installation administration.</p><span>Backstage link</span></article></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

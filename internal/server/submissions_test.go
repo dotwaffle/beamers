@@ -201,7 +201,7 @@ func TestAccountSubmissionBrowserFlowKeepsEntriesPresentationsAndFilesPrivate(t 
 		t.Fatalf("assign Presentation Submitter status = %d", assignedResponse.StatusCode)
 	}
 	otherClient := submissionBrowserClient(t, beamers.URL, otherSession.Token)
-	if otherBody := submissionGet(t, otherClient, beamers.URL+"/submissions"); strings.Contains(
+	if otherBody := submissionGet(t, otherClient, beamers.URL+"/my-participation"); strings.Contains(
 		otherBody,
 		"Capacity Stage",
 	) {
@@ -210,7 +210,7 @@ func TestAccountSubmissionBrowserFlowKeepsEntriesPresentationsAndFilesPrivate(t 
 	updatedPresentation := submissionForm(
 		t,
 		client,
-		beamers.URL+"/submissions",
+		beamers.URL+"/my-participation",
 		url.Values{
 			"csrf_token": {csrf}, "action": {"update-presentation"},
 			"command_id": {"update-presentation-details"},
@@ -267,13 +267,13 @@ func TestAccountSubmissionBrowserFlowKeepsEntriesPresentationsAndFilesPrivate(t 
 	if replacedResponse.StatusCode != http.StatusOK {
 		t.Fatalf("replace Presentation Submitter status = %d", replacedResponse.StatusCode)
 	}
-	if attendeeBody := submissionGet(t, client, beamers.URL+"/submissions"); strings.Contains(
+	if attendeeBody := submissionGet(t, client, beamers.URL+"/my-participation"); strings.Contains(
 		attendeeBody,
 		"Capacity Stage",
 	) {
 		t.Fatalf("replaced Account retained Presentation access: %q", attendeeBody)
 	}
-	otherPresentationBody := submissionGet(t, otherClient, beamers.URL+"/submissions")
+	otherPresentationBody := submissionGet(t, otherClient, beamers.URL+"/my-participation")
 	if !strings.Contains(otherPresentationBody, "Attendee Stage Credit") ||
 		!strings.Contains(otherPresentationBody, "slides-1.pdf") ||
 		!strings.Contains(otherPresentationBody, "slides-2.pdf") {
@@ -283,7 +283,7 @@ func TestAccountSubmissionBrowserFlowKeepsEntriesPresentationsAndFilesPrivate(t 
 	response := submissionForm(
 		t,
 		client,
-		beamers.URL+"/submissions",
+		beamers.URL+"/my-participation",
 		url.Values{
 			"csrf_token": {csrf}, "action": {"create"},
 			"command_id": {"submission-create-entry"},
@@ -331,7 +331,7 @@ func TestAccountSubmissionBrowserFlowKeepsEntriesPresentationsAndFilesPrivate(t 
 	otherRequest, err := http.NewRequestWithContext(
 		t.Context(),
 		http.MethodGet,
-		beamers.URL+"/submissions",
+		beamers.URL+"/my-participation",
 		http.NoBody,
 	)
 	if err != nil {
@@ -408,7 +408,7 @@ func submissionCSRF(t *testing.T, client *http.Client, baseURL string) string {
 	request, err := http.NewRequestWithContext(
 		t.Context(),
 		http.MethodGet,
-		baseURL+"/submissions",
+		baseURL+"/my-participation",
 		http.NoBody,
 	)
 	if err != nil {
