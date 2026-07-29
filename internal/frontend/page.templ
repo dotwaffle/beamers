@@ -51,6 +51,35 @@ type Breadcrumb struct {
 	Href  string
 }
 
+type FormError struct {
+	FieldID string
+	Label   string
+	Message string
+}
+
+type FormErrors []FormError
+
+func (errors FormErrors) Attributes(fieldID string) templ.Attributes {
+	for _, formError := range errors {
+		if formError.FieldID == fieldID {
+			return templ.Attributes{
+				"aria-invalid":     "true",
+				"aria-describedby": fieldID + "-error",
+			}
+		}
+	}
+	return nil
+}
+
+func (errors FormErrors) Message(fieldID string) string {
+	for _, formError := range errors {
+		if formError.FieldID == fieldID {
+			return formError.Message
+		}
+	}
+	return ""
+}
+
 func mainContentID(id string) string {
 	if id == "" {
 		return "main-content"
@@ -81,6 +110,33 @@ func publicEventDate(value, locale string) string {
 		return date.Format("02.01.2006")
 	}
 	return date.Format("02 Jan 2006")
+}
+
+templ ErrorSummary(errors FormErrors) {
+	if len(errors) > 0 {
+		<section id="error-summary" class="error error-summary" role="alert" tabindex="-1" autofocus>
+			<h2>There is a problem</h2>
+			<ul>
+				for _, formError := range errors {
+					<li>
+						if formError.FieldID == "" {
+							{ formError.Message }
+						} else {
+							<a href={ templ.SafeURL("#" + formError.FieldID) }>
+								{ formError.Label }: { formError.Message }
+							</a>
+						}
+					</li>
+				}
+			</ul>
+		</section>
+	}
+}
+
+templ FieldError(errors FormErrors, fieldID string) {
+	if message := errors.Message(fieldID); message != "" {
+		<p id={ fieldID + "-error" } class="error">{ message }</p>
+	}
 }
 
 templ EffectsLink(returnTo string, reducedEffects bool) {
@@ -274,9 +330,9 @@ templ Effects(csrfToken string, reducedEffects bool, returnTo string) {
 
 templ Register(
 	csrfToken string,
-	message string,
 	handle string,
 	displayName string,
+	errors FormErrors,
 	open bool,
 	sceneIDCreation bool,
 	reducedEffects bool,
@@ -288,27 +344,28 @@ templ Register(
 			@Navigation("", csrfToken, reducedEffects, false)
 			<main id="main-content" tabindex="-1">
 				<h1>Register</h1>
-				if message != "" {
-					<p class="error" role="alert">{ message }</p>
-				}
+				@ErrorSummary(errors)
 				if open {
 					if sceneIDCreation {
 						<p><a href="/auth/federation/sceneid/begin">Create Account with SceneID</a></p>
 					}
 					<form class="stack" method="post" action="/register">
 						<input type="hidden" name="csrf_token" value={ csrfToken }/>
-						<label>
+						<label for="register-handle">
 							Account Handle
-							<input name="handle" value={ handle } autocomplete="username" maxlength="200" required/>
 						</label>
-						<label>
+						<input id="register-handle" name="handle" value={ handle } autocomplete="username" maxlength="200" required { errors.Attributes("register-handle")... }/>
+						@FieldError(errors, "register-handle")
+						<label for="register-display-name">
 							Display Name
-							<input name="display_name" value={ displayName } autocomplete="name" maxlength="200" required/>
 						</label>
-						<label>
+						<input id="register-display-name" name="display_name" value={ displayName } autocomplete="name" maxlength="200" required { errors.Attributes("register-display-name")... }/>
+						@FieldError(errors, "register-display-name")
+						<label for="register-password">
 							Password
-							<input type="password" name="password" autocomplete="new-password" minlength="12" required/>
 						</label>
+						<input id="register-password" type="password" name="password" autocomplete="new-password" minlength="12" maxlength="1024" required { errors.Attributes("register-password")... }/>
+						@FieldError(errors, "register-password")
 						<button type="submit">Create Account</button>
 					</form>
 				} else {
@@ -322,6 +379,7 @@ templ Register(
 templ ProfilePage(
 	csrfToken string,
 	profile auth.Profile,
+	errors FormErrors,
 	passwordActive bool,
 	canRemovePassword bool,
 	credentials []auth.WebAuthnCredential,
@@ -340,22 +398,28 @@ templ ProfilePage(
 			<main id="main-content" tabindex="-1">
 				<h1>Profile</h1>
 				<p>Account Handle: <strong>{ profile.Handle }</strong></p>
+				@ErrorSummary(errors)
 				<form class="stack" method="post" action="/profile">
 					<input type="hidden" name="csrf_token" value={ csrfToken }/>
-					<label>
+					<label for="profile-display-name">
 						Display Name
-						<input name="display_name" value={ profile.DisplayName } autocomplete="name" maxlength="200" required/>
 					</label>
-					<label>
-						<input type="checkbox" name="published" value="true" checked?={ profile.Published }/>
-						Publish my Profile
-					</label>
-					for _, entry := range profile.AvailableEntries {
+					<input id="profile-display-name" name="display_name" value={ profile.DisplayName } autocomplete="name" maxlength="200" required { errors.Attributes("profile-display-name")... }/>
+					@FieldError(errors, "profile-display-name")
+					<fieldset id="profile-entries" { errors.Attributes("profile-entries")... }>
+						<legend>Public Profile</legend>
 						<label>
-							<input type="checkbox" name="entry_id" value={ strconv.Itoa(entry.ID) } checked?={ entry.Selected }/>
-							{ entry.Name }
+							<input type="checkbox" name="published" value="true" checked?={ profile.Published }/>
+							Publish my Profile
 						</label>
-					}
+						for _, entry := range profile.AvailableEntries {
+							<label>
+								<input type="checkbox" name="entry_id" value={ strconv.Itoa(entry.ID) } checked?={ entry.Selected }/>
+								{ entry.Name }
+							</label>
+						}
+					</fieldset>
+					@FieldError(errors, "profile-entries")
 					<button type="submit">Save Profile</button>
 				</form>
 				if profile.Published {
@@ -729,7 +793,13 @@ templ RecoveryPage(title string, message string) {
 	</html>
 }
 
-templ Setup(csrfToken string, message string, reducedEffects bool) {
+templ Setup(
+	csrfToken string,
+	handle string,
+	displayName string,
+	errors FormErrors,
+	reducedEffects bool,
+) {
 	<!doctype html>
 	<html lang="en">
 		@Head("Set up Beamers")
@@ -737,27 +807,29 @@ templ Setup(csrfToken string, message string, reducedEffects bool) {
 			@Navigation("", csrfToken, reducedEffects, false)
 			<main id="main-content" tabindex="-1">
 				<h1>Set up Beamers</h1>
-				if message != "" {
-					<p class="error" role="alert">{ message }</p>
-				}
+				@ErrorSummary(errors)
 				<form class="stack" method="post" action="/setup">
 					<input type="hidden" name="csrf_token" value={ csrfToken }/>
-					<label>
+					<label for="setup-token">
 						One-time setup token
-						<input name="bootstrap_token" autocomplete="off" required/>
 					</label>
-					<label>
+					<input id="setup-token" name="bootstrap_token" autocomplete="off" required { errors.Attributes("setup-token")... }/>
+					@FieldError(errors, "setup-token")
+					<label for="setup-handle">
 						Account Handle
-						<input name="handle" autocomplete="username" maxlength="200" required/>
 					</label>
-					<label>
+					<input id="setup-handle" name="handle" value={ handle } autocomplete="username" maxlength="200" required { errors.Attributes("setup-handle")... }/>
+					@FieldError(errors, "setup-handle")
+					<label for="setup-display-name">
 						Display Name
-						<input name="display_name" autocomplete="name" maxlength="200" required/>
 					</label>
-					<label>
+					<input id="setup-display-name" name="display_name" value={ displayName } autocomplete="name" maxlength="200" required { errors.Attributes("setup-display-name")... }/>
+					@FieldError(errors, "setup-display-name")
+					<label for="setup-password">
 						Password
-						<input type="password" name="password" autocomplete="new-password" minlength="12" required/>
 					</label>
+					<input id="setup-password" type="password" name="password" autocomplete="new-password" minlength="12" maxlength="1024" required { errors.Attributes("setup-password")... }/>
+					@FieldError(errors, "setup-password")
 					<button type="submit">Create first Account</button>
 				</form>
 			</main>
@@ -765,7 +837,14 @@ templ Setup(csrfToken string, message string, reducedEffects bool) {
 	</html>
 }
 
-templ SignIn(csrfToken string, message string, handle string, returnTo string, sceneID bool, reducedEffects bool) {
+templ SignIn(
+	csrfToken string,
+	handle string,
+	returnTo string,
+	errors FormErrors,
+	sceneID bool,
+	reducedEffects bool,
+) {
 	<!doctype html>
 	<html lang="en">
 		@Head("Sign in · Beamers")
@@ -773,9 +852,7 @@ templ SignIn(csrfToken string, message string, handle string, returnTo string, s
 			@Navigation("", csrfToken, reducedEffects, false)
 			<main id="main-content" tabindex="-1">
 				<h1>Sign in</h1>
-				if message != "" {
-					<p class="error" role="alert">{ message }</p>
-				}
+				@ErrorSummary(errors)
 				<form
 					class="stack"
 					method="post"
@@ -785,14 +862,16 @@ templ SignIn(csrfToken string, message string, handle string, returnTo string, s
 				>
 					<input type="hidden" name="csrf_token" value={ csrfToken }/>
 					<input type="hidden" name="return_to" value={ returnTo }/>
-					<label>
+					<label for="sign-in-handle">
 						Account Handle
-						<input name="handle" value={ handle } autocomplete="username" required/>
 					</label>
-					<label>
+					<input id="sign-in-handle" name="handle" value={ handle } autocomplete="username" required { errors.Attributes("sign-in-handle")... }/>
+					@FieldError(errors, "sign-in-handle")
+					<label for="sign-in-password">
 						Password
-						<input type="password" name="password" autocomplete="current-password" required/>
 					</label>
+					<input id="sign-in-password" type="password" name="password" autocomplete="current-password" required { errors.Attributes("sign-in-password")... }/>
+					@FieldError(errors, "sign-in-password")
 					<button type="submit">Sign in</button>
 					<button type="button" data-webauthn-sign-in hidden>Sign in with passkey or security key</button>
 				</form>
@@ -807,7 +886,13 @@ templ SignIn(csrfToken string, message string, handle string, returnTo string, s
 	</html>
 }
 
-templ Recover(csrfToken string, message string, handle string, commandID string, reducedEffects bool) {
+templ Recover(
+	csrfToken string,
+	handle string,
+	commandID string,
+	errors FormErrors,
+	reducedEffects bool,
+) {
 	<!doctype html>
 	<html lang="en">
 		@Head("Recover Account · Beamers")
@@ -815,24 +900,25 @@ templ Recover(csrfToken string, message string, handle string, commandID string,
 			@Navigation("", csrfToken, reducedEffects, false)
 			<main id="main-content" tabindex="-1">
 				<h1>Recover Account</h1>
-				if message != "" {
-					<p class="error" role="alert">{ message }</p>
-				}
+				@ErrorSummary(errors)
 				<form class="stack" method="post" action="/recover">
 					<input type="hidden" name="csrf_token" value={ csrfToken }/>
 					<input type="hidden" name="command_id" value={ commandID }/>
-					<label>
+					<label for="recover-handle">
 						Account Handle
-						<input name="handle" value={ handle } autocomplete="username" required/>
 					</label>
-					<label>
+					<input id="recover-handle" name="handle" value={ handle } autocomplete="username" required { errors.Attributes("recover-handle")... }/>
+					@FieldError(errors, "recover-handle")
+					<label for="recover-credential">
 						Recovery Code or Administrator Recovery Token
-						<input name="credential" autocomplete="one-time-code" required/>
 					</label>
-					<label>
+					<input id="recover-credential" name="credential" autocomplete="one-time-code" required { errors.Attributes("recover-credential")... }/>
+					@FieldError(errors, "recover-credential")
+					<label for="recover-password">
 						New Password
-						<input type="password" name="password" autocomplete="new-password" minlength="12" required/>
 					</label>
+					<input id="recover-password" type="password" name="password" autocomplete="new-password" minlength="12" maxlength="1024" required { errors.Attributes("recover-password")... }/>
+					@FieldError(errors, "recover-password")
 					<button type="submit">Recover Account</button>
 				</form>
 			</main>

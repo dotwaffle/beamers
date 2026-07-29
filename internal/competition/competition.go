@@ -59,6 +59,10 @@ var (
 	ErrCommandConflict = store.ErrCommandConflict
 	// ErrInvalidInput means a Competition request contains unsafe values.
 	ErrInvalidInput = errors.New("invalid Competition input")
+	// ErrInvalidEntryName identifies an invalid user-editable Entry name.
+	ErrInvalidEntryName = errors.New("invalid Competition Entry name")
+	// ErrInvalidEntryPublicDetails identifies invalid user-editable Entry details.
+	ErrInvalidEntryPublicDetails = errors.New("invalid Competition Entry public details")
 	// ErrEntryResolution means a final Entry resolution is invalid.
 	ErrEntryResolution = store.ErrCompetitionResolution
 	// ErrCrewReasonRequired means an exception omitted its durable Crew Reason.
@@ -1287,11 +1291,18 @@ func validateEntryCommand(
 		(entryID == 0) != (expectedRevision == 0) {
 		return ErrInvalidInput
 	}
+	var fieldErrors []error
 	if !visibleText(name, 200) {
-		return fmt.Errorf("%w: name must be 1 to 200 visible characters", ErrInvalidInput)
+		fieldErrors = append(fieldErrors, ErrInvalidEntryName)
 	}
-	if !boundedText(publicDetails, 10000) || !boundedText(crewNotes, 10000) {
-		return fmt.Errorf("%w: Entry details must not exceed 10000 characters", ErrInvalidInput)
+	if !boundedText(publicDetails, 10000) {
+		fieldErrors = append(fieldErrors, ErrInvalidEntryPublicDetails)
+	}
+	if !boundedText(crewNotes, 10000) {
+		fieldErrors = append(fieldErrors, ErrInvalidInput)
+	}
+	if len(fieldErrors) > 0 {
+		return errors.Join(append([]error{ErrInvalidInput}, fieldErrors...)...)
 	}
 	return nil
 }

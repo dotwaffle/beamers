@@ -147,9 +147,20 @@ func (handlers votingHandlers) renderRedemption(
 			Backstage: backstageAccessible(request) &&
 				backstageAvailable(backstageNavigation(actor, "")),
 			CommandID: commandID, EventID: eventID, Message: message, Success: success,
+			Errors:      redemptionErrors(message, success),
 			OpenBallots: ballots,
 		},
 	))
+}
+
+func redemptionErrors(message string, success bool) frontend.FormErrors {
+	if message == "" || success {
+		return nil
+	}
+	return frontend.FormErrors{
+		{FieldID: "voting-event", Label: "Event number", Message: message},
+		{FieldID: "voting-key", Label: "Voting Key", Message: message},
+	}
 }
 
 func (handlers votingHandlers) ballot(response http.ResponseWriter, request *http.Request) {
@@ -170,7 +181,10 @@ func (handlers votingHandlers) ballot(response http.ResponseWriter, request *htt
 	}
 	switch request.Method {
 	case http.MethodGet, http.MethodHead:
-		handlers.renderBallot(response, request, actor, csrfToken, eventID, sessionID)
+		handlers.renderBallot(
+			response, request, actor, csrfToken, eventID, sessionID,
+			http.StatusOK, 0, 0, "", false,
+		)
 	case http.MethodPost:
 		if !handlers.browser.validForm(response, request) {
 			return
@@ -179,7 +193,11 @@ func (handlers votingHandlers) ballot(response http.ResponseWriter, request *htt
 		value, valueErr := strconv.Atoi(request.Form.Get("value"))
 		revision, revisionErr := strconv.Atoi(request.Form.Get("expected_revision"))
 		if entryErr != nil || valueErr != nil || revisionErr != nil {
-			http.Error(response, "Check the Vote and try again.", http.StatusUnprocessableEntity)
+			handlers.renderBallot(
+				response, request, actor, csrfToken, eventID, sessionID,
+				http.StatusUnprocessableEntity, entryID, value,
+				"Check the Vote and try again.", valueErr != nil || value < 1 || value > 5,
+			)
 			return
 		}
 		_, err = handlers.voting.Vote(request.Context(), actor, voting.VoteInput{
@@ -188,7 +206,15 @@ func (handlers votingHandlers) ballot(response http.ResponseWriter, request *htt
 		})
 		if err != nil {
 			status, message := ballotError(err)
-			http.Error(response, message, status)
+			if status == http.StatusNotFound || status == http.StatusInternalServerError {
+				http.Error(response, message, status)
+				return
+			}
+			handlers.renderBallot(
+				response, request, actor, csrfToken, eventID, sessionID,
+				status, entryID, value, message,
+				errors.Is(err, voting.ErrInvalidInput) && (value < 1 || value > 5),
+			)
 			return
 		}
 		handlers.stream.Notify()
@@ -208,12 +234,16 @@ func (handlers votingHandlers) renderBallot(
 	actor auth.Account,
 	csrfToken string,
 	eventID, sessionID int,
+	status int,
+	errorEntryID, submittedValue int,
+	message string,
+	fieldFailure bool,
 ) {
 	cursor := handlers.stream.Cursor()
 	ballot, err := handlers.voting.Ballot(request.Context(), actor, eventID, sessionID)
 	if err != nil {
-		status, message := ballotError(err)
-		http.Error(response, message, status)
+		errorStatus, errorMessage := ballotError(err)
+		http.Error(response, errorMessage, errorStatus)
 		return
 	}
 	commandID, err := planningCommandID(handlers.browser.random)
@@ -221,15 +251,36 @@ func (handlers votingHandlers) renderBallot(
 		handlers.browser.frontendError(response, request, "create Vote command identity", err)
 		return
 	}
-	handlers.browser.render(response, request, http.StatusOK, frontend.VotingBallot(
+	formErrors := frontend.FormErrors(nil)
+	if message != "" && fieldFailure && ballotContainsEntry(ballot, errorEntryID) {
+		formErrors = frontend.FormErrors{{
+			FieldID: "vote-" + strconv.Itoa(errorEntryID),
+			Label:   "Score",
+			Message: message,
+		}}
+	}
+	if message != "" && len(formErrors) == 0 {
+		formErrors = frontend.FormErrors{{Message: message}}
+	}
+	handlers.browser.render(response, request, status, frontend.VotingBallot(
 		frontend.VotingBallotPage{
 			AccountName: actor.Name, CSRFToken: csrfToken,
 			ReducedEffects: reducedEffectsCookie(request),
 			Backstage:      backstageAccessible(request) && backstageAvailable(backstageNavigation(actor, "")),
 			CommandID:      commandID, Ballot: ballot,
+			Errors: formErrors, ErrorEntryID: errorEntryID, SubmittedValue: submittedValue,
 			StreamID: cursor.StreamID, StreamPosition: cursor.Position,
 		},
 	))
+}
+
+func ballotContainsEntry(ballot voting.Ballot, entryID int) bool {
+	for _, entry := range ballot.Entries {
+		if entry.ID == entryID && entry.CanVote {
+			return true
+		}
+	}
+	return false
 }
 
 func ballotError(err error) (int, string) {

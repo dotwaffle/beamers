@@ -32,6 +32,10 @@ var (
 	ErrUploadTargetNotFound = store.ErrUploadTargetNotFound
 	// ErrInvalidInput means an Attachment request contains unsafe values.
 	ErrInvalidInput = errors.New("invalid Attachment input")
+	// ErrInvalidName identifies an invalid user-editable Attachment name.
+	ErrInvalidName = errors.New("invalid Attachment name")
+	// ErrInvalidFilename identifies an invalid uploaded filename.
+	ErrInvalidFilename = errors.New("invalid Attachment filename")
 	// ErrCommandConflict means a Command ID was reused for different work.
 	ErrCommandConflict = store.ErrCommandConflict
 	// ErrUploadClosed means the fixed cutoff has arrived.
@@ -299,9 +303,11 @@ func (service *Service) UploadForCrew(
 	input CrewUploadInput,
 ) (Version, error) {
 	if input.EventID <= 0 || input.TargetID <= 0 ||
-		(input.TargetType != TargetPresentation && input.TargetType != TargetEntry) ||
-		!validAttachmentInput(input.Name, input.OriginalFilename, input.Body) {
+		(input.TargetType != TargetPresentation && input.TargetType != TargetEntry) {
 		return Version{}, ErrInvalidInput
+	}
+	if err := validateAttachmentInput(input.Name, input.OriginalFilename, input.Body); err != nil {
+		return Version{}, err
 	}
 	if err := command.ValidateID(input.CommandID); err != nil {
 		return Version{}, err
@@ -325,9 +331,11 @@ func (service *Service) UploadForAccount(
 	input AccountUploadInput,
 ) (Version, error) {
 	if actor.ID <= 0 || input.EventID <= 0 || input.TargetID <= 0 ||
-		(input.TargetType != TargetEntry && input.TargetType != TargetPresentation) ||
-		!validAttachmentInput(input.Name, input.OriginalFilename, input.Body) {
+		(input.TargetType != TargetEntry && input.TargetType != TargetPresentation) {
 		return Version{}, ErrInvalidInput
+	}
+	if err := validateAttachmentInput(input.Name, input.OriginalFilename, input.Body); err != nil {
+		return Version{}, err
 	}
 	if err := command.ValidateID(input.CommandID); err != nil {
 		return Version{}, err
@@ -1185,19 +1193,33 @@ func (service *Service) UpdateReopenWindow(
 	})
 }
 
-func validAttachmentInput(name, originalFilename string, body io.Reader) bool {
+func validateAttachmentInput(name, originalFilename string, body io.Reader) error {
 	name = strings.TrimSpace(name)
 	originalFilename = filepath.Base(strings.TrimSpace(originalFilename))
-	if body == nil || name == "" || originalFilename == "." || originalFilename == "" ||
-		utf8.RuneCountInString(name) > 200 || utf8.RuneCountInString(originalFilename) > 255 {
-		return false
+	var fieldErrors []error
+	if name == "" || !utf8.ValidString(name) || utf8.RuneCountInString(name) > 200 {
+		fieldErrors = append(fieldErrors, ErrInvalidName)
 	}
-	for _, value := range name + originalFilename {
+	if originalFilename == "." || originalFilename == "" || !utf8.ValidString(originalFilename) ||
+		utf8.RuneCountInString(originalFilename) > 255 {
+		fieldErrors = append(fieldErrors, ErrInvalidFilename)
+	}
+	for _, value := range name {
 		if unicode.IsControl(value) {
-			return false
+			fieldErrors = append(fieldErrors, ErrInvalidName)
+			break
 		}
 	}
-	return true
+	for _, value := range originalFilename {
+		if unicode.IsControl(value) {
+			fieldErrors = append(fieldErrors, ErrInvalidFilename)
+			break
+		}
+	}
+	if body == nil || len(fieldErrors) > 0 {
+		return errors.Join(append([]error{ErrInvalidInput}, fieldErrors...)...)
+	}
+	return nil
 }
 
 func syncDirectory(path string) error {

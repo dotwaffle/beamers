@@ -15,6 +15,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/a-h/templ"
 
@@ -126,7 +128,7 @@ func (handlers frontendHandlers) register(response http.ResponseWriter, request 
 				csrfToken,
 				"",
 				"",
-				"",
+				nil,
 				open,
 				handlers.sceneID != nil && handlers.sceneID.AllowAccountCreation,
 				reducedEffectsCookie(request),
@@ -155,15 +157,27 @@ func (handlers frontendHandlers) register(response http.ResponseWriter, request 
 		request.Form.Get("password"),
 	)
 	status := 0
-	message := ""
+	var formErrors frontend.FormErrors
 	renderOpen := open
+	renderFailure := false
 	switch {
 	case errors.Is(err, auth.ErrRegistrationClosed):
-		status, message, renderOpen = http.StatusForbidden, "Registration is closed.", false
+		status, renderOpen, renderFailure = http.StatusForbidden, false, true
 	case errors.Is(err, auth.ErrAccountExists):
-		status, message = http.StatusConflict, "That Account Handle is already in use."
+		status, renderFailure = http.StatusConflict, true
+		formErrors = frontend.FormErrors{{
+			FieldID: "register-handle",
+			Label:   "Account Handle",
+			Message: "That Account Handle is already in use.",
+		}}
 	case errors.Is(err, auth.ErrInvalidAccountDetails):
-		status, message = http.StatusBadRequest, "Check the Account details and try again."
+		status, renderFailure = http.StatusBadRequest, true
+		formErrors = accountDetailErrors(
+			"register",
+			handle,
+			displayName,
+			request.Form.Get("password"),
+		)
 	case errors.Is(err, auth.ErrAuthenticationBusy):
 		handlers.limiter.release(clientKey, accountKey)
 		writeAuthRateLimit(response, time.Second)
@@ -173,11 +187,11 @@ func (handlers frontendHandlers) register(response http.ResponseWriter, request 
 	default:
 		http.Redirect(response, request, "/sign-in", http.StatusSeeOther)
 	}
-	if message != "" {
+	if renderFailure {
 		handlers.render(
 			response, request, status,
 			frontend.Register(
-				csrfToken, message, handle, displayName, renderOpen,
+				csrfToken, handle, displayName, formErrors, renderOpen,
 				handlers.sceneID != nil && handlers.sceneID.AllowAccountCreation,
 				reducedEffectsCookie(request),
 			),
@@ -210,20 +224,32 @@ func (handlers frontendHandlers) profile(response http.ResponseWriter, request *
 			)
 			switch {
 			case errors.Is(replaceErr, auth.ErrRecoveryCodesAlreadyReplaced):
-				http.Error(
-					response,
-					"Recovery Codes were already replaced and cannot be shown again.",
+				handlers.renderProfileMessage(
+					response, request, actor, csrfToken,
 					http.StatusConflict,
+					"Recovery Codes were already replaced and cannot be shown again.",
 				)
 				return
 			case errors.Is(replaceErr, auth.ErrInvalidAccountDetails):
-				http.Error(response, "invalid command identity", http.StatusBadRequest)
+				handlers.renderProfileMessage(
+					response, request, actor, csrfToken,
+					http.StatusBadRequest, "Invalid Recovery Code request.",
+				)
 				return
 			case replaceErr != nil:
 				handlers.frontendError(response, request, "replace Recovery Codes", replaceErr)
 				return
 			}
-			handlers.renderProfile(response, request, actor, csrfToken, codes)
+			handlers.renderProfile(
+				response,
+				request,
+				actor,
+				csrfToken,
+				codes,
+				http.StatusOK,
+				false,
+				nil,
+			)
 			return
 		case "remove-password":
 			err = handlers.authentication.RemovePassword(
@@ -233,11 +259,20 @@ func (handlers frontendHandlers) profile(response http.ResponseWriter, request *
 			)
 			switch {
 			case errors.Is(err, auth.ErrFinalCredential):
-				http.Error(response, "final active Credential cannot be removed", http.StatusConflict)
+				handlers.renderProfileMessage(
+					response, request, actor, csrfToken,
+					http.StatusConflict, "The final active Credential cannot be removed.",
+				)
 			case errors.Is(err, auth.ErrCommandConflict):
-				http.Error(response, "Credential command conflict", http.StatusConflict)
+				handlers.renderProfileMessage(
+					response, request, actor, csrfToken,
+					http.StatusConflict, "Credential state changed. Try again.",
+				)
 			case errors.Is(err, auth.ErrInvalidAccountDetails):
-				http.Error(response, "invalid Credential command", http.StatusBadRequest)
+				handlers.renderProfileMessage(
+					response, request, actor, csrfToken,
+					http.StatusBadRequest, "Invalid Credential request.",
+				)
 			case err != nil:
 				handlers.frontendError(response, request, "remove password Credential", err)
 			default:
@@ -247,7 +282,10 @@ func (handlers frontendHandlers) profile(response http.ResponseWriter, request *
 		case "revoke-webauthn":
 			credentialID, parseErr := strconv.Atoi(request.Form.Get("credential_id"))
 			if parseErr != nil || credentialID <= 0 {
-				http.Error(response, "invalid WebAuthn Credential", http.StatusBadRequest)
+				handlers.renderProfileMessage(
+					response, request, actor, csrfToken,
+					http.StatusBadRequest, "Invalid WebAuthn Credential request.",
+				)
 				return
 			}
 			err = handlers.authentication.RevokeWebAuthnCredential(
@@ -258,13 +296,25 @@ func (handlers frontendHandlers) profile(response http.ResponseWriter, request *
 			)
 			switch {
 			case errors.Is(err, auth.ErrFinalCredential):
-				http.Error(response, "final active Credential cannot be removed", http.StatusConflict)
+				handlers.renderProfileMessage(
+					response, request, actor, csrfToken,
+					http.StatusConflict, "The final active Credential cannot be removed.",
+				)
 			case errors.Is(err, auth.ErrInvalidSession):
-				http.Error(response, "WebAuthn Credential not found", http.StatusNotFound)
+				handlers.renderProfileMessage(
+					response, request, actor, csrfToken,
+					http.StatusNotFound, "WebAuthn Credential unavailable.",
+				)
 			case errors.Is(err, auth.ErrCommandConflict):
-				http.Error(response, "Credential command conflict", http.StatusConflict)
+				handlers.renderProfileMessage(
+					response, request, actor, csrfToken,
+					http.StatusConflict, "Credential state changed. Try again.",
+				)
 			case errors.Is(err, auth.ErrInvalidAccountDetails):
-				http.Error(response, "invalid Credential command", http.StatusBadRequest)
+				handlers.renderProfileMessage(
+					response, request, actor, csrfToken,
+					http.StatusBadRequest, "Invalid Credential request.",
+				)
 			case err != nil:
 				handlers.frontendError(response, request, "revoke WebAuthn Credential", err)
 			default:
@@ -274,7 +324,20 @@ func (handlers frontendHandlers) profile(response http.ResponseWriter, request *
 		}
 		entryIDs, parseErr := positiveFormIDs(request.Form["entry_id"])
 		if parseErr != nil {
-			http.Error(response, "invalid Profile Entry", http.StatusBadRequest)
+			handlers.renderProfile(
+				response,
+				request,
+				actor,
+				csrfToken,
+				nil,
+				http.StatusBadRequest,
+				true,
+				frontend.FormErrors{{
+					FieldID: "profile-entries",
+					Label:   "Public Profile",
+					Message: "Choose only available Entries.",
+				}},
+			)
 			return
 		}
 		err = handlers.authentication.UpdateProfile(
@@ -285,9 +348,36 @@ func (handlers frontendHandlers) profile(response http.ResponseWriter, request *
 			entryIDs,
 		)
 		switch {
-		case errors.Is(err, auth.ErrInvalidAccountDetails),
-			errors.Is(err, auth.ErrProfileEntryUnavailable):
-			http.Error(response, "invalid Profile", http.StatusBadRequest)
+		case errors.Is(err, auth.ErrInvalidAccountDetails):
+			handlers.renderProfile(
+				response,
+				request,
+				actor,
+				csrfToken,
+				nil,
+				http.StatusBadRequest,
+				true,
+				frontend.FormErrors{{
+					FieldID: "profile-display-name",
+					Label:   "Display Name",
+					Message: "Enter a Display Name.",
+				}},
+			)
+		case errors.Is(err, auth.ErrProfileEntryUnavailable):
+			handlers.renderProfile(
+				response,
+				request,
+				actor,
+				csrfToken,
+				nil,
+				http.StatusBadRequest,
+				true,
+				frontend.FormErrors{{
+					FieldID: "profile-entries",
+					Label:   "Public Profile",
+					Message: "Choose only available Entries.",
+				}},
+			)
 		case err != nil:
 			handlers.frontendError(response, request, "update Profile", err)
 		default:
@@ -298,7 +388,30 @@ func (handlers frontendHandlers) profile(response http.ResponseWriter, request *
 		frontendMethodNotAllowed(response, http.MethodGet+", "+http.MethodHead+", "+http.MethodPost)
 		return
 	}
-	handlers.renderProfile(response, request, actor, csrfToken, nil)
+	handlers.renderProfile(
+		response,
+		request,
+		actor,
+		csrfToken,
+		nil,
+		http.StatusOK,
+		false,
+		nil,
+	)
+}
+
+func (handlers frontendHandlers) renderProfileMessage(
+	response http.ResponseWriter,
+	request *http.Request,
+	actor auth.Account,
+	csrfToken string,
+	status int,
+	message string,
+) {
+	handlers.renderProfile(
+		response, request, actor, csrfToken, nil, status, false,
+		frontend.FormErrors{{Message: message}},
+	)
 }
 
 func (handlers frontendHandlers) renderProfile(
@@ -307,11 +420,26 @@ func (handlers frontendHandlers) renderProfile(
 	actor auth.Account,
 	csrfToken string,
 	recoveryCodes []string,
+	status int,
+	submitted bool,
+	formErrors frontend.FormErrors,
 ) {
 	found, err := handlers.authentication.Profile(request.Context(), actor)
 	if err != nil {
 		handlers.frontendError(response, request, "read Profile", err)
 		return
+	}
+	if submitted {
+		found.DisplayName = request.Form.Get("display_name")
+		found.Published = request.Form.Get("published") == "true"
+		selectedIDs := make(map[string]struct{}, len(request.Form["entry_id"]))
+		for _, entryID := range request.Form["entry_id"] {
+			selectedIDs[entryID] = struct{}{}
+		}
+		for index := range found.AvailableEntries {
+			entryID := strconv.Itoa(found.AvailableEntries[index].ID)
+			_, found.AvailableEntries[index].Selected = selectedIDs[entryID]
+		}
 	}
 	recoveryCommandID, err := planningCommandID(handlers.random)
 	if err != nil {
@@ -348,10 +476,11 @@ func (handlers frontendHandlers) renderProfile(
 	handlers.render(
 		response,
 		request,
-		http.StatusOK,
+		status,
 		frontend.ProfilePage(
 			csrfToken,
 			found,
+			formErrors,
 			passwordActive,
 			canRemovePassword,
 			credentials,
@@ -383,7 +512,7 @@ func (handlers frontendHandlers) recover(response http.ResponseWriter, request *
 			response,
 			request,
 			http.StatusOK,
-			frontend.Recover(csrfToken, "", "", commandID, reducedEffectsCookie(request)),
+			frontend.Recover(csrfToken, "", commandID, nil, reducedEffectsCookie(request)),
 		)
 		return
 	case http.MethodPost:
@@ -418,9 +547,20 @@ func (handlers frontendHandlers) recover(response http.ResponseWriter, request *
 			http.StatusUnauthorized,
 			frontend.Recover(
 				csrfToken,
-				"Recovery failed.",
 				handle,
 				request.Form.Get("command_id"),
+				frontend.FormErrors{
+					{
+						FieldID: "recover-handle",
+						Label:   "Account Handle",
+						Message: "Recovery failed.",
+					},
+					{
+						FieldID: "recover-credential",
+						Label:   "Recovery Code or Administrator Recovery Token",
+						Message: "Recovery failed.",
+					},
+				},
 				reducedEffectsCookie(request),
 			),
 		)
@@ -432,22 +572,29 @@ func (handlers frontendHandlers) recover(response http.ResponseWriter, request *
 			http.StatusUnprocessableEntity,
 			frontend.Recover(
 				csrfToken,
-				"Choose a password of at least 12 characters.",
 				handle,
 				request.Form.Get("command_id"),
+				frontend.FormErrors{{
+					FieldID: "recover-password",
+					Label:   "New Password",
+					Message: "Enter a password of 12 to 1024 characters.",
+				}},
 				reducedEffectsCookie(request),
 			),
 		)
 	case errors.Is(err, auth.ErrRecoveryAlreadyCompleted):
 		handlers.limiter.release(clientKey, accountKey)
-		http.Error(
-			response,
-			"Account recovery already completed; sign in with the new password.",
+		handlers.renderRecoverFailure(
+			response, request, csrfToken, handle,
 			http.StatusConflict,
+			"Account recovery already completed; sign in with the new password.",
 		)
 	case errors.Is(err, auth.ErrCommandConflict):
 		handlers.limiter.release(clientKey, accountKey)
-		http.Error(response, "command identity conflict", http.StatusConflict)
+		handlers.renderRecoverFailure(
+			response, request, csrfToken, handle,
+			http.StatusConflict, "Recovery request changed. Try again.",
+		)
 	case err != nil:
 		handlers.limiter.release(clientKey, accountKey)
 		handlers.frontendError(response, request, "recover Account", err)
@@ -457,6 +604,32 @@ func (handlers frontendHandlers) recover(response http.ResponseWriter, request *
 		setSessionCookie(response, request, session)
 		http.Redirect(response, request, "/", http.StatusSeeOther)
 	}
+}
+
+func (handlers frontendHandlers) renderRecoverFailure(
+	response http.ResponseWriter,
+	request *http.Request,
+	csrfToken, handle string,
+	status int,
+	message string,
+) {
+	commandID, err := planningCommandID(handlers.random)
+	if err != nil {
+		handlers.frontendError(response, request, "create Account recovery command identity", err)
+		return
+	}
+	handlers.render(
+		response,
+		request,
+		status,
+		frontend.Recover(
+			csrfToken,
+			handle,
+			commandID,
+			frontend.FormErrors{{Message: message}},
+			reducedEffectsCookie(request),
+		),
+	)
 }
 
 func (handlers frontendHandlers) publicProfile(
@@ -1036,7 +1209,7 @@ func (handlers frontendHandlers) setup(response http.ResponseWriter, request *ht
 			response,
 			request,
 			http.StatusOK,
-			frontend.Setup(csrfToken, "", reducedEffectsCookie(request)),
+			frontend.Setup(csrfToken, "", "", nil, reducedEffectsCookie(request)),
 		)
 		return
 	case http.MethodPost:
@@ -1064,9 +1237,40 @@ func (handlers frontendHandlers) setup(response http.ResponseWriter, request *ht
 		handlers.limiter.release(clientKey, bootstrapKey)
 		writeAuthRateLimit(response, time.Second)
 	case errors.Is(err, auth.ErrInvalidAccountDetails):
-		handlers.render(response, request, http.StatusBadRequest, frontend.Setup(csrfToken, "Check the Account details and try again.", reducedEffectsCookie(request)))
+		handlers.render(
+			response,
+			request,
+			http.StatusBadRequest,
+			frontend.Setup(
+				csrfToken,
+				request.Form.Get("handle"),
+				request.Form.Get("display_name"),
+				accountDetailErrors(
+					"setup",
+					request.Form.Get("handle"),
+					request.Form.Get("display_name"),
+					request.Form.Get("password"),
+				),
+				reducedEffectsCookie(request),
+			),
+		)
 	case errors.Is(err, auth.ErrAuthenticationFailed):
-		handlers.render(response, request, http.StatusUnauthorized, frontend.Setup(csrfToken, "Setup token is invalid or expired.", reducedEffectsCookie(request)))
+		handlers.render(
+			response,
+			request,
+			http.StatusUnauthorized,
+			frontend.Setup(
+				csrfToken,
+				request.Form.Get("handle"),
+				request.Form.Get("display_name"),
+				frontend.FormErrors{{
+					FieldID: "setup-token",
+					Label:   "One-time setup token",
+					Message: "Setup token is invalid or expired.",
+				}},
+				reducedEffectsCookie(request),
+			),
+		)
 	case err != nil:
 		handlers.limiter.release(clientKey, bootstrapKey)
 		handlers.frontendError(response, request, "bootstrap first Account", err)
@@ -1126,8 +1330,8 @@ func (handlers frontendHandlers) signIn(response http.ResponseWriter, request *h
 			frontend.SignIn(
 				csrfToken,
 				"",
-				"",
 				safeFrontendReturnTo(request.URL.Query().Get("return_to"), "/"),
+				nil,
 				handlers.sceneID != nil,
 				reducedEffectsCookie(request),
 			),
@@ -1163,9 +1367,20 @@ func (handlers frontendHandlers) signIn(response http.ResponseWriter, request *h
 			http.StatusUnauthorized,
 			frontend.SignIn(
 				csrfToken,
-				"Sign-in failed.",
 				handle,
 				safeFrontendReturnTo(request.Form.Get("return_to"), "/"),
+				frontend.FormErrors{
+					{
+						FieldID: "sign-in-handle",
+						Label:   "Account Handle",
+						Message: "Sign-in failed.",
+					},
+					{
+						FieldID: "sign-in-password",
+						Label:   "Password",
+						Message: "Sign-in failed.",
+					},
+				},
 				handlers.sceneID != nil,
 				reducedEffectsCookie(request),
 			),
@@ -1185,6 +1400,51 @@ func (handlers frontendHandlers) signIn(response http.ResponseWriter, request *h
 			http.StatusSeeOther,
 		)
 	}
+}
+
+func accountDetailErrors(
+	prefix string,
+	handle string,
+	displayName string,
+	password string,
+) frontend.FormErrors {
+	var result frontend.FormErrors
+	if !validBrowserAccountName(handle) {
+		result = append(result, frontend.FormError{
+			FieldID: prefix + "-handle",
+			Label:   "Account Handle",
+			Message: "Enter an Account Handle.",
+		})
+	}
+	if !validBrowserAccountName(displayName) {
+		result = append(result, frontend.FormError{
+			FieldID: prefix + "-display-name",
+			Label:   "Display Name",
+			Message: "Enter a Display Name.",
+		})
+	}
+	passwordLength := utf8.RuneCountInString(password)
+	if !utf8.ValidString(password) || passwordLength < 12 || passwordLength > 1024 {
+		result = append(result, frontend.FormError{
+			FieldID: prefix + "-password",
+			Label:   "Password",
+			Message: "Enter a password of 12 to 1024 characters.",
+		})
+	}
+	return result
+}
+
+func validBrowserAccountName(value string) bool {
+	value = strings.TrimSpace(value)
+	if value == "" || utf8.RuneCountInString(value) > 200 || !utf8.ValidString(value) {
+		return false
+	}
+	for _, character := range value {
+		if unicode.IsControl(character) {
+			return false
+		}
+	}
+	return true
 }
 
 func safeFrontendReturnTo(value, fallback string) string {
