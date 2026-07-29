@@ -16,3 +16,8 @@ See `docs/agents/triage-labels.md`.
 
 This repo uses a single-context domain documentation layout.
 See `docs/agents/domain.md`.
+
+### Pre-v1 schema changes
+
+Until the first v1 release, regenerate `internal/store/migrations/0001_baseline.sql` for every schema change; do not add `0002`.
+See ADR 0034.

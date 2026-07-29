@@ -26,11 +26,11 @@ func (Migration) Fields() []ent.Field {
 			Immutable(),
 		field.Int("minimum_reader_schema_version").
 			Positive().
-			Default(48).
+			Default(1).
 			Immutable(),
 		field.Int("minimum_writer_schema_version").
 			Positive().
-			Default(48).
+			Default(1).
 			Immutable(),
 		field.Time("applied_at").Default(time.Now).Immutable(),
 	}

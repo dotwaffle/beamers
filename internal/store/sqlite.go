@@ -52,7 +52,7 @@ var (
 	ErrNoMigration = errors.New("installation does not require migration")
 )
 
-const minimumManagedUpgradeVersion = 47
+const minimumManagedUpgradeVersion = 1
 
 //go:embed migrations/*.sql
 var migrationFiles embed.FS
@@ -88,159 +88,9 @@ type MigrationSafety string
 const (
 	// MigrationNonDestructive is an attested data-preserving migration.
 	MigrationNonDestructive MigrationSafety = "NonDestructive"
-	// MigrationDestructive may remove or reinterpret authoritative data.
-	MigrationDestructive MigrationSafety = "Destructive"
 	// MigrationUnclassified has no matching committed attestation.
 	MigrationUnclassified MigrationSafety = "Unclassified"
 )
-
-type migrationContract struct {
-	name          string
-	checksum      string
-	safety        MigrationSafety
-	minimumReader int
-	minimumWriter int
-	consequence   string
-}
-
-var migrationContracts = map[int]migrationContract{
-	48: {
-		name:          "record_upgrade_contracts",
-		checksum:      "fd3e9c0762d6524976814ce0b8711b7398c7d4ef5b29b29d52062209a889e00a",
-		safety:        MigrationNonDestructive,
-		minimumReader: 48,
-		minimumWriter: 48,
-		consequence:   "records migration safety and forward compatibility metadata",
-	},
-	49: {
-		name:          "reduced_effects",
-		checksum:      "f4256c337c09ffcb5d241b11bbecefded8942ac8ae6f401de18bf95ab20a7357",
-		safety:        MigrationNonDestructive,
-		minimumReader: 49,
-		minimumWriter: 49,
-		consequence:   "adds persistent Account browser presentation preferences",
-	},
-	50: {
-		name:          "open_registration_profiles",
-		checksum:      "bf23f44b3049a1780f266cc0f2b168a28c6f278ed1b84fb7b01e3116c5e9cb22",
-		safety:        MigrationNonDestructive,
-		minimumReader: 50,
-		minimumWriter: 50,
-		consequence:   "adds Registration Policy and private-by-default Public Profiles",
-	},
-	51: {
-		name:          "publish_events",
-		checksum:      "a44d781a66b968c2cb797d1a4670d25d774b784e4dcec2c7394226e84cb43c8a",
-		safety:        MigrationNonDestructive,
-		minimumReader: 51,
-		minimumWriter: 51,
-		consequence:   "adds Producer-controlled Public Event Listing state and current Event Slugs",
-	},
-	52: {
-		name:          "preserve_event_slugs",
-		checksum:      "853800837cd48d3cd70aa928848a3311b10c2f34f405980a6343148313dabf57",
-		safety:        MigrationNonDestructive,
-		minimumReader: 52,
-		minimumWriter: 52,
-		consequence:   "reserves current and retained Event Slugs in one shared namespace",
-	},
-	53: {
-		name:          "favorite_sessions",
-		checksum:      "3bad6361e513719ac989c8bc1bc45dc83442f28a0649061030b9bec3abe75c2e",
-		safety:        MigrationNonDestructive,
-		minimumReader: 53,
-		minimumWriter: 53,
-		consequence:   "adds private persistent Account bookmarks for public Sessions",
-	},
-	54: {
-		name:          "account_recovery",
-		checksum:      "b607b389cd6a0845ee6d73af4a1ef681bf7944d951c0ea8e2aa531660fda9459",
-		safety:        MigrationNonDestructive,
-		minimumReader: 54,
-		minimumWriter: 54,
-		consequence:   "adds single-use Account and Administrator recovery credentials",
-	},
-	55: {
-		name:          "account_webauthn",
-		checksum:      "18fcb11394d4bb6d9e51f22c7f503750ef518d00e3c05f37ed08510bf8c3ddf6",
-		safety:        MigrationNonDestructive,
-		minimumReader: 55,
-		minimumWriter: 55,
-		consequence:   "adds stable Account WebAuthn handles and independently revocable Credentials",
-	},
-	56: {
-		name:          "account_federation",
-		checksum:      "e50c813e7328497057b172693a782cb50eb85f21193cada995c7573c1d4959ba",
-		safety:        MigrationNonDestructive,
-		minimumReader: 56,
-		minimumWriter: 56,
-		consequence:   "adds provider-and-subject Federated Identity Credentials",
-	},
-	57: {
-		name:          "account_submissions",
-		checksum:      "775e4215cf1192329fbbd5f3a62548e1ce4f45778ad3e7f20908e7de45fec4ba",
-		safety:        MigrationNonDestructive,
-		minimumReader: 57,
-		minimumWriter: 57,
-		consequence:   "adds Account-owned Competition Entries and Submission Eligibility",
-	},
-	58: {
-		name:          "presentation_submitters",
-		checksum:      "d957f398c134984a1cab03eb0efd8fdbb70e5bce84c555f00edc27868ff00ada",
-		safety:        MigrationNonDestructive,
-		minimumReader: 58,
-		minimumWriter: 58,
-		consequence:   "adds Account assignment and approved-content revisions to Presentations",
-	},
-	59: {
-		name:          "remove_upload_links",
-		checksum:      "5101788ee6c841ab647960e958c4769e2a9a08728c8dd38f6cc51857b3da79f9",
-		safety:        MigrationDestructive,
-		minimumReader: 59,
-		minimumWriter: 59,
-		consequence:   "removes anonymous Upload Link credential persistence",
-	},
-	60: {
-		name:          "add_voting_keys",
-		checksum:      "ca28bc8d1f1831a18f6d43b1d182ffd80f3307762d827732846c546419fd0836",
-		safety:        MigrationNonDestructive,
-		minimumReader: 60,
-		minimumWriter: 60,
-		consequence:   "adds protected single-use Event Voting Keys",
-	},
-	61: {
-		name:          "add_competition_ballots",
-		checksum:      "3312375a678484242faac6469a6ab4efa8bd58c181365b9f68dc51539804bf81",
-		safety:        MigrationNonDestructive,
-		minimumReader: 61,
-		minimumWriter: 61,
-		consequence:   "adds frozen Competition Voting Windows and private Account Ballots",
-	},
-	62: {
-		name:          "add_voting_tally",
-		checksum:      "a7985385b23760bcc393a93a9c0afea79952435c92ce1c0ebb9224e666737a67",
-		safety:        MigrationNonDestructive,
-		minimumReader: 62,
-		minimumWriter: 62,
-		consequence:   "adds immutable aggregate Voting Tallies and Results Draft evidence",
-	},
-	63: {
-		name:          "installation_themes",
-		checksum:      "2f6ace73c9ebf0ecfa0b5a46e33118777343a8593a3b3b2b427faa43aaed42c7",
-		safety:        MigrationNonDestructive,
-		minimumReader: 63,
-		minimumWriter: 63,
-		consequence:   "adds immutable Installation Theme Revisions and active selection",
-	},
-	64: {
-		name:          "event_themes",
-		checksum:      "4dea5ea8bdafc36f759f33e0f914bc7a4edb86c376478b8353d6c888fd89d653",
-		safety:        MigrationNonDestructive,
-		minimumReader: 64,
-		minimumWriter: 64,
-		consequence:   "adds immutable inherited Event Theme Revisions and active selection",
-	},
-}
 
 // MigrationStep is one exact committed migration in an upgrade plan.
 type MigrationStep struct {
@@ -863,29 +713,16 @@ func PlanMigrations(
 		Migrations:  make([]MigrationStep, 0, len(migrations)-applied),
 	}
 	for _, migration := range migrations[applied:] {
-		contract, attested := migrationContracts[migration.version]
-		if !attested ||
-			contract.name != migration.name ||
-			contract.checksum != migration.checksum {
-			plan.Safety = MigrationUnclassified
-			contract = migrationContract{
-				safety:        MigrationUnclassified,
-				minimumReader: migration.version,
-				minimumWriter: migration.version,
-				consequence:   "migration has no matching committed safety attestation",
-			}
-		} else if contract.safety == MigrationDestructive &&
-			plan.Safety != MigrationUnclassified {
-			plan.Safety = MigrationDestructive
-		}
-		plan.MinimumReaderSchemaVersion = contract.minimumReader
-		plan.MinimumWriterSchemaVersion = contract.minimumWriter
+		plan.Safety = MigrationUnclassified
+		plan.MinimumReaderSchemaVersion = migration.version
+		plan.MinimumWriterSchemaVersion = migration.version
 		plan.Migrations = append(plan.Migrations, MigrationStep{
 			Version: migration.version, Name: migration.name,
-			Checksum: migration.checksum, Safety: contract.safety,
-			MinimumReaderSchemaVersion: contract.minimumReader,
-			MinimumWriterSchemaVersion: contract.minimumWriter,
-			Consequence:                contract.consequence,
+			Checksum: migration.checksum, Safety: MigrationUnclassified,
+			MinimumReaderSchemaVersion: migration.version,
+			MinimumWriterSchemaVersion: migration.version,
+			Consequence: "migration has no matching committed safety " +
+				"attestation",
 		})
 	}
 	if len(plan.Migrations) == 0 {
@@ -1287,17 +1124,7 @@ func recordMigration(
 	transaction *sql.Tx,
 	migration migration,
 ) error {
-	contract, attested := migrationContracts[migration.version]
-	if migration.version >= 48 {
-		if !attested ||
-			contract.name != migration.name ||
-			contract.checksum != migration.checksum {
-			contract = migrationContract{
-				safety:        MigrationUnclassified,
-				minimumReader: migration.version,
-				minimumWriter: migration.version,
-			}
-		}
+	if migration.version > 1 {
 		if _, err := transaction.ExecContext(
 			ctx,
 			"INSERT INTO beamers_schema_migrations "+
@@ -1307,9 +1134,9 @@ func recordMigration(
 			migration.version,
 			migration.name,
 			migration.checksum,
-			contract.safety,
-			contract.minimumReader,
-			contract.minimumWriter,
+			MigrationUnclassified,
+			migration.version,
+			migration.version,
 		); err != nil {
 			return fmt.Errorf(
 				"record migration %04d_%s: %w",

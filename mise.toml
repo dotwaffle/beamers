@@ -40,7 +40,15 @@ shellcheck scripts/*.sh
 """
 
 [tasks.test]
-description = "Run the complete test suite"
+description = "Run the quick test suite"
+run = """
+sh scripts/check-build-toolchain_test.sh
+sh scripts/check-release-evidence_test.sh
+go test ./...
+"""
+
+[tasks.test-race]
+description = "Run the complete test suite with the race detector"
 run = """
 sh scripts/check-build-toolchain_test.sh
 sh scripts/check-release-evidence_test.sh
@@ -61,8 +69,5 @@ run = "sh scripts/check-migrations.sh"
 
 [tasks.check]
 description = "Run the canonical validation sweep"
-depends = ["browser-test", "lint", "migrations", "test", "vulncheck"]
-run = """
-go vet ./...
-go build ./...
-"""
+depends = ["browser-test", "lint", "migrations", "test-race", "vulncheck"]
+run = "go build ./..."

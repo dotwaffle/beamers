@@ -3,7 +3,6 @@ package store
 import (
 	"cmp"
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"slices"
@@ -691,32 +690,6 @@ func (installation *SQLite) FindAccountCredential(
 	ctx context.Context,
 	normalizedName string,
 ) (AccountCredential, bool, error) {
-	if installation.applied < 55 {
-		var found AccountCredential
-		err := installation.database.QueryRowContext(
-			ctx,
-			`SELECT accounts.id, accounts.normalized_name, accounts.name,
-				accounts.administrator, password_credentials.password_hash
-			FROM password_credentials
-			JOIN accounts ON accounts.id = password_credentials.account_id
-			WHERE accounts.normalized_name = ? AND accounts.disabled_at IS NULL
-				AND password_credentials.revoked_at IS NULL`,
-			normalizedName,
-		).Scan(
-			&found.ID,
-			&found.Handle,
-			&found.Name,
-			&found.Administrator,
-			&found.PasswordHash,
-		)
-		if errors.Is(err, sql.ErrNoRows) {
-			return AccountCredential{}, false, nil
-		}
-		if err != nil {
-			return AccountCredential{}, false, opaqueError("read migration Account credential", err)
-		}
-		return found, true, nil
-	}
 	ctx = systemContext(ctx)
 	found, err := installation.client.PasswordCredential.Query().
 		Where(
@@ -1123,35 +1096,6 @@ func (installation *SQLite) FindAccountSession(
 	tokenHash string,
 	now time.Time,
 ) (AccountCredential, error) {
-	if installation.applied < 55 {
-		var found AccountCredential
-		err := installation.database.QueryRowContext(
-			ctx,
-			`SELECT accounts.id, accounts.normalized_name, accounts.name,
-				accounts.administrator, account_sessions.expires_at
-			FROM account_sessions
-			JOIN accounts ON accounts.id = account_sessions.account_id
-			WHERE account_sessions.token_hash = ?
-				AND account_sessions.revoked_at IS NULL
-				AND account_sessions.expires_at > ?
-				AND accounts.disabled_at IS NULL`,
-			tokenHash,
-			now,
-		).Scan(
-			&found.ID,
-			&found.Handle,
-			&found.Name,
-			&found.Administrator,
-			&found.SessionExpiresAt,
-		)
-		if errors.Is(err, sql.ErrNoRows) {
-			return AccountCredential{}, ErrInvalidSession
-		}
-		if err != nil {
-			return AccountCredential{}, opaqueError("read migration Account session", err)
-		}
-		return found, nil
-	}
 	ctx = systemContext(ctx)
 	session, err := installation.client.AccountSession.Query().
 		Where(

@@ -1,9 +1,7 @@
 package store
 
 import (
-	"database/sql"
 	"errors"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -14,7 +12,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 )
 
-func TestCommittedMigrationsReplayIntoCleanSQLite(t *testing.T) {
+func TestBaselineMigrationInitializesCompleteSQLite(t *testing.T) {
 	dataDir := t.TempDir()
 	if err := Initialize(t.Context(), dataDir); err != nil {
 		t.Fatalf("initialize clean database: %v", err)
@@ -29,11 +27,84 @@ func TestCommittedMigrationsReplayIntoCleanSQLite(t *testing.T) {
 			t.Errorf("close migrated database: %v", closeErr)
 		}
 	}()
-	if err := installation.StartupError(); err != nil {
+	if err = installation.StartupError(); err != nil {
 		t.Fatalf("validate migrated database: %v", err)
 	}
-	if err := installation.Ready(t.Context()); err != nil {
+	if err = installation.Ready(t.Context()); err != nil {
 		t.Fatalf("query migrated database through Ent: %v", err)
+	}
+	current, err := CurrentSchemaVersion()
+	if err != nil {
+		t.Fatalf("read current schema version: %v", err)
+	}
+	if installation.SchemaVersion() != 1 || current != 1 {
+		t.Fatalf(
+			"schema versions = installed %d/current %d, want 1/1",
+			installation.SchemaVersion(),
+			current,
+		)
+	}
+	database, err := openValidationDatabase(
+		t.Context(),
+		filepath.Join(dataDir, databaseFilename),
+	)
+	if err != nil {
+		t.Fatalf("open migration metadata: %v", err)
+	}
+	defer func() {
+		if closeErr := database.Close(); closeErr != nil {
+			t.Errorf("close migration metadata: %v", closeErr)
+		}
+	}()
+	var name, safety string
+	var minimumReader, minimumWriter int
+	if err = database.QueryRowContext(
+		t.Context(),
+		"SELECT name, safety, minimum_reader_schema_version, "+
+			"minimum_writer_schema_version FROM beamers_schema_migrations "+
+			"WHERE version = 1",
+	).Scan(&name, &safety, &minimumReader, &minimumWriter); err != nil {
+		t.Fatalf("read baseline metadata: %v", err)
+	}
+	if name != "baseline" ||
+		safety != "Baseline" ||
+		minimumReader != 1 ||
+		minimumWriter != 1 {
+		t.Fatalf(
+			"baseline metadata = %q/%q/%d/%d",
+			name,
+			safety,
+			minimumReader,
+			minimumWriter,
+		)
+	}
+	var triggers string
+	if err = database.QueryRowContext(
+		t.Context(),
+		"SELECT group_concat(name, ',') FROM "+
+			"(SELECT name FROM sqlite_schema WHERE type = 'trigger' ORDER BY name)",
+	).Scan(&triggers); err != nil {
+		t.Fatalf("read baseline triggers: %v", err)
+	}
+	const expectedTriggers = "events_active_theme_revision_owner_insert," +
+		"events_active_theme_revision_owner_update,lane_drafts_same_event_insert," +
+		"lane_drafts_same_event_update,lane_published_versions_same_event_insert," +
+		"session_draft_lanes_same_event_insert,session_draft_locations_same_event_insert," +
+		"session_draft_tracks_same_event_insert,session_published_lanes_same_event_insert," +
+		"session_published_locations_same_event_insert," +
+		"session_published_tracks_same_event_insert"
+	if triggers != expectedTriggers {
+		t.Fatalf("baseline triggers = %q, want %q", triggers, expectedTriggers)
+	}
+	var registrationPolicies int
+	if err = database.QueryRowContext(
+		t.Context(),
+		"SELECT COUNT(*) FROM registration_policies",
+	).Scan(&registrationPolicies); err != nil {
+		t.Fatalf("read baseline Registration Policy: %v", err)
+	}
+	if registrationPolicies != 1 {
+		t.Fatalf("baseline Registration Policies = %d, want 1", registrationPolicies)
 	}
 }
 
@@ -78,190 +149,12 @@ func TestTelemetryOpenTracesOperationsWithoutSQLOrDSN(t *testing.T) {
 	}
 }
 
-func TestAttestedMigrationPlanUpgradesStagedSQLite(t *testing.T) {
-	ctx := t.Context()
-	databasePath := initializeSchemaFixture(t, 47)
-
-	plan, err := PlanMigrations(ctx, databasePath)
-	if err != nil {
-		t.Fatalf("plan migrations: %v", err)
-	}
-	if plan.FromVersion != 47 ||
-		plan.ToVersion != 64 ||
-		plan.Safety != MigrationDestructive ||
-		plan.MinimumReaderSchemaVersion != 64 ||
-		plan.MinimumWriterSchemaVersion != 64 ||
-		len(plan.Migrations) != 17 ||
-		plan.Migrations[0].Version != 48 ||
-		plan.Migrations[1].Version != 49 ||
-		plan.Migrations[2].Version != 50 ||
-		plan.Migrations[3].Version != 51 ||
-		plan.Migrations[4].Version != 52 ||
-		plan.Migrations[5].Version != 53 ||
-		plan.Migrations[6].Version != 54 ||
-		plan.Migrations[7].Version != 55 ||
-		plan.Migrations[8].Version != 56 ||
-		plan.Migrations[9].Version != 57 ||
-		plan.Migrations[10].Version != 58 ||
-		plan.Migrations[11].Version != 59 ||
-		plan.Migrations[12].Version != 60 ||
-		plan.Migrations[13].Version != 61 ||
-		plan.Migrations[14].Version != 62 ||
-		plan.Migrations[15].Version != 63 ||
-		plan.Migrations[16].Version != 64 {
-		t.Fatalf("migration plan = %+v", plan)
-	}
-
-	if err = MigrateSnapshot(ctx, databasePath, plan); err != nil {
-		t.Fatalf("migrate staged database: %v", err)
-	}
-	if err = ValidateSnapshot(ctx, databasePath); err != nil {
-		t.Fatalf("validate migrated database: %v", err)
-	}
-
-	database, err := openValidationDatabase(ctx, databasePath)
-	if err != nil {
-		t.Fatalf("open migrated database: %v", err)
-	}
-	defer func() {
-		if closeErr := database.Close(); closeErr != nil {
-			t.Errorf("close migrated database: %v", closeErr)
-		}
-	}()
-	var safety string
-	var minimumReader, minimumWriter int
-	if err = database.QueryRowContext(
-		ctx,
-		"SELECT safety, minimum_reader_schema_version, "+
-			"minimum_writer_schema_version FROM beamers_schema_migrations "+
-			"WHERE version = 62",
-	).Scan(&safety, &minimumReader, &minimumWriter); err != nil {
-		t.Fatalf("read migration contract: %v", err)
-	}
-	if safety != string(MigrationNonDestructive) ||
-		minimumReader != 62 ||
-		minimumWriter != 62 {
-		t.Fatalf(
-			"migration contract = %q/%d/%d",
-			safety,
-			minimumReader,
-			minimumWriter,
-		)
-	}
-	var uploadLinkTable bool
-	if err = database.QueryRowContext(
-		ctx,
-		"SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'upload_links')",
-	).Scan(&uploadLinkTable); err != nil {
-		t.Fatalf("inspect removed Upload Link table: %v", err)
-	}
-	if uploadLinkTable {
-		t.Fatal("Upload Link table remains after migration")
-	}
-}
-
-func TestUploadLinkMigrationPreservesHistoricalAuditActor(t *testing.T) {
-	ctx := t.Context()
-	databasePath := initializeSchemaFixture(t, 58)
-	database, err := openDatabase(ctx, databasePath)
-	if err != nil {
-		t.Fatalf("open schema 58 database: %v", err)
-	}
-	if _, err = database.ExecContext(
-		ctx,
-		"INSERT INTO audit_entries "+
-			"(actor_kind, actor_upload_link_id, created_at, action, target_type, target_id, result) "+
-			"VALUES ('UploadLink', 42, CURRENT_TIMESTAMP, 'UploadAttachment', 'Entry', '7', 'Succeeded')",
-	); err != nil {
-		_ = database.Close()
-		t.Fatalf("seed Upload Link audit actor: %v", err)
-	}
-	if err = database.Close(); err != nil {
-		t.Fatalf("close schema 58 database: %v", err)
-	}
-	plan, err := PlanMigrations(ctx, databasePath)
-	if err != nil {
-		t.Fatalf("plan Upload Link removal: %v", err)
-	}
-	if err = MigrateSnapshot(ctx, databasePath, plan); err != nil {
-		t.Fatalf("migrate Upload Link audit actor: %v", err)
-	}
-	database, err = openValidationDatabase(ctx, databasePath)
-	if err != nil {
-		t.Fatalf("open migrated database: %v", err)
-	}
-	defer func() {
-		if closeErr := database.Close(); closeErr != nil {
-			t.Errorf("close migrated database: %v", closeErr)
-		}
-	}()
-	var actorKind string
-	var actorUploadLinkID int
-	if err = database.QueryRowContext(
-		ctx,
-		"SELECT actor_kind, actor_upload_link_id FROM audit_entries WHERE action = 'UploadAttachment'",
-	).Scan(&actorKind, &actorUploadLinkID); err != nil {
-		t.Fatalf("read migrated audit actor: %v", err)
-	}
-	if actorKind != "UploadLink" || actorUploadLinkID != 42 {
-		t.Fatalf("migrated audit actor = %q #%d", actorKind, actorUploadLinkID)
-	}
-}
-
-func TestEventSlugMigrationBackfillsCurrentNamespace(t *testing.T) {
-	ctx := t.Context()
-	databasePath := initializeSchemaFixture(t, 51)
-	database, err := openDatabase(ctx, databasePath)
-	if err != nil {
-		t.Fatalf("open schema 51 database: %v", err)
-	}
-	if _, err = database.ExecContext(
-		ctx,
-		`INSERT INTO events (
-			name, public_slug, public, planned_start_date, planned_end_date,
-			timezone, event_locale, event_day_boundary, created_at
-		) VALUES (
-			'Summer Showcase', 'summer-showcase', true, '2026-08-21', '2026-08-23',
-			'Europe/Berlin', 'en-GB', '00:00', CURRENT_TIMESTAMP
-		)`,
-	); err != nil {
-		_ = database.Close()
-		t.Fatalf("insert schema 51 Event: %v", err)
-	}
-	if err = database.Close(); err != nil {
-		t.Fatalf("close schema 51 database: %v", err)
-	}
-	plan, err := PlanMigrations(ctx, databasePath)
-	if err != nil {
-		t.Fatalf("plan Event Slug migration: %v", err)
-	}
-	if err = MigrateSnapshot(ctx, databasePath, plan); err != nil {
-		t.Fatalf("apply Event Slug migration: %v", err)
-	}
-	database, err = openValidationDatabase(ctx, databasePath)
-	if err != nil {
-		t.Fatalf("open migrated database: %v", err)
-	}
-	defer func() {
-		if closeErr := database.Close(); closeErr != nil {
-			t.Errorf("close migrated database: %v", closeErr)
-		}
-	}()
-	var slug string
-	var exposed bool
-	if err = database.QueryRowContext(
-		ctx,
-		"SELECT slug, exposed FROM event_slugs",
-	).Scan(&slug, &exposed); err != nil {
-		t.Fatalf("read migrated Event Slug: %v", err)
-	}
-	if slug != "summer-showcase" || !exposed {
-		t.Fatalf("migrated Event Slug = %q exposed=%t", slug, exposed)
-	}
-}
-
 func TestMigrationPlanRejectsUnknownCommittedPrefix(t *testing.T) {
-	databasePath := initializeSchemaFixture(t, 47)
+	dataDir := t.TempDir()
+	if err := Initialize(t.Context(), dataDir); err != nil {
+		t.Fatalf("initialize fixture database: %v", err)
+	}
+	databasePath := filepath.Join(dataDir, databaseFilename)
 	database, err := openDatabase(t.Context(), databasePath)
 	if err != nil {
 		t.Fatalf("open fixture database: %v", err)
@@ -269,7 +162,7 @@ func TestMigrationPlanRejectsUnknownCommittedPrefix(t *testing.T) {
 	if _, err = database.ExecContext(
 		t.Context(),
 		"UPDATE beamers_schema_migrations SET checksum = printf('%064d', 0) "+
-			"WHERE version = 47",
+			"WHERE version = 1",
 	); err != nil {
 		_ = database.Close()
 		t.Fatalf("replace migration checksum: %v", err)
@@ -298,13 +191,13 @@ func TestDeclaredForwardWriterRangeAllowsNewerSchema(t *testing.T) {
 		"INSERT INTO beamers_schema_migrations "+
 			"(version, name, checksum, safety, minimum_reader_schema_version, "+
 			"minimum_writer_schema_version, applied_at) "+
-			"VALUES (65, 'future_addition', printf('%064d', 1), "+
-			"'NonDestructive', 64, 64, CURRENT_TIMESTAMP)",
+			"VALUES (2, 'future_addition', printf('%064d', 1), "+
+			"'NonDestructive', 1, 1, CURRENT_TIMESTAMP)",
 	); err != nil {
 		_ = database.Close()
 		t.Fatalf("record future migration: %v", err)
 	}
-	if _, err = database.ExecContext(t.Context(), "PRAGMA user_version = 65"); err != nil {
+	if _, err = database.ExecContext(t.Context(), "PRAGMA user_version = 2"); err != nil {
 		_ = database.Close()
 		t.Fatalf("set future schema version: %v", err)
 	}
@@ -324,13 +217,17 @@ func TestDeclaredForwardWriterRangeAllowsNewerSchema(t *testing.T) {
 	if err = installation.StartupError(); err != nil {
 		t.Fatalf("forward-compatible startup: %v", err)
 	}
-	if installation.SchemaVersion() != 65 {
-		t.Fatalf("opened schema version = %d, want 65", installation.SchemaVersion())
+	if installation.SchemaVersion() != 2 {
+		t.Fatalf("opened schema version = %d, want 2", installation.SchemaVersion())
 	}
 }
 
 func TestUnclassifiedMigrationRecordsClosedCompatibilityRange(t *testing.T) {
-	databasePath := initializeSchemaFixture(t, 49)
+	dataDir := t.TempDir()
+	if err := Initialize(t.Context(), dataDir); err != nil {
+		t.Fatalf("initialize fixture database: %v", err)
+	}
+	databasePath := filepath.Join(dataDir, databaseFilename)
 	database, err := openDatabase(t.Context(), databasePath)
 	if err != nil {
 		t.Fatalf("open fixture database: %v", err)
@@ -341,7 +238,7 @@ func TestUnclassifiedMigrationRecordsClosedCompatibilityRange(t *testing.T) {
 		t.Fatalf("begin fixture transaction: %v", err)
 	}
 	future := migration{
-		version:  50,
+		version:  2,
 		name:     "unclassified_fixture",
 		checksum: strings.Repeat("1", 64),
 	}
@@ -360,7 +257,7 @@ func TestUnclassifiedMigrationRecordsClosedCompatibilityRange(t *testing.T) {
 		t.Context(),
 		"SELECT safety, minimum_reader_schema_version, "+
 			"minimum_writer_schema_version FROM beamers_schema_migrations "+
-			"WHERE version = 50",
+			"WHERE version = 2",
 	).Scan(&safety, &minimumReader, &minimumWriter); err != nil {
 		_ = database.Close()
 		t.Fatalf("read unclassified migration: %v", err)
@@ -369,8 +266,8 @@ func TestUnclassifiedMigrationRecordsClosedCompatibilityRange(t *testing.T) {
 		t.Fatalf("close fixture database: %v", err)
 	}
 	if safety != string(MigrationUnclassified) ||
-		minimumReader != 50 ||
-		minimumWriter != 50 {
+		minimumReader != 2 ||
+		minimumWriter != 2 {
 		t.Fatalf(
 			"unclassified migration contract = %q/%d/%d",
 			safety,
@@ -378,38 +275,6 @@ func TestUnclassifiedMigrationRecordsClosedCompatibilityRange(t *testing.T) {
 			minimumWriter,
 		)
 	}
-}
-
-func initializeSchemaFixture(t *testing.T, version int) string {
-	t.Helper()
-	ctx := t.Context()
-	migrations, err := loadMigrations()
-	if err != nil {
-		t.Fatalf("load migrations: %v", err)
-	}
-	if version <= 0 || version > len(migrations) {
-		t.Fatalf("fixture schema version %d outside 1..%d", version, len(migrations))
-	}
-	databasePath := filepath.Join(t.TempDir(), databaseFilename)
-	file, err := os.Create(databasePath)
-	if err != nil {
-		t.Fatalf("create fixture database: %v", err)
-	}
-	if err = file.Close(); err != nil {
-		t.Fatalf("close empty fixture database: %v", err)
-	}
-	database, err := sql.Open("sqlite", sqliteDataSource(databasePath, false))
-	if err != nil {
-		t.Fatalf("open fixture database: %v", err)
-	}
-	if err = initializeSchema(ctx, database, migrations[:version]); err != nil {
-		_ = database.Close()
-		t.Fatalf("initialize schema %d: %v", version, err)
-	}
-	if err = database.Close(); err != nil {
-		t.Fatalf("close fixture database: %v", err)
-	}
-	return databasePath
 }
 
 func TestAuthenticationCredentialsExpire(t *testing.T) {

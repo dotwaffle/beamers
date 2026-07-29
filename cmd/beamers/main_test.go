@@ -17,7 +17,6 @@ import (
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/backup"
 	"github.com/dotwaffle/beamers/internal/operations"
-	"github.com/dotwaffle/beamers/internal/store/storetest"
 )
 
 func TestServeCommandExportsItsTerminalError(t *testing.T) {
@@ -408,73 +407,4 @@ func waitForNativeReadiness(
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatal("serve did not become ready")
-}
-
-func TestUpgradeCommandPreviewsAndAppliesKnownSafeMigration(t *testing.T) {
-	dataDir := filepath.Join(t.TempDir(), "installation")
-	var stdout, stderr bytes.Buffer
-	if code := run(
-		t.Context(),
-		[]string{"init", "--data-dir", dataDir},
-		&stdout,
-		&stderr,
-	); code != 0 {
-		t.Fatalf("initialize exit = %d, stderr = %s", code, stderr.String())
-	}
-	if err := storetest.DowngradeBeforeUpgradeContracts(
-		t.Context(),
-		filepath.Join(dataDir, "beamers.db"),
-	); err != nil {
-		t.Fatalf("prepare schema 47 fixture: %v", err)
-	}
-
-	stdout.Reset()
-	stderr.Reset()
-	if code := run(
-		t.Context(),
-		[]string{"upgrade", "preview", "--data-dir", dataDir},
-		&stdout,
-		&stderr,
-	); code != 0 {
-		t.Fatalf("upgrade preview exit = %d, stderr = %s", code, stderr.String())
-	}
-	var plan operations.UpgradePlan
-	if err := json.Unmarshal(stdout.Bytes(), &plan); err != nil {
-		t.Fatalf("decode upgrade plan: %v", err)
-	}
-	if !plan.RequiresApproval ||
-		plan.Migration.FromVersion != 47 ||
-		plan.Migration.ToVersion != 64 ||
-		plan.PreviewDigest == "" {
-		t.Fatalf("upgrade plan = %+v", plan)
-	}
-
-	stdout.Reset()
-	stderr.Reset()
-	if code := run(
-		t.Context(),
-		[]string{
-			"upgrade", "apply",
-			"--data-dir", dataDir,
-			"--approve-consequences",
-			"--acknowledge-no-down-migration",
-			"--preview-digest", plan.PreviewDigest,
-		},
-		&stdout,
-		&stderr,
-	); code != 0 {
-		t.Fatalf("upgrade apply exit = %d, stderr = %s", code, stderr.String())
-	}
-	var result operations.UpgradeResult
-	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
-		t.Fatalf("decode upgrade result: %v", err)
-	}
-	t.Cleanup(func() {
-		_ = os.RemoveAll(filepath.Dir(result.BackupPath))
-	})
-	if result.FromVersion != 47 ||
-		result.ToVersion != 64 ||
-		result.Manifest.Mode != backup.FullFidelity {
-		t.Fatalf("upgrade result = %+v", result)
-	}
 }
