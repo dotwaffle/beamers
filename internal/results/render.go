@@ -112,7 +112,7 @@ const publicResultsHTMLSource = `<!doctype html>
 <link rel="stylesheet" href="/assets/frontend.css">
 <link rel="stylesheet" href="/assets/schedule.css">
 <title>{{ .Event.Name }} Results</title></head>
-<body><main><a href="/schedule">Schedule</a><h1>{{ .Event.Name }} Results</h1>
+<body><main id="main-content" tabindex="-1"><a href="/schedule">Schedule</a><h1>{{ .Event.Name }} Results</h1>
 <p>Published <time datetime="{{ datetime .PublishedAt }}">{{ publishedAt .PublishedAt .Event.EventLocale }}</time></p>
 {{ with .Correction }}<aside><strong>Corrected</strong>{{ with .Note }} — {{ . }}{{ end }}</aside>{{ end }}
 {{ range .Items }}{{ with .Competition }}<section><h2>{{ .Title }}</h2>

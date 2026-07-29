@@ -29,9 +29,10 @@ templ Page(snapshot Snapshot) {
 			hx-ext="sse"
 			sse-connect={ snapshot.EventsPath() }
 			>
-			@ScheduleShell(snapshot, snapshot.ViewPath(), "Schedule", "") {
+			@ScheduleShell(snapshot, snapshot.ViewPath(), "Schedule", "", "schedule") {
 				<main
 					id="schedule"
+					tabindex="-1"
 					hx-get={ snapshot.ViewPath() }
 					hx-trigger="sse:schedule"
 					hx-target="this"
@@ -116,8 +117,9 @@ templ SessionPage(snapshot Snapshot, session Session, presentationPath string) {
 				session.PathWithTimezone(snapshot.ViewerTimezone),
 				"Schedule",
 				session.Title,
+				"main-content",
 			) {
-				<main>
+				<main id="main-content" tabindex="-1">
 				<h1>{ session.Title }</h1>
 				@SessionDetails(session)
 				@SessionAttachments(session)
@@ -157,8 +159,9 @@ templ CompetitionsPage(snapshot Snapshot) {
 				"/events/" + snapshot.EventSlug + "/competitions",
 				"Competitions",
 				"",
+				"main-content",
 			) {
-				<main>
+				<main id="main-content" tabindex="-1">
 				<h1>{ snapshot.EventName } Competitions</h1>
 				if len(snapshot.Sessions) == 0 {
 					<p>No public Competitions are available yet.</p>
@@ -194,8 +197,9 @@ templ UnavailablePage(snapshot Snapshot, section string) {
 				"/events/" + snapshot.EventSlug + "/" + strings.ToLower(section),
 				section,
 				"",
+				"main-content",
 			) {
-				<main>
+				<main id="main-content" tabindex="-1">
 				<h1>{ snapshot.EventName } { section }</h1>
 				<p>{ section } is unavailable.</p>
 				</main>
@@ -204,7 +208,7 @@ templ UnavailablePage(snapshot Snapshot, section string) {
 	</html>
 }
 
-templ ScheduleShell(snapshot Snapshot, returnTo string, section string, current string) {
+templ ScheduleShell(snapshot Snapshot, returnTo string, section string, current string, mainID string) {
 	if snapshot.EventSlug == "" {
 		@frontend.ShellNavigation(frontend.Shell{
 			AccountName: snapshot.AccountName,
@@ -212,6 +216,7 @@ templ ScheduleShell(snapshot Snapshot, returnTo string, section string, current 
 			ReturnTo: returnTo,
 			ReducedEffects: snapshot.ReducedEffects,
 			Backstage: snapshot.Backstage,
+			MainID: mainID,
 		})
 		{ children... }
 	} else {
@@ -221,6 +226,7 @@ templ ScheduleShell(snapshot Snapshot, returnTo string, section string, current 
 			ReturnTo: returnTo,
 			ReducedEffects: snapshot.ReducedEffects,
 			Backstage: snapshot.Backstage,
+			MainID: mainID,
 			Event: frontend.EventContext{
 				Name: snapshot.EventName,
 				Slug: snapshot.EventSlug,
@@ -367,8 +373,8 @@ templ CompetitionPage(
 			<title>{ session.Title } · { snapshot.EventName }</title>
 		</head>
 		<body data-reduced-effects={ strconv.FormatBool(snapshot.ReducedEffects) }>
-			@ScheduleShell(snapshot, session.CompetitionPath(), "Competitions", session.Title) {
-				<main>
+			@ScheduleShell(snapshot, session.CompetitionPath(), "Competitions", session.Title, "main-content") {
+				<main id="main-content" tabindex="-1">
 				<h1>{ session.Title }</h1>
 				if session.PublicDetails != "" {
 					<p>{ session.PublicDetails }</p>

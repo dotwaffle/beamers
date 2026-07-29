@@ -1,6 +1,7 @@
 package programview
 
 import "strconv"
+import "github.com/dotwaffle/beamers/internal/frontend"
 
 templ Page(eventID int, sessionID int, channelName string, buildVersion string) {
 	<!doctype html>
@@ -14,13 +15,14 @@ templ Page(eventID int, sessionID int, channelName string, buildVersion string) 
 			<title>{ channelName } · Program control</title>
 		</head>
 		<body data-event-id={ strconv.Itoa(eventID) } data-session-id={ strconv.Itoa(sessionID) }>
+			@frontend.SkipLink("main-content")
 			<header>
 				<p class="eyebrow">Program Channel</p>
 				<h1>{ channelName }</h1>
 				<p><a href={ templ.SafeURL("/backstage/events/" + strconv.Itoa(eventID) + "/control") }>Back to Program Output and Overrides</a></p>
 				<p id="connection-status" role="status">Loading authoritative state…</p>
 			</header>
-			<main>
+			<main id="main-content" tabindex="-1">
 				<section class="sequence" aria-label="Program sequence">
 					@ItemPanel("Previous", "previous")
 					@ItemPanel("Current", "current")

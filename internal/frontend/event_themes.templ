@@ -51,7 +51,7 @@ templ EventThemeAdministration(page EventThemePage) {
 			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, true)
 			<div class="backstage-layout">
 				@BackstageNavigationViews(page.Navigation)
-				<main>
+				<main id="main-content" tabindex="-1">
 					<h1>Event #{ strconv.Itoa(page.EventID) } Theme</h1>
 					<p>Active: <strong>{ eventThemeRevisionLabel(page.ActiveRevisionID) }</strong></p>
 					if page.Error != "" {

@@ -80,7 +80,7 @@ templ EventOverview(page EventOverviewPage) {
 			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, true)
 			<div class="backstage-layout">
 				@BackstageNavigationViews(page.Navigation)
-				<main>
+				<main id="main-content" tabindex="-1">
 					<h1>{ page.Event.Name }</h1>
 					<p>{ page.Role }</p>
 					<section>
@@ -167,7 +167,7 @@ templ EventSettings(page EventSettingsPage) {
 			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, true)
 			<div class="backstage-layout">
 				@BackstageNavigationViews(page.Navigation)
-				<main>
+				<main id="main-content" tabindex="-1">
 					<h1>Event settings</h1>
 					<p>{ page.Event.Name }</p>
 					if page.Error != "" {
@@ -323,7 +323,7 @@ templ DisplaySettings(page DisplaySettingsPage) {
 			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, true)
 			<div class="backstage-layout">
 				@BackstageNavigationViews(page.Navigation)
-				<main>
+				<main id="main-content" tabindex="-1">
 					<h1>Event Display settings</h1>
 					<p>{ page.Event.Name }</p>
 					<p>
@@ -519,7 +519,7 @@ templ FinalFiles(page FinalFilesPage) {
 			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, true)
 			<div class="backstage-layout">
 				@BackstageNavigationViews(page.Navigation)
-				<main>
+				<main id="main-content" tabindex="-1">
 					<h1>Final Files Export</h1>
 					<p>{ page.Event.Name }</p>
 					if page.Error != "" {
@@ -545,7 +545,9 @@ templ FinalFiles(page FinalFilesPage) {
 								</dd>
 							}
 						</dl>
+						<div class="table-scroll">
 						<table>
+							<caption>Files included in this exact export preview</caption>
 							<thead>
 								<tr>
 									<th scope="col">Session</th>
@@ -576,6 +578,7 @@ templ FinalFiles(page FinalFilesPage) {
 								}
 							</tbody>
 						</table>
+						</div>
 					</section>
 					<form class="stack" method="post">
 						<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>

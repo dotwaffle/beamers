@@ -110,7 +110,7 @@ templ Planning(page PlanningPage) {
 			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, true)
 			<div class="backstage-layout">
 				@BackstageNavigationViews(page.Navigation)
-				<main>
+				<main id="main-content" tabindex="-1">
 					<h1>Plan and publish</h1>
 					<p>
 						Draft revision { strconv.Itoa(page.CurrentPreview.DraftRevision) }.
@@ -604,7 +604,7 @@ templ BackstageSessions(page BackstageSessionsPage) {
 			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, true)
 			<div class="backstage-layout">
 				@BackstageNavigationViews(page.Navigation)
-				<main>
+				<main id="main-content" tabindex="-1">
 					<h1>Sessions and Competitions</h1>
 					<p>{ page.Event.Name } · { page.Role }</p>
 					if page.Producer {
@@ -673,7 +673,7 @@ templ NewEvent(page NewEventPage) {
 			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, true)
 			<div class="backstage-layout">
 				@BackstageNavigationViews(page.Navigation)
-				<main>
+				<main id="main-content" tabindex="-1">
 					<h1>Create Event</h1>
 					if page.Error != "" {
 						<p class="error" role="alert">{ page.Error }</p>

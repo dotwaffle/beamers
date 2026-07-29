@@ -56,6 +56,7 @@ type browserPageEvidence struct {
 	Language          string   `json:"language"`
 	Main              bool     `json:"main"`
 	Heading           bool     `json:"heading"`
+	Structure         bool     `json:"structure"`
 	KeyboardOperable  bool     `json:"keyboard_operable"`
 	FocusVisible      bool     `json:"focus_visible"`
 	ReducedMotion     bool     `json:"reduced_motion"`
@@ -192,6 +193,9 @@ func (report browserCertificationReport) validate() error {
 		{"planning", 1},
 		{"operations", 1},
 		{"results-management", 1},
+		{"administration", 1},
+		{"voting-keys", 1},
+		{"final-files", 1},
 		{"enrollment", 1},
 		{"display", 2},
 		{"crew_control", 2},
@@ -248,6 +252,9 @@ func TestBrowserCertificationReportRequiresDurableTwoDisplayTake(t *testing.T) {
 				validBrowserPageEvidence("planning"),
 				validBrowserPageEvidence("operations"),
 				validBrowserPageEvidence("results-management"),
+				validBrowserPageEvidence("administration"),
+				validBrowserPageEvidence("voting-keys"),
+				validBrowserPageEvidence("final-files"),
 				validBrowserPageEvidence("crew_control"),
 				validBrowserPageEvidence("crew_control"),
 				validBrowserPageEvidence("control"),
@@ -316,6 +323,14 @@ func TestBrowserCertificationReportRequiresDurableTwoDisplayTake(t *testing.T) {
 				}
 			}
 		},
+		"missing table surface evidence": func(report *browserCertificationReport) {
+			for index, page := range report.Pages {
+				if page.Surface == "administration" {
+					report.Pages = append(report.Pages[:index], report.Pages[index+1:]...)
+					return
+				}
+			}
+		},
 		"missing enrollment evidence": func(report *browserCertificationReport) {
 			report.Pages = report.Pages[:3]
 		},
@@ -356,8 +371,10 @@ func TestBrowserCertificationWorktreeMustBeClean(t *testing.T) {
 func validBrowserPageEvidence(surface string) browserPageEvidence {
 	evidence := browserPageEvidence{
 		Surface: surface, Title: "Evidence", Language: "en", Main: true, Heading: true,
+		Structure: true,
 	}
 	if surface == "display" || surface == "demo-display" {
+		evidence.Structure = false
 		evidence.ReducedMotion = true
 		evidence.NonColorStatus = true
 	} else {
@@ -394,6 +411,9 @@ func (evidence browserPageEvidence) validate() error {
 			findings = append(findings, "missing reduced motion")
 		}
 	default:
+		if !evidence.Structure {
+			findings = append(findings, "invalid page structure")
+		}
 		if !evidence.KeyboardOperable {
 			findings = append(findings, "missing keyboard operation")
 		}
@@ -829,6 +849,7 @@ func TestBrowserCertification(t *testing.T) {
 		1440,
 	)
 	assertResponsivePageZoom(t, crewDriver, origin+"/events/revision-2099/schedule", 1024, 2)
+	assertResponsivePageZoom(t, crewDriver, origin+"/events/revision-2099/schedule", 1280, 4)
 	certifyLiveScheduleUpdate(
 		t,
 		crewDriver,
@@ -878,6 +899,10 @@ func TestBrowserCertification(t *testing.T) {
 	assertResponsivePageWidths(t, crewDriver, origin+"/backstage/events/1/operations", 320, 1440)
 	assertResponsivePageWidths(t, crewDriver, origin+"/backstage/events/1/control", 320, 1440)
 	assertResponsivePageWidths(t, crewDriver, origin+"/backstage/events/1/results", 320, 1440)
+	assertResponsivePageWidths(t, crewDriver, origin+"/backstage/administration", 320, 1440)
+	assertResponsivePageWidths(t, crewDriver, origin+"/backstage/events/1/voting-keys", 320, 1440)
+	assertResponsivePageWidths(t, crewDriver, origin+"/backstage/events/1/final-files", 320, 1440)
+	assertResponsivePageZoom(t, crewDriver, origin+"/backstage/events/1/results", 1280, 4)
 	assertBackstageNavigationModes(t, crewDriver, origin)
 	report.Pages = append(
 		report.Pages,
@@ -905,6 +930,24 @@ func TestBrowserCertification(t *testing.T) {
 			crewDriver,
 			origin+"/backstage/events/1/results",
 			"results-management",
+		),
+		certifyInteractivePage(
+			t,
+			crewDriver,
+			origin+"/backstage/administration",
+			"administration",
+		),
+		certifyInteractivePage(
+			t,
+			crewDriver,
+			origin+"/backstage/events/1/voting-keys",
+			"voting-keys",
+		),
+		certifyInteractivePage(
+			t,
+			crewDriver,
+			origin+"/backstage/events/1/final-files",
+			"final-files",
 		),
 		certifyInteractivePage(
 			t,
@@ -2207,6 +2250,10 @@ func certifyDemoBrowserJourneys(
 			origin+journey.path,
 			journey.surface,
 		)
+		if journey.surface == "demo-voter" {
+			assertResponsivePageWidths(t, driver, origin+journey.path, 320)
+			assertResponsivePageZoom(t, driver, origin+journey.path, 1280, 4)
+		}
 		actualPath, err := driver.evaluateString(
 			t.Context(),
 			`return location.pathname + location.search;`,
@@ -2449,10 +2496,10 @@ func assertResponsivePageZoom(
 		`return document.documentElement.scrollWidth <= window.innerWidth;`,
 	)
 	if err != nil {
-		t.Fatalf("inspect Schedule at %d%% zoom: %v", zoom*100, err)
+		t.Fatalf("inspect page at %d%% zoom: %v", zoom*100, err)
 	}
 	if !fits {
-		t.Fatalf("Schedule overflows horizontally at %d pixels and %d%% zoom", width, zoom*100)
+		t.Fatalf("page overflows horizontally at %d pixels and %d%% zoom", width, zoom*100)
 	}
 }
 
@@ -3257,6 +3304,7 @@ func TestBrowserPageEvidenceFailsClosed(t *testing.T) {
 		"language",
 		"main landmark",
 		"heading",
+		"page structure",
 		"keyboard operation",
 		"visible focus",
 		"unlabeled controls",
@@ -3303,7 +3351,8 @@ func TestWebDriverAuditsServedPageEvidence(t *testing.T) {
 		case "/session/session-1/execute/sync":
 			_, _ = response.Write([]byte(
 				`{"value":{"surface":"schedule","title":"Schedule","language":"en-GB",` +
-					`"main":true,"heading":true,"keyboard_operable":true,"focus_visible":true}}`,
+					`"main":true,"heading":true,"structure":true,` +
+					`"keyboard_operable":true,"focus_visible":true}}`,
 			))
 		default:
 			http.NotFound(response, request)

@@ -37,7 +37,10 @@
     .map(identify);
   const smallTargets = controls
     .filter((element) => {
-      const bounds = element.getBoundingClientRect();
+      const target = element.matches('input[type="checkbox"],input[type="radio"]')
+        ? element.labels[0] || element
+        : element;
+      const bounds = target.getBoundingClientRect();
       return bounds.width < 24 || bounds.height < 24;
     })
     .map(identify);
@@ -124,6 +127,29 @@
         ...style.transitionDuration.split(","),
       ].map((value) => durationMilliseconds(value.trim()));
     });
+  const skip = document.querySelector('a.skip-link[href^="#"]');
+  const main = skip && document.querySelector(skip.getAttribute("href"));
+  const headings = [...document.querySelectorAll("h1,h2,h3,h4,h5,h6")]
+    .filter((heading) => !heading.closest("nav"));
+  const levels = headings.map(
+    (heading) => Number(heading.localName.slice(1)),
+  );
+  const hierarchy = levels.filter((level) => level === 1).length === 1 &&
+    levels.every(
+      (level, index) => index === 0 || level <= levels[index - 1] + 1,
+    );
+  const tables = [...document.querySelectorAll("table")].every((table) =>
+    Boolean(table.querySelector("caption")?.textContent.trim()) &&
+      [...table.querySelectorAll("th")].every((heading) =>
+        ["col", "row"].includes(heading.getAttribute("scope"))
+      )
+  );
+  const selections = [...document.querySelectorAll(
+    'input[type="checkbox"],input[type="radio"]',
+  )].every((control) => {
+    const labelBounds = control.labels[0]?.getBoundingClientRect();
+    return labelBounds?.width >= 24 && labelBounds?.height >= 24;
+  });
   const status = document.querySelector("#display-connection");
   return {
     surface,
@@ -131,6 +157,8 @@
     language: document.documentElement.lang,
     main: Boolean(document.querySelector("main")),
     heading: Boolean(document.querySelector("h1")),
+    structure: Boolean(skip && main?.matches("main[tabindex='-1']")) &&
+      hierarchy && tables && selections,
     keyboard_operable: Boolean(keyboardOperable),
     focus_visible: focusVisible,
     reduced_motion: matchMedia("(prefers-reduced-motion: reduce)").matches &&

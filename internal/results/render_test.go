@@ -58,6 +58,7 @@ func TestRenderPublicationKeepsHTMLTextAndJSONOnOneModel(t *testing.T) {
 	for _, want := range []string{
 		`<html lang="fr" data-locale="de-DE">`,
 		`<meta name="viewport" content="width=device-width, initial-scale=1">`,
+		`<main id="main-content" tabindex="-1">`,
 		`<time datetime="2026-08-21T14:00:00Z">21 Aug 2026, 14:00 UTC</time>`,
 		`href="/schedule"`,
 	} {

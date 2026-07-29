@@ -57,7 +57,7 @@ templ Submissions(page SubmissionsPage) {
 		@Head("My Participation · Beamers")
 		<body data-reduced-effects={ strconv.FormatBool(page.ReducedEffects) }>
 			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, page.Backstage)
-			<main>
+			<main id="main-content" tabindex="-1">
 				<h1>My Participation</h1>
 				if page.Error != "" {
 					<p class="error" role="alert">{ page.Error }</p>

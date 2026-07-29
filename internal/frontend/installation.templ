@@ -52,7 +52,7 @@ templ Installation(page InstallationPage) {
 			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, true)
 			<div class="backstage-layout">
 				@BackstageNavigationViews(page.Navigation)
-				<main>
+				<main id="main-content" tabindex="-1">
 					<h1>Installation health</h1>
 					if page.Message != "" {
 						<p role="status">{ page.Message }</p>

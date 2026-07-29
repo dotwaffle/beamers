@@ -57,7 +57,7 @@ templ Control(page ControlPage) {
 			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, true)
 			<div class="backstage-layout">
 				@BackstageNavigationViews(page.Navigation)
-				<main>
+				<main id="main-content" tabindex="-1">
 					<h1>Program Output and Overrides</h1>
 					<p>{ page.Event.Name }</p>
 					if page.Error != "" {

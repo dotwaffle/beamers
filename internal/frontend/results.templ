@@ -94,7 +94,7 @@ templ Results(page ResultsPage) {
 			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, true)
 			<div class="backstage-layout">
 				@BackstageNavigationViews(page.Navigation)
-				<main>
+				<main id="main-content" tabindex="-1">
 					<h1>Results and Prizegiving</h1>
 					<p>{ page.Event.Name }</p>
 					if page.Error != "" {

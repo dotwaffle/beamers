@@ -7,10 +7,12 @@ templ EnrollmentPage(code string, qrCodeDataURL string) {
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<meta http-equiv="refresh" content="3"/>
+			@standaloneSkipLinkStyle()
 			<title>Enroll this Display</title>
 		</head>
 		<body>
-			<main>
+			@skipLink()
+			<main id="main-content" tabindex="-1">
 				<h1>Enroll this Display</h1>
 				<img src={ templ.SafeURL(qrCodeDataURL) } alt="QR code for Display Enrollment" width="320" height="320"/>
 				<p>Enrollment code: <strong>{ code }</strong></p>
@@ -26,6 +28,7 @@ templ EnrollmentClaimPage(code string, commandID string, buildVersion string, in
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			@standaloneSkipLinkStyle()
 			<style>
 				body {
 					margin: 0;
@@ -62,7 +65,8 @@ templ EnrollmentClaimPage(code string, commandID string, buildVersion string, in
 			<title>Claim Display</title>
 		</head>
 		<body>
-			<main>
+			@skipLink()
+			<main id="main-content" tabindex="-1">
 				<h1>Claim Display</h1>
 				<p>Enrollment code: <strong>{ code }</strong></p>
 				<form method="post" action="/admin/displays/enroll">
@@ -85,10 +89,12 @@ templ EnrollmentClaimReloadPage(reloadURL string) {
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<meta http-equiv="refresh" content={ "0; url=" + reloadURL }/>
+			@standaloneSkipLinkStyle()
 			<title>Reloading Display claim</title>
 		</head>
 		<body>
-			<main>
+			@skipLink()
+			<main id="main-content" tabindex="-1">
 				<h1>Beamers was updated</h1>
 				<p role="status">Reloading this Display claim with the entered name preserved.</p>
 				<p><a href={ templ.SafeURL(reloadURL) }>Continue to the current Display claim page</a></p>
@@ -103,10 +109,12 @@ templ EnrollmentClaimedPage(display Display) {
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			@standaloneSkipLinkStyle()
 			<title>Display enrolled</title>
 		</head>
 		<body>
-			<main>
+			@skipLink()
+			<main id="main-content" tabindex="-1">
 				<h1>Display enrolled</h1>
 				<p>{ display.Name } is ready.</p>
 			</main>
@@ -490,4 +498,26 @@ templ displayClient() {
 	</style>
 	<p id="display-connection" role="status" aria-live="polite" data-connection="connecting">Connecting…</p>
 	<script src={ ClientJavaScriptPath() } defer></script>
+}
+
+templ skipLink() {
+	<a class="skip-link" href="#main-content">Skip to main content</a>
+}
+
+templ standaloneSkipLinkStyle() {
+	<style>
+		.skip-link {
+			background: Canvas;
+			color: CanvasText;
+			inset-block-start: 0.5rem;
+			inset-inline-start: 0.5rem;
+			padding: 0.55rem 0.9rem;
+			position: fixed;
+			transform: translateY(-200%);
+			z-index: 10;
+		}
+		.skip-link:focus {
+			transform: none;
+		}
+	</style>
 }
