@@ -11,6 +11,7 @@ func TestRenderPublicationKeepsHTMLTextAndJSONOnOneModel(t *testing.T) {
 	publication := PublicResultsPublication{
 		SchemaVersion: "1",
 		Event: PublicResultsEvent{
+			ID: 41, Slug: "demo-dance",
 			Name: "Demo & Dance", EventLocale: "de-DE",
 			ContentLanguage: "fr", Language: "fr",
 		},
@@ -58,9 +59,12 @@ func TestRenderPublicationKeepsHTMLTextAndJSONOnOneModel(t *testing.T) {
 	for _, want := range []string{
 		`<html lang="fr" data-locale="de-DE">`,
 		`<meta name="viewport" content="width=device-width, initial-scale=1">`,
+		`<link rel="stylesheet" href="/assets/events/41/theme.css">`,
+		`<body data-reduced-effects="false">`,
+		`class="skip-link" href="#main-content"`,
 		`<main id="main-content" tabindex="-1">`,
 		`<time datetime="2026-08-21T14:00:00Z">21 Aug 2026, 14:00 UTC</time>`,
-		`href="/schedule"`,
+		`href="/events/demo-dance/schedule"`,
 	} {
 		if !strings.Contains(rendered.HTML, want) {
 			t.Fatalf("localized Results HTML missing %q: %s", want, rendered.HTML)
@@ -95,7 +99,7 @@ func TestRenderPublicationKeepsHTMLTextAndJSONOnOneModel(t *testing.T) {
 func TestRenderPublicationUsesOnlyFrozenAllowlistedTemplateState(t *testing.T) {
 	publication := PublicResultsPublication{
 		SchemaVersion: "1",
-		Event:         PublicResultsEvent{Name: "Demo"},
+		Event:         PublicResultsEvent{ID: 41, Slug: "demo", Name: "Demo"},
 		Revision:      3,
 		Status:        ResultsPublicationPartial,
 	}
@@ -130,7 +134,7 @@ revision={{ .Revision }}`,
 func TestRenderPublicationFailsInsteadOfFallingBack(t *testing.T) {
 	publication := PublicResultsPublication{
 		SchemaVersion: "1",
-		Event:         PublicResultsEvent{Name: "Demo"},
+		Event:         PublicResultsEvent{ID: 41, Slug: "demo", Name: "Demo"},
 		Revision:      1,
 		Status:        ResultsPublicationFinal,
 	}

@@ -103,10 +103,12 @@ func eventPublicationTestAward(t *testing.T, eventID int) store.ResultsPublicati
 	t.Helper()
 	model := PublicResultsPublication{
 		SchemaVersion: "1",
-		Event:         PublicResultsEvent{Name: "Event", Language: "en"},
-		Revision:      1,
-		Status:        ResultsPublicationFinal,
-		PublishedAt:   time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC),
+		Event: PublicResultsEvent{
+			ID: eventID, Slug: "event", Name: "Event", Language: "en",
+		},
+		Revision:    1,
+		Status:      ResultsPublicationFinal,
+		PublishedAt: time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC),
 		Items: []PublicResultsItem{{
 			Kind: ResultItemEventAward,
 			Award: &PublicResultsAward{
@@ -147,10 +149,12 @@ func eventPublicationTestScope(
 	}
 	model := PublicResultsPublication{
 		SchemaVersion: "1",
-		Event:         PublicResultsEvent{Name: "Event", Language: "en"},
-		Revision:      1,
-		Status:        ResultsPublicationFinal,
-		PublishedAt:   time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC),
+		Event: PublicResultsEvent{
+			ID: eventID, Slug: "event", Name: "Event", Language: "en",
+		},
+		Revision:    1,
+		Status:      ResultsPublicationFinal,
+		PublishedAt: time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC),
 		Items: []PublicResultsItem{{
 			Kind: ResultItemCompetition,
 			Competition: &PublicCompetitionResults{

@@ -5,10 +5,8 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
-	"github.com/dotwaffle/beamers/internal/frontend"
 	"github.com/dotwaffle/beamers/internal/results"
 )
 
@@ -18,58 +16,67 @@ type publicResultsRead struct {
 }
 
 type publicResultsReaderStub struct {
-	reads []publicResultsRead
+	reads        []publicResultsRead
+	artifactHTML string
 }
 
-func TestWrappedPublicResultsKeepsSharedSkipTarget(t *testing.T) {
+func TestPublicResultsHTMLServesStoredArtifactForEveryVisitor(t *testing.T) {
 	t.Parallel()
 
-	for name, main := range map[string]string{
-		"current": `<main id="main-content" tabindex="-1">`,
-		"legacy":  "<main>",
+	const stored = `<!doctype html><html><body data-reduced-effects="false">` +
+		`<main id="main-content" tabindex="-1"><h1>Results</h1></main></body></html>`
+	for name, cookie := range map[string]*http.Cookie{
+		"anonymous": nil,
+		"signed in": {
+			Name: sessionCookieName, Value: "signed-in-session",
+		},
+		"reduced effects cookie": {
+			Name: reducedEffectsCookieName, Value: "true",
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			document := `<!doctype html><html><body>` + main +
-				`<h1>Results</h1></main></body></html>`
-			wrapped, err := wrapPublicResultsHTML(t.Context(), document, frontend.Shell{
-				Event: frontend.EventContext{Name: "Revision", Slug: "revision"},
-			})
-			if err != nil {
-				t.Fatalf("wrap public Results: %v", err)
+			request := httptest.NewRequestWithContext(
+				t.Context(),
+				http.MethodGet,
+				"/events/revision/results",
+				http.NoBody,
+			)
+			if cookie != nil {
+				request.AddCookie(cookie)
 			}
-			for _, want := range []string{
-				`class="skip-link" href="#main-content"`,
-				`<main id="main-content" tabindex="-1">`,
-			} {
-				if !strings.Contains(wrapped, want) {
-					t.Errorf("wrapped public Results missing %q: %s", want, wrapped)
-				}
+			response := httptest.NewRecorder()
+			handlers := publicResultsHandlers{
+				service: &publicResultsReaderStub{artifactHTML: stored},
+				logger:  slog.New(slog.DiscardHandler),
 			}
-			if strings.Contains(wrapped, "<main>") {
-				t.Errorf("wrapped public Results retained legacy main: %s", wrapped)
+			handlers.serveArtifact(
+				response,
+				request,
+				41,
+				results.PublicationScopeEvent,
+				41,
+				0,
+				"text/html; charset=utf-8",
+			)
+			if response.Code != http.StatusOK || response.Body.String() != stored {
+				t.Fatalf(
+					"HTML = %d %q, want stored %q",
+					response.Code,
+					response.Body.String(),
+					stored,
+				)
+			}
+			if got := response.Header().Get("Cache-Control"); got != "public, max-age=15, must-revalidate" {
+				t.Errorf("Cache-Control = %q", got)
+			}
+			if got := response.Header().Get("ETag"); got != `"results-41-Event-41-7"` {
+				t.Errorf("ETag = %q", got)
+			}
+			if got := response.Header().Get("Vary"); got != "" {
+				t.Errorf("Vary = %q", got)
 			}
 		})
-	}
-}
-
-func TestPublicResultsETagIncludesEventShell(t *testing.T) {
-	first := publicResultsETag(
-		41,
-		results.PublicationScopeEvent,
-		41,
-		7,
-		&frontend.Shell{Event: frontend.EventContext{Name: "First Event"}},
-	)
-	second := publicResultsETag(
-		41,
-		results.PublicationScopeEvent,
-		41,
-		7,
-		&frontend.Shell{Event: frontend.EventContext{Name: "Renamed Event"}},
-	)
-	if first == second {
-		t.Fatalf("Event rename retained public Results ETag %q", first)
 	}
 }
 
@@ -84,9 +91,13 @@ func (stub *publicResultsReaderStub) PublicArtifact(
 		eventID: eventID, scope: scope, scopeSessionID: scopeSessionID,
 		revision: revision,
 	})
+	artifactHTML := stub.artifactHTML
+	if artifactHTML == "" {
+		artifactHTML = "<html><head></head><body><main><p>Awards</p></main></body></html>"
+	}
 	return results.PublicArtifact{
 		Revision: 7,
-		HTML:     "<html><head></head><body><main><p>Awards</p></main></body></html>",
+		HTML:     artifactHTML,
 		Text:     "Awards",
 		JSON:     `{"awards":true}`,
 	}, true, nil

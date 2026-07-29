@@ -1041,6 +1041,79 @@ func TestStandaloneResultsReleaseRequiresReadyUnassignedCompetition(t *testing.T
 	); !errors.Is(err, results.ErrCompetitionPrizegivingAssignment) {
 		t.Fatalf("assign published standalone Results error = %v", err)
 	}
+
+	var legacyModel results.PublicResultsPublication
+	if err = json.Unmarshal([]byte(original.RenderedJSON), &legacyModel); err != nil {
+		t.Fatalf("decode legacy Results model: %v", err)
+	}
+	legacyModel.Event.ID = 0
+	legacyModel.Event.Slug = ""
+	legacyJSON, err := json.Marshal(legacyModel)
+	if err != nil {
+		t.Fatalf("encode legacy Results model: %v", err)
+	}
+	var legacySource store.ResultsPublicationRenderSource
+	if err = json.Unmarshal(stored.Lock.RenderSource, &legacySource); err != nil {
+		t.Fatalf("decode legacy Results render source: %v", err)
+	}
+	legacySource.EventID = 0
+	legacySource.EventSlug = ""
+	legacyLock := stored.Lock
+	legacyLock.RenderSource, err = json.Marshal(legacySource)
+	if err != nil {
+		t.Fatalf("encode legacy Results render source: %v", err)
+	}
+	transaction, err := storage.BeginCommand(actor.Context(t.Context()))
+	if err != nil {
+		t.Fatalf("begin legacy Results Publication: %v", err)
+	}
+	legacyPublication, err := transaction.AppendResultsPublication(
+		actor.Context(t.Context()),
+		store.AppendResultsPublicationParams{
+			EventID: eventID, Scope: store.ResultsPublicationPrizegiving,
+			ScopeSessionID: ceremonyID, Policy: stored.Policy, Status: stored.Status,
+			Items: stored.Items, Lock: legacyLock, Template: stored.Template,
+			RenderedHTML: stored.RenderedHTML, RenderedText: stored.RenderedText,
+			RenderedJSON: string(legacyJSON), CreatedByAccountID: actor.ID, Now: now(),
+		},
+	)
+	if err != nil {
+		t.Fatalf("append legacy Results Publication: %v", err)
+	}
+	if err = transaction.Commit(); err != nil {
+		t.Fatalf("commit legacy Results Publication: %v", err)
+	}
+	legacyModel.Items[0].Competition.Title = "Legacy Corrected Final"
+	legacyCorrection, err := service.SaveCorrection(
+		t.Context(),
+		actor,
+		results.SaveCorrectionInput{
+			EventID: eventID, Scope: results.PublicationScopePrizegiving,
+			ScopeSessionID: ceremonyID, CommandID: "save-legacy-results-correction",
+			BasePublicationRevision: legacyPublication.Revision,
+			PublicationOrder: []results.ResultItemRef{{
+				Kind: results.ResultItemCompetition, CompetitionSessionID: competitionID,
+				DisplayOrder: 1,
+			}},
+			Items: legacyModel.Items, Template: defaultTemplate,
+			CrewReason: "Exercise a pre-identity Results publication.",
+		},
+	)
+	if err != nil {
+		t.Fatalf("save legacy Results Correction: %v", err)
+	}
+	legacyCorrection, err = service.ReviewCorrection(
+		t.Context(),
+		actor,
+		results.ReviewCorrectionInput{
+			EventID: eventID, Scope: results.PublicationScopePrizegiving,
+			ScopeSessionID: ceremonyID, CommandID: "review-legacy-results-correction",
+			ExpectedRevision: legacyCorrection.Revision,
+		},
+	)
+	if err != nil || legacyCorrection.Status != results.CorrectionReady {
+		t.Fatalf("review legacy Results Correction = %+v, %v", legacyCorrection, err)
+	}
 }
 
 func TestStandaloneNoPublicResultsReleaseDoesNotRequireReadyReview(t *testing.T) {

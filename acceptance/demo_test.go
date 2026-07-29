@@ -60,13 +60,13 @@ func assertDemoSignIn(t *testing.T, address string, expectWarning bool) {
 	root := getFrontendPage(t, client, address, "/")
 	if root.status != http.StatusOK ||
 		strings.Contains(root.body, "Security warning") != expectWarning ||
-		!strings.Contains(strings.ToLower(root.body), "demo") ||
-		!strings.Contains(root.body, `href="/events/revision-demo"`) {
+		!strings.Contains(root.body, "BeamParty 2099") ||
+		!strings.Contains(root.body, `href="/events/beamparty-2099"`) {
 		t.Fatalf("demo root = %d %q", root.status, root.body)
 	}
-	schedule := getFrontendPage(t, client, address, "/events/revision-demo/schedule")
+	schedule := getFrontendPage(t, client, address, "/events/beamparty-2099/schedule")
 	for _, want := range []string{
-		"Revision Demo",
+		"BeamParty 2099",
 		"Opening",
 		"Shader Showdown",
 		"Tracked Music",
@@ -76,13 +76,13 @@ func assertDemoSignIn(t *testing.T, address string, expectWarning bool) {
 		"Main Hall",
 		"Main Stage",
 		"General",
-		`href="/events/revision-demo/schedule/sessions/1"`,
+		`href="/events/beamparty-2099/schedule/sessions/1"`,
 	} {
 		if schedule.status != http.StatusOK || !strings.Contains(schedule.body, want) {
 			t.Fatalf("demo Schedule lacks %q: %d %q", want, schedule.status, schedule.body)
 		}
 	}
-	released := getFrontendPage(t, client, address, "/events/revision-demo/results")
+	released := getFrontendPage(t, client, address, "/events/beamparty-2099/results")
 	for _, want := range []string{"Oldschool Demo", "Oldschool Demo Entry"} {
 		if released.status != http.StatusOK || !strings.Contains(released.body, want) {
 			t.Fatalf("demo Results lack %q: %d %q", want, released.status, released.body)

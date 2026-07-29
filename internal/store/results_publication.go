@@ -6,6 +6,7 @@ import (
 	"errors"
 	"reflect"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/dotwaffle/beamers/ent"
@@ -85,6 +86,8 @@ type ResultsPublication struct {
 
 // ResultsPublicationRenderSource contains exact facts resolved for rendering.
 type ResultsPublicationRenderSource struct {
+	EventID          int                                   `json:"event_id"`
+	EventSlug        string                                `json:"event_slug"`
 	EventName        string                                `json:"event_name"`
 	EventLocale      string                                `json:"event_locale"`
 	ContentLanguage  string                                `json:"content_language"`
@@ -290,6 +293,24 @@ func loadResultsPublicationRenderSource(
 		if json.Unmarshal(lock.RenderSource, &frozen) != nil {
 			return ResultsPublicationRenderSource{}, ErrResultsPublicationTransition
 		}
+		if frozen.EventID > 0 && frozen.EventID != eventID {
+			return ResultsPublicationRenderSource{}, ErrResultsPublicationTransition
+		}
+		if frozen.EventID <= 0 || strings.TrimSpace(frozen.EventSlug) == "" {
+			foundEvent, err := client.Event.Query().
+				Where(event.IDEQ(eventID)).
+				Only(ctx)
+			if err != nil {
+				return ResultsPublicationRenderSource{},
+					opaqueError("load Results Publication Event", err)
+			}
+			if frozen.EventID <= 0 {
+				frozen.EventID = foundEvent.ID
+			}
+			if strings.TrimSpace(frozen.EventSlug) == "" {
+				frozen.EventSlug = foundEvent.PublicSlug
+			}
+		}
 		return frozen, nil
 	}
 	foundEvent, err := client.Event.Query().
@@ -299,6 +320,8 @@ func loadResultsPublicationRenderSource(
 		return ResultsPublicationRenderSource{}, opaqueError("load Results Publication Event", err)
 	}
 	source := ResultsPublicationRenderSource{
+		EventID:         foundEvent.ID,
+		EventSlug:       foundEvent.PublicSlug,
 		EventName:       foundEvent.Name,
 		EventLocale:     foundEvent.EventLocale,
 		ContentLanguage: foundEvent.ContentLanguage,
