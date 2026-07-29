@@ -60,6 +60,7 @@ const (
 	capacityCommandInterval       = time.Second
 	capacityWarmup                = 5 * time.Second
 	capacityCertificationDuration = 5 * time.Minute
+	capacityEventSlug             = "capacity-event"
 )
 
 type capacityProfile struct {
@@ -289,6 +290,27 @@ func TestCapacityScheduleCacheCoalescesRevalidation(t *testing.T) {
 	}
 }
 
+func TestCapacityFixtureServesCanonicalPublicSchedule(t *testing.T) {
+	fixture := prepareCapacityFixture(t, capacityEnvelope{
+		Locations: 2, Lanes: 2, SessionsAndEntries: 2,
+		Displays: 1, CrewConsoles: 1, PublicReaders: 1,
+	})
+	application, _ := newCapacityApplication(t, fixture)
+	response := httptest.NewRecorder()
+	application.ServeHTTP(
+		response,
+		httptest.NewRequestWithContext(
+			t.Context(),
+			http.MethodGet,
+			"/events/"+capacityEventSlug+"/schedule",
+			http.NoBody,
+		),
+	)
+	if response.Code != http.StatusOK {
+		t.Fatalf("canonical capacity Schedule = %d, want %d", response.Code, http.StatusOK)
+	}
+}
+
 func TestCapacityFanoutSummarizesEachCommandFirst(t *testing.T) {
 	found := summarizeCapacityFanout([][]time.Duration{
 		{10 * time.Millisecond, 20 * time.Millisecond, 30 * time.Millisecond},
@@ -500,7 +522,10 @@ func runCapacityLoad(
 	}
 	t.Cleanup(transport.CloseIdleConnections)
 	client := &http.Client{Transport: transport, Timeout: 30 * time.Second}
-	cache := newCapacityScheduleCache(target.Origin, client)
+	cache := newCapacityScheduleCache(
+		target.Origin+"/events/"+capacityEventSlug,
+		client,
+	)
 	cacheServer := httptest.NewServer(cache)
 	t.Cleanup(cacheServer.Close)
 	primeCapacitySchedule(t, client, cacheServer.URL)
@@ -1176,6 +1201,21 @@ func prepareCapacityFixture(tb testing.TB, envelope capacityEnvelope) capacityFi
 		t.Fatalf("refresh capacity authorization: %v", err)
 	}
 	session.Account = actor
+	event, err = installation.Events().Update(t.Context(), actor, event.ID, events.CreateInput{
+		Name: event.Name, Public: true, PublicSlug: capacityEventSlug,
+		PlannedStartDate: event.PlannedStartDate, PlannedEndDate: event.PlannedEndDate,
+		Timezone: event.Timezone, EventLocale: event.EventLocale,
+		ContentLanguage: event.ContentLanguage, EventDayBoundary: event.EventDayBoundary,
+		EntryDefaultDisposition:        event.EntryDefaultDisposition,
+		SubmissionEligibility:          event.SubmissionEligibility,
+		VotingMethod:                   event.VotingMethod,
+		SelfVotePolicy:                 event.SelfVotePolicy,
+		TargetAdjustmentPresetsSeconds: event.TargetAdjustmentPresetsSeconds,
+		CommandID:                      "capacity-publish-event", ExpectedRevision: event.Revision,
+	})
+	if err != nil {
+		t.Fatalf("publish capacity Event: %v", err)
+	}
 	edit := capacityDraft(event.ID, now, envelope)
 	if _, err = installation.RundownCommands().EditDraft(
 		t.Context(),
@@ -2511,16 +2551,17 @@ func primeCapacitySchedule(t *testing.T, client *http.Client, baseURL string) {
 	if err != nil {
 		t.Fatalf("prime capacity Schedule cache: %v", err)
 	}
-	_, readErr := io.Copy(io.Discard, response.Body)
+	body, readErr := io.ReadAll(response.Body)
 	closeErr := response.Body.Close()
 	if err = errors.Join(readErr, closeErr); err != nil {
 		t.Fatalf("read capacity Schedule cache: %v", err)
 	}
 	if response.StatusCode != http.StatusOK || response.Header.Get("ETag") == "" {
 		t.Fatalf(
-			"prime capacity Schedule cache = %d, ETag %q",
+			"prime capacity Schedule cache = %d, ETag %q, body %q",
 			response.StatusCode,
 			response.Header.Get("ETag"),
+			body,
 		)
 	}
 }
