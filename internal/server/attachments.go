@@ -130,17 +130,38 @@ func multipartUpload(
 	Read([]byte) (int, error)
 	Close() error
 }, ok bool) {
-	// MaxBytesReader is installed by both callers before multipart parsing.
-	if err := request.ParseMultipartForm(64 << 20); err != nil { //nolint:gosec // Request bytes are bounded.
+	name, filename, mediaType, body, err := readMultipartUpload(request)
+	switch {
+	case errors.Is(err, errInvalidUpload):
 		http.Error(response, "invalid upload", http.StatusBadRequest)
-		return "", "", "", nil, false
-	}
-	file, header, err := request.FormFile("file")
-	if err != nil {
+	case errors.Is(err, errUploadFileRequired):
 		http.Error(response, "file is required", http.StatusUnprocessableEntity)
-		return "", "", "", nil, false
+	case err == nil:
+		return name, filename, mediaType, body, true
 	}
-	return request.FormValue("name"), header.Filename, header.Header.Get("Content-Type"), file, true
+	return "", "", "", nil, false
+}
+
+var (
+	errInvalidUpload      = errors.New("invalid upload")
+	errUploadFileRequired = errors.New("upload file required")
+)
+
+func readMultipartUpload(
+	request *http.Request,
+) (name, filename, mediaType string, body interface {
+	Read([]byte) (int, error)
+	Close() error
+}, err error) {
+	// MaxBytesReader is installed by both callers before multipart parsing.
+	if parseErr := request.ParseMultipartForm(64 << 20); parseErr != nil { //nolint:gosec // Request bytes are bounded.
+		return "", "", "", nil, errInvalidUpload
+	}
+	file, header, fileErr := request.FormFile("file")
+	if fileErr != nil {
+		return "", "", "", nil, errUploadFileRequired
+	}
+	return request.FormValue("name"), header.Filename, header.Header.Get("Content-Type"), file, nil
 }
 
 func (handlers attachmentHandlers) writeUploadResult(

@@ -20,7 +20,29 @@ type SubmissionsPage struct {
 	Ballots        []voting.Window
 	EventSlugs     map[int]string
 	Attachments    attachments.AccountState
-	Error          string
+	Form           SubmissionForm
+	Errors         FormErrors
+}
+
+type SubmissionForm struct {
+	Action        string
+	SessionID     int
+	EntryID       int
+	Name          string
+	PublicDetails string
+	Speaker       string
+	UploadTarget  attachments.TargetKind
+	UploadTargetID int
+	UploadName     string
+	UploadCrewOnly bool
+}
+
+func (form SubmissionForm) matches(action string, sessionID, entryID int) bool {
+	return form.Action == action && form.SessionID == sessionID && form.EntryID == entryID
+}
+
+func (form SubmissionForm) matchesUpload(target attachments.TargetKind, targetID int) bool {
+	return form.Action == "upload" && form.UploadTarget == target && form.UploadTargetID == targetID
 }
 
 func submittedVersions(
@@ -59,9 +81,7 @@ templ Submissions(page SubmissionsPage) {
 			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, page.Backstage)
 			<main id="main-content" tabindex="-1">
 				<h1>My Participation</h1>
-				if page.Error != "" {
-					<p class="error" role="alert">{ page.Error }</p>
-				}
+				@ErrorSummary(page.Errors)
 				<section aria-labelledby="participation-uploads">
 					<h2 id="participation-uploads">Uploads</h2>
 					<p>{ strconv.Itoa(len(page.Attachments.Versions)) } immutable Attachment Versions across your Entries and Presentations.</p>
@@ -105,17 +125,59 @@ templ Submissions(page SubmissionsPage) {
 							<input type="hidden" name="event_id" value={ strconv.Itoa(found.EventID) }/>
 							<input type="hidden" name="session_id" value={ strconv.Itoa(found.SessionID) }/>
 							<input type="hidden" name="expected_revision" value={ strconv.Itoa(found.Revision) }/>
-							<label>Speaker credit <input name="speaker" value={ found.Speaker }/></label>
-							<label>Public details <textarea name="public_details">{ found.PublicDetails }</textarea></label>
+							<label>
+								Speaker credit
+								<input
+									id={ "presentation-" + strconv.Itoa(found.SessionID) + "-speaker" }
+									name="speaker"
+									value={ submissionValue(page.Form.matches("update-presentation", found.SessionID, 0), page.Form.Speaker, found.Speaker) }
+									{ page.Errors.Attributes("presentation-" + strconv.Itoa(found.SessionID) + "-speaker")... }
+								/>
+							</label>
+							@FieldError(page.Errors, "presentation-" + strconv.Itoa(found.SessionID) + "-speaker")
+							<label>
+								Public details
+								<textarea
+									id={ "presentation-" + strconv.Itoa(found.SessionID) + "-details" }
+									name="public_details"
+									{ page.Errors.Attributes("presentation-" + strconv.Itoa(found.SessionID) + "-details")... }
+								>{ submissionValue(page.Form.matches("update-presentation", found.SessionID, 0), page.Form.PublicDetails, found.PublicDetails) }</textarea>
+							</label>
+							@FieldError(page.Errors, "presentation-" + strconv.Itoa(found.SessionID) + "-details")
 							<button type="submit">Update Presentation details</button>
 						</form>
 						<form id={ "presentation-" + strconv.Itoa(found.SessionID) + "-upload" } class="stack" method="post" enctype="multipart/form-data" action={ templ.SafeURL("/submissions/" + strconv.Itoa(found.EventID) + "/presentations/" + strconv.Itoa(found.SessionID) + "/upload") }>
 							<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
 							<input type="hidden" name="command_id" value={ page.CommandID }/>
-							<label>Attachment name <input name="name" required/></label>
-							<label>File <input type="file" name="file" required/></label>
 							<label>
-								<input type="checkbox" name="crew_only" value="true"/>
+								Attachment name
+								<input
+									id={ "presentation-" + strconv.Itoa(found.SessionID) + "-upload-name" }
+									name="name"
+									value={ submissionValue(page.Form.matchesUpload(attachments.TargetPresentation, found.SessionID), page.Form.UploadName, "") }
+									required
+									{ page.Errors.Attributes("presentation-" + strconv.Itoa(found.SessionID) + "-upload-name")... }
+								/>
+							</label>
+							@FieldError(page.Errors, "presentation-" + strconv.Itoa(found.SessionID) + "-upload-name")
+							<label>
+								File
+								<input
+									id={ "presentation-" + strconv.Itoa(found.SessionID) + "-upload-file" }
+									type="file"
+									name="file"
+									required
+									{ page.Errors.Attributes("presentation-" + strconv.Itoa(found.SessionID) + "-upload-file")... }
+								/>
+							</label>
+							@FieldError(page.Errors, "presentation-" + strconv.Itoa(found.SessionID) + "-upload-file")
+							<label>
+								<input
+									type="checkbox"
+									name="crew_only"
+									value="true"
+									checked?={ page.Form.matchesUpload(attachments.TargetPresentation, found.SessionID) && page.Form.UploadCrewOnly }
+								/>
 								Crew Only Release Eligibility
 							</label>
 							<button type="submit">Upload immutable Version</button>
@@ -161,8 +223,26 @@ templ Submissions(page SubmissionsPage) {
 								<input type="hidden" name="command_id" value={ page.CommandID }/>
 								<input type="hidden" name="event_id" value={ strconv.Itoa(found.EventID) }/>
 								<input type="hidden" name="session_id" value={ strconv.Itoa(found.SessionID) }/>
-								<label>Entry name <input name="entry_name" required/></label>
-								<label>Public details <textarea name="public_details"></textarea></label>
+								<label>
+									Entry name
+									<input
+										id={ "entry-create-" + strconv.Itoa(found.SessionID) + "-name" }
+										name="entry_name"
+										value={ submissionValue(page.Form.matches("create", found.SessionID, 0), page.Form.Name, "") }
+										required
+										{ page.Errors.Attributes("entry-create-" + strconv.Itoa(found.SessionID) + "-name")... }
+									/>
+								</label>
+								@FieldError(page.Errors, "entry-create-" + strconv.Itoa(found.SessionID) + "-name")
+								<label>
+									Public details
+									<textarea
+										id={ "entry-create-" + strconv.Itoa(found.SessionID) + "-details" }
+										name="public_details"
+										{ page.Errors.Attributes("entry-create-" + strconv.Itoa(found.SessionID) + "-details")... }
+									>{ submissionValue(page.Form.matches("create", found.SessionID, 0), page.Form.PublicDetails, "") }</textarea>
+								</label>
+								@FieldError(page.Errors, "entry-create-" + strconv.Itoa(found.SessionID) + "-details")
 								<button type="submit">Create Entry</button>
 							</form>
 						}
@@ -178,17 +258,60 @@ templ Submissions(page SubmissionsPage) {
 									<input type="hidden" name="session_id" value={ strconv.Itoa(found.SessionID) }/>
 									<input type="hidden" name="entry_id" value={ strconv.Itoa(entry.ID) }/>
 									<input type="hidden" name="expected_revision" value={ strconv.Itoa(entry.Revision) }/>
-									<label>Entry name <input name="entry_name" value={ entry.Name } required/></label>
-									<label>Public details <textarea name="public_details">{ entry.PublicDetails }</textarea></label>
+									<label>
+										Entry name
+										<input
+											id={ "entry-" + strconv.Itoa(entry.ID) + "-name" }
+											name="entry_name"
+											value={ submissionValue(page.Form.matches("update", found.SessionID, entry.ID), page.Form.Name, entry.Name) }
+											required
+											{ page.Errors.Attributes("entry-" + strconv.Itoa(entry.ID) + "-name")... }
+										/>
+									</label>
+									@FieldError(page.Errors, "entry-" + strconv.Itoa(entry.ID) + "-name")
+									<label>
+										Public details
+										<textarea
+											id={ "entry-" + strconv.Itoa(entry.ID) + "-details" }
+											name="public_details"
+											{ page.Errors.Attributes("entry-" + strconv.Itoa(entry.ID) + "-details")... }
+										>{ submissionValue(page.Form.matches("update", found.SessionID, entry.ID), page.Form.PublicDetails, entry.PublicDetails) }</textarea>
+									</label>
+									@FieldError(page.Errors, "entry-" + strconv.Itoa(entry.ID) + "-details")
 									<button type="submit">Update Entry</button>
 								</form>
 								<form class="stack" method="post" enctype="multipart/form-data" action={ templ.SafeURL("/submissions/" + strconv.Itoa(found.EventID) + "/entries/" + strconv.Itoa(entry.ID) + "/upload") }>
 									<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
 									<input type="hidden" name="command_id" value={ page.CommandID }/>
-									<label>Attachment name <input name="name" required/></label>
-									<label>File <input type="file" name="file" required/></label>
 									<label>
-										<input type="checkbox" name="crew_only" value="true"/>
+										Attachment name
+										<input
+											id={ "entry-" + strconv.Itoa(entry.ID) + "-upload-name" }
+											name="name"
+											value={ submissionValue(page.Form.matchesUpload(attachments.TargetEntry, entry.ID), page.Form.UploadName, "") }
+											required
+											{ page.Errors.Attributes("entry-" + strconv.Itoa(entry.ID) + "-upload-name")... }
+										/>
+									</label>
+									@FieldError(page.Errors, "entry-" + strconv.Itoa(entry.ID) + "-upload-name")
+									<label>
+										File
+										<input
+											id={ "entry-" + strconv.Itoa(entry.ID) + "-upload-file" }
+											type="file"
+											name="file"
+											required
+											{ page.Errors.Attributes("entry-" + strconv.Itoa(entry.ID) + "-upload-file")... }
+										/>
+									</label>
+									@FieldError(page.Errors, "entry-" + strconv.Itoa(entry.ID) + "-upload-file")
+									<label>
+										<input
+											type="checkbox"
+											name="crew_only"
+											value="true"
+											checked?={ page.Form.matchesUpload(attachments.TargetEntry, entry.ID) && page.Form.UploadCrewOnly }
+										/>
 										Crew Only Release Eligibility
 									</label>
 									<button type="submit">Upload immutable Version</button>
@@ -219,4 +342,11 @@ templ Submissions(page SubmissionsPage) {
 			<script src={ EventTimePath } defer></script>
 		</body>
 	</html>
+}
+
+func submissionValue(submitted bool, value, fallback string) string {
+	if submitted {
+		return value
+	}
+	return fallback
 }

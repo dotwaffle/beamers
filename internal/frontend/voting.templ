@@ -18,6 +18,7 @@ type VotingRedemptionPage struct {
 	EventID        int
 	Message        string
 	Success        bool
+	Errors         FormErrors
 	OpenBallots    []voting.Window
 }
 
@@ -42,6 +43,9 @@ type VotingBallotPage struct {
 	Backstage      bool
 	CommandID      string
 	Ballot         voting.Ballot
+	Errors         FormErrors
+	ErrorEntryID   int
+	SubmittedValue int
 	StreamID       string
 	StreamPosition uint64
 }
@@ -66,10 +70,11 @@ templ VotingRedemption(page VotingRedemptionPage) {
 			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, page.Backstage)
 			<main id="main-content" tabindex="-1">
 				<h1>Redeem Event Voting Key</h1>
+				@ErrorSummary(page.Errors)
 				if page.Message != "" {
 					if page.Success {
 						<p role="status">{ page.Message }</p>
-					} else {
+					} else if len(page.Errors) == 0 {
 						<p class="error" role="alert">{ page.Message }</p>
 					}
 				}
@@ -78,12 +83,29 @@ templ VotingRedemption(page VotingRedemptionPage) {
 					<input type="hidden" name="command_id" value={ page.CommandID }/>
 					<label>
 						Event number
-						<input type="number" name="event_id" min="1" value={ votingEventID(page.EventID) } required/>
+						<input
+							id="voting-event"
+							type="number"
+							name="event_id"
+							min="1"
+							value={ votingEventID(page.EventID) }
+							required
+							{ page.Errors.Attributes("voting-event")... }
+						/>
 					</label>
+					@FieldError(page.Errors, "voting-event")
 					<label>
 						Voting Key
-						<input name="voting_key" autocomplete="off" spellcheck="false" required/>
+						<input
+							id="voting-key"
+							name="voting_key"
+							autocomplete="off"
+							spellcheck="false"
+							required
+							{ page.Errors.Attributes("voting-key")... }
+						/>
 					</label>
+					@FieldError(page.Errors, "voting-key")
 					<button type="submit">Redeem Voting Key</button>
 				</form>
 				<section>
@@ -147,6 +169,7 @@ templ VotingBallotSnapshot(page VotingBallotPage) {
 	>
 		<h1>{ page.Ballot.Window.Title } Ballot</h1>
 		<p>{ page.Ballot.Window.EventName }</p>
+		@ErrorSummary(page.Errors)
 		if page.Ballot.Window.State == "Closed" {
 			<p role="status">Voting is closed. Your Ballot is read-only.</p>
 		} else if len(page.Ballot.Entries) == 0 {
@@ -164,15 +187,25 @@ templ VotingBallotSnapshot(page VotingBallotPage) {
 						<input type="hidden" name="event_id" value={ strconv.Itoa(page.Ballot.Window.EventID) }/>
 						<input type="hidden" name="entry_id" value={ strconv.Itoa(entry.ID) }/>
 						<input type="hidden" name="expected_revision" value={ strconv.Itoa(page.Ballot.Window.Revision) }/>
-						<fieldset>
+						<fieldset
+							id={ "vote-" + strconv.Itoa(entry.ID) }
+							{ page.Errors.Attributes("vote-" + strconv.Itoa(entry.ID))... }
+						>
 							<legend>Score from 1 through 5</legend>
 							for value := 1; value <= 5; value++ {
 								<label>
-									<input type="radio" name="value" value={ strconv.Itoa(value) } checked?={ entry.Value == value } required/>
+									<input
+										type="radio"
+										name="value"
+										value={ strconv.Itoa(value) }
+										checked?={ ballotValue(page, entry.ID, entry.Value) == value }
+										required
+									/>
 									{ strconv.Itoa(value) }
 								</label>
 							}
 						</fieldset>
+						@FieldError(page.Errors, "vote-" + strconv.Itoa(entry.ID))
 						<button type="submit">Save Vote</button>
 					</form>
 				} else if entry.Value > 0 {
@@ -184,6 +217,13 @@ templ VotingBallotSnapshot(page VotingBallotPage) {
 		}
 		<p id="ballot-status" role="status" aria-live="polite" aria-atomic="true">Ballot updated.</p>
 	</main>
+}
+
+func ballotValue(page VotingBallotPage, entryID, fallback int) int {
+	if page.ErrorEntryID == entryID {
+		return page.SubmittedValue
+	}
+	return fallback
 }
 
 templ CompetitionVoting(page CompetitionVotingPage) {

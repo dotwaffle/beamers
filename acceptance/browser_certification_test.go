@@ -874,6 +874,7 @@ func TestBrowserCertification(t *testing.T) {
 		),
 		certifyResultsPage(t, crewDriver, origin),
 	)
+	certifyAccessibleFormCorrection(t, crewDriver, origin)
 	addBrowserCookie(t, crewDriver, browserCookie(
 		t,
 		administrator,
@@ -1104,6 +1105,50 @@ func TestBrowserCertification(t *testing.T) {
 	report.DisplayReconnected = true
 	restarted.stop(t)
 	writeBrowserCertificationReport(t, config.ReportPath, report)
+}
+
+func certifyAccessibleFormCorrection(
+	t *testing.T,
+	driver *webDriver,
+	origin string,
+) {
+	t.Helper()
+	if err := driver.navigate(t.Context(), origin+"/sign-in"); err != nil {
+		t.Fatalf("navigate to sign-in validation: %v", err)
+	}
+	if err := driver.execute(t.Context(), `
+		document.querySelector("#sign-in-handle").value = "Ada Admin";
+		document.querySelector("#sign-in-password").value = "wrong password value";
+		document.querySelector('form[action="/sign-in"]').requestSubmit();`); err != nil {
+		t.Fatalf("submit invalid sign-in: %v", err)
+	}
+	if err := driver.waitFor(
+		t.Context(),
+		5*time.Second,
+		`return document.activeElement?.id === "error-summary";`,
+	); err != nil {
+		t.Fatalf("validation summary did not receive focus: %v", err)
+	}
+	if err := driver.pressKey(t.Context(), "\uE004"); err != nil {
+		t.Fatalf("tab to validation summary link: %v", err)
+	}
+	linkFocused, err := driver.evaluateBool(
+		t.Context(),
+		`return document.activeElement?.getAttribute("href") === "#sign-in-handle";`,
+	)
+	if err != nil || !linkFocused {
+		t.Fatalf("validation summary link focus = %t, %v", linkFocused, err)
+	}
+	if err = driver.pressKey(t.Context(), "\uE007"); err != nil {
+		t.Fatalf("activate validation summary link: %v", err)
+	}
+	if err = driver.waitFor(
+		t.Context(),
+		5*time.Second,
+		`return document.activeElement?.id === "sign-in-handle";`,
+	); err != nil {
+		t.Fatalf("validation link did not focus invalid field: %v", err)
+	}
 }
 
 func certifyWebAuthnAvailability(t *testing.T, driver *webDriver, origin string) {

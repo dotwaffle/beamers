@@ -19,6 +19,10 @@ import (
 var (
 	// ErrInvalidInput means Presentation submission input is malformed.
 	ErrInvalidInput = errors.New("invalid Presentation submission input")
+	// ErrInvalidSpeaker identifies an invalid user-editable Speaker credit.
+	ErrInvalidSpeaker = errors.New("invalid Presentation Speaker credit")
+	// ErrInvalidPublicDetails identifies invalid user-editable Presentation details.
+	ErrInvalidPublicDetails = errors.New("invalid Presentation public details")
 	// ErrProducerRequired means the actor cannot manage the Event.
 	ErrProducerRequired = errors.New("producer role required")
 	// ErrPresentationNotFound hides unknown and non-Presentation Sessions.
@@ -195,12 +199,21 @@ func (service *Service) UpdateSubmission(
 		input.SessionID,
 		input.ExpectedRevision,
 		input.CommandID,
-	); err != nil || input.ExpectedRevision == 0 || actor.ID <= 0 ||
-		!validSpeaker(input.Speaker) || !boundedText(input.PublicDetails, 10000) {
-		if err != nil {
-			return State{}, err
-		}
+	); err != nil {
+		return State{}, err
+	}
+	if input.ExpectedRevision == 0 || actor.ID <= 0 {
 		return State{}, ErrInvalidInput
+	}
+	var fieldErrors []error
+	if !validSpeaker(input.Speaker) {
+		fieldErrors = append(fieldErrors, ErrInvalidSpeaker)
+	}
+	if !boundedText(input.PublicDetails, 10000) {
+		fieldErrors = append(fieldErrors, ErrInvalidPublicDetails)
+	}
+	if len(fieldErrors) > 0 {
+		return State{}, errors.Join(append([]error{ErrInvalidInput}, fieldErrors...)...)
 	}
 	return service.execute(
 		ctx,

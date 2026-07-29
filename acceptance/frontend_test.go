@@ -121,6 +121,18 @@ func TestBrowserSetupAndSessionSurviveRestart(t *testing.T) {
 		!strings.Contains(failedSetup.body, "invalid or expired") {
 		t.Fatalf("failed setup = %d %q", failedSetup.status, failedSetup.body)
 	}
+	assertAccessibleFormErrors(t, failedSetup, map[string]string{
+		"setup-token": "Setup token is invalid or expired.",
+	})
+	for _, value := range []string{`value="ada"`, `value="Ada Lovelace"`} {
+		if !strings.Contains(failedSetup.body, value) {
+			t.Errorf("failed setup did not preserve %s", value)
+		}
+	}
+	if strings.Contains(failedSetup.body, base64.RawURLEncoding.EncodeToString(make([]byte, 32))) ||
+		strings.Contains(failedSetup.body, "correct horse battery staple") {
+		t.Error("failed setup retained a secret")
+	}
 	setupResponse := postFrontendForm(t, client, server.address, "/setup", url.Values{
 		"csrf_token":      {csrf},
 		"bootstrap_token": {bootstrapToken},
@@ -231,6 +243,14 @@ func TestBrowserSetupAndSessionSurviveRestart(t *testing.T) {
 	if failedSignIn.status != http.StatusUnauthorized ||
 		!strings.Contains(failedSignIn.body, "Sign-in failed") {
 		t.Fatalf("failed sign-in = %d %q", failedSignIn.status, failedSignIn.body)
+	}
+	assertAccessibleFormErrors(t, failedSignIn, map[string]string{
+		"sign-in-handle":   "Sign-in failed.",
+		"sign-in-password": "Sign-in failed.",
+	})
+	if !strings.Contains(failedSignIn.body, `value="ada"`) ||
+		strings.Contains(failedSignIn.body, "incorrect password") {
+		t.Errorf("failed sign-in did not preserve only the Account Handle: %q", failedSignIn.body)
 	}
 	signInPage = getFrontendPage(t, client, server.address, "/sign-in")
 	signIn := postFrontendForm(t, client, server.address, "/sign-in", url.Values{
@@ -726,6 +746,10 @@ func TestBrowserWebAuthnCredentialsSurviveRestartAndRevokeIndependently(t *testi
 	})
 	if final.status != http.StatusConflict {
 		t.Fatalf("revoke final WebAuthn Credential = %d %q", final.status, final.body)
+	}
+	assertAccessibleFormErrors(t, final, nil)
+	if !strings.Contains(final.body, "The final active Credential cannot be removed.") {
+		t.Fatalf("final WebAuthn Credential failure = %q", final.body)
 	}
 	server.stop(t)
 }
@@ -1685,6 +1709,33 @@ func TestBrowserRegistrationProfileAndDisablement(t *testing.T) {
 		strings.Contains(registration.body, "email") {
 		t.Fatalf("registration form = %q", registration.body)
 	}
+	invalidRegistration := postFrontendForm(
+		t,
+		participant,
+		server.address,
+		"/register",
+		url.Values{
+			"csrf_token":   {requireFrontendCSRF(t, registration)},
+			"handle":       {""},
+			"display_name": {""},
+			"password":     {"short"},
+		},
+	)
+	if invalidRegistration.status != http.StatusBadRequest {
+		t.Fatalf(
+			"invalid registration = %d %q",
+			invalidRegistration.status,
+			invalidRegistration.body,
+		)
+	}
+	assertAccessibleFormErrors(t, invalidRegistration, map[string]string{
+		"register-handle":       "Enter an Account Handle.",
+		"register-display-name": "Enter a Display Name.",
+		"register-password":     "Enter a password of 12 to 1024 characters.",
+	})
+	if strings.Contains(invalidRegistration.body, "short") {
+		t.Error("invalid registration retained a password")
+	}
 	registered := postFrontendForm(t, participant, server.address, "/register", url.Values{
 		"csrf_token":   {requireFrontendCSRF(t, registration)},
 		"handle":       {"participant"},
@@ -1735,6 +1786,21 @@ func TestBrowserRegistrationProfileAndDisablement(t *testing.T) {
 	if !strings.Contains(profile.body, `method="post" action="/profile"`) ||
 		!strings.Contains(profile.body, "Private Person") {
 		t.Fatalf("Profile form = %q", profile.body)
+	}
+	invalidProfile := postFrontendForm(t, participant, server.address, "/profile", url.Values{
+		"csrf_token":   {requireFrontendCSRF(t, profile)},
+		"display_name": {" "},
+		"published":    {"true"},
+	})
+	if invalidProfile.status != http.StatusBadRequest {
+		t.Fatalf("invalid Profile = %d %q", invalidProfile.status, invalidProfile.body)
+	}
+	assertAccessibleFormErrors(t, invalidProfile, map[string]string{
+		"profile-display-name": "Enter a Display Name.",
+	})
+	if !strings.Contains(invalidProfile.body, `value=" "`) ||
+		!strings.Contains(invalidProfile.body, `name="published" value="true" checked`) {
+		t.Errorf("invalid Profile did not preserve submitted values: %q", invalidProfile.body)
 	}
 	saved := postFrontendForm(t, participant, server.address, "/profile", url.Values{
 		"csrf_token":   {requireFrontendCSRF(t, profile)},
@@ -1942,6 +2008,15 @@ func TestBrowserRecoversAccountWithoutEmail(t *testing.T) {
 	if reused.status != http.StatusUnauthorized ||
 		!strings.Contains(reused.body, "Recovery failed") {
 		t.Fatalf("reuse Recovery Code = %d %q", reused.status, reused.body)
+	}
+	assertAccessibleFormErrors(t, reused, map[string]string{
+		"recover-handle":     "Recovery failed.",
+		"recover-credential": "Recovery failed.",
+	})
+	if !strings.Contains(reused.body, `value="pat"`) ||
+		strings.Contains(reused.body, code) ||
+		strings.Contains(reused.body, "another recovered horse battery staple") {
+		t.Errorf("failed recovery did not preserve only the Account Handle: %q", reused.body)
 	}
 	for attempt := 1; attempt < 5; attempt++ {
 		reused = postFrontendForm(t, reuseClient, server.address, "/recover", url.Values{
@@ -3214,6 +3289,14 @@ func TestVotingKeysIssueRedeemAndSurviveRestart(t *testing.T) {
 		!strings.Contains(wrongEvent.body, unavailableMessage) {
 		t.Fatalf("wrong-Event Voting Key = %d %q", wrongEvent.status, wrongEvent.body)
 	}
+	assertAccessibleFormErrors(t, wrongEvent, map[string]string{
+		"voting-event": unavailableMessage,
+		"voting-key":   unavailableMessage,
+	})
+	if !strings.Contains(wrongEvent.body, `value="2"`) ||
+		strings.Contains(wrongEvent.body, firstKey) {
+		t.Fatalf("wrong-Event form values = %q", wrongEvent.body)
+	}
 	redeemValues = frontendNamedValues(wrongEvent.body, "command_id")
 	successValues := url.Values{
 		"csrf_token": {csrfToken(wrongEvent)},
@@ -3578,6 +3661,24 @@ func TestLiveCompetitionBallotUpdatesAndSurvivesRestart(t *testing.T) {
 	if ballot.status != http.StatusOK || !strings.Contains(ballot.body, "Live Ballot Entry") {
 		t.Fatalf("presented Entry Ballot = %d %q", ballot.status, ballot.body)
 	}
+	voteEntryID := strconv.FormatInt(
+		taken.Msg.GetChannel().GetProgramOutput().GetEntryId(),
+		10,
+	)
+	invalidVote := postFrontendForm(t, voter, server.address, ballotPath, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, ballot)},
+		"command_id":        {"cast-invalid-live-ballot-vote"},
+		"event_id":          {"1"},
+		"entry_id":          {voteEntryID},
+		"expected_revision": {frontendNamedValues(ballot.body, "expected_revision").Get("expected_revision")},
+		"value":             {"9"},
+	})
+	if invalidVote.status != http.StatusUnprocessableEntity {
+		t.Fatalf("invalid live Vote = %d %q", invalidVote.status, invalidVote.body)
+	}
+	assertAccessibleFormErrors(t, invalidVote, map[string]string{
+		"vote-" + voteEntryID: "Check the Vote and try again.",
+	})
 	competitionPage = getFrontendPage(t, voter, server.address, competitionPath)
 	if !strings.Contains(
 		competitionPage.body,
@@ -6349,6 +6450,34 @@ func exercisePresentationSubmissionFlow(
 	if got := frontendLinkPath(t, alexPage, "View Presentation"); got != presentationPath {
 		t.Fatalf("Presentation context path = %q, want %q", got, presentationPath)
 	}
+	invalidSpeaker := strings.Repeat("s", 201)
+	invalidPresentationDetails := strings.Repeat("d", 10001)
+	invalidPresentation := postFrontendForm(t, alex, server.address, submissionsPath, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, alexPage)},
+		"action":            {"update-presentation"},
+		"command_id":        {"alex-invalid-presentation"},
+		"event_id":          {"1"},
+		"session_id":        {strconv.FormatInt(presentationID, 10)},
+		"expected_revision": {frontendPresentationRevision(t, alexPage.body, presentationID)},
+		"speaker":           {invalidSpeaker},
+		"public_details":    {invalidPresentationDetails},
+	})
+	if invalidPresentation.status != http.StatusUnprocessableEntity {
+		t.Fatalf(
+			"invalid assigned Presentation = %d %q",
+			invalidPresentation.status,
+			invalidPresentation.body,
+		)
+	}
+	prefix := "presentation-" + strconv.FormatInt(presentationID, 10)
+	assertAccessibleFormErrors(t, invalidPresentation, map[string]string{
+		prefix + "-speaker": "Enter no more than 200 visible characters.",
+		prefix + "-details": "Enter no more than 10000 characters.",
+	})
+	if !strings.Contains(invalidPresentation.body, invalidSpeaker) ||
+		!strings.Contains(invalidPresentation.body, invalidPresentationDetails) {
+		t.Fatalf("invalid Presentation values = %q", invalidPresentation.body)
+	}
 	updated := postFrontendForm(t, alex, server.address, submissionsPath, url.Values{
 		"csrf_token":        {requireFrontendCSRF(t, alexPage)},
 		"action":            {"update-presentation"},
@@ -6753,6 +6882,26 @@ func TestAccountSubmissionsHonorPolicyOwnershipAndReopenWindows(t *testing.T) {
 	if got := frontendLinkPath(t, alexPage, "View Competition"); got != competitionPath {
 		t.Fatalf("Competition context path = %q, want %q", got, competitionPath)
 	}
+	invalidDetails := strings.Repeat("x", 10001)
+	invalid := postFrontendForm(t, alex, server.address, submissionsPath, url.Values{
+		"csrf_token":     {requireFrontendCSRF(t, alexPage)},
+		"action":         {"create"},
+		"command_id":     {"account-create-invalid"},
+		"event_id":       {"1"},
+		"session_id":     {strconv.FormatInt(competitionID, 10)},
+		"entry_name":     {""},
+		"public_details": {invalidDetails},
+	})
+	if invalid.status != http.StatusUnprocessableEntity {
+		t.Fatalf("invalid Account submission = %d %q", invalid.status, invalid.body)
+	}
+	assertAccessibleFormErrors(t, invalid, map[string]string{
+		"entry-create-" + strconv.FormatInt(competitionID, 10) + "-name":    "Enter an Entry name.",
+		"entry-create-" + strconv.FormatInt(competitionID, 10) + "-details": "Enter no more than 10000 characters.",
+	})
+	if !strings.Contains(invalid.body, invalidDetails) {
+		t.Fatalf("invalid Account submission values = %q", invalid.body)
+	}
 	created := postFrontendForm(t, alex, server.address, submissionsPath, url.Values{
 		"csrf_token":     {requireFrontendCSRF(t, alexPage)},
 		"action":         {"create"},
@@ -7030,6 +7179,36 @@ func TestAccountSubmissionsHonorPolicyOwnershipAndReopenWindows(t *testing.T) {
 
 	content := []byte("immutable Account submission")
 	alexPage = getFrontendPage(t, alex, server.address, submissionsPath)
+	invalidFilename := strings.Repeat("f", 256)
+	invalidUpload := requestMultipart(
+		t.Context(),
+		alex,
+		server.address,
+		"/submissions/1/entries/1/upload",
+		map[string]string{
+			"csrf_token": requireFrontendCSRF(t, alexPage),
+			"command_id": "account-upload-invalid",
+			"name":       "",
+		},
+		invalidFilename,
+		"application/zip",
+		content,
+	)
+	if invalidUpload.status != http.StatusUnprocessableEntity {
+		t.Fatalf("invalid Account upload = %d %q", invalidUpload.status, invalidUpload.body)
+	}
+	assertAccessibleFormErrors(t, frontendResponse{
+		status: invalidUpload.status,
+		header: invalidUpload.header,
+		body:   invalidUpload.body,
+	}, map[string]string{
+		"entry-1-upload-name": "Enter an Attachment name.",
+		"entry-1-upload-file": "Choose a file with a valid name.",
+	})
+	if strings.Contains(invalidUpload.body, invalidFilename) ||
+		strings.Contains(invalidUpload.body, string(content)) {
+		t.Fatalf("invalid Account upload retained file secret: %q", invalidUpload.body)
+	}
 	uploaded := requestMultipart(
 		t.Context(),
 		alex,
@@ -8281,6 +8460,39 @@ func assertFrontendRecovery(
 		if response.header.Get(name) == "" {
 			t.Errorf("browser recovery lacks %s", name)
 		}
+	}
+}
+
+func assertAccessibleFormErrors(
+	t *testing.T,
+	response frontendResponse,
+	expected map[string]string,
+) {
+	t.Helper()
+	for _, want := range []string{
+		`id="error-summary"`,
+		`role="alert"`,
+		`tabindex="-1"`,
+		`autofocus`,
+	} {
+		if !strings.Contains(response.body, want) {
+			t.Errorf("form error response lacks %q: %q", want, response.body)
+		}
+	}
+	for fieldID, message := range expected {
+		for _, want := range []string{
+			`href="#` + fieldID + `"`,
+			`id="` + fieldID + `-error"`,
+			`aria-describedby="` + fieldID + `-error"`,
+			message,
+		} {
+			if !strings.Contains(response.body, want) {
+				t.Errorf("form error response lacks %q: %q", want, response.body)
+			}
+		}
+	}
+	if got := strings.Count(response.body, `aria-invalid="true"`); got < len(expected) {
+		t.Errorf("form error response has %d invalid fields, want at least %d", got, len(expected))
 	}
 }
 
