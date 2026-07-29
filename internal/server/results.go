@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"github.com/a-h/templ"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
@@ -1174,6 +1176,10 @@ func (handlers canonicalEventResultsHandlers) latest(
 		)
 		return
 	}
+	pageShell, ok := handlers.browser.shell(response, request)
+	if !ok {
+		return
+	}
 	_, found, err := handlers.results.service.PublicArtifact(
 		request.Context(),
 		event.ID,
@@ -1192,6 +1198,31 @@ func (handlers canonicalEventResultsHandlers) latest(
 		return
 	}
 	if found {
+		csrfToken := ""
+		if pageShell.accountName != "" {
+			csrfToken, err = handlers.browser.csrfToken(response, request)
+			if err != nil {
+				handlers.browser.frontendError(response, request, "create CSRF proof", err)
+				return
+			}
+		}
+		shell := frontend.Shell{
+			AccountName:    pageShell.accountName,
+			CSRFToken:      csrfToken,
+			ReturnTo:       request.URL.RequestURI(),
+			ReducedEffects: pageShell.reducedEffects,
+			Backstage:      pageShell.backstage,
+			Event: frontend.EventContext{
+				Name:       event.Name,
+				Slug:       event.Slug,
+				ActivePath: "/events/" + event.Slug + "/results",
+				Breadcrumbs: []frontend.Breadcrumb{
+					{Label: "Events", Href: "/"},
+					{Label: event.Name, Href: "/events/" + event.Slug},
+					{Label: "Results"},
+				},
+			},
+		}
 		handlers.results.serveArtifact(
 			response,
 			request,
@@ -1200,11 +1231,8 @@ func (handlers canonicalEventResultsHandlers) latest(
 			event.ID,
 			0,
 			"text/html; charset=utf-8",
+			&shell,
 		)
-		return
-	}
-	shell, ok := handlers.browser.shell(response, request)
-	if !ok {
 		return
 	}
 	csrfToken, err := handlers.browser.csrfToken(response, request)
@@ -1218,10 +1246,10 @@ func (handlers canonicalEventResultsHandlers) latest(
 		http.StatusOK,
 		frontend.PublicEventUnavailable(
 			event,
-			shell.accountName,
+			pageShell.accountName,
 			csrfToken,
-			shell.reducedEffects,
-			shell.backstage,
+			pageShell.reducedEffects,
+			pageShell.backstage,
 			"Results",
 			"Results have not been published yet.",
 		),
@@ -1328,6 +1356,7 @@ func (handlers publicResultsHandlers) serveEvent(
 		eventID,
 		revision,
 		contentType,
+		nil,
 	)
 }
 
@@ -1353,6 +1382,7 @@ func (handlers publicResultsHandlers) serveEventAwards(
 		eventID,
 		revision,
 		contentType,
+		nil,
 	)
 }
 
@@ -1384,6 +1414,7 @@ func (handlers publicResultsHandlers) serve(
 		sessionID,
 		revision,
 		contentType,
+		nil,
 	)
 }
 
@@ -1395,6 +1426,7 @@ func (handlers publicResultsHandlers) serveArtifact(
 	sessionID int,
 	revision int,
 	contentType string,
+	shell *frontend.Shell,
 ) {
 	artifact, found, err := handlers.service.PublicArtifact(
 		request.Context(),
@@ -1413,12 +1445,14 @@ func (handlers publicResultsHandlers) serveArtifact(
 		return
 	}
 	reducedEffects := reducedEffectsCookie(request)
-	etag := fmt.Sprintf(`"results-%d-%s-%d-%d"`, eventID, scope, sessionID, artifact.Revision)
+	etag := publicResultsETag(eventID, scope, sessionID, artifact.Revision, shell)
 	cacheControl := "public, max-age=15, must-revalidate"
 	if contentType == "text/html; charset=utf-8" {
 		response.Header().Add("Vary", "Cookie")
 	}
-	if contentType == "text/html; charset=utf-8" && reducedEffectsPreferenceCookie(request) {
+	if contentType == "text/html; charset=utf-8" &&
+		(reducedEffectsPreferenceCookie(request) ||
+			shell != nil && shell.AccountName != "") {
 		cacheControl = "private, no-store"
 		etag = ""
 	}
@@ -1451,21 +1485,37 @@ func (handlers publicResultsHandlers) serveArtifact(
 				1,
 			)
 		}
-		content = strings.Replace(
-			content,
-			"<body>",
-			`<body data-reduced-effects="`+
-				strconv.FormatBool(reducedEffects)+`">`,
-			1,
-		)
-		content = strings.Replace(
-			content,
-			"</main>",
-			`<p><a href="`+
-				frontend.EffectsPath(request.URL.RequestURI())+`">`+
-				frontend.EffectsLabel(reducedEffects)+`</a></p></main>`,
-			1,
-		)
+		if shell == nil {
+			content = strings.Replace(
+				content,
+				"<body>",
+				`<body data-reduced-effects="`+
+					strconv.FormatBool(reducedEffects)+`">`,
+				1,
+			)
+			content = strings.Replace(
+				content,
+				"</main>",
+				`<p><a href="`+
+					frontend.EffectsPath(request.URL.RequestURI())+`">`+
+					frontend.EffectsLabel(reducedEffects)+`</a></p></main>`,
+				1,
+			)
+		} else {
+			content, err = wrapPublicResultsHTML(request.Context(), content, *shell)
+			if err != nil {
+				handlers.logger.ErrorContext(
+					request.Context(),
+					"render public Results shell",
+					"error",
+					err,
+				)
+				response.Header().Del("ETag")
+				response.Header().Set("Cache-Control", "no-store")
+				http.Error(response, "Results unavailable", http.StatusInternalServerError)
+				return
+			}
+		}
 	case "text/plain; charset=utf-8":
 		content = artifact.Text
 	default:
@@ -1476,4 +1526,59 @@ func (handlers publicResultsHandlers) serveArtifact(
 	if _, err = response.Write([]byte(content)); err != nil { //nolint:gosec // Content is fixed-template HTML.
 		handlers.logger.ErrorContext(request.Context(), "write public Results", "error", err)
 	}
+}
+
+func publicResultsETag(
+	eventID int,
+	scope results.PublicationScope,
+	sessionID int,
+	revision int,
+	shell *frontend.Shell,
+) string {
+	if shell == nil {
+		return fmt.Sprintf(`"results-%d-%s-%d-%d"`, eventID, scope, sessionID, revision)
+	}
+	return fmt.Sprintf(
+		`"results-%d-%s-%d-%d-%x"`,
+		eventID,
+		scope,
+		sessionID,
+		revision,
+		shell.Event.Name,
+	)
+}
+
+func wrapPublicResultsHTML(
+	ctx context.Context,
+	document string,
+	shell frontend.Shell,
+) (string, error) {
+	bodyStart := strings.Index(document, "<body>")
+	bodyEnd := strings.LastIndex(document, "</body>")
+	mainStart := strings.Index(document, "<main>")
+	mainEnd := strings.LastIndex(document, "</main>")
+	if bodyStart < 0 || bodyEnd < bodyStart || mainStart < bodyStart ||
+		mainEnd < mainStart {
+		return "", errors.New("public Results HTML has no complete body and main")
+	}
+	mainEnd += len("</main>")
+	main := document[mainStart:mainEnd]
+	// The immutable document came from the fixed public Results renderer.
+	children := templ.ComponentFunc(func(_ context.Context, writer io.Writer) error {
+		_, err := io.WriteString(writer, main)
+		return err
+	})
+	var rendered strings.Builder
+	if err := frontend.EventShell(shell).Render(
+		templ.WithChildren(ctx, children),
+		&rendered,
+	); err != nil {
+		return "", fmt.Errorf("render Event shell: %w", err)
+	}
+	return document[:bodyStart] +
+		`<body data-reduced-effects="` +
+		strconv.FormatBool(shell.ReducedEffects) +
+		`">` +
+		rendered.String() +
+		document[bodyEnd:], nil
 }

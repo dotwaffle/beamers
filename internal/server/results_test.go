@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/dotwaffle/beamers/internal/frontend"
 	"github.com/dotwaffle/beamers/internal/results"
 )
 
@@ -17,6 +18,26 @@ type publicResultsRead struct {
 
 type publicResultsReaderStub struct {
 	reads []publicResultsRead
+}
+
+func TestPublicResultsETagIncludesEventShell(t *testing.T) {
+	first := publicResultsETag(
+		41,
+		results.PublicationScopeEvent,
+		41,
+		7,
+		&frontend.Shell{Event: frontend.EventContext{Name: "First Event"}},
+	)
+	second := publicResultsETag(
+		41,
+		results.PublicationScopeEvent,
+		41,
+		7,
+		&frontend.Shell{Event: frontend.EventContext{Name: "Renamed Event"}},
+	)
+	if first == second {
+		t.Fatalf("Event rename retained public Results ETag %q", first)
+	}
 }
 
 func (stub *publicResultsReaderStub) PublicArtifact(
