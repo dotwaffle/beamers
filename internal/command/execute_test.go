@@ -2,7 +2,10 @@ package command
 
 import (
 	"context"
+	"database/sql"
 	"errors"
+	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -14,7 +17,7 @@ import (
 )
 
 func TestExecuteOwnsRetryConflictRejectionAndAuditOrdering(t *testing.T) {
-	storage, actorID, ctx := openExecutionTestStore(t)
+	storage, actorID, ctx, _ := openExecutionTestStore(t)
 	now := time.Date(2026, time.July, 22, 12, 0, 0, 0, time.UTC)
 	identity := store.CommandIdentity{
 		ActorAccountID: actorID, CommandID: "executor-success", PayloadHash: strings.Repeat("a", 64),
@@ -76,7 +79,123 @@ func TestExecuteOwnsRetryConflictRejectionAndAuditOrdering(t *testing.T) {
 	}
 }
 
-func openExecutionTestStore(t *testing.T) (*store.SQLite, int, context.Context) {
+func TestExecuteNotifiesOnlyAfterSuccess(t *testing.T) {
+	storage, actorID, ctx, dataDir := openExecutionTestStore(t)
+	now := time.Date(2026, time.July, 22, 13, 0, 0, 0, time.UTC)
+	identity := func(commandID string) store.CommandIdentity {
+		return store.CommandIdentity{
+			ActorAccountID: actorID, CommandID: commandID, PayloadHash: strings.Repeat("a", 64),
+			Action: "TestCommand", TargetType: "Account", TargetID: "1", Now: now,
+		}
+	}
+
+	var sequence []string
+	plan := Plan[string]{
+		Storage: storage, Identity: identity("executor-notification-order"),
+		Replay: func(outcome string) (string, error) {
+			sequence = append(sequence, "replay")
+			return outcome, nil
+		},
+		Apply: func(*store.CommandTx) (Execution[string], error) {
+			sequence = append(sequence, "apply")
+			return Success("first", `"first"`), nil
+		},
+		Notify: func() {
+			audits, err := storage.ListAuditEntries(ctx)
+			if err != nil {
+				t.Errorf("list Audit Entries during notification: %v", err)
+			}
+			if len(audits) != 1 {
+				t.Errorf("Audit Entry count during notification = %d, want committed entry", len(audits))
+			}
+			sequence = append(sequence, "notify")
+		},
+	}
+	if _, err := Execute(ctx, plan); err != nil {
+		t.Fatalf("first execution: %v", err)
+	}
+	if want := []string{"apply", "notify"}; !slices.Equal(sequence, want) {
+		t.Fatalf("first execution sequence = %v, want %v", sequence, want)
+	}
+	sequence = nil
+	if _, err := Execute(ctx, plan); err != nil {
+		t.Fatalf("replay: %v", err)
+	}
+	if want := []string{"replay", "notify"}; !slices.Equal(sequence, want) {
+		t.Fatalf("replay sequence = %v, want %v", sequence, want)
+	}
+
+	notifications := 0
+	notify := func() { notifications++ }
+
+	conflict := plan
+	conflict.Identity.PayloadHash = strings.Repeat("b", 64)
+	conflict.Notify = notify
+	if _, err := Execute(ctx, conflict); !errors.Is(err, store.ErrCommandConflict) {
+		t.Fatalf("conflict error = %v, want %v", err, store.ErrCommandConflict)
+	}
+
+	rejectionErr := errors.New("not allowed")
+	rejection := Plan[string]{
+		Storage: storage, Identity: identity("executor-notification-rejection"),
+		Replay: func(string) (string, error) { return "", rejectionErr },
+		Apply: func(*store.CommandTx) (Execution[string], error) {
+			return Reject("", store.CommandRejection{Code: "not_allowed"}, rejectionErr), nil
+		},
+		Notify: notify,
+	}
+	if _, err := Execute(ctx, rejection); !errors.Is(err, rejectionErr) {
+		t.Fatalf("rejection error = %v, want %v", err, rejectionErr)
+	}
+	if _, err := Execute(ctx, rejection); !errors.Is(err, rejectionErr) {
+		t.Fatalf("rejected replay error = %v, want %v", err, rejectionErr)
+	}
+
+	applicationErr := errors.New("application failed")
+	application := plan
+	application.Identity = identity("executor-notification-application-failure")
+	application.Apply = func(*store.CommandTx) (Execution[string], error) {
+		return Execution[string]{}, applicationErr
+	}
+	application.Notify = notify
+	if _, err := Execute(ctx, application); !errors.Is(err, applicationErr) {
+		t.Fatalf("application error = %v, want %v", err, applicationErr)
+	}
+
+	installCommandFailures(t, dataDir)
+	persistence := plan
+	persistence.Identity = identity("executor-notification-persistence-failure")
+	persistence.Notify = notify
+	if _, err := Execute(ctx, persistence); err == nil {
+		t.Fatal("persistence failure returned no error")
+	}
+
+	replayFailure := plan
+	replayFailure.Identity = identity("executor-notification-replay-failure")
+	replayFailure.Notify = nil
+	if _, err := Execute(ctx, replayFailure); err != nil {
+		t.Fatalf("seed replay failure receipt: %v", err)
+	}
+	replayErr := errors.New("replay failed")
+	replayFailure.Replay = func(string) (string, error) { return "", replayErr }
+	replayFailure.Notify = notify
+	if _, err := Execute(ctx, replayFailure); !errors.Is(err, replayErr) {
+		t.Fatalf("replay error = %v, want %v", err, replayErr)
+	}
+
+	commit := plan
+	commit.Identity = identity("executor-notification-commit-failure")
+	commit.Notify = notify
+	if _, err := Execute(ctx, commit); err == nil {
+		t.Fatal("commit failure returned no error")
+	}
+
+	if notifications != 0 {
+		t.Fatalf("failure notifications = %d, want 0", notifications)
+	}
+}
+
+func openExecutionTestStore(t *testing.T) (*store.SQLite, int, context.Context, string) {
 	t.Helper()
 	dataDir := t.TempDir()
 	if err := store.Initialize(t.Context(), dataDir); err != nil {
@@ -105,5 +224,41 @@ func openExecutionTestStore(t *testing.T) (*store.SQLite, int, context.Context) 
 		t.Fatalf("bootstrap Administrator: %v", err)
 	}
 	ctx := viewer.NewContext(t.Context(), viewer.Identity{AccountID: actor.ID, Administrator: true})
-	return storage, actor.ID, ctx
+	return storage, actor.ID, ctx, dataDir
+}
+
+func installCommandFailures(t *testing.T, dataDir string) {
+	t.Helper()
+	database, err := sql.Open(
+		"sqlite",
+		"file:"+filepath.Join(dataDir, "beamers.db")+"?mode=rw&_pragma=busy_timeout(5000)",
+	)
+	if err != nil {
+		t.Fatalf("open raw SQLite database: %v", err)
+	}
+	defer func() {
+		if closeErr := database.Close(); closeErr != nil {
+			t.Errorf("close raw SQLite database: %v", closeErr)
+		}
+	}()
+	const schema = `
+CREATE TABLE deferred_command_failure (
+	account_id INTEGER NOT NULL
+		REFERENCES accounts(id) DEFERRABLE INITIALLY DEFERRED
+);
+CREATE TRIGGER fail_selected_command_persistence
+BEFORE INSERT ON command_receipts
+WHEN NEW.command_id = 'executor-notification-persistence-failure'
+BEGIN
+	SELECT RAISE(FAIL, 'forced persistence failure');
+END;
+CREATE TRIGGER fail_selected_command_commit
+AFTER INSERT ON command_receipts
+WHEN NEW.command_id = 'executor-notification-commit-failure'
+BEGIN
+	INSERT INTO deferred_command_failure (account_id) VALUES (-1);
+END;`
+	if _, err := database.ExecContext(t.Context(), schema); err != nil {
+		t.Fatalf("install command failures: %v", err)
+	}
 }
