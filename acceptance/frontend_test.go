@@ -2327,6 +2327,7 @@ func TestBackstageNavigationReflectsAuthorityAndInterface(t *testing.T) {
 		"Opal Operator",
 		"Olive Observer",
 		"Alex Attendee",
+		"Casey Capability Operator",
 	} {
 		assertJSONRequest(
 			t, administrator, server.address, "/admin/accounts",
@@ -2358,6 +2359,9 @@ func TestBackstageNavigationReflectsAuthorityAndInterface(t *testing.T) {
 		}, "{\"event_id\":1,\"account_id\":3,\"role\":\"Operator\",\"display_group_keys\":[\"stage\"],\"capabilities\":[\"EmergencyAlert\",\"ViewResults\"]}\n"},
 		{1, 4, "Observer", "grant-olive-observer", nil,
 			"{\"event_id\":1,\"account_id\":4,\"role\":\"Observer\"}\n"},
+		{1, 6, "Operator", "grant-casey-operator", map[string]any{
+			"capabilities": []string{"EmergencyAlert"},
+		}, "{\"event_id\":1,\"account_id\":6,\"role\":\"Operator\",\"capabilities\":[\"EmergencyAlert\"]}\n"},
 	} {
 		input := map[string]any{
 			"account_id": grant.account,
@@ -2447,6 +2451,33 @@ func TestBackstageNavigationReflectsAuthorityAndInterface(t *testing.T) {
 		},
 		[]string{"Event Displays", "Plan and publish", "Installation"},
 	)
+	capabilityOperator := assertBackstage(
+		"Casey Capability Operator",
+		[]string{
+			"Live operations",
+			"Program Output and Overrides",
+			"Emergency Alerts",
+			"No Lane or Display Group scope assigned.",
+		},
+		[]string{
+			`href="/backstage/events/1/operations"`,
+			`href="/backstage/events/1/control"`,
+			`href="/backstage/events/1/control/emergency-alerts`,
+		},
+	)
+	if page := getFrontendPage(
+		t,
+		capabilityOperator,
+		server.address,
+		"/backstage/events/1/control",
+	); page.status != http.StatusOK ||
+		!strings.Contains(
+			page.body,
+			"No Lane or Display Group scope assigned. Program Output and Overrides are unavailable.",
+		) ||
+		strings.Contains(page.body, `name="action" value="preview-stage-message"`) {
+		t.Errorf("capability-only Operator control = %d %q", page.status, page.body)
+	}
 	for _, path := range []string{
 		"/backstage/events/1/operations",
 		"/backstage/events/1/control",
