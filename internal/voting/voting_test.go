@@ -121,7 +121,7 @@ func votingFixture(
 		t.Fatalf("bootstrap Voting Producer: %v", err)
 	}
 	producer := auth.Account{ID: created.ID, Name: created.Name, Administrator: true}
-	eventService, err := events.New(storage, func() time.Time { return now })
+	eventService, err := events.New(storage, func() time.Time { return now }, nil, nil)
 	if err != nil {
 		t.Fatalf("create Event service: %v", err)
 	}

@@ -176,19 +176,30 @@ type DisplayConfiguration struct {
 
 // Service owns Event commands and authorization.
 type Service struct {
-	storage *store.SQLite
-	now     func() time.Time
+	storage        *store.SQLite
+	now            func() time.Time
+	notifyDisplays func()
+	notifySchedule func()
 }
 
 // New creates an Event Service with explicit dependencies.
-func New(storage *store.SQLite, now func() time.Time) (*Service, error) {
+// Optional callbacks publish projection freshness after a successful commit or replay.
+func New(
+	storage *store.SQLite,
+	now func() time.Time,
+	notifyDisplays func(),
+	notifySchedule func(),
+) (*Service, error) {
 	if storage == nil {
 		return nil, errors.New("Event storage is required")
 	}
 	if now == nil {
 		return nil, errors.New("Event clock is required")
 	}
-	return &Service{storage: storage, now: now}, nil
+	return &Service{
+		storage: storage, now: now,
+		notifyDisplays: notifyDisplays, notifySchedule: notifySchedule,
+	}, nil
 }
 
 // Create validates and commits an Event for an Administrator.
@@ -503,6 +514,7 @@ func (service *Service) Update(
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[Event]{
 		Storage: service.storage, Identity: identity, Replay: replayEvent,
+		Notify: service.notifyEventChange,
 		Apply: func(transaction *store.CommandTx) (command.Execution[Event], error) {
 			if !actor.CanProduceEvent(eventID) {
 				return eventRejection[Event](ErrEventAccessDenied), nil
@@ -606,6 +618,7 @@ func (service *Service) ConfigureDisplays(
 		Storage:  service.storage,
 		Identity: identity,
 		Replay:   replayDisplayConfiguration,
+		Notify:   service.notifyDisplays,
 		Apply: func(transaction *store.CommandTx) (command.Execution[DisplayConfiguration], error) {
 			if !actor.CanProduceEvent(eventID) {
 				return eventRejection[DisplayConfiguration](ErrEventAccessDenied), nil
@@ -637,6 +650,15 @@ func (service *Service) ConfigureDisplays(
 			return command.Success(result, string(encodedOutcome)), nil
 		},
 	})
+}
+
+func (service *Service) notifyEventChange() {
+	if service.notifyDisplays != nil {
+		service.notifyDisplays()
+	}
+	if service.notifySchedule != nil {
+		service.notifySchedule()
+	}
 }
 
 func replayEvent(outcome string) (Event, error) {

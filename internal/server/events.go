@@ -17,8 +17,6 @@ import (
 type eventHandlers struct {
 	authentication     *auth.Service
 	events             *events.Service
-	notifyDisplays     func()
-	notifySchedule     func()
 	logger             *slog.Logger
 	allowPlaintextCrew bool
 }
@@ -27,16 +25,12 @@ func registerEventRoutes(
 	mux *routeMux,
 	authentication *auth.Service,
 	eventService *events.Service,
-	notifyDisplays func(),
-	notifySchedule func(),
 	logger *slog.Logger,
 	listenerAddress net.Addr,
 ) {
 	handlers := eventHandlers{
 		authentication:     authentication,
 		events:             eventService,
-		notifyDisplays:     notifyDisplays,
-		notifySchedule:     notifySchedule,
 		logger:             logger,
 		allowPlaintextCrew: listenerIsLoopback(listenerAddress),
 	}
@@ -142,7 +136,6 @@ func (handlers eventHandlers) updateDisplayConfiguration(
 	if err := json.NewEncoder(response).Encode(updated); err != nil {
 		handlers.logger.ErrorContext(request.Context(), "write updated Display configuration", "error", err)
 	}
-	handlers.notifyDisplays()
 }
 
 func (handlers eventHandlers) disableAccount(response http.ResponseWriter, request *http.Request) {
@@ -340,8 +333,6 @@ func (handlers eventHandlers) updateCrewEvent(response http.ResponseWriter, requ
 	if err := json.NewEncoder(response).Encode(updated); err != nil {
 		handlers.logger.ErrorContext(request.Context(), "write updated Event", "error", err)
 	}
-	handlers.notifyDisplays()
-	handlers.notifySchedule()
 }
 
 func positivePathID(request *http.Request, name string) (int, error) {

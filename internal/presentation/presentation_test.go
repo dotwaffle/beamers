@@ -141,7 +141,7 @@ func openPresentationTest(t *testing.T) (*store.SQLite, auth.Account, int) {
 		t.Fatalf("bootstrap Presentation Administrator: %v", err)
 	}
 	producer := auth.Account{ID: created.ID, Name: created.Name, Administrator: true}
-	eventService, err := events.New(storage, time.Now)
+	eventService, err := events.New(storage, time.Now, nil, nil)
 	if err != nil {
 		t.Fatalf("create Event service: %v", err)
 	}

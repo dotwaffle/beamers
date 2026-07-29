@@ -19,10 +19,9 @@ import (
 )
 
 type administrationHandlers struct {
-	browser        frontendHandlers
-	events         *events.Service
-	activation     *activation.Service
-	notifyDisplays func()
+	browser    frontendHandlers
+	events     *events.Service
+	activation *activation.Service
 }
 
 var (
@@ -35,7 +34,6 @@ func registerAdministrationRoutes(
 	authentication *auth.Service,
 	eventService *events.Service,
 	activationService *activation.Service,
-	notifyDisplays func(),
 	logger *slog.Logger,
 ) {
 	handlers := administrationHandlers{
@@ -44,9 +42,8 @@ func registerAdministrationRoutes(
 			logger:         logger,
 			random:         rand.Reader,
 		},
-		events:         eventService,
-		activation:     activationService,
-		notifyDisplays: notifyDisplays,
+		events:     eventService,
+		activation: activationService,
 	}
 	route := backstagePageRoute()
 	route.maxBodyBytes = maxAuthBodyBytes
@@ -320,9 +317,6 @@ func (handlers administrationHandlers) activate(
 			Fingerprint:          request.Form.Get("fingerprint"),
 		},
 	})
-	if err == nil {
-		handlers.notifyDisplays()
-	}
 	return err
 }
 

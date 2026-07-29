@@ -174,7 +174,7 @@ func openHandlerTest(t *testing.T) (*store.SQLite, *auth.Service, auth.Session, 
 	if err != nil {
 		t.Fatalf("bootstrap Administrator: %v", err)
 	}
-	eventService, err := events.New(storage, time.Now)
+	eventService, err := events.New(storage, time.Now, nil, nil)
 	if err != nil {
 		t.Fatalf("create Event service: %v", err)
 	}

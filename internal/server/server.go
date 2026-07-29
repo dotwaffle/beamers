@@ -86,8 +86,18 @@ func Run(ctx context.Context, config Config) error {
 	if attachmentsDir == "" {
 		attachmentsDir = filepath.Join(config.DataDir, "attachments")
 	}
+	displayStream, err := displaystream.NewProcess(displaySubscriberQueueCapacity)
+	if err != nil {
+		return err
+	}
+	scheduleStream, err := displaystream.NewProcess(displaySubscriberQueueCapacity)
+	if err != nil {
+		return err
+	}
 	openConfig := operations.OpenConfig{
 		DataDir: config.DataDir, AttachmentsDir: attachmentsDir,
+		NotifyDisplays: displayStream.Notify,
+		NotifySchedule: scheduleStream.Notify,
 	}
 	if config.Telemetry != nil && config.Telemetry.Enabled() {
 		openConfig.TracerProvider = config.TracerProvider
@@ -132,15 +142,7 @@ func Run(ctx context.Context, config Config) error {
 			return errors.Join(err, listener.Close(), installation.Close(), upgrade.Close())
 		}
 	}
-	displayStream, err := displaystream.NewProcess(displaySubscriberQueueCapacity)
-	if err != nil {
-		return errors.Join(err, listener.Close(), closeListener(publicListener), installation.Close(), upgrade.Close())
-	}
 	programStream, err := displaystream.NewProcess(displaySubscriberQueueCapacity)
-	if err != nil {
-		return errors.Join(err, listener.Close(), closeListener(publicListener), installation.Close(), upgrade.Close())
-	}
-	scheduleStream, err := displaystream.NewProcess(displaySubscriberQueueCapacity)
 	if err != nil {
 		return errors.Join(err, listener.Close(), closeListener(publicListener), installation.Close(), upgrade.Close())
 	}

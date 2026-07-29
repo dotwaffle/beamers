@@ -16,7 +16,10 @@ import (
 func TestAdministratorPreviewsActivatesAndRollsBackImmutableThemeRevisions(t *testing.T) {
 	storage, administrator := openThemeTest(t)
 	now := time.Date(2026, 7, 28, 1, 0, 0, 0, time.UTC)
-	service, err := themes.New(storage, func() time.Time { return now })
+	notifications := 0
+	service, err := themes.New(storage, func() time.Time { return now }, func() {
+		notifications++
+	})
 	if err != nil {
 		t.Fatalf("create Theme service: %v", err)
 	}
@@ -106,6 +109,9 @@ func TestAdministratorPreviewsActivatesAndRollsBackImmutableThemeRevisions(t *te
 	})
 	if err != nil || replayed != first {
 		t.Fatalf("rollback replay = %+v, %v; want %+v", replayed, err, first)
+	}
+	if notifications != 4 {
+		t.Errorf("Theme notifications = %d, want 4 successful commits and replays", notifications)
 	}
 }
 

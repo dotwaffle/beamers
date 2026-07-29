@@ -21,10 +21,9 @@ import (
 var errInvalidThemeForm = errors.New("invalid Theme form")
 
 type themeHandlers struct {
-	browser        frontendHandlers
-	themes         *themes.Service
-	events         *eventthemes.Service
-	notifyDisplays func()
+	browser frontendHandlers
+	themes  *themes.Service
+	events  *eventthemes.Service
 }
 
 func registerThemeRoutes(
@@ -32,7 +31,6 @@ func registerThemeRoutes(
 	authentication *auth.Service,
 	service *themes.Service,
 	eventService *eventthemes.Service,
-	notifyDisplays func(),
 	logger *slog.Logger,
 ) {
 	handlers := themeHandlers{
@@ -41,9 +39,8 @@ func registerThemeRoutes(
 			logger:         logger,
 			random:         rand.Reader,
 		},
-		themes:         service,
-		events:         eventService,
-		notifyDisplays: notifyDisplays,
+		themes: service,
+		events: eventService,
 	}
 	mux.HandleFunc(frontend.InstallationThemePath, publicRoute(), handlers.stylesheet)
 	mux.HandleFunc(
@@ -59,7 +56,6 @@ func registerThemeRoutes(
 		route,
 		eventThemeHandlers{
 			browser: handlers.browser, themes: eventService,
-			notifyDisplays: notifyDisplays,
 		}.administration,
 	)
 }
@@ -267,7 +263,6 @@ func (handlers themeHandlers) submit(
 			)
 			return
 		}
-		handlers.notifyDisplays()
 		http.Redirect(
 			response,
 			request,

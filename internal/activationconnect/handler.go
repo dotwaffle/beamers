@@ -18,19 +18,15 @@ import (
 // Handler translates Connect requests without owning Activation transitions.
 type Handler struct {
 	activationv1connect.UnimplementedActivationServiceHandler
-	service        *activation.Service
-	notifyDisplays func()
+	service *activation.Service
 }
 
 // NewHandler creates an Activation Connect adapter.
-func NewHandler(service *activation.Service, notifyDisplays func()) (*Handler, error) {
+func NewHandler(service *activation.Service) (*Handler, error) {
 	if service == nil {
 		return nil, errors.New("activation service is required")
 	}
-	if notifyDisplays == nil {
-		return nil, errors.New("display notifier is required")
-	}
-	return &Handler{service: service, notifyDisplays: notifyDisplays}, nil
+	return &Handler{service: service}, nil
 }
 
 // ErrorInterceptor translates Activation failures into stable Connect codes.
@@ -128,7 +124,6 @@ func (handler *Handler) Activate(
 	if err != nil {
 		return nil, err
 	}
-	handler.notifyDisplays()
 	return connect.NewResponse(&activationv1.ActivateResponse{
 		EventId: int64(result.EventID), Generation: int64(result.Generation),
 	}), nil

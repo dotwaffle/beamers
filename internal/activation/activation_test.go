@@ -38,7 +38,17 @@ func TestAdministratorActivatesExactPreflightAndSwitchesEvents(t *testing.T) {
 	secondEventID := createActivationEvent(t, storage, administrator, "Second Event", "create-second-event")
 	publishMinimalRundown(t, storage, administrator, firstEventID, "first")
 	publishMinimalRundown(t, storage, administrator, secondEventID, "second")
-	service := newActivationService(t, storage)
+	displayNotifications := 0
+	scheduleNotifications := 0
+	service, err := activation.New(
+		storage,
+		func() time.Time { return time.Date(2026, 7, 22, 17, 0, 0, 0, time.UTC) },
+		func() { displayNotifications++ },
+		func() { scheduleNotifications++ },
+	)
+	if err != nil {
+		t.Fatalf("create Activation service: %v", err)
+	}
 	staleSecondPreflight, err := service.Preflight(t.Context(), administrator, secondEventID)
 	if err != nil {
 		t.Fatalf("early second Activation Preflight: %v", err)
@@ -91,6 +101,13 @@ func TestAdministratorActivatesExactPreflightAndSwitchesEvents(t *testing.T) {
 	if err != nil || replayed != second {
 		t.Fatalf("activation replay = %+v, %v; want %+v", replayed, err, second)
 	}
+	if displayNotifications != 3 || scheduleNotifications != 3 {
+		t.Errorf(
+			"Activation notifications = Display %d, Schedule %d; want 3 each",
+			displayNotifications,
+			scheduleNotifications,
+		)
+	}
 }
 
 func TestMissingEventActivationRejectionReplaysAfterAuthorityChanges(t *testing.T) {
@@ -139,7 +156,7 @@ func TestActivationPreflightWarnsForEmptyLanesAndSuspiciousDates(t *testing.T) {
 
 func TestActivationPreflightUsesEventLocalDateForDateWarnings(t *testing.T) {
 	storage, administrator, eventID := openActivationTest(t)
-	eventService, err := events.New(storage, time.Now)
+	eventService, err := events.New(storage, time.Now, nil, nil)
 	if err != nil {
 		t.Fatalf("create Event service: %v", err)
 	}
@@ -154,7 +171,7 @@ func TestActivationPreflightUsesEventLocalDateForDateWarnings(t *testing.T) {
 	publishEmptyLane(t, storage, administrator, eventID)
 	service, err := activation.New(storage, func() time.Time {
 		return time.Date(2026, 7, 22, 12, 30, 0, 0, time.UTC)
-	})
+	}, nil, nil)
 	if err != nil {
 		t.Fatalf("create Activation service: %v", err)
 	}
@@ -203,7 +220,7 @@ func TestActivationRequiresAdministratorAndRejectsStalePreflight(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Activation Preflight: %v", err)
 	}
-	eventService, err := events.New(storage, time.Now)
+	eventService, err := events.New(storage, time.Now, nil, nil)
 	if err != nil {
 		t.Fatalf("create Event service: %v", err)
 	}
@@ -226,7 +243,7 @@ func newActivationService(t *testing.T, storage *store.SQLite) *activation.Servi
 	t.Helper()
 	service, err := activation.New(storage, func() time.Time {
 		return time.Date(2026, 7, 22, 17, 0, 0, 0, time.UTC)
-	})
+	}, nil, nil)
 	if err != nil {
 		t.Fatalf("create Activation service: %v", err)
 	}
@@ -275,7 +292,7 @@ func createActivationEvent(
 	commandID string,
 ) int {
 	t.Helper()
-	service, err := events.New(storage, time.Now)
+	service, err := events.New(storage, time.Now, nil, nil)
 	if err != nil {
 		t.Fatalf("create Event service: %v", err)
 	}

@@ -67,16 +67,19 @@ type ActivateInput struct {
 
 // Service owns Event Theme queries and commands.
 type Service struct {
-	storage      *store.SQLite
-	installation *themes.Service
-	now          func() time.Time
+	storage           *store.SQLite
+	installation      *themes.Service
+	now               func() time.Time
+	notifyThemeChange func()
 }
 
 // New creates an Event Theme service with explicit dependencies.
+// notifyThemeChange is optional and runs after a successful activation commit or replay.
 func New(
 	storage *store.SQLite,
 	installation *themes.Service,
 	now func() time.Time,
+	notifyThemeChange func(),
 ) (*Service, error) {
 	if storage == nil {
 		return nil, errors.New("event Theme storage is required")
@@ -87,7 +90,10 @@ func New(
 	if now == nil {
 		return nil, errors.New("event Theme clock is required")
 	}
-	return &Service{storage: storage, installation: installation, now: now}, nil
+	return &Service{
+		storage: storage, installation: installation, now: now,
+		notifyThemeChange: notifyThemeChange,
+	}, nil
 }
 
 // Active resolves the public active Event Theme and optional Display variant.
@@ -252,6 +258,7 @@ func (service *Service) Activate(
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[Revision]{
 		Storage: service.storage, Identity: identity, Replay: replayRevision,
+		Notify: service.notifyThemeChange,
 		Apply: func(transaction *store.CommandTx) (command.Execution[Revision], error) {
 			if !producer(actor, eventID) {
 				return rejectRevision("producer_required", ErrProducerRequired), nil

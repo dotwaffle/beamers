@@ -372,7 +372,7 @@ func TestRecoverPersistsDegradedEmergencyEvidenceExactlyOnce(t *testing.T) {
 	}
 	eventService, err := events.New(storage, func() time.Time {
 		return now
-	})
+	}, nil, nil)
 	if err != nil {
 		t.Fatalf("create Event service: %v", err)
 	}

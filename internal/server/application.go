@@ -531,6 +531,8 @@ func requestMutates(request *http.Request, contract routeContract) bool {
 func (application *application) openConfig() operations.OpenConfig {
 	config := operations.OpenConfig{
 		DataDir: application.config.DataDir, AttachmentsDir: application.config.AttachmentsDir,
+		NotifyDisplays: application.config.DisplayStream.Notify,
+		NotifySchedule: application.config.ScheduleStream.Notify,
 	}
 	if application.config.Telemetry != nil && application.config.Telemetry.Enabled() {
 		config.TracerProvider = application.config.TracerProvider
@@ -620,10 +622,6 @@ func (application *application) buildHandler(
 		application.config.DisplayStream.Notify()
 		application.config.ScheduleStream.Notify()
 	}
-	notifyThemeChange := func() {
-		installation.Displays().InvalidateThemeCache()
-		application.config.DisplayStream.Notify()
-	}
 	diagnostics := registerDiagnosticsRoutes(
 		mux,
 		installation.Authentication(),
@@ -674,7 +672,6 @@ func (application *application) buildHandler(
 		installation.Authentication(),
 		installation.Themes(),
 		installation.EventThemes(),
-		notifyThemeChange,
 		application.config.Logger,
 	)
 	registerPlanningRoutes(
@@ -692,7 +689,6 @@ func (application *application) buildHandler(
 		installation.Authentication(),
 		installation.Events(),
 		installation.Activation(),
-		notifyScheduleAndDisplays,
 		application.config.Logger,
 	)
 	registerVotingRoutes(
@@ -772,8 +768,6 @@ func (application *application) buildHandler(
 		mux,
 		installation.Authentication(),
 		installation.Events(),
-		application.config.DisplayStream.Notify,
-		application.config.ScheduleStream.Notify,
 		application.config.Logger,
 		application.config.ListenerAddress,
 	)
@@ -884,7 +878,6 @@ func (application *application) buildHandler(
 		mux,
 		installation.Authentication(),
 		installation.Activation(),
-		notifyScheduleAndDisplays,
 		application.config.ListenerAddress,
 		application.config.TracerProvider,
 		application.config.MeterProvider,

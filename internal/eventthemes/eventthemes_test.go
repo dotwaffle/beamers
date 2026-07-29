@@ -19,11 +19,17 @@ import (
 func TestProducerActivatesAndRollsBackInheritedEventTheme(t *testing.T) {
 	storage, producer, eventID := openEventThemeTest(t)
 	now := time.Date(2026, 7, 28, 2, 0, 0, 0, time.UTC)
-	installationThemes, err := themes.New(storage, func() time.Time { return now })
+	installationThemes, err := themes.New(storage, func() time.Time { return now }, nil)
 	if err != nil {
 		t.Fatalf("create Installation Theme service: %v", err)
 	}
-	service, err := eventthemes.New(storage, installationThemes, func() time.Time { return now })
+	notifications := 0
+	service, err := eventthemes.New(
+		storage,
+		installationThemes,
+		func() time.Time { return now },
+		func() { notifications++ },
+	)
 	if err != nil {
 		t.Fatalf("create Event Theme service: %v", err)
 	}
@@ -111,6 +117,20 @@ func TestProducerActivatesAndRollsBackInheritedEventTheme(t *testing.T) {
 	if err != nil || active.Revision.ID != 0 || active.Resolved != installation {
 		t.Fatalf("inherited Event Theme after rollback = %+v, %v", active, err)
 	}
+	if _, err = service.Activate(
+		t.Context(),
+		auth.Account{ID: producer.ID},
+		eventID,
+		eventthemes.ActivateInput{
+			RevisionID: 0, ExpectedActiveRevisionID: first.ID,
+			CommandID: "roll-back-to-inherited-theme",
+		},
+	); err != nil {
+		t.Fatalf("replay Event Theme rollback: %v", err)
+	}
+	if notifications != 3 {
+		t.Errorf("Event Theme notifications = %d, want 3 successful commits and replays", notifications)
+	}
 }
 
 func openEventThemeTest(t *testing.T) (*store.SQLite, auth.Account, int) {
@@ -143,7 +163,7 @@ func openEventThemeTest(t *testing.T) (*store.SQLite, auth.Account, int) {
 		t.Fatalf("bootstrap Producer: %v", err)
 	}
 	producer := auth.Account{ID: created.ID, Name: created.Name, Administrator: true}
-	eventService, err := events.New(storage, func() time.Time { return now })
+	eventService, err := events.New(storage, func() time.Time { return now }, nil, nil)
 	if err != nil {
 		t.Fatalf("create Event service: %v", err)
 	}

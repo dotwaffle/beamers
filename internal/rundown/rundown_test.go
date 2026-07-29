@@ -588,7 +588,7 @@ func openRundownTest(t *testing.T) (*store.SQLite, auth.Account, int) {
 		t.Fatalf("bootstrap Administrator: %v", err)
 	}
 	administrator := auth.Account{ID: created.ID, Name: created.Name, Administrator: true}
-	eventService, err := events.New(storage, func() time.Time { return now })
+	eventService, err := events.New(storage, func() time.Time { return now }, nil, nil)
 	if err != nil {
 		t.Fatalf("create Event service: %v", err)
 	}

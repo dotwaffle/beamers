@@ -197,8 +197,11 @@ func (handlers planningHandlers) settings(response http.ResponseWriter, request 
 			return
 		}
 		var inputErr error
-		switch request.Form.Get("action") {
+		action := request.Form.Get("action")
+		notifyDisplays := false
+		switch action {
 		case "configure-attachment-release":
+			notifyDisplays = true
 			var revision, cueSessionID int
 			revision, inputErr = nonnegativeFormInt(request, "expected_release_revision")
 			if inputErr == nil {
@@ -216,6 +219,7 @@ func (handlers planningHandlers) settings(response http.ResponseWriter, request 
 				)
 			}
 		case "fire-attachment-release-cue":
+			notifyDisplays = true
 			var revision int
 			revision, inputErr = nonnegativeFormInt(request, "expected_release_revision")
 			if inputErr == nil {
@@ -242,7 +246,9 @@ func (handlers planningHandlers) settings(response http.ResponseWriter, request 
 			handlers.renderSettings(response, request, actor, eventID, csrfToken, status, formErrors)
 			return
 		}
-		handlers.notifyDisplays()
+		if notifyDisplays {
+			handlers.notifyDisplays()
+		}
 		http.Redirect(
 			response,
 			request,
@@ -425,7 +431,6 @@ func (handlers planningHandlers) displaySettings(
 			)
 			return
 		}
-		handlers.notifyDisplays()
 		http.Redirect(
 			response,
 			request,

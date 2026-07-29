@@ -1275,7 +1275,7 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 	); err != nil {
 		t.Fatalf("lock Prizegiving plan: %v", err)
 	}
-	activationService, err := activation.New(storage, now)
+	activationService, err := activation.New(storage, now, nil, nil)
 	if err != nil {
 		t.Fatalf("create Activation service: %v", err)
 	}
@@ -1809,7 +1809,7 @@ func openPrizegivingApplicationTest(
 	if err != nil {
 		t.Fatalf("create Authentication service: %v", err)
 	}
-	eventService, err := events.New(storage, func() time.Time { return now })
+	eventService, err := events.New(storage, func() time.Time { return now }, nil, nil)
 	if err != nil {
 		t.Fatalf("create Event service: %v", err)
 	}

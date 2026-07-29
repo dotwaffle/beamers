@@ -68,19 +68,30 @@ type ActiveEvent struct {
 
 // Service owns Activation Preflight and Active Event commands.
 type Service struct {
-	storage *store.SQLite
-	now     func() time.Time
+	storage        *store.SQLite
+	now            func() time.Time
+	notifyDisplays func()
+	notifySchedule func()
 }
 
 // New creates an Activation service with explicit persistence and clock dependencies.
-func New(storage *store.SQLite, now func() time.Time) (*Service, error) {
+// Optional callbacks publish projection freshness after a successful commit or replay.
+func New(
+	storage *store.SQLite,
+	now func() time.Time,
+	notifyDisplays func(),
+	notifySchedule func(),
+) (*Service, error) {
 	if storage == nil {
 		return nil, errors.New("activation storage is required")
 	}
 	if now == nil {
 		return nil, errors.New("activation clock is required")
 	}
-	return &Service{storage: storage, now: now}, nil
+	return &Service{
+		storage: storage, now: now,
+		notifyDisplays: notifyDisplays, notifySchedule: notifySchedule,
+	}, nil
 }
 
 // Preflight reports blocking structural failures and operational warnings.
@@ -119,6 +130,7 @@ func (service *Service) Activate(
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[ActiveEvent]{
 		Storage: service.storage, Identity: identity,
+		Notify: service.notifyProjections,
 		Replay: func(original string) (ActiveEvent, error) {
 			var result ActiveEvent
 			if decodeErr := store.DecodeCommandReceipt(original, &result); decodeErr != nil {
@@ -163,6 +175,15 @@ func (service *Service) Activate(
 			return command.Success(result, string(encoded)), nil
 		},
 	})
+}
+
+func (service *Service) notifyProjections() {
+	if service.notifyDisplays != nil {
+		service.notifyDisplays()
+	}
+	if service.notifySchedule != nil {
+		service.notifySchedule()
+	}
 }
 
 // ActiveEvent returns current live authority routing to an Administrator.

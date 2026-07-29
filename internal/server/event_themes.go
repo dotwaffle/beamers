@@ -13,9 +13,8 @@ import (
 )
 
 type eventThemeHandlers struct {
-	browser        frontendHandlers
-	themes         *eventthemes.Service
-	notifyDisplays func()
+	browser frontendHandlers
+	themes  *eventthemes.Service
 }
 
 func (handlers eventThemeHandlers) administration(
@@ -136,7 +135,6 @@ func (handlers eventThemeHandlers) submit(
 			)
 			return
 		}
-		handlers.notifyDisplays()
 		http.Redirect( //nolint:gosec // The redirect path contains parsed non-negative integer IDs only.
 			response,
 			request,

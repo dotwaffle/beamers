@@ -169,7 +169,7 @@ func TestVersionOneImportDefaultsSubmissionEligibility(t *testing.T) {
 	if err != nil {
 		t.Fatalf("import version 1 Event: %v", err)
 	}
-	eventService, err := events.New(storage, now)
+	eventService, err := events.New(storage, now, nil, nil)
 	if err != nil {
 		t.Fatalf("create Event service: %v", err)
 	}
@@ -346,7 +346,7 @@ func publishedSourceEvent(t *testing.T) (*store.SQLite, auth.Account, int) {
 		t.Fatalf("bootstrap Administrator: %v", err)
 	}
 	actor := auth.Account{ID: account.ID, Name: account.Name, Administrator: true}
-	eventService, err := events.New(storage, func() time.Time { return now })
+	eventService, err := events.New(storage, func() time.Time { return now }, nil, nil)
 	if err != nil {
 		t.Fatalf("create Event service: %v", err)
 	}

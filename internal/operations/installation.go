@@ -81,6 +81,10 @@ type OpenConfig struct {
 	MeterProvider     metric.MeterProvider
 	AllowDemoPassword bool
 	Now               func() time.Time
+	// NotifyDisplays and NotifySchedule are optional freshness callbacks invoked
+	// after successful commits and replays that select those projections.
+	NotifyDisplays func()
+	NotifySchedule func()
 }
 
 // Initialize creates a new installation with the committed schema.
@@ -223,17 +227,28 @@ func OpenInstallationWithConfig(
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.authentication = authentication
-	themeService, err := themes.New(storage, now)
+	notifyThemeChange := func() {
+		installation.displays.InvalidateThemeCache()
+		if config.NotifyDisplays != nil {
+			config.NotifyDisplays()
+		}
+	}
+	themeService, err := themes.New(storage, now, notifyThemeChange)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.themes = themeService
-	eventThemeService, err := eventthemes.New(storage, themeService, now)
+	eventThemeService, err := eventthemes.New(storage, themeService, now, notifyThemeChange)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.eventThemes = eventThemeService
-	activationService, err := activation.New(storage, now)
+	activationService, err := activation.New(
+		storage,
+		now,
+		config.NotifyDisplays,
+		config.NotifySchedule,
+	)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
 	}
@@ -243,7 +258,7 @@ func OpenInstallationWithConfig(
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.attachments = attachmentService
-	eventService, err := events.New(storage, now)
+	eventService, err := events.New(storage, now, config.NotifyDisplays, config.NotifySchedule)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
 	}

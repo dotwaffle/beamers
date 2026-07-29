@@ -6,9 +6,14 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	_ "github.com/dotwaffle/beamers/ent/runtime"
+	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/backup"
+	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/themes"
+	"github.com/dotwaffle/beamers/internal/themevalue"
 )
 
 func TestOpenInstallationRollsBackInterruptedRestoreBeforeReadiness(t *testing.T) {
@@ -84,5 +89,73 @@ func TestForceLiveIsRejectedWithoutLiveState(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "without live blockers") {
 		t.Fatalf("force-live without blockers error = %v", err)
+	}
+}
+
+func TestThemeActivationUsesInstallationDisplayNotification(t *testing.T) {
+	now := time.Date(2026, 7, 29, 12, 0, 0, 0, time.UTC)
+	dataDir := t.TempDir()
+	if err := Initialize(t.Context(), dataDir); err != nil {
+		t.Fatalf("initialize installation: %v", err)
+	}
+	notifications := 0
+	installation, err := OpenInstallationWithConfig(t.Context(), OpenConfig{
+		DataDir: dataDir,
+		Now:     func() time.Time { return now },
+		NotifyDisplays: func() {
+			notifications++
+		},
+	})
+	if err != nil {
+		t.Fatalf("open installation: %v", err)
+	}
+	t.Cleanup(func() {
+		if closeErr := installation.Close(); closeErr != nil {
+			t.Errorf("close installation: %v", closeErr)
+		}
+	})
+
+	bootstrapHash := strings.Repeat("b", 64)
+	if err = installation.storage.IssueBootstrap(
+		t.Context(),
+		bootstrapHash,
+		now,
+		now.Add(time.Hour),
+	); err != nil {
+		t.Fatalf("issue bootstrap: %v", err)
+	}
+	account, err := installation.storage.BootstrapAdministrator(
+		t.Context(),
+		store.BootstrapAdministratorParams{
+			BootstrapHash: bootstrapHash, Name: "Administrator",
+			NormalizedName: "administrator", PasswordHash: "test-password-hash",
+			SessionHash: strings.Repeat("s", 64), Now: now, SessionExpiry: now.Add(time.Hour),
+		},
+	)
+	if err != nil {
+		t.Fatalf("bootstrap Administrator: %v", err)
+	}
+	administrator := auth.Account{ID: account.ID, Name: account.Name, Administrator: true}
+	draft, err := installation.Themes().CreateDraft(
+		t.Context(),
+		administrator,
+		themes.CreateDraftInput{
+			Config: themevalue.DefaultConfig(), CommandID: "create-installation-theme",
+		},
+	)
+	if err != nil {
+		t.Fatalf("create Theme Draft: %v", err)
+	}
+	if _, err = installation.Themes().Activate(
+		t.Context(),
+		administrator,
+		themes.ActivateInput{
+			RevisionID: draft.ID, CommandID: "activate-installation-theme",
+		},
+	); err != nil {
+		t.Fatalf("activate Theme Revision: %v", err)
+	}
+	if notifications != 1 {
+		t.Errorf("Display notifications = %d, want 1", notifications)
 	}
 }

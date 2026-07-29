@@ -56,19 +56,25 @@ type ActivateInput struct {
 
 // Service owns Installation Theme queries and commands.
 type Service struct {
-	storage *store.SQLite
-	now     func() time.Time
+	storage           *store.SQLite
+	now               func() time.Time
+	notifyThemeChange func()
 }
 
 // New creates a Theme service with explicit persistence and clock dependencies.
-func New(storage *store.SQLite, now func() time.Time) (*Service, error) {
+// notifyThemeChange is optional and runs after a successful activation commit or replay.
+func New(
+	storage *store.SQLite,
+	now func() time.Time,
+	notifyThemeChange func(),
+) (*Service, error) {
 	if storage == nil {
 		return nil, errors.New("theme storage is required")
 	}
 	if now == nil {
 		return nil, errors.New("theme clock is required")
 	}
-	return &Service{storage: storage, now: now}, nil
+	return &Service{storage: storage, now: now, notifyThemeChange: notifyThemeChange}, nil
 }
 
 // Active returns the public active Theme or the built-in base Revision.
@@ -199,6 +205,7 @@ func (service *Service) Activate(
 		Storage:  service.storage,
 		Identity: identity,
 		Replay:   replayRevision,
+		Notify:   service.notifyThemeChange,
 		Apply: func(transaction *store.CommandTx) (command.Execution[Revision], error) {
 			if !actor.Administrator {
 				return rejectRevision("administrator_required", ErrAdministratorRequired), nil
