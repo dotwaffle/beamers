@@ -691,7 +691,7 @@ func (service *Service) Assign(
 			}
 			if input.DisplayID <= 0 || input.EventID <= 0 || input.LocationID <= 0 ||
 				!displayviews.IsNormal(input.ViewKey) ||
-				!validDisplayGroupKeys(input.DisplayGroupKeys) {
+				!ValidDisplayGroupKeys(input.DisplayGroupKeys) {
 				return assignmentRejection(ErrInvalidDisplay), nil
 			}
 			stored, storeErr := transaction.AssignDisplay(actor.Context(ctx), store.DisplayAssignment{
@@ -749,7 +749,7 @@ func (service *Service) ClaimEnrollment(
 			}
 			if !validEnrollmentCode(code) ||
 				input.DisplayID < 0 ||
-				input.DisplayID == 0 && !validDisplayName(name) {
+				input.DisplayID == 0 && !ValidDisplayName(name) {
 				return displayRejection(ErrInvalidDisplay), nil
 			}
 			created, createErr := transaction.ClaimDisplayEnrollment(
@@ -851,7 +851,9 @@ func normalizeEnrollmentCode(code string) string {
 	return compact[:4] + "-" + compact[4:]
 }
 
-func validDisplayName(name string) bool {
+// ValidDisplayName reports whether name is safe to persist for one Display.
+func ValidDisplayName(name string) bool {
+	name = strings.TrimSpace(name)
 	if name == "" || utf8.RuneCountInString(name) > 200 {
 		return false
 	}
@@ -898,7 +900,9 @@ func normalizeDisplayGroupKeys(keys []string) []string {
 	return result
 }
 
-func validDisplayGroupKeys(keys []string) bool {
+// ValidDisplayGroupKeys reports whether keys are safe Display Group identifiers.
+func ValidDisplayGroupKeys(keys []string) bool {
+	keys = normalizeDisplayGroupKeys(keys)
 	if len(keys) > 100 {
 		return false
 	}

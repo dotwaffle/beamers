@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/command"
@@ -130,7 +131,21 @@ func (handlers overrideHandlers) emergencyAlertConfirmation(
 			return
 		}
 		if request.Form.Get("build_version") != handlers.buildVersion {
-			http.Error(response, "reload required", http.StatusConflict)
+			input := priorityFormInput(eventID, request)
+			preview, previewErr := handlers.service.PreviewEmergencyAlert(
+				request.Context(), actor, input,
+			)
+			if previewErr != nil {
+				handlers.writePriorityPreview(response, request, nil, previewErr)
+				return
+			}
+			handlers.writeEmergencyAlertConfirmation(
+				response,
+				request,
+				preview,
+				http.StatusConflict,
+				"Beamers changed; review this refreshed Emergency Alert before confirming.",
+			)
 			return
 		}
 		input := priorityFormInput(eventID, request)
@@ -162,8 +177,34 @@ func (handlers overrideHandlers) emergencyAlertConfirmation(
 		handlers.writeResult(response, request, result, err)
 		return
 	}
-	input := priorityQueryInput(eventID, request)
+	input, rawTargetID, fieldID, message := emergencyQueryInput(eventID, request)
+	if fieldID != "" {
+		handlers.writeEmergencyAlertCorrection(
+			response,
+			request,
+			eventID,
+			input,
+			rawTargetID,
+			fieldID,
+			message,
+		)
+		return
+	}
 	preview, err := handlers.service.PreviewEmergencyAlert(request.Context(), actor, input)
+	if errors.Is(err, overrides.ErrInvalidInput) {
+		fieldID = "emergency-target-key"
+		message = "Enter a valid Display Group key."
+		handlers.writeEmergencyAlertCorrection(
+			response,
+			request,
+			eventID,
+			input,
+			rawTargetID,
+			fieldID,
+			message,
+		)
+		return
+	}
 	if err != nil {
 		handlers.writePriorityPreview(response, request, nil, err)
 		return
@@ -177,6 +218,45 @@ func (handlers overrideHandlers) emergencyAlertConfirmation(
 			"",
 		)
 	}
+	handlers.writeEmergencyAlertConfirmation(
+		response, request, preview, http.StatusOK, "",
+	)
+}
+
+func (handlers overrideHandlers) writeEmergencyAlertCorrection(
+	response http.ResponseWriter,
+	request *http.Request,
+	eventID int,
+	input overrides.PriorityInput,
+	rawTargetID string,
+	fieldID string,
+	message string,
+) {
+	response.Header().Set("Content-Type", "text/html; charset=utf-8")
+	response.WriteHeader(http.StatusBadRequest)
+	if err := overrides.EmergencyAlertCorrectionPage( //nolint:contextcheck // Generated templ closures receive context when rendered.
+		eventID,
+		input,
+		rawTargetID,
+		fieldID,
+		message,
+	).Render(request.Context(), response); err != nil {
+		handlers.logger.ErrorContext(
+			request.Context(),
+			"write Emergency correction",
+			"error",
+			err,
+		)
+	}
+}
+
+func (handlers overrideHandlers) writeEmergencyAlertConfirmation(
+	response http.ResponseWriter,
+	request *http.Request,
+	preview overrides.PriorityPreview,
+	status int,
+	message string,
+) {
 	commandID, err := confirmationCommandID("emergency")
 	if err != nil {
 		handlers.logger.ErrorContext(request.Context(), "create Emergency command identity", "error", err)
@@ -184,7 +264,10 @@ func (handlers overrideHandlers) emergencyAlertConfirmation(
 		return
 	}
 	response.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err = overrides.EmergencyAlertConfirmationPage(preview, commandID, handlers.buildVersion).
+	response.WriteHeader(status)
+	if err = overrides.EmergencyAlertConfirmationPage(
+		preview, commandID, handlers.buildVersion, message,
+	).
 		Render(request.Context(), response); err != nil {
 		handlers.logger.ErrorContext(request.Context(), "write Emergency confirmation", "error", err)
 	}
@@ -226,7 +309,15 @@ func (handlers overrideHandlers) emergencyClearConfirmation(
 			return
 		}
 		if request.Form.Get("build_version") != handlers.buildVersion {
-			http.Error(response, "reload required", http.StatusConflict)
+			handlers.writeEmergencyClearConfirmation(
+				response,
+				request,
+				actor,
+				eventID,
+				overrideID,
+				http.StatusConflict,
+				"Beamers changed; review this refreshed Emergency Alert clear before confirming.",
+			)
 			return
 		}
 		revision, parseErr := strconv.Atoi(request.FormValue("expected_revision"))
@@ -265,6 +356,20 @@ func (handlers overrideHandlers) emergencyClearConfirmation(
 		handlers.writeResult(response, request, result, clearErr)
 		return
 	}
+	handlers.writeEmergencyClearConfirmation(
+		response, request, actor, eventID, overrideID, http.StatusOK, "",
+	)
+}
+
+func (handlers overrideHandlers) writeEmergencyClearConfirmation(
+	response http.ResponseWriter,
+	request *http.Request,
+	actor auth.Account,
+	eventID int,
+	overrideID int,
+	status int,
+	message string,
+) {
 	active, err := handlers.service.ListActive(request.Context(), actor, eventID)
 	if err != nil {
 		handlers.writePreviewList(response, request, nil, err)
@@ -275,7 +380,10 @@ func (handlers overrideHandlers) emergencyClearConfirmation(
 			continue
 		}
 		response.Header().Set("Content-Type", "text/html; charset=utf-8")
-		if err = overrides.EmergencyClearConfirmationPage(item, handlers.buildVersion).
+		response.WriteHeader(status)
+		if err = overrides.EmergencyClearConfirmationPage(
+			item, handlers.buildVersion, message,
+		).
 			Render(request.Context(), response); err != nil {
 			handlers.logger.ErrorContext(request.Context(), "write Emergency clear confirmation", "error", err)
 		}
@@ -284,15 +392,63 @@ func (handlers overrideHandlers) emergencyClearConfirmation(
 	http.Error(response, "Display Override not found", http.StatusNotFound)
 }
 
-func priorityQueryInput(eventID int, request *http.Request) overrides.PriorityInput {
-	targetID, _ := strconv.Atoi(request.URL.Query().Get("target_id"))
-	return overrides.PriorityInput{
+func emergencyQueryInput(
+	eventID int,
+	request *http.Request,
+) (overrides.PriorityInput, string, string, string) {
+	rawTargetID := request.URL.Query().Get("target_id")
+	targetID, err := strconv.Atoi(rawTargetID)
+	if rawTargetID == "" {
+		targetID, err = 0, nil
+	}
+	input := overrides.PriorityInput{
 		EventID: eventID, Text: request.URL.Query().Get("text"),
 		Target: overrides.Target{
 			Type: overrides.TargetType(request.URL.Query().Get("target_type")),
 			ID:   targetID, Key: request.URL.Query().Get("target_key"),
 		},
 	}
+	if err != nil || targetID < 0 {
+		return input, rawTargetID, "emergency-target-id",
+			"Enter a positive numeric target ID."
+	}
+	if strings.TrimSpace(input.Text) == "" || len(input.Text) > 2000 {
+		return input, rawTargetID, "emergency-text",
+			"Enter an Emergency Alert message of at most 2000 characters."
+	}
+	switch string(input.Target.Type) {
+	case "Event", "Public", "Crew":
+		if input.Target.ID != 0 {
+			return input, rawTargetID, "emergency-target-id",
+				"Leave the numeric target ID empty."
+		}
+		if strings.TrimSpace(input.Target.Key) != "" {
+			return input, rawTargetID, "emergency-target-key",
+				"Leave the Display Group key empty."
+		}
+	case "Location", "Lane", "ProgramChannel", "Display":
+		if input.Target.ID <= 0 {
+			return input, rawTargetID, "emergency-target-id",
+				"Enter a positive numeric target ID."
+		}
+		if strings.TrimSpace(input.Target.Key) != "" {
+			return input, rawTargetID, "emergency-target-key",
+				"Leave the Display Group key empty."
+		}
+	case "DisplayGroup":
+		if input.Target.ID != 0 {
+			return input, rawTargetID, "emergency-target-id",
+				"Leave the numeric target ID empty."
+		}
+		if strings.TrimSpace(input.Target.Key) == "" {
+			return input, rawTargetID, "emergency-target-key",
+				"Enter the Display Group key."
+		}
+	default:
+		return input, rawTargetID, "emergency-target-type",
+			"Choose a valid Display target."
+	}
+	return input, rawTargetID, "", ""
 }
 
 func priorityFormInput(eventID int, request *http.Request) overrides.PriorityInput {

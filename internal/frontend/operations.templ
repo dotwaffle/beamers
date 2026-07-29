@@ -1,6 +1,7 @@
 package frontend
 
 import (
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -37,7 +38,39 @@ type OperationsPage struct {
 	ForecastStart         time.Time
 	LaneIDs               []int
 	LocationIDs           []int
-	Error                 string
+	SubmittedAction       string
+	Form                  url.Values
+	Errors                FormErrors
+}
+
+func OperationFieldID(action string, id int, field string) string {
+	if id > 0 {
+		action += "-" + strconv.Itoa(id)
+	}
+	return action + "-" + strings.ReplaceAll(field, "_", "-")
+}
+
+func (page OperationsPage) submitted(action string, id int) bool {
+	if page.SubmittedAction != action {
+		return false
+	}
+	switch action {
+	case "assign-display":
+		return page.Form.Get("display_id") == strconv.Itoa(id)
+	case "enroll-display":
+		return true
+	default:
+		return page.Form.Get("session_id") == strconv.Itoa(id)
+	}
+}
+
+func (page OperationsPage) value(action string, id int, field, fallback string) string {
+	if page.submitted(action, id) && field != "code" {
+		if _, ok := page.Form[field]; ok {
+			return page.Form.Get(field)
+		}
+	}
+	return fallback
 }
 
 // Operations renders authorized Session and Display controls.
@@ -52,9 +85,7 @@ templ Operations(page OperationsPage) {
 				<main id="main-content" tabindex="-1">
 					<h1>Sessions and Displays</h1>
 					<p>{ page.Event.Name }</p>
-					if page.Error != "" {
-						<p role="alert">{ page.Error }</p>
-					}
+					@ErrorSummary(page.Errors)
 					<section>
 						<h2>Sessions</h2>
 						for _, session := range page.Rundown.Sessions {
@@ -77,7 +108,15 @@ templ Operations(page OperationsPage) {
 										<input type="hidden" name="action" value="preview-adjust-target"/>
 										<input type="hidden" name="session_id" value={ strconv.Itoa(session.ID) }/>
 										<input type="hidden" name="expected_live_state_revision" value={ strconv.Itoa(session.LiveStateRevision) }/>
-										<label>Target adjustment <input name="adjustment" value="5m" required/></label>
+										<label for={ OperationFieldID("preview-adjust-target", session.ID, "adjustment") }>Target adjustment</label>
+										<input
+											id={ OperationFieldID("preview-adjust-target", session.ID, "adjustment") }
+											name="adjustment"
+											value={ page.value("preview-adjust-target", session.ID, "adjustment", "5m") }
+											required
+											{ page.Errors.Attributes(OperationFieldID("preview-adjust-target", session.ID, "adjustment"))... }
+										/>
+										@FieldError(page.Errors, OperationFieldID("preview-adjust-target", session.ID, "adjustment"))
 										<button type="submit">Preview Adjust Target</button>
 									</form>
 								}
@@ -88,12 +127,36 @@ templ Operations(page OperationsPage) {
 										<input type="hidden" name="action" value="preview-reinstate"/>
 										<input type="hidden" name="session_id" value={ strconv.Itoa(session.ID) }/>
 										<input type="hidden" name="expected_live_state_revision" value={ strconv.Itoa(session.LiveStateRevision) }/>
-										<label>
+										<label for={ OperationFieldID("preview-reinstate", session.ID, "forecast_start") }>
 											New Forecast Start ({ page.Event.Timezone })
-											<input type="datetime-local" name="forecast_start" required/>
 										</label>
-										<label>Lane IDs <input name="lane_ids" value={ commaSeparatedIDs(session.LaneIDs) } required/></label>
-										<label>Location IDs <input name="location_ids" value={ commaSeparatedIDs(session.LocationIDs) } required/></label>
+										<input
+											id={ OperationFieldID("preview-reinstate", session.ID, "forecast_start") }
+											type="datetime-local"
+											name="forecast_start"
+											value={ page.value("preview-reinstate", session.ID, "forecast_start", "") }
+											required
+											{ page.Errors.Attributes(OperationFieldID("preview-reinstate", session.ID, "forecast_start"))... }
+										/>
+										@FieldError(page.Errors, OperationFieldID("preview-reinstate", session.ID, "forecast_start"))
+										<label for={ OperationFieldID("preview-reinstate", session.ID, "lane_ids") }>Lane IDs</label>
+										<input
+											id={ OperationFieldID("preview-reinstate", session.ID, "lane_ids") }
+											name="lane_ids"
+											value={ page.value("preview-reinstate", session.ID, "lane_ids", commaSeparatedIDs(session.LaneIDs)) }
+											required
+											{ page.Errors.Attributes(OperationFieldID("preview-reinstate", session.ID, "lane_ids"))... }
+										/>
+										@FieldError(page.Errors, OperationFieldID("preview-reinstate", session.ID, "lane_ids"))
+										<label for={ OperationFieldID("preview-reinstate", session.ID, "location_ids") }>Location IDs</label>
+										<input
+											id={ OperationFieldID("preview-reinstate", session.ID, "location_ids") }
+											name="location_ids"
+											value={ page.value("preview-reinstate", session.ID, "location_ids", commaSeparatedIDs(session.LocationIDs)) }
+											required
+											{ page.Errors.Attributes(OperationFieldID("preview-reinstate", session.ID, "location_ids"))... }
+										/>
+										@FieldError(page.Errors, OperationFieldID("preview-reinstate", session.ID, "location_ids"))
 										<button type="submit">Preview Reinstate and reschedule</button>
 									</form>
 								}
@@ -122,9 +185,31 @@ templ Operations(page OperationsPage) {
 								<input type="hidden" name="adjustment" value={ page.Adjustment.String() }/>
 								<input type="hidden" name="preview_fingerprint" value={ page.TargetPreview.Fingerprint }/>
 								<input type="hidden" name="command_id" value={ page.CommandIDs["adjust-target:"+strconv.Itoa(page.PreviewSessionID)] }/>
-								<input type="hidden" name="confirmed" value="true"/>
+								<label for={ OperationFieldID("adjust-target", page.PreviewSessionID, "confirmed") }>
+									<input
+										id={ OperationFieldID("adjust-target", page.PreviewSessionID, "confirmed") }
+										type="checkbox"
+										name="confirmed"
+										value="true"
+										required
+										{ page.Errors.Attributes(OperationFieldID("adjust-target", page.PreviewSessionID, "confirmed"))... }
+									/>
+									I reviewed this preview and confirm Adjust Target.
+								</label>
+								@FieldError(page.Errors, OperationFieldID("adjust-target", page.PreviewSessionID, "confirmed"))
 								if page.TargetPreview.RequiresHardBoundaryConfirmation {
-									<label><input type="checkbox" name="hard_boundary_confirmed" value="true" required/> Confirm Hard Boundary movement</label>
+									<label for={ OperationFieldID("adjust-target", page.PreviewSessionID, "hard_boundary_confirmed") }>
+										<input
+											id={ OperationFieldID("adjust-target", page.PreviewSessionID, "hard_boundary_confirmed") }
+											type="checkbox"
+											name="hard_boundary_confirmed"
+											value="true"
+											required
+											{ page.Errors.Attributes(OperationFieldID("adjust-target", page.PreviewSessionID, "hard_boundary_confirmed"))... }
+										/>
+										Confirm Hard Boundary movement
+									</label>
+									@FieldError(page.Errors, OperationFieldID("adjust-target", page.PreviewSessionID, "hard_boundary_confirmed"))
 								}
 								<button type="submit">Adjust Target</button>
 							</form>
@@ -151,7 +236,18 @@ templ Operations(page OperationsPage) {
 								<input type="hidden" name="command_id" value={ page.CommandIDs["end-session:"+strconv.Itoa(page.PreviewSessionID)] }/>
 								<input type="hidden" name="deferred_entries_fingerprint" value={ page.EndPreflight.Fingerprint }/>
 								if page.EndPreflight.RequiresConfirmation {
-									<label><input type="checkbox" name="confirmed_deferred_entries" value="true" required/> Confirm deferred Entries</label>
+									<label for={ OperationFieldID("end-session", page.PreviewSessionID, "confirmed_deferred_entries") }>
+										<input
+											id={ OperationFieldID("end-session", page.PreviewSessionID, "confirmed_deferred_entries") }
+											type="checkbox"
+											name="confirmed_deferred_entries"
+											value="true"
+											required
+											{ page.Errors.Attributes(OperationFieldID("end-session", page.PreviewSessionID, "confirmed_deferred_entries"))... }
+										/>
+										Confirm deferred Entries
+									</label>
+									@FieldError(page.Errors, OperationFieldID("end-session", page.PreviewSessionID, "confirmed_deferred_entries"))
 								}
 								<button type="submit">End Competition</button>
 							</form>
@@ -174,9 +270,31 @@ templ Operations(page OperationsPage) {
 								<input type="hidden" name="location_ids" value={ commaSeparatedIDs(page.LocationIDs) }/>
 								<input type="hidden" name="preview_fingerprint" value={ page.ReinstatePreview.Fingerprint }/>
 								<input type="hidden" name="command_id" value={ page.CommandIDs["reinstate-session:"+strconv.Itoa(page.PreviewSessionID)] }/>
-								<input type="hidden" name="confirmed" value="true"/>
+								<label for={ OperationFieldID("reinstate-session", page.PreviewSessionID, "confirmed") }>
+									<input
+										id={ OperationFieldID("reinstate-session", page.PreviewSessionID, "confirmed") }
+										type="checkbox"
+										name="confirmed"
+										value="true"
+										required
+										{ page.Errors.Attributes(OperationFieldID("reinstate-session", page.PreviewSessionID, "confirmed"))... }
+									/>
+									I reviewed this placement preview and confirm Reinstate.
+								</label>
+								@FieldError(page.Errors, OperationFieldID("reinstate-session", page.PreviewSessionID, "confirmed"))
 								if page.ReinstatePreview.RequiresHardBoundaryConfirmation {
-									<label><input type="checkbox" name="hard_boundary_confirmed" value="true" required/> Confirm Hard Boundary movement</label>
+									<label for={ OperationFieldID("reinstate-session", page.PreviewSessionID, "hard_boundary_confirmed") }>
+										<input
+											id={ OperationFieldID("reinstate-session", page.PreviewSessionID, "hard_boundary_confirmed") }
+											type="checkbox"
+											name="hard_boundary_confirmed"
+											value="true"
+											required
+											{ page.Errors.Attributes(OperationFieldID("reinstate-session", page.PreviewSessionID, "hard_boundary_confirmed"))... }
+										/>
+										Confirm Hard Boundary movement
+									</label>
+									@FieldError(page.Errors, OperationFieldID("reinstate-session", page.PreviewSessionID, "hard_boundary_confirmed"))
 								}
 								<button type="submit">Reinstate and reschedule Session</button>
 							</form>
@@ -189,9 +307,31 @@ templ Operations(page OperationsPage) {
 								<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
 								<input type="hidden" name="action" value="enroll-display"/>
 								<input type="hidden" name="command_id" value={ page.EnrollmentCommandID }/>
-								<label>Enrollment code <input name="code" required/></label>
-								<label>Display name <input name="name"/></label>
-								<label>Existing Display ID for recovery <input name="display_id" inputmode="numeric"/></label>
+								<label for={ OperationFieldID("enroll-display", 0, "code") }>Enrollment code</label>
+								<input
+									id={ OperationFieldID("enroll-display", 0, "code") }
+									name="code"
+									required
+									{ page.Errors.Attributes(OperationFieldID("enroll-display", 0, "code"))... }
+								/>
+								@FieldError(page.Errors, OperationFieldID("enroll-display", 0, "code"))
+								<label for={ OperationFieldID("enroll-display", 0, "name") }>Display name</label>
+								<input
+									id={ OperationFieldID("enroll-display", 0, "name") }
+									name="name"
+									value={ page.value("enroll-display", 0, "name", "") }
+									{ page.Errors.Attributes(OperationFieldID("enroll-display", 0, "name"))... }
+								/>
+								@FieldError(page.Errors, OperationFieldID("enroll-display", 0, "name"))
+								<label for={ OperationFieldID("enroll-display", 0, "display_id") }>Existing Display ID for recovery</label>
+								<input
+									id={ OperationFieldID("enroll-display", 0, "display_id") }
+									name="display_id"
+									inputmode="numeric"
+									value={ page.value("enroll-display", 0, "display_id", "") }
+									{ page.Errors.Attributes(OperationFieldID("enroll-display", 0, "display_id"))... }
+								/>
+								@FieldError(page.Errors, OperationFieldID("enroll-display", 0, "display_id"))
 								<button type="submit">Enroll or recover Display</button>
 							</form>
 						}
@@ -225,23 +365,41 @@ templ Operations(page OperationsPage) {
 											<input type="hidden" name="action" value="assign-display"/>
 											<input type="hidden" name="command_id" value={ page.DisplayCommandIDs[display.ID] }/>
 											<input type="hidden" name="display_id" value={ strconv.Itoa(display.ID) }/>
-											<label>
-												Location
-												<select name="location_id" required>
-													for _, location := range page.Rundown.Locations {
-														<option value={ strconv.Itoa(location.ID) } selected?={ location.ID == display.LocationID }>{ location.Name }</option>
-													}
-												</select>
-											</label>
-											<label>
-												View
-												<select name="view_key" required>
-													for _, view := range []string{"event-overview", "location-signage", "stage-timer", "competition-output"} {
-														<option value={ view } selected?={ view == display.ViewKey }>{ view }</option>
-													}
-												</select>
-											</label>
-											<label>Display group keys <input name="display_group_keys" value={ strings.Join(display.DisplayGroupKeys, ", ") }/></label>
+											<label for={ OperationFieldID("assign-display", display.ID, "location_id") }>Location</label>
+											<select
+												id={ OperationFieldID("assign-display", display.ID, "location_id") }
+												name="location_id"
+												required
+												{ page.Errors.Attributes(OperationFieldID("assign-display", display.ID, "location_id"))... }
+											>
+												for _, location := range page.Rundown.Locations {
+													<option
+														value={ strconv.Itoa(location.ID) }
+														selected?={ page.value("assign-display", display.ID, "location_id", strconv.Itoa(display.LocationID)) == strconv.Itoa(location.ID) }
+													>{ location.Name }</option>
+												}
+											</select>
+											@FieldError(page.Errors, OperationFieldID("assign-display", display.ID, "location_id"))
+											<label for={ OperationFieldID("assign-display", display.ID, "view_key") }>View</label>
+											<select
+												id={ OperationFieldID("assign-display", display.ID, "view_key") }
+												name="view_key"
+												required
+												{ page.Errors.Attributes(OperationFieldID("assign-display", display.ID, "view_key"))... }
+											>
+												for _, view := range []string{"event-overview", "location-signage", "stage-timer", "competition-output"} {
+													<option value={ view } selected?={ page.value("assign-display", display.ID, "view_key", display.ViewKey) == view }>{ view }</option>
+												}
+											</select>
+											@FieldError(page.Errors, OperationFieldID("assign-display", display.ID, "view_key"))
+											<label for={ OperationFieldID("assign-display", display.ID, "display_group_keys") }>Display group keys</label>
+											<input
+												id={ OperationFieldID("assign-display", display.ID, "display_group_keys") }
+												name="display_group_keys"
+												value={ page.value("assign-display", display.ID, "display_group_keys", strings.Join(display.DisplayGroupKeys, ", ")) }
+												{ page.Errors.Attributes(OperationFieldID("assign-display", display.ID, "display_group_keys"))... }
+											/>
+											@FieldError(page.Errors, OperationFieldID("assign-display", display.ID, "display_group_keys"))
 											<button type="submit">Assign and group Display</button>
 										</form>
 									}
@@ -284,9 +442,35 @@ templ cancelSessionForm(page OperationsPage, session rundown.CrewSession) {
 		<input type="hidden" name="command_id" value={ page.CommandIDs["cancel-session:"+strconv.Itoa(session.ID)] }/>
 		<input type="hidden" name="session_id" value={ strconv.Itoa(session.ID) }/>
 		<input type="hidden" name="expected_live_state_revision" value={ strconv.Itoa(session.LiveStateRevision) }/>
-		<label>Public cancellation message <input name="public_cancellation_message" maxlength="10000"/></label>
-		<label>Crew notes <textarea name="crew_notes" maxlength="10000"></textarea></label>
-		<label><input type="checkbox" name="confirmed" value="true" required/> Confirm cancellation</label>
+		<label for={ OperationFieldID("cancel-session", session.ID, "public_cancellation_message") }>Public cancellation message</label>
+		<input
+			id={ OperationFieldID("cancel-session", session.ID, "public_cancellation_message") }
+			name="public_cancellation_message"
+			maxlength="10000"
+			value={ page.value("cancel-session", session.ID, "public_cancellation_message", "") }
+			{ page.Errors.Attributes(OperationFieldID("cancel-session", session.ID, "public_cancellation_message"))... }
+		/>
+		@FieldError(page.Errors, OperationFieldID("cancel-session", session.ID, "public_cancellation_message"))
+		<label for={ OperationFieldID("cancel-session", session.ID, "crew_notes") }>Crew notes</label>
+		<textarea
+			id={ OperationFieldID("cancel-session", session.ID, "crew_notes") }
+			name="crew_notes"
+			maxlength="10000"
+			{ page.Errors.Attributes(OperationFieldID("cancel-session", session.ID, "crew_notes"))... }
+		>{ page.value("cancel-session", session.ID, "crew_notes", "") }</textarea>
+		@FieldError(page.Errors, OperationFieldID("cancel-session", session.ID, "crew_notes"))
+		<label for={ OperationFieldID("cancel-session", session.ID, "confirmed") }>
+			<input
+				id={ OperationFieldID("cancel-session", session.ID, "confirmed") }
+				type="checkbox"
+				name="confirmed"
+				value="true"
+				required
+				{ page.Errors.Attributes(OperationFieldID("cancel-session", session.ID, "confirmed"))... }
+			/>
+			Confirm cancellation
+		</label>
+		@FieldError(page.Errors, OperationFieldID("cancel-session", session.ID, "confirmed"))
 		<button type="submit">Cancel Session</button>
 	</form>
 }

@@ -1,7 +1,9 @@
 package frontend
 
 import "fmt"
+import "net/url"
 import "strconv"
+import "strings"
 import "time"
 
 import "github.com/dotwaffle/beamers/internal/themevalue"
@@ -31,7 +33,21 @@ type ThemePage struct {
 	Preview          ThemePreview
 	CreateCommandID  string
 	ActivateCommandID string
-	Error            string
+	Form              url.Values
+	Errors            FormErrors
+}
+
+func ThemeFieldID(field string) string {
+	return "theme-" + strings.ReplaceAll(field, "_", "-")
+}
+
+func (page ThemePage) value(field, fallback string) string {
+	if page.Form.Get("action") == "create-draft" {
+		if _, ok := page.Form[field]; ok {
+			return page.Form.Get(field)
+		}
+	}
+	return fallback
 }
 
 func themeRevisionLabel(id int) string {
@@ -79,9 +95,7 @@ templ ThemeAdministration(page ThemePage) {
 				<main id="main-content" tabindex="-1">
 					<h1>Installation Theme</h1>
 					<p>Active: <strong>{ themeRevisionLabel(page.ActiveRevisionID) }</strong></p>
-					if page.Error != "" {
-						<p class="error" role="alert">{ page.Error }</p>
-					}
+					@ErrorSummary(page.Errors)
 					<section>
 						<h2>Edit a new Draft Theme Revision</h2>
 						<p>Only these documented controls are accepted. Saving always creates a new immutable Revision.</p>
@@ -91,55 +105,61 @@ templ ThemeAdministration(page ThemePage) {
 							<input type="hidden" name="command_id" value={ page.CreateCommandID }/>
 							<label>
 								Branding asset
-								<select name="brand_asset">
-									<option value="signal" selected?={ page.Preview.Config.BrandAsset == themevalue.BrandAssetSignal }>Signal mark</option>
-									<option value="wordmark" selected?={ page.Preview.Config.BrandAsset == themevalue.BrandAssetWordmark }>Wordmark only</option>
+								<select id={ ThemeFieldID("brand_asset") } name="brand_asset" { page.Errors.Attributes(ThemeFieldID("brand_asset"))... }>
+									<option value="signal" selected?={ page.value("brand_asset", page.Preview.Config.BrandAsset) == themevalue.BrandAssetSignal }>Signal mark</option>
+									<option value="wordmark" selected?={ page.value("brand_asset", page.Preview.Config.BrandAsset) == themevalue.BrandAssetWordmark }>Wordmark only</option>
 								</select>
 							</label>
-							<label>Background color <input type="color" name="background_color" value={ page.Preview.Config.BackgroundColor } required/></label>
-							<label>Surface color <input type="color" name="surface_color" value={ page.Preview.Config.SurfaceColor } required/></label>
-							<label>Border color <input type="color" name="border_color" value={ page.Preview.Config.BorderColor } required/></label>
-							<label>Text color <input type="color" name="text_color" value={ page.Preview.Config.TextColor } required/></label>
-							<label>Muted text color <input type="color" name="muted_color" value={ page.Preview.Config.MutedColor } required/></label>
-							<label>Accent color <input type="color" name="accent_color" value={ page.Preview.Config.AccentColor } required/></label>
-							<label>Link color <input type="color" name="link_color" value={ page.Preview.Config.LinkColor } required/></label>
-							<label>Focus color <input type="color" name="focus_color" value={ page.Preview.Config.FocusColor } required/></label>
+							@FieldError(page.Errors, ThemeFieldID("brand_asset"))
+							@ThemeColor(page, "Background color", "background_color", page.Preview.Config.BackgroundColor)
+							@ThemeColor(page, "Surface color", "surface_color", page.Preview.Config.SurfaceColor)
+							@ThemeColor(page, "Border color", "border_color", page.Preview.Config.BorderColor)
+							@ThemeColor(page, "Text color", "text_color", page.Preview.Config.TextColor)
+							@ThemeColor(page, "Muted text color", "muted_color", page.Preview.Config.MutedColor)
+							@ThemeColor(page, "Accent color", "accent_color", page.Preview.Config.AccentColor)
+							@ThemeColor(page, "Link color", "link_color", page.Preview.Config.LinkColor)
+							@ThemeColor(page, "Focus color", "focus_color", page.Preview.Config.FocusColor)
 							<label>
 								Background
-								<select name="background">
-									<option value="nebula" selected?={ page.Preview.Config.Background == themevalue.BackgroundNebula }>Built-in nebula</option>
-									<option value="solid" selected?={ page.Preview.Config.Background == themevalue.BackgroundSolid }>Solid</option>
+								<select id={ ThemeFieldID("background") } name="background" { page.Errors.Attributes(ThemeFieldID("background"))... }>
+									<option value="nebula" selected?={ page.value("background", page.Preview.Config.Background) == themevalue.BackgroundNebula }>Built-in nebula</option>
+									<option value="solid" selected?={ page.value("background", page.Preview.Config.Background) == themevalue.BackgroundSolid }>Solid</option>
 								</select>
 							</label>
+							@FieldError(page.Errors, ThemeFieldID("background"))
 							<label>
 								Bundled type choice
-								<select name="typeface">
-									<option value="demoscene" selected?={ page.Preview.Config.Typeface == themevalue.TypefaceDemoscene }>Chakra Petch headings and Open Sans body</option>
-									<option value="clean" selected?={ page.Preview.Config.Typeface == themevalue.TypefaceClean }>Open Sans throughout</option>
+								<select id={ ThemeFieldID("typeface") } name="typeface" { page.Errors.Attributes(ThemeFieldID("typeface"))... }>
+									<option value="demoscene" selected?={ page.value("typeface", page.Preview.Config.Typeface) == themevalue.TypefaceDemoscene }>Chakra Petch headings and Open Sans body</option>
+									<option value="clean" selected?={ page.value("typeface", page.Preview.Config.Typeface) == themevalue.TypefaceClean }>Open Sans throughout</option>
 								</select>
 							</label>
+							@FieldError(page.Errors, ThemeFieldID("typeface"))
 							<label>
 								Transition
-								<select name="transition">
-									<option value="fade" selected?={ page.Preview.Config.Transition == themevalue.TransitionFade }>Fade</option>
-									<option value="none" selected?={ page.Preview.Config.Transition == themevalue.TransitionNone }>None</option>
+								<select id={ ThemeFieldID("transition") } name="transition" { page.Errors.Attributes(ThemeFieldID("transition"))... }>
+									<option value="fade" selected?={ page.value("transition", page.Preview.Config.Transition) == themevalue.TransitionFade }>Fade</option>
+									<option value="none" selected?={ page.value("transition", page.Preview.Config.Transition) == themevalue.TransitionNone }>None</option>
 								</select>
 							</label>
+							@FieldError(page.Errors, ThemeFieldID("transition"))
 							<label>
 								Effect
-								<select name="effect">
-									<option value="starfield" selected?={ page.Preview.Config.Effect == themevalue.EffectStarfield }>Built-in starfield</option>
-									<option value="none" selected?={ page.Preview.Config.Effect == themevalue.EffectNone }>None</option>
+								<select id={ ThemeFieldID("effect") } name="effect" { page.Errors.Attributes(ThemeFieldID("effect"))... }>
+									<option value="starfield" selected?={ page.value("effect", page.Preview.Config.Effect) == themevalue.EffectStarfield }>Built-in starfield</option>
+									<option value="none" selected?={ page.value("effect", page.Preview.Config.Effect) == themevalue.EffectNone }>None</option>
 								</select>
 							</label>
+							@FieldError(page.Errors, ThemeFieldID("effect"))
 							<label>
 								Motion level
-								<select name="motion">
-									<option value="still" selected?={ page.Preview.Config.Motion == themevalue.MotionStill }>Still</option>
-									<option value="subtle" selected?={ page.Preview.Config.Motion == themevalue.MotionSubtle }>Subtle</option>
-									<option value="full" selected?={ page.Preview.Config.Motion == themevalue.MotionFull }>Full</option>
+								<select id={ ThemeFieldID("motion") } name="motion" { page.Errors.Attributes(ThemeFieldID("motion"))... }>
+									<option value="still" selected?={ page.value("motion", page.Preview.Config.Motion) == themevalue.MotionStill }>Still</option>
+									<option value="subtle" selected?={ page.value("motion", page.Preview.Config.Motion) == themevalue.MotionSubtle }>Subtle</option>
+									<option value="full" selected?={ page.value("motion", page.Preview.Config.Motion) == themevalue.MotionFull }>Full</option>
 								</select>
 							</label>
+							@FieldError(page.Errors, ThemeFieldID("motion"))
 							<button type="submit">Save, preview, and validate Draft</button>
 						</form>
 					</section>
@@ -198,13 +218,19 @@ templ ThemeAdministration(page ThemePage) {
 								<input type="hidden" name="command_id" value={ page.ActivateCommandID }/>
 								<input type="hidden" name="revision_id" value={ strconv.Itoa(page.Preview.RevisionID) }/>
 								<input type="hidden" name="expected_active_revision_id" value={ strconv.Itoa(page.ActiveRevisionID) }/>
-								<button type="submit" disabled?={ len(page.Preview.Findings) != 0 }>
+								<button
+									id={ ThemeFieldID("activation_confirmation") }
+									type="submit"
+									disabled?={ len(page.Preview.Findings) != 0 }
+									{ page.Errors.Attributes(ThemeFieldID("activation_confirmation"))... }
+								>
 									if page.Preview.RevisionID < page.ActiveRevisionID {
 										Roll back to this exact Revision
 									} else {
 										Activate this Revision
 									}
 								</button>
+								@FieldError(page.Errors, ThemeFieldID("activation_confirmation"))
 							</form>
 						}
 					</section>
@@ -230,4 +256,19 @@ templ ThemeAdministration(page ThemePage) {
 			</div>
 		</body>
 	</html>
+}
+
+templ ThemeColor(page ThemePage, label string, name string, fallback string) {
+	<label>
+		{ label }
+		<input
+			id={ ThemeFieldID(name) }
+			type="color"
+			name={ name }
+			value={ page.value(name, fallback) }
+			required
+			{ page.Errors.Attributes(ThemeFieldID(name))... }
+		/>
+	</label>
+	@FieldError(page.Errors, ThemeFieldID(name))
 }

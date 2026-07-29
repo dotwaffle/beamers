@@ -1,6 +1,7 @@
 package frontend
 
 import (
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -53,7 +54,120 @@ type ResultsPage struct {
 	Prizegivings   []ResultsPrizegivingPage
 	EventAwards    results.EventAwardsDraft
 	EventAwardsPreflight *results.StandaloneEventAwardsPreflight
-	Error          string
+	SubmittedAction string
+	Form            url.Values
+	Errors          FormErrors
+}
+
+func ResultsFieldID(action string, targetID int, field string) string {
+	prefix := strings.TrimPrefix(action, "save-")
+	switch action {
+	case "save-results-draft":
+		prefix = "results"
+	case "save-results-correction":
+		prefix = "results-correction"
+	case "save-prizegiving-plan":
+		prefix = "prizegiving"
+	case "save-competition-awards":
+		prefix = "competition-awards"
+	case "save-event-awards":
+		prefix = "event-awards"
+	}
+	if targetID > 0 {
+		prefix += "-" + strconv.Itoa(targetID)
+	}
+	return prefix + "-" + strings.ReplaceAll(field, "_", "-")
+}
+
+func (page ResultsPage) submitted(action string, targetID int) bool {
+	if page.SubmittedAction != action {
+		return false
+	}
+	field := "competition_session_id"
+	switch action {
+	case "save-prizegiving-plan":
+		field = "ceremony_session_id"
+	case "save-results-correction":
+		field = "correction_scope_session_id"
+	case "save-event-awards":
+		return true
+	}
+	return page.Form.Get(field) == strconv.Itoa(targetID)
+}
+
+func (page ResultsPage) value(
+	action string,
+	targetID int,
+	field, fallback string,
+) string {
+	if page.submitted(action, targetID) {
+		if _, ok := page.Form[field]; ok {
+			return page.Form.Get(field)
+		}
+	}
+	return fallback
+}
+
+func (page ResultsPage) valueAt(
+	action string,
+	targetID int,
+	field string,
+	index int,
+	fallback string,
+) string {
+	if page.submitted(action, targetID) {
+		if values, ok := page.Form[field]; ok && index < len(values) {
+			return values[index]
+		}
+	}
+	return fallback
+}
+
+func (page ResultsPage) checked(
+	action string,
+	targetID int,
+	field, value string,
+	fallback bool,
+) bool {
+	if page.submitted(action, targetID) {
+		return slices.Contains(page.Form[field], value)
+	}
+	return fallback
+}
+
+func (page ResultsPage) rowCount(
+	action string,
+	targetID int,
+	fallback int,
+	fields ...string,
+) int {
+	if !page.submitted(action, targetID) {
+		return fallback
+	}
+	count := 0
+	for _, field := range fields {
+		if len(page.Form[field]) > count {
+			count = len(page.Form[field])
+		}
+	}
+	if count == 0 {
+		return fallback
+	}
+	return count
+}
+
+func competitionAwardAt(awards []results.Award, index int) results.Award {
+	if index < len(awards) {
+		return awards[index]
+	}
+	return results.Award{}
+}
+
+func eventAwardAt(awards []results.EventAward, index int) results.EventAward {
+	if index < len(awards) {
+		return awards[index]
+	}
+	return results.EventAward{}
 }
 
 func resultsScoreValue(score results.ScoreValue) string {
@@ -97,9 +211,7 @@ templ Results(page ResultsPage) {
 				<main id="main-content" tabindex="-1">
 					<h1>Results and Prizegiving</h1>
 					<p>{ page.Event.Name }</p>
-					if page.Error != "" {
-						<p class="error" role="alert">{ page.Error }</p>
-					}
+					@ErrorSummary(page.Errors)
 					if len(page.Competitions) == 0 {
 						<p>No published Competitions are available.</p>
 					}
@@ -132,64 +244,152 @@ templ Results(page ResultsPage) {
 									<input type="hidden" name="command_id" value={ page.CommandID }/>
 									<input type="hidden" name="competition_session_id" value={ strconv.Itoa(competition.Session.ID) }/>
 									<input type="hidden" name="expected_revision" value={ strconv.Itoa(competition.Draft.Revision) }/>
-									<label>Disposition
-										<select name="disposition">
-											<option selected?={ competition.Draft.Disposition == results.Pending }>Pending</option>
-											<option selected?={ competition.Draft.Disposition == results.Publish }>Publish</option>
-											<option selected?={ competition.Draft.Disposition == results.NoPublicResults }>NoPublicResults</option>
-										</select>
-									</label>
-									<label>Crew Reason <textarea name="no_public_reason">{ competition.Draft.NoPublicReason }</textarea></label>
+									<label for={ ResultsFieldID("save-results-draft", competition.Session.ID, "disposition") }>Disposition</label>
+									<select
+										id={ ResultsFieldID("save-results-draft", competition.Session.ID, "disposition") }
+										name="disposition"
+										{ page.Errors.Attributes(ResultsFieldID("save-results-draft", competition.Session.ID, "disposition"))... }
+									>
+										<option selected?={ page.value("save-results-draft", competition.Session.ID, "disposition", string(competition.Draft.Disposition)) == string(results.Pending) }>Pending</option>
+										<option selected?={ page.value("save-results-draft", competition.Session.ID, "disposition", string(competition.Draft.Disposition)) == string(results.Publish) }>Publish</option>
+										<option selected?={ page.value("save-results-draft", competition.Session.ID, "disposition", string(competition.Draft.Disposition)) == string(results.NoPublicResults) }>NoPublicResults</option>
+									</select>
+									@FieldError(page.Errors, ResultsFieldID("save-results-draft", competition.Session.ID, "disposition"))
+									<label for={ ResultsFieldID("save-results-draft", competition.Session.ID, "no_public_reason") }>Crew Reason</label>
+									<textarea
+										id={ ResultsFieldID("save-results-draft", competition.Session.ID, "no_public_reason") }
+										name="no_public_reason"
+										{ page.Errors.Attributes(ResultsFieldID("save-results-draft", competition.Session.ID, "no_public_reason"))... }
+									>{ page.value("save-results-draft", competition.Session.ID, "no_public_reason", competition.Draft.NoPublicReason) }</textarea>
+									@FieldError(page.Errors, ResultsFieldID("save-results-draft", competition.Session.ID, "no_public_reason"))
 									if competition.Draft.VotingTally != nil {
-										<label>Tally override Crew Reason <textarea name="tally_override_reason">{ competition.Draft.TallyOverrideReason }</textarea></label>
+										<label for={ ResultsFieldID("save-results-draft", competition.Session.ID, "tally_override_reason") }>Tally override Crew Reason</label>
+										<textarea
+											id={ ResultsFieldID("save-results-draft", competition.Session.ID, "tally_override_reason") }
+											name="tally_override_reason"
+											{ page.Errors.Attributes(ResultsFieldID("save-results-draft", competition.Session.ID, "tally_override_reason"))... }
+										>{ page.value("save-results-draft", competition.Session.ID, "tally_override_reason", competition.Draft.TallyOverrideReason) }</textarea>
+										@FieldError(page.Errors, ResultsFieldID("save-results-draft", competition.Session.ID, "tally_override_reason"))
 									}
-									<label>Public explanation <textarea name="public_explanation">{ competition.Draft.PublicExplanation }</textarea></label>
+									<label for={ ResultsFieldID("save-results-draft", competition.Session.ID, "public_explanation") }>Public explanation</label>
+									<textarea
+										id={ ResultsFieldID("save-results-draft", competition.Session.ID, "public_explanation") }
+										name="public_explanation"
+										{ page.Errors.Attributes(ResultsFieldID("save-results-draft", competition.Session.ID, "public_explanation"))... }
+									>{ page.value("save-results-draft", competition.Session.ID, "public_explanation", competition.Draft.PublicExplanation) }</textarea>
+									@FieldError(page.Errors, ResultsFieldID("save-results-draft", competition.Session.ID, "public_explanation"))
 									<fieldset>
 										<legend>Score policy</legend>
-										<label>Type
-											<select name="score_type">
-												<option selected?={ competition.Draft.Score.Type == results.None }>None</option>
-												<option selected?={ competition.Draft.Score.Type == results.Decimal }>Decimal</option>
-												<option selected?={ competition.Draft.Score.Type == results.Duration }>Duration</option>
-											</select>
-										</label>
-										<label>Visibility
-											<select name="score_visibility">
-												<option selected?={ competition.Draft.Score.Visibility == results.ScorePublic }>Public</option>
-												<option selected?={ competition.Draft.Score.Visibility == results.ScoreCrewOnly }>CrewOnly</option>
-											</select>
-										</label>
-										<label>Unit <input name="score_unit" value={ competition.Draft.Score.Unit }/></label>
-										<label>Precision <input type="number" min="0" name="score_precision" value={ strconv.Itoa(competition.Draft.Score.Precision) }/></label>
-										<label>Requirement
-											<select name="score_requirement">
-												<option selected?={ competition.Draft.Score.Requirement == results.ScoreOptional }>Optional</option>
-												<option selected?={ competition.Draft.Score.Requirement == results.ScoreRequired }>Required</option>
-											</select>
-										</label>
-										<label>Interpretation
-											<select name="score_interpretation">
-												<option selected?={ competition.Draft.Score.Interpretation == results.Informational }>Informational</option>
-												<option selected?={ competition.Draft.Score.Interpretation == results.HigherWins }>HigherWins</option>
-												<option selected?={ competition.Draft.Score.Interpretation == results.LowerWins }>LowerWins</option>
-											</select>
-										</label>
+										<label for={ ResultsFieldID("save-results-draft", competition.Session.ID, "score_type") }>Type</label>
+										<select
+											id={ ResultsFieldID("save-results-draft", competition.Session.ID, "score_type") }
+											name="score_type"
+											{ page.Errors.Attributes(ResultsFieldID("save-results-draft", competition.Session.ID, "score_type"))... }
+										>
+											<option selected?={ page.value("save-results-draft", competition.Session.ID, "score_type", string(competition.Draft.Score.Type)) == string(results.None) }>None</option>
+											<option selected?={ page.value("save-results-draft", competition.Session.ID, "score_type", string(competition.Draft.Score.Type)) == string(results.Decimal) }>Decimal</option>
+											<option selected?={ page.value("save-results-draft", competition.Session.ID, "score_type", string(competition.Draft.Score.Type)) == string(results.Duration) }>Duration</option>
+										</select>
+										@FieldError(page.Errors, ResultsFieldID("save-results-draft", competition.Session.ID, "score_type"))
+										<label for={ ResultsFieldID("save-results-draft", competition.Session.ID, "score_visibility") }>Visibility</label>
+										<select
+											id={ ResultsFieldID("save-results-draft", competition.Session.ID, "score_visibility") }
+											name="score_visibility"
+											{ page.Errors.Attributes(ResultsFieldID("save-results-draft", competition.Session.ID, "score_visibility"))... }
+										>
+											<option selected?={ page.value("save-results-draft", competition.Session.ID, "score_visibility", string(competition.Draft.Score.Visibility)) == string(results.ScorePublic) }>Public</option>
+											<option selected?={ page.value("save-results-draft", competition.Session.ID, "score_visibility", string(competition.Draft.Score.Visibility)) == string(results.ScoreCrewOnly) }>CrewOnly</option>
+										</select>
+										@FieldError(page.Errors, ResultsFieldID("save-results-draft", competition.Session.ID, "score_visibility"))
+										<label for={ ResultsFieldID("save-results-draft", competition.Session.ID, "score_unit") }>Unit</label>
+										<input
+											id={ ResultsFieldID("save-results-draft", competition.Session.ID, "score_unit") }
+											name="score_unit"
+											value={ page.value("save-results-draft", competition.Session.ID, "score_unit", competition.Draft.Score.Unit) }
+											{ page.Errors.Attributes(ResultsFieldID("save-results-draft", competition.Session.ID, "score_unit"))... }
+										/>
+										@FieldError(page.Errors, ResultsFieldID("save-results-draft", competition.Session.ID, "score_unit"))
+										<label for={ ResultsFieldID("save-results-draft", competition.Session.ID, "score_precision") }>Precision</label>
+										<input
+											id={ ResultsFieldID("save-results-draft", competition.Session.ID, "score_precision") }
+											type="number"
+											min="0"
+											name="score_precision"
+											value={ page.value("save-results-draft", competition.Session.ID, "score_precision", strconv.Itoa(competition.Draft.Score.Precision)) }
+											{ page.Errors.Attributes(ResultsFieldID("save-results-draft", competition.Session.ID, "score_precision"))... }
+										/>
+										@FieldError(page.Errors, ResultsFieldID("save-results-draft", competition.Session.ID, "score_precision"))
+										<label for={ ResultsFieldID("save-results-draft", competition.Session.ID, "score_requirement") }>Requirement</label>
+										<select
+											id={ ResultsFieldID("save-results-draft", competition.Session.ID, "score_requirement") }
+											name="score_requirement"
+											{ page.Errors.Attributes(ResultsFieldID("save-results-draft", competition.Session.ID, "score_requirement"))... }
+										>
+											<option selected?={ page.value("save-results-draft", competition.Session.ID, "score_requirement", string(competition.Draft.Score.Requirement)) == string(results.ScoreOptional) }>Optional</option>
+											<option selected?={ page.value("save-results-draft", competition.Session.ID, "score_requirement", string(competition.Draft.Score.Requirement)) == string(results.ScoreRequired) }>Required</option>
+										</select>
+										@FieldError(page.Errors, ResultsFieldID("save-results-draft", competition.Session.ID, "score_requirement"))
+										<label for={ ResultsFieldID("save-results-draft", competition.Session.ID, "score_interpretation") }>Interpretation</label>
+										<select
+											id={ ResultsFieldID("save-results-draft", competition.Session.ID, "score_interpretation") }
+											name="score_interpretation"
+											{ page.Errors.Attributes(ResultsFieldID("save-results-draft", competition.Session.ID, "score_interpretation"))... }
+										>
+											<option selected?={ page.value("save-results-draft", competition.Session.ID, "score_interpretation", string(competition.Draft.Score.Interpretation)) == string(results.Informational) }>Informational</option>
+											<option selected?={ page.value("save-results-draft", competition.Session.ID, "score_interpretation", string(competition.Draft.Score.Interpretation)) == string(results.HigherWins) }>HigherWins</option>
+											<option selected?={ page.value("save-results-draft", competition.Session.ID, "score_interpretation", string(competition.Draft.Score.Interpretation)) == string(results.LowerWins) }>LowerWins</option>
+										</select>
+										@FieldError(page.Errors, ResultsFieldID("save-results-draft", competition.Session.ID, "score_interpretation"))
 									</fieldset>
-									<fieldset>
+									<fieldset
+										id={ ResultsFieldID("save-results-draft", competition.Session.ID, "result_standings") }
+										{ page.Errors.Attributes(ResultsFieldID("save-results-draft", competition.Session.ID, "result_standings"))... }
+									>
 										<legend>Result Standings</legend>
-										for _, row := range competition.Entries {
+										@FieldError(page.Errors, ResultsFieldID("save-results-draft", competition.Session.ID, "result_standings"))
+										for index, row := range competition.Entries {
 											<fieldset>
 												<legend>{ row.Entry.Name }</legend>
 												<input type="hidden" name="standing_entry_id" value={ strconv.Itoa(row.Entry.ID) }/>
-												<label>Standing
-													<select name="standing">
-														<option selected?={ row.Standing.Standing == results.Placed }>Placed</option>
-														<option selected?={ row.Standing.Standing == results.Unplaced }>Unplaced</option>
-													</select>
-												</label>
-												<label>Placement <input type="number" min="1" name="placement" value={ strconv.Itoa(row.Standing.Placement) }/></label>
-												<label>Display order <input type="number" min="1" name="display_order" value={ strconv.Itoa(row.Standing.DisplayOrder) } required/></label>
-												<label>Score <input name="score" value={ resultsScoreValue(row.Standing.Score) }/></label>
+												<label for={ ResultsFieldID("save-results-draft", competition.Session.ID, "standing_"+strconv.Itoa(row.Entry.ID)) }>Standing</label>
+												<select
+													id={ ResultsFieldID("save-results-draft", competition.Session.ID, "standing_"+strconv.Itoa(row.Entry.ID)) }
+													name="standing"
+													{ page.Errors.Attributes(ResultsFieldID("save-results-draft", competition.Session.ID, "standing_"+strconv.Itoa(row.Entry.ID)))... }
+												>
+													<option selected?={ page.valueAt("save-results-draft", competition.Session.ID, "standing", index, string(row.Standing.Standing)) == string(results.Placed) }>Placed</option>
+													<option selected?={ page.valueAt("save-results-draft", competition.Session.ID, "standing", index, string(row.Standing.Standing)) == string(results.Unplaced) }>Unplaced</option>
+												</select>
+												@FieldError(page.Errors, ResultsFieldID("save-results-draft", competition.Session.ID, "standing_"+strconv.Itoa(row.Entry.ID)))
+												<label for={ ResultsFieldID("save-results-draft", competition.Session.ID, "placement_"+strconv.Itoa(row.Entry.ID)) }>Placement</label>
+												<input
+													id={ ResultsFieldID("save-results-draft", competition.Session.ID, "placement_"+strconv.Itoa(row.Entry.ID)) }
+													type="number"
+													min="1"
+													name="placement"
+													value={ page.valueAt("save-results-draft", competition.Session.ID, "placement", index, strconv.Itoa(row.Standing.Placement)) }
+													{ page.Errors.Attributes(ResultsFieldID("save-results-draft", competition.Session.ID, "placement_"+strconv.Itoa(row.Entry.ID)))... }
+												/>
+												@FieldError(page.Errors, ResultsFieldID("save-results-draft", competition.Session.ID, "placement_"+strconv.Itoa(row.Entry.ID)))
+												<label for={ ResultsFieldID("save-results-draft", competition.Session.ID, "display_order_"+strconv.Itoa(row.Entry.ID)) }>Display order</label>
+												<input
+													id={ ResultsFieldID("save-results-draft", competition.Session.ID, "display_order_"+strconv.Itoa(row.Entry.ID)) }
+													type="number"
+													min="1"
+													name="display_order"
+													value={ page.valueAt("save-results-draft", competition.Session.ID, "display_order", index, strconv.Itoa(row.Standing.DisplayOrder)) }
+													required
+													{ page.Errors.Attributes(ResultsFieldID("save-results-draft", competition.Session.ID, "display_order_"+strconv.Itoa(row.Entry.ID)))... }
+												/>
+												@FieldError(page.Errors, ResultsFieldID("save-results-draft", competition.Session.ID, "display_order_"+strconv.Itoa(row.Entry.ID)))
+												<label for={ ResultsFieldID("save-results-draft", competition.Session.ID, "score_"+strconv.Itoa(row.Entry.ID)) }>Score</label>
+												<input
+													id={ ResultsFieldID("save-results-draft", competition.Session.ID, "score_"+strconv.Itoa(row.Entry.ID)) }
+													name="score"
+													value={ page.valueAt("save-results-draft", competition.Session.ID, "score", index, resultsScoreValue(row.Standing.Score)) }
+													{ page.Errors.Attributes(ResultsFieldID("save-results-draft", competition.Session.ID, "score_"+strconv.Itoa(row.Entry.ID)))... }
+												/>
+												@FieldError(page.Errors, ResultsFieldID("save-results-draft", competition.Session.ID, "score_"+strconv.Itoa(row.Entry.ID)))
 											</fieldset>
 										}
 									</fieldset>
@@ -201,12 +401,30 @@ templ Results(page ResultsPage) {
 									<input type="hidden" name="command_id" value={ page.CommandID }/>
 									<input type="hidden" name="competition_session_id" value={ strconv.Itoa(competition.Session.ID) }/>
 									<input type="hidden" name="expected_revision" value={ strconv.Itoa(competition.Draft.Revision) }/>
-									<fieldset>
+									<fieldset
+										id={ ResultsFieldID("save-competition-awards", competition.Session.ID, "award_details") }
+										{ page.Errors.Attributes(ResultsFieldID("save-competition-awards", competition.Session.ID, "award_details"))... }
+									>
 										<legend>Competition Awards</legend>
-										for _, award := range competition.Draft.Awards {
-											@CompetitionAwardFields(award, award.DisplayOrder)
+										@FieldError(page.Errors, ResultsFieldID("save-competition-awards", competition.Session.ID, "award_details"))
+										for index := range page.rowCount(
+											"save-competition-awards",
+											competition.Session.ID,
+											len(competition.Draft.Awards) + 1,
+											"award_key",
+											"award_name",
+											"award_recipient_entry_ids",
+											"award_recipient_names",
+											"award_promoted",
+											"award_display_order",
+										) {
+											@CompetitionAwardFields(
+												page,
+												competition.Session.ID,
+												competitionAwardAt(competition.Draft.Awards, index),
+												index,
+											)
 										}
-										@CompetitionAwardFields(results.Award{}, len(competition.Draft.Awards) + 1)
 									</fieldset>
 									<button type="submit">Save Competition Awards</button>
 								</form>
@@ -265,34 +483,66 @@ templ Results(page ResultsPage) {
 											for _, competition := range page.Competitions {
 												<label>
 													<input
-														type="checkbox"
-														name="plan_competition_session_id"
-														value={ strconv.Itoa(competition.Session.ID) }
-														checked?={ slices.Contains(prizegiving.Plan.CompetitionSessionIDs, competition.Session.ID) }
+													type="checkbox"
+													name="plan_competition_session_id"
+													value={ strconv.Itoa(competition.Session.ID) }
+													checked?={ page.checked(
+														"save-prizegiving-plan",
+														prizegiving.Session.ID,
+														"plan_competition_session_id",
+														strconv.Itoa(competition.Session.ID),
+														slices.Contains(prizegiving.Plan.CompetitionSessionIDs, competition.Session.ID),
+													) }
 													/>
 													{ competition.Session.Title }
 												</label>
 											}
 										</fieldset>
 										<label>Release policy
-											<select name="release_policy">
-												<option selected?={ prizegiving.Plan.ReleasePolicy == results.ResultsProgressiveOnReveal }>ProgressiveOnReveal</option>
-												<option selected?={ prizegiving.Plan.ReleasePolicy == results.ResultsAllAtCue }>AllAtCue</option>
-												<option selected?={ prizegiving.Plan.ReleasePolicy == results.ResultsAtCeremonyEnd }>AtCeremonyEnd</option>
+											<select
+												id={ ResultsFieldID("save-prizegiving-plan", prizegiving.Session.ID, "release_policy") }
+												name="release_policy"
+												{ page.Errors.Attributes(ResultsFieldID("save-prizegiving-plan", prizegiving.Session.ID, "release_policy"))... }
+											>
+												<option selected?={ page.value("save-prizegiving-plan", prizegiving.Session.ID, "release_policy", string(prizegiving.Plan.ReleasePolicy)) == string(results.ResultsProgressiveOnReveal) }>ProgressiveOnReveal</option>
+												<option selected?={ page.value("save-prizegiving-plan", prizegiving.Session.ID, "release_policy", string(prizegiving.Plan.ReleasePolicy)) == string(results.ResultsAllAtCue) }>AllAtCue</option>
+												<option selected?={ page.value("save-prizegiving-plan", prizegiving.Session.ID, "release_policy", string(prizegiving.Plan.ReleasePolicy)) == string(results.ResultsAtCeremonyEnd) }>AtCeremonyEnd</option>
 											</select>
 										</label>
+										@FieldError(page.Errors, ResultsFieldID("save-prizegiving-plan", prizegiving.Session.ID, "release_policy"))
 										if len(prizegiving.Plan.Sequence) == 0 {
 											<p>Saving assignments creates the default sequence and publication order.</p>
 										} else {
 											<fieldset>
 												<legend>Sequence and Reveal Methods</legend>
 												for index, item := range prizegiving.Plan.Sequence {
-													@PrizegivingItemFields(item, prizegiving.Plan.PublicationOrder, index)
+													@PrizegivingItemFields(page, prizegiving.Session.ID, item, prizegiving.Plan.PublicationOrder, index)
 												}
 											</fieldset>
 										}
-										<label>Results text template revision <input type="number" min="1" name="results_text_template_revision" value={ strconv.Itoa(prizegiving.Plan.Template.Revision) } required/></label>
-										<label>Results text template <textarea name="results_text_template" required>{ prizegiving.Plan.Template.Source }</textarea></label>
+										<label>
+											Results text template revision
+											<input
+												id={ ResultsFieldID("save-prizegiving-plan", prizegiving.Session.ID, "results_text_template_revision") }
+												type="number"
+												min="1"
+												name="results_text_template_revision"
+												value={ page.value("save-prizegiving-plan", prizegiving.Session.ID, "results_text_template_revision", strconv.Itoa(prizegiving.Plan.Template.Revision)) }
+												required
+												{ page.Errors.Attributes(ResultsFieldID("save-prizegiving-plan", prizegiving.Session.ID, "results_text_template_revision"))... }
+											/>
+										</label>
+										@FieldError(page.Errors, ResultsFieldID("save-prizegiving-plan", prizegiving.Session.ID, "results_text_template_revision"))
+										<label>
+											Results text template
+											<textarea
+												id={ ResultsFieldID("save-prizegiving-plan", prizegiving.Session.ID, "results_text_template") }
+												name="results_text_template"
+												required
+												{ page.Errors.Attributes(ResultsFieldID("save-prizegiving-plan", prizegiving.Session.ID, "results_text_template"))... }
+											>{ page.value("save-prizegiving-plan", prizegiving.Session.ID, "results_text_template", prizegiving.Plan.Template.Source) }</textarea>
+										</label>
+										@FieldError(page.Errors, ResultsFieldID("save-prizegiving-plan", prizegiving.Session.ID, "results_text_template"))
 										<button type="submit">Save Prizegiving plan</button>
 									</form>
 								}
@@ -339,10 +589,31 @@ templ Results(page ResultsPage) {
 								<input type="hidden" name="action" value="save-event-awards"/>
 								<input type="hidden" name="command_id" value={ page.CommandID }/>
 								<input type="hidden" name="expected_revision" value={ strconv.Itoa(page.EventAwards.Revision) }/>
-								for _, award := range page.EventAwards.Awards {
-									@EventAwardFields(award, page.Prizegivings, award.DisplayOrder)
-								}
-								@EventAwardFields(results.EventAward{}, page.Prizegivings, len(page.EventAwards.Awards) + 1)
+								<fieldset
+									id={ ResultsFieldID("save-event-awards", 0, "award_details") }
+									{ page.Errors.Attributes(ResultsFieldID("save-event-awards", 0, "award_details"))... }
+								>
+									<legend>Event Award details</legend>
+									@FieldError(page.Errors, ResultsFieldID("save-event-awards", 0, "award_details"))
+									for index := range page.rowCount(
+										"save-event-awards",
+										0,
+										len(page.EventAwards.Awards) + 1,
+										"event_award_key",
+										"event_award_name",
+										"event_award_recipient_entry_ids",
+										"event_award_recipient_names",
+										"event_award_path",
+										"event_award_display_order",
+									) {
+										@EventAwardFields(
+											page,
+											eventAwardAt(page.EventAwards.Awards, index),
+											page.Prizegivings,
+											index,
+										)
+									}
+								</fieldset>
 								<button type="submit">Save Event Awards</button>
 							</form>
 						}
@@ -402,45 +673,94 @@ func resultsEventAwardPrizegivingPath(ceremonyID int) string {
 	return "Prizegiving:" + strconv.Itoa(ceremonyID)
 }
 
-func resultsEventAwardPathSelected(
-	award results.EventAward,
-	ceremonyID int,
-) bool {
-	return award.ReleasePath.Kind == results.PrizegivingRelease &&
-		award.ReleasePath.PrizegivingSessionID == ceremonyID
+func resultsEventAwardPathValue(award results.EventAward) string {
+	if award.ReleasePath.Kind == results.PrizegivingRelease {
+		return resultsEventAwardPrizegivingPath(
+			award.ReleasePath.PrizegivingSessionID,
+		)
+	}
+	return string(results.StandaloneRelease)
+}
+
+func resultsAwardDisplayOrder(order, index int) string {
+	if order > 0 {
+		return strconv.Itoa(order)
+	}
+	return strconv.Itoa(index + 1)
 }
 
 templ EventAwardFields(
+	page ResultsPage,
 	award results.EventAward,
 	prizegivings []ResultsPrizegivingPage,
-	defaultOrder int,
+	index int,
 ) {
 	<fieldset>
 		<legend>
-			if award.Name == "" {
+			if page.valueAt("save-event-awards", 0, "event_award_name", index, award.Name) == "" {
 				New Event Award
 			} else {
-				{ award.Name }
+				{ page.valueAt("save-event-awards", 0, "event_award_name", index, award.Name) }
 			}
 		</legend>
-		<label>Key <input name="event_award_key" value={ award.Key }/></label>
-		<label>Name <input name="event_award_name" value={ award.Name }/></label>
-		<label>Recipient Entry IDs, comma-separated <input name="event_award_recipient_entry_ids" value={ resultsAwardRecipientEntryIDs(award.Recipients) }/></label>
-		<label>Other recipient names, one per line <textarea name="event_award_recipient_names">{ resultsAwardRecipientNames(award.Recipients) }</textarea></label>
-		<label>Release path
-			<select name="event_award_path">
-				<option value="Standalone" selected?={ award.ReleasePath.Kind != results.PrizegivingRelease }>Standalone</option>
+		<label for={ ResultsFieldID("save-event-awards", 0, "event_award_key_"+strconv.Itoa(index)) }>Key</label>
+		<input
+			id={ ResultsFieldID("save-event-awards", 0, "event_award_key_"+strconv.Itoa(index)) }
+			name="event_award_key"
+			value={ page.valueAt("save-event-awards", 0, "event_award_key", index, award.Key) }
+			{ page.Errors.Attributes(ResultsFieldID("save-event-awards", 0, "event_award_key_"+strconv.Itoa(index)))... }
+		/>
+		@FieldError(page.Errors, ResultsFieldID("save-event-awards", 0, "event_award_key_"+strconv.Itoa(index)))
+		<label for={ ResultsFieldID("save-event-awards", 0, "event_award_name_"+strconv.Itoa(index)) }>Name</label>
+		<input
+			id={ ResultsFieldID("save-event-awards", 0, "event_award_name_"+strconv.Itoa(index)) }
+			name="event_award_name"
+			value={ page.valueAt("save-event-awards", 0, "event_award_name", index, award.Name) }
+			{ page.Errors.Attributes(ResultsFieldID("save-event-awards", 0, "event_award_name_"+strconv.Itoa(index)))... }
+		/>
+		@FieldError(page.Errors, ResultsFieldID("save-event-awards", 0, "event_award_name_"+strconv.Itoa(index)))
+		<label for={ ResultsFieldID("save-event-awards", 0, "event_award_recipient_entry_ids_"+strconv.Itoa(index)) }>Recipient Entry IDs, comma-separated</label>
+		<input
+			id={ ResultsFieldID("save-event-awards", 0, "event_award_recipient_entry_ids_"+strconv.Itoa(index)) }
+			name="event_award_recipient_entry_ids"
+			value={ page.valueAt("save-event-awards", 0, "event_award_recipient_entry_ids", index, resultsAwardRecipientEntryIDs(award.Recipients)) }
+			{ page.Errors.Attributes(ResultsFieldID("save-event-awards", 0, "event_award_recipient_entry_ids_"+strconv.Itoa(index)))... }
+		/>
+		@FieldError(page.Errors, ResultsFieldID("save-event-awards", 0, "event_award_recipient_entry_ids_"+strconv.Itoa(index)))
+		<label for={ ResultsFieldID("save-event-awards", 0, "event_award_recipient_names_"+strconv.Itoa(index)) }>Other recipient names, one per line</label>
+		<textarea
+			id={ ResultsFieldID("save-event-awards", 0, "event_award_recipient_names_"+strconv.Itoa(index)) }
+			name="event_award_recipient_names"
+			{ page.Errors.Attributes(ResultsFieldID("save-event-awards", 0, "event_award_recipient_names_"+strconv.Itoa(index)))... }
+		>{ page.valueAt("save-event-awards", 0, "event_award_recipient_names", index, resultsAwardRecipientNames(award.Recipients)) }</textarea>
+		@FieldError(page.Errors, ResultsFieldID("save-event-awards", 0, "event_award_recipient_names_"+strconv.Itoa(index)))
+		<label for={ ResultsFieldID("save-event-awards", 0, "event_award_path_"+strconv.Itoa(index)) }>Release path</label>
+			<select
+				id={ ResultsFieldID("save-event-awards", 0, "event_award_path_"+strconv.Itoa(index)) }
+				name="event_award_path"
+				{ page.Errors.Attributes(ResultsFieldID("save-event-awards", 0, "event_award_path_"+strconv.Itoa(index)))... }
+			>
+				<option value="Standalone" selected?={ page.valueAt("save-event-awards", 0, "event_award_path", index, resultsEventAwardPathValue(award)) == string(results.StandaloneRelease) }>Standalone</option>
 				for _, prizegiving := range prizegivings {
 						if prizegiving.Designated {
 							<option
 								value={ resultsEventAwardPrizegivingPath(prizegiving.Session.ID) }
-								selected?={ resultsEventAwardPathSelected(award, prizegiving.Session.ID) }
+								selected?={ page.valueAt("save-event-awards", 0, "event_award_path", index, resultsEventAwardPathValue(award)) == resultsEventAwardPrizegivingPath(prizegiving.Session.ID) }
 							>Prizegiving: { prizegiving.Session.Title }</option>
 					}
 				}
 			</select>
-		</label>
-		<label>Display order <input type="number" min="1" name="event_award_display_order" value={ strconv.Itoa(defaultOrder) }/></label>
+		@FieldError(page.Errors, ResultsFieldID("save-event-awards", 0, "event_award_path_"+strconv.Itoa(index)))
+		<label for={ ResultsFieldID("save-event-awards", 0, "event_award_display_order_"+strconv.Itoa(index)) }>Display order</label>
+		<input
+			id={ ResultsFieldID("save-event-awards", 0, "event_award_display_order_"+strconv.Itoa(index)) }
+			type="number"
+			min="1"
+			name="event_award_display_order"
+			value={ page.valueAt("save-event-awards", 0, "event_award_display_order", index, resultsAwardDisplayOrder(award.DisplayOrder, index)) }
+			{ page.Errors.Attributes(ResultsFieldID("save-event-awards", 0, "event_award_display_order_"+strconv.Itoa(index)))... }
+		/>
+		@FieldError(page.Errors, ResultsFieldID("save-event-awards", 0, "event_award_display_order_"+strconv.Itoa(index)))
 	</fieldset>
 }
 
@@ -466,9 +786,29 @@ templ ResultsCorrection(page ResultsPage, correction ResultsCorrectionPage) {
 				<input type="hidden" name="correction_scope_session_id" value={ strconv.Itoa(correction.ScopeSessionID) }/>
 				<input type="hidden" name="expected_correction_revision" value={ strconv.Itoa(correction.Current.Revision) }/>
 				<input type="hidden" name="base_publication_revision" value={ strconv.Itoa(correction.PublicationRevision) }/>
-				<label>Corrected Results JSON <textarea name="corrected_results_json" required>{ correction.CorrectedResultsJSON }</textarea></label>
-				<label>Crew Reason <textarea name="crew_reason" required>{ correction.Current.Proposal.CrewReason }</textarea></label>
-				<label>Public note <textarea name="public_note">{ correction.Current.Proposal.PublicNote }</textarea></label>
+				<label for={ ResultsFieldID("save-results-correction", correction.ScopeSessionID, "corrected_results_json") }>Corrected Results JSON</label>
+				<textarea
+					id={ ResultsFieldID("save-results-correction", correction.ScopeSessionID, "corrected_results_json") }
+					name="corrected_results_json"
+					required
+					{ page.Errors.Attributes(ResultsFieldID("save-results-correction", correction.ScopeSessionID, "corrected_results_json"))... }
+				>{ page.value("save-results-correction", correction.ScopeSessionID, "corrected_results_json", correction.CorrectedResultsJSON) }</textarea>
+				@FieldError(page.Errors, ResultsFieldID("save-results-correction", correction.ScopeSessionID, "corrected_results_json"))
+				<label for={ ResultsFieldID("save-results-correction", correction.ScopeSessionID, "crew_reason") }>Crew Reason</label>
+				<textarea
+					id={ ResultsFieldID("save-results-correction", correction.ScopeSessionID, "crew_reason") }
+					name="crew_reason"
+					required
+					{ page.Errors.Attributes(ResultsFieldID("save-results-correction", correction.ScopeSessionID, "crew_reason"))... }
+				>{ page.value("save-results-correction", correction.ScopeSessionID, "crew_reason", correction.Current.Proposal.CrewReason) }</textarea>
+				@FieldError(page.Errors, ResultsFieldID("save-results-correction", correction.ScopeSessionID, "crew_reason"))
+				<label for={ ResultsFieldID("save-results-correction", correction.ScopeSessionID, "public_note") }>Public note</label>
+				<textarea
+					id={ ResultsFieldID("save-results-correction", correction.ScopeSessionID, "public_note") }
+					name="public_note"
+					{ page.Errors.Attributes(ResultsFieldID("save-results-correction", correction.ScopeSessionID, "public_note"))... }
+				>{ page.value("save-results-correction", correction.ScopeSessionID, "public_note", correction.Current.Proposal.PublicNote) }</textarea>
+				@FieldError(page.Errors, ResultsFieldID("save-results-correction", correction.ScopeSessionID, "public_note"))
 				<button type="submit">Save Results Correction</button>
 			</form>
 		}
@@ -518,6 +858,8 @@ func prizegivingPublicationOrder(
 }
 
 templ PrizegivingItemFields(
+	page ResultsPage,
+	ceremonyID int,
 	item results.ResultItem,
 	publication []results.ResultItemRef,
 	index int,
@@ -527,37 +869,106 @@ templ PrizegivingItemFields(
 		<input type="hidden" name="item_kind" value={ string(item.Kind) }/>
 		<input type="hidden" name="item_competition_session_id" value={ strconv.Itoa(item.CompetitionSessionID) }/>
 		<input type="hidden" name="item_award_key" value={ item.AwardKey }/>
-		<label>Sequence order <input type="number" min="1" name="sequence_display_order" value={ strconv.Itoa(item.DisplayOrder) } required/></label>
-		<label>Reveal Method
-			<select name="reveal_method">
-				<option selected?={ item.RevealMethod == results.RevealStatic }>StaticResult</option>
-				<option selected?={ item.RevealMethod == results.RevealSequentialPodium }>SequentialPodium</option>
-				<option selected?={ item.RevealMethod == results.RevealAnimatedScoreBars }>AnimatedScoreBars</option>
-			</select>
-		</label>
-		<label>Publication order <input type="number" min="1" name="publication_display_order" value={ strconv.Itoa(prizegivingPublicationOrder(item, publication, index)) } required/></label>
+		<label for={ ResultsFieldID("save-prizegiving-plan", ceremonyID, "sequence_display_order_"+strconv.Itoa(index)) }>Sequence order</label>
+		<input
+			id={ ResultsFieldID("save-prizegiving-plan", ceremonyID, "sequence_display_order_"+strconv.Itoa(index)) }
+			type="number"
+			min="1"
+			name="sequence_display_order"
+			value={ page.valueAt("save-prizegiving-plan", ceremonyID, "sequence_display_order", index, strconv.Itoa(item.DisplayOrder)) }
+			required
+			{ page.Errors.Attributes(ResultsFieldID("save-prizegiving-plan", ceremonyID, "sequence_display_order_"+strconv.Itoa(index)))... }
+		/>
+		@FieldError(page.Errors, ResultsFieldID("save-prizegiving-plan", ceremonyID, "sequence_display_order_"+strconv.Itoa(index)))
+		<label for={ ResultsFieldID("save-prizegiving-plan", ceremonyID, "reveal_method_"+strconv.Itoa(index)) }>Reveal Method</label>
+		<select
+			id={ ResultsFieldID("save-prizegiving-plan", ceremonyID, "reveal_method_"+strconv.Itoa(index)) }
+			name="reveal_method"
+			{ page.Errors.Attributes(ResultsFieldID("save-prizegiving-plan", ceremonyID, "reveal_method_"+strconv.Itoa(index)))... }
+		>
+			<option selected?={ page.valueAt("save-prizegiving-plan", ceremonyID, "reveal_method", index, string(item.RevealMethod)) == string(results.RevealStatic) }>StaticResult</option>
+			<option selected?={ page.valueAt("save-prizegiving-plan", ceremonyID, "reveal_method", index, string(item.RevealMethod)) == string(results.RevealSequentialPodium) }>SequentialPodium</option>
+			<option selected?={ page.valueAt("save-prizegiving-plan", ceremonyID, "reveal_method", index, string(item.RevealMethod)) == string(results.RevealAnimatedScoreBars) }>AnimatedScoreBars</option>
+		</select>
+		@FieldError(page.Errors, ResultsFieldID("save-prizegiving-plan", ceremonyID, "reveal_method_"+strconv.Itoa(index)))
+		<label for={ ResultsFieldID("save-prizegiving-plan", ceremonyID, "publication_display_order_"+strconv.Itoa(index)) }>Publication order</label>
+		<input
+			id={ ResultsFieldID("save-prizegiving-plan", ceremonyID, "publication_display_order_"+strconv.Itoa(index)) }
+			type="number"
+			min="1"
+			name="publication_display_order"
+			value={ page.valueAt("save-prizegiving-plan", ceremonyID, "publication_display_order", index, strconv.Itoa(prizegivingPublicationOrder(item, publication, index))) }
+			required
+			{ page.Errors.Attributes(ResultsFieldID("save-prizegiving-plan", ceremonyID, "publication_display_order_"+strconv.Itoa(index)))... }
+		/>
+		@FieldError(page.Errors, ResultsFieldID("save-prizegiving-plan", ceremonyID, "publication_display_order_"+strconv.Itoa(index)))
 	</fieldset>
 }
 
-templ CompetitionAwardFields(award results.Award, defaultOrder int) {
+templ CompetitionAwardFields(
+	page ResultsPage,
+	competitionID int,
+	award results.Award,
+	index int,
+) {
 	<fieldset>
 		<legend>
-			if award.Name == "" {
+			if page.valueAt("save-competition-awards", competitionID, "award_name", index, award.Name) == "" {
 				New Award
 			} else {
-				{ award.Name }
+				{ page.valueAt("save-competition-awards", competitionID, "award_name", index, award.Name) }
 			}
 		</legend>
-		<label>Key <input name="award_key" value={ award.Key }/></label>
-		<label>Name <input name="award_name" value={ award.Name }/></label>
-		<label>Recipient Entry IDs, comma-separated <input name="award_recipient_entry_ids" value={ resultsAwardRecipientEntryIDs(award.Recipients) }/></label>
-		<label>Other recipient names, one per line <textarea name="award_recipient_names">{ resultsAwardRecipientNames(award.Recipients) }</textarea></label>
-		<label>Promoted
-			<select name="award_promoted">
-				<option value="false" selected?={ !award.Promoted }>No</option>
-				<option value="true" selected?={ award.Promoted }>Yes</option>
+		<label for={ ResultsFieldID("save-competition-awards", competitionID, "award_key_"+strconv.Itoa(index)) }>Key</label>
+		<input
+			id={ ResultsFieldID("save-competition-awards", competitionID, "award_key_"+strconv.Itoa(index)) }
+			name="award_key"
+			value={ page.valueAt("save-competition-awards", competitionID, "award_key", index, award.Key) }
+			{ page.Errors.Attributes(ResultsFieldID("save-competition-awards", competitionID, "award_key_"+strconv.Itoa(index)))... }
+		/>
+		@FieldError(page.Errors, ResultsFieldID("save-competition-awards", competitionID, "award_key_"+strconv.Itoa(index)))
+		<label for={ ResultsFieldID("save-competition-awards", competitionID, "award_name_"+strconv.Itoa(index)) }>Name</label>
+		<input
+			id={ ResultsFieldID("save-competition-awards", competitionID, "award_name_"+strconv.Itoa(index)) }
+			name="award_name"
+			value={ page.valueAt("save-competition-awards", competitionID, "award_name", index, award.Name) }
+			{ page.Errors.Attributes(ResultsFieldID("save-competition-awards", competitionID, "award_name_"+strconv.Itoa(index)))... }
+		/>
+		@FieldError(page.Errors, ResultsFieldID("save-competition-awards", competitionID, "award_name_"+strconv.Itoa(index)))
+		<label for={ ResultsFieldID("save-competition-awards", competitionID, "award_recipient_entry_ids_"+strconv.Itoa(index)) }>Recipient Entry IDs, comma-separated</label>
+		<input
+			id={ ResultsFieldID("save-competition-awards", competitionID, "award_recipient_entry_ids_"+strconv.Itoa(index)) }
+			name="award_recipient_entry_ids"
+			value={ page.valueAt("save-competition-awards", competitionID, "award_recipient_entry_ids", index, resultsAwardRecipientEntryIDs(award.Recipients)) }
+			{ page.Errors.Attributes(ResultsFieldID("save-competition-awards", competitionID, "award_recipient_entry_ids_"+strconv.Itoa(index)))... }
+		/>
+		@FieldError(page.Errors, ResultsFieldID("save-competition-awards", competitionID, "award_recipient_entry_ids_"+strconv.Itoa(index)))
+		<label for={ ResultsFieldID("save-competition-awards", competitionID, "award_recipient_names_"+strconv.Itoa(index)) }>Other recipient names, one per line</label>
+		<textarea
+			id={ ResultsFieldID("save-competition-awards", competitionID, "award_recipient_names_"+strconv.Itoa(index)) }
+			name="award_recipient_names"
+			{ page.Errors.Attributes(ResultsFieldID("save-competition-awards", competitionID, "award_recipient_names_"+strconv.Itoa(index)))... }
+		>{ page.valueAt("save-competition-awards", competitionID, "award_recipient_names", index, resultsAwardRecipientNames(award.Recipients)) }</textarea>
+		@FieldError(page.Errors, ResultsFieldID("save-competition-awards", competitionID, "award_recipient_names_"+strconv.Itoa(index)))
+		<label for={ ResultsFieldID("save-competition-awards", competitionID, "award_promoted_"+strconv.Itoa(index)) }>Promoted</label>
+			<select
+				id={ ResultsFieldID("save-competition-awards", competitionID, "award_promoted_"+strconv.Itoa(index)) }
+				name="award_promoted"
+				{ page.Errors.Attributes(ResultsFieldID("save-competition-awards", competitionID, "award_promoted_"+strconv.Itoa(index)))... }
+			>
+				<option value="false" selected?={ page.valueAt("save-competition-awards", competitionID, "award_promoted", index, strconv.FormatBool(award.Promoted)) == "false" }>No</option>
+				<option value="true" selected?={ page.valueAt("save-competition-awards", competitionID, "award_promoted", index, strconv.FormatBool(award.Promoted)) == "true" }>Yes</option>
 			</select>
-		</label>
-		<label>Display order <input type="number" min="1" name="award_display_order" value={ strconv.Itoa(defaultOrder) }/></label>
+		@FieldError(page.Errors, ResultsFieldID("save-competition-awards", competitionID, "award_promoted_"+strconv.Itoa(index)))
+		<label for={ ResultsFieldID("save-competition-awards", competitionID, "award_display_order_"+strconv.Itoa(index)) }>Display order</label>
+		<input
+			id={ ResultsFieldID("save-competition-awards", competitionID, "award_display_order_"+strconv.Itoa(index)) }
+			type="number"
+			min="1"
+			name="award_display_order"
+			value={ page.valueAt("save-competition-awards", competitionID, "award_display_order", index, resultsAwardDisplayOrder(award.DisplayOrder, index)) }
+			{ page.Errors.Attributes(ResultsFieldID("save-competition-awards", competitionID, "award_display_order_"+strconv.Itoa(index)))... }
+		/>
+		@FieldError(page.Errors, ResultsFieldID("save-competition-awards", competitionID, "award_display_order_"+strconv.Itoa(index)))
 	</fieldset>
 }

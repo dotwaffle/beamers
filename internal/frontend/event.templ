@@ -577,7 +577,7 @@ type FinalFilesPage struct {
 	Event          events.Event
 	Plan           attachments.FinalFilesPlan
 	TotalSize      int64
-	Error          string
+	Errors         FormErrors
 }
 
 // FinalFiles renders the digest-bound Final Files Export workflow.
@@ -592,9 +592,7 @@ templ FinalFiles(page FinalFilesPage) {
 				<main id="main-content" tabindex="-1">
 					<h1>Final Files Export</h1>
 					<p>{ page.Event.Name }</p>
-					if page.Error != "" {
-						<p class="error" role="alert">{ page.Error }</p>
-					}
+					@ErrorSummary(page.Errors)
 					<section>
 						<h2>Exact preview</h2>
 						<dl>
@@ -654,9 +652,17 @@ templ FinalFiles(page FinalFilesPage) {
 						<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
 						<input type="hidden" name="preview_digest" value={ page.Plan.PreviewDigest }/>
 						<label>
-							<input type="checkbox" name="confirmed" value="true" required/>
+							<input
+								id="final-files-confirmed"
+								type="checkbox"
+								name="confirmed"
+								value="true"
+								required
+								{ page.Errors.Attributes("final-files-confirmed")... }
+							/>
 							I reviewed this exact preview and confirm the ZIP download.
 						</label>
+						@FieldError(page.Errors, "final-files-confirmed")
 						<button type="submit">Download Final Files ZIP</button>
 					</form>
 				</main>

@@ -2,7 +2,7 @@ package overrides
 
 import "strconv"
 
-templ EmergencyAlertConfirmationPage(preview PriorityPreview, commandID, buildVersion string) {
+templ EmergencyAlertConfirmationPage(preview PriorityPreview, commandID, buildVersion, message string) {
 	<!doctype html>
 	<html lang="en">
 		<head>
@@ -15,6 +15,7 @@ templ EmergencyAlertConfirmationPage(preview PriorityPreview, commandID, buildVe
 			@skipLink()
 			<main id="main-content" tabindex="-1">
 				<h1>Confirm Emergency Alert</h1>
+				@confirmationErrorSummary(message, "emergency-alert-confirmation")
 				<p>This supplements, and does not replace, the venue emergency system.</p>
 				if preview.Nondurable {
 					<p role="alert"><strong>Severely degraded:</strong> storage is unavailable. This Emergency Alert is nondurable and may disappear if Beamers restarts.</p>
@@ -38,14 +39,93 @@ templ EmergencyAlertConfirmationPage(preview PriorityPreview, commandID, buildVe
 					<input type="hidden" name="preview_fingerprint" value={ preview.ConfirmationFingerprint }/>
 					<input type="hidden" name="command_id" value={ commandID }/>
 					<input type="hidden" name="build_version" value={ buildVersion }/>
-					<button type="submit" name="confirmation_method" value="Keyboard">Activate Emergency Alert</button>
+					<button
+						id="emergency-alert-confirmation"
+						type="submit"
+						name="confirmation_method"
+						value="Keyboard"
+						{ confirmationErrorAttributes(message, "emergency-alert-confirmation")... }
+					>Activate Emergency Alert</button>
+					@confirmationFieldError(message, "emergency-alert-confirmation")
 				</form>
 			</main>
 		</body>
 	</html>
 }
 
-templ EmergencyClearConfirmationPage(active ActiveOverride, buildVersion string) {
+templ EmergencyAlertCorrectionPage(
+	eventID int,
+	input PriorityInput,
+	rawTargetID string,
+	fieldID string,
+	message string,
+) {
+	<!doctype html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<link rel="stylesheet" href="/assets/frontend.css"/>
+			<title>Preview Emergency Alert</title>
+		</head>
+		<body>
+			@skipLink()
+			<main id="main-content" tabindex="-1">
+				<h1>Preview Emergency Alert</h1>
+				@confirmationErrorSummary(message, fieldID)
+				<form class="stack" method="get" action={ templ.SafeURL("/crew/events/" + strconv.Itoa(eventID) + "/emergency-alerts/confirmation") }>
+					<label for="emergency-text">Message</label>
+					<textarea
+						id="emergency-text"
+						name="text"
+						required
+						{ correctionErrorAttributes(fieldID, "emergency-text")... }
+					>{ input.Text }</textarea>
+					if fieldID == "emergency-text" {
+						@confirmationFieldError(message, fieldID)
+					}
+					<label for="emergency-target-type">Target</label>
+					<select
+						id="emergency-target-type"
+						name="target_type"
+						{ correctionErrorAttributes(fieldID, "emergency-target-type")... }
+					>
+						for _, target := range []string{"Event", "Public", "Crew", "Location", "Lane", "ProgramChannel", "DisplayGroup", "Display"} {
+							<option selected?={ string(input.Target.Type) == target }>{ target }</option>
+						}
+					</select>
+					if fieldID == "emergency-target-type" {
+						@confirmationFieldError(message, fieldID)
+					}
+					<label for="emergency-target-id">Target numeric ID, when required</label>
+					<input
+						id="emergency-target-id"
+						name="target_id"
+						inputmode="numeric"
+						value={ rawTargetID }
+						{ correctionErrorAttributes(fieldID, "emergency-target-id")... }
+					/>
+					if fieldID == "emergency-target-id" {
+						@confirmationFieldError(message, fieldID)
+					}
+					<label for="emergency-target-key">Target key, for a Display Group</label>
+					<input
+						id="emergency-target-key"
+						name="target_key"
+						value={ input.Target.Key }
+						{ correctionErrorAttributes(fieldID, "emergency-target-key")... }
+					/>
+					if fieldID == "emergency-target-key" {
+						@confirmationFieldError(message, fieldID)
+					}
+					<button type="submit">Preview Emergency Alert</button>
+				</form>
+			</main>
+		</body>
+	</html>
+}
+
+templ EmergencyClearConfirmationPage(active ActiveOverride, buildVersion, message string) {
 	<!doctype html>
 	<html lang="en">
 		<head>
@@ -58,6 +138,7 @@ templ EmergencyClearConfirmationPage(active ActiveOverride, buildVersion string)
 			@skipLink()
 			<main id="main-content" tabindex="-1">
 				<h1>Confirm Emergency Alert clear</h1>
+				@confirmationErrorSummary(message, "emergency-clear-confirmation")
 				if active.Nondurable {
 					<p role="alert"><strong>Severely degraded:</strong> storage is unavailable. This clear is nondurable and may be lost if Beamers restarts.</p>
 				}
@@ -66,7 +147,14 @@ templ EmergencyClearConfirmationPage(active ActiveOverride, buildVersion string)
 					<input type="hidden" name="expected_revision" value={ strconv.Itoa(active.Revision) }/>
 					<input type="hidden" name="command_id" value={ "clear-emergency-" + strconv.Itoa(active.ID) + "-" + strconv.Itoa(active.Revision) }/>
 					<input type="hidden" name="build_version" value={ buildVersion }/>
-					<button type="submit" name="confirmation_method" value="Keyboard">Clear Emergency Alert</button>
+					<button
+						id="emergency-clear-confirmation"
+						type="submit"
+						name="confirmation_method"
+						value="Keyboard"
+						{ confirmationErrorAttributes(message, "emergency-clear-confirmation")... }
+					>Clear Emergency Alert</button>
+					@confirmationFieldError(message, "emergency-clear-confirmation")
 				</form>
 			</main>
 		</body>
@@ -75,4 +163,39 @@ templ EmergencyClearConfirmationPage(active ActiveOverride, buildVersion string)
 
 templ skipLink() {
 	<a class="skip-link" href="#main-content">Skip to main content</a>
+}
+
+func confirmationErrorAttributes(message, fieldID string) templ.Attributes {
+	if message == "" {
+		return nil
+	}
+	return templ.Attributes{
+		"aria-invalid":     "true",
+		"aria-describedby": fieldID + "-error",
+	}
+}
+
+func correctionErrorAttributes(currentFieldID, fieldID string) templ.Attributes {
+	if currentFieldID != fieldID {
+		return nil
+	}
+	return templ.Attributes{
+		"aria-invalid":     "true",
+		"aria-describedby": fieldID + "-error",
+	}
+}
+
+templ confirmationErrorSummary(message, fieldID string) {
+	if message != "" {
+		<section id="error-summary" class="error error-summary" role="alert" tabindex="-1" autofocus>
+			<h2>There is a problem</h2>
+			<ul><li><a href={ templ.SafeURL("#" + fieldID) }>{ message }</a></li></ul>
+		</section>
+	}
+}
+
+templ confirmationFieldError(message, fieldID string) {
+	if message != "" {
+		<p id={ fieldID + "-error" } class="field-error">{ message }</p>
+	}
 }

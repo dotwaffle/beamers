@@ -188,11 +188,28 @@ func TestAdministratorRevisesPreviewsActivatesAndRestoresInstallationTheme(t *te
 		},
 	)
 
+	invalid := installationThemeForm(csrf, "create-draft", "create-invalid-theme")
+	invalid.Set("background_color", "retain-invalid")
+	status, body := postBrowserForm(
+		t,
+		administrator,
+		server.address,
+		"/backstage/themes",
+		invalid,
+	)
+	if status != http.StatusBadRequest ||
+		!strings.Contains(body, `value="retain-invalid"`) {
+		t.Fatalf("invalid Theme Draft = %d %q", status, body)
+	}
+	assertAccessibleFormErrors(t, frontendResponse{status: status, body: body}, map[string]string{
+		"theme-background-color": "six-digit hexadecimal color",
+	})
+
 	inaccessible := installationThemeForm(csrf, "create-draft", "create-inaccessible-theme")
 	inaccessible.Set("text_color", "#777777")
 	inaccessible.Set("surface_color", "#ffffff")
 	inaccessible.Set("background_color", "#ffffff")
-	_, body := postBrowserForm(
+	_, body = postBrowserForm(
 		t,
 		administrator,
 		server.address,
@@ -215,7 +232,7 @@ func TestAdministratorRevisesPreviewsActivatesAndRestoresInstallationTheme(t *te
 	blocked := installationThemeForm(csrf, "activate", "activate-inaccessible-theme")
 	blocked.Set("revision_id", "1")
 	blocked.Set("expected_active_revision_id", "0")
-	status, body := postBrowserForm(
+	status, body = postBrowserForm(
 		t,
 		administrator,
 		server.address,
@@ -311,16 +328,41 @@ func TestAdministratorRevisesPreviewsActivatesAndRestoresInstallationTheme(t *te
 		)
 	}
 
-	rollback := installationThemeForm(csrf, "activate", "rollback-built-in-theme")
+	rollback := installationThemeForm(csrf, "activate", "stale-rollback-built-in-theme")
 	rollback.Set("revision_id", "0")
-	rollback.Set("expected_active_revision_id", "2")
-	_, _ = postBrowserForm(
+	rollback.Set("expected_active_revision_id", "0")
+	status, body = postBrowserForm(
 		t,
 		administrator,
 		server.address,
 		"/backstage/themes",
 		rollback,
 	)
+	if status != http.StatusConflict {
+		t.Fatalf("stale Theme rollback = %d %q", status, body)
+	}
+	assertAccessibleFormErrors(t, frontendResponse{status: status, body: body}, map[string]string{
+		"theme-activation-confirmation": "active Theme changed",
+	})
+	correctedRollback := frontendActivationFormValues(
+		t,
+		body,
+		"csrf_token",
+		"command_id",
+		"revision_id",
+		"expected_active_revision_id",
+	)
+	correctedRollback.Set("action", "activate")
+	status, body = postBrowserForm(
+		t,
+		administrator,
+		server.address,
+		"/backstage/themes",
+		correctedRollback,
+	)
+	if status != http.StatusOK {
+		t.Fatalf("corrected Theme rollback = %d %q", status, body)
+	}
 	assertGETContains(t, administrator, server.address, "/assets/installation-theme.css", "#080b15")
 
 	reactivate := installationThemeForm(csrf, "activate", "reactivate-accessible-theme")
@@ -524,6 +566,45 @@ func TestProducerActivatesInheritedEventThemeAcrossPublicSchedule(t *testing.T) 
 	)
 	csrf = browserCSRFToken(t, producer, server.address, "/backstage/events/1/theme")
 
+	invalidEvent := eventThemeForm(csrf, "create-draft", "create-invalid-event-theme")
+	invalidEvent.Set("background_color", "retain-event-invalid")
+	status, body = postBrowserForm(
+		t,
+		producer,
+		server.address,
+		"/backstage/events/1/theme",
+		invalidEvent,
+	)
+	if status != http.StatusBadRequest ||
+		!strings.Contains(body, `value="retain-event-invalid"`) {
+		t.Fatalf("invalid Event Theme Draft = %d %q", status, body)
+	}
+	assertAccessibleFormErrors(t, frontendResponse{status: status, body: body}, map[string]string{
+		"event-theme-background-color": "six-digit hexadecimal color",
+	})
+	invalidVariant := eventThemeForm(
+		csrf,
+		"create-draft",
+		"create-invalid-event-theme-variant",
+	)
+	invalidVariant.Set("accent_color", "#62ebcb")
+	invalidVariant.Set("competition-output_accent_color", "retain-variant-invalid")
+	invalidVariant.Set("location-signage_motion", "retain-second-invalid")
+	status, body = postBrowserForm(
+		t,
+		producer,
+		server.address,
+		"/backstage/events/1/theme",
+		invalidVariant,
+	)
+	if status != http.StatusBadRequest ||
+		!strings.Contains(body, `value="retain-variant-invalid"`) {
+		t.Fatalf("invalid Event Theme variant = %d %q", status, body)
+	}
+	assertAccessibleFormErrors(t, frontendResponse{status: status, body: body}, map[string]string{
+		"event-theme-competition-output-accent-color": "six-digit hexadecimal color",
+	})
+
 	unknown := eventThemeForm(csrf, "create-draft", "create-arbitrary-event-theme")
 	unknown.Set("raw_css", "body { display: none }")
 	status, body = postBrowserForm(
@@ -567,17 +648,45 @@ func TestProducerActivatesInheritedEventThemeAcrossPublicSchedule(t *testing.T) 
 		!strings.Contains(body, "Activation is blocked") {
 		t.Fatalf("blocked Event Theme activation = %d %q", status, body)
 	}
+	assertAccessibleFormErrors(t, frontendResponse{status: status, body: body}, map[string]string{
+		"event-theme-activation-confirmation": "Activation is blocked",
+	})
 
-	rollback := eventThemeForm(csrf, "activate", "rollback-event-theme")
+	rollback := eventThemeForm(csrf, "activate", "stale-rollback-event-theme")
 	rollback.Set("revision_id", "0")
-	rollback.Set("expected_active_revision_id", "1")
-	_, _ = postBrowserForm(
+	rollback.Set("expected_active_revision_id", "0")
+	status, body = postBrowserForm(
 		t,
 		producer,
 		server.address,
 		"/backstage/events/1/theme",
 		rollback,
 	)
+	if status != http.StatusConflict {
+		t.Fatalf("stale Event Theme rollback = %d %q", status, body)
+	}
+	assertAccessibleFormErrors(t, frontendResponse{status: status, body: body}, map[string]string{
+		"event-theme-activation-confirmation": "active Event Theme changed",
+	})
+	correctedRollback := frontendActivationFormValues(
+		t,
+		body,
+		"csrf_token",
+		"command_id",
+		"revision_id",
+		"expected_active_revision_id",
+	)
+	correctedRollback.Set("action", "activate")
+	status, body = postBrowserForm(
+		t,
+		producer,
+		server.address,
+		"/backstage/events/1/theme",
+		correctedRollback,
+	)
+	if status != http.StatusOK {
+		t.Fatalf("corrected Event Theme rollback = %d %q", status, body)
+	}
 	assertGETContains(
 		t,
 		producer,

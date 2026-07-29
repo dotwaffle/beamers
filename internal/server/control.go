@@ -5,6 +5,8 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -94,14 +96,62 @@ func (handlers controlHandlers) control(
 	case http.MethodGet, http.MethodHead:
 		handlers.renderControl(
 			response, request, actor, event, csrfToken,
-			http.StatusOK, "", nil, "", frontend.OverrideForm{}, nil,
+			http.StatusOK, nil, nil, "", frontend.OverrideForm{},
 		)
 	case http.MethodPost:
 		if !handlers.browser.validForm(response, request) {
 			return
 		}
 		if request.Form.Get("build_version") != handlers.buildVersion {
-			http.Error(response, "reload required", http.StatusConflict)
+			form, _ := overrideForm(request)
+			action := request.Form.Get("action")
+			previewAction, activating := strings.CutPrefix(action, "activate-")
+			var preview *frontend.OverridePreview
+			formErrors := frontend.FormErrors{{
+				Message: "The control page changed; reload required.",
+			}}
+			if activating {
+				var previewErr error
+				preview, previewErr = handlers.previewForAction(
+					request, actor, event.ID, action, form,
+				)
+				if previewErr != nil {
+					status, message, known := controlError(previewErr)
+					if !known {
+						handlers.browser.frontendError(
+							response,
+							request,
+							"refresh Display Override preview",
+							previewErr,
+						)
+						return
+					}
+					handlers.renderControl(
+						response, request, actor, event, csrfToken, status,
+						frontend.FormErrors{{Message: message}}, nil,
+						"preview-"+previewAction, form,
+					)
+					return
+				}
+				action = "preview-" + previewAction
+				formErrors = frontend.FormErrors{{
+					FieldID: "override-confirmed",
+					Label:   "Confirmation",
+					Message: "The control page changed; review and confirm this refreshed preview.",
+				}}
+			}
+			handlers.renderControl(
+				response,
+				request,
+				actor,
+				event,
+				csrfToken,
+				http.StatusConflict,
+				formErrors,
+				preview,
+				action,
+				form,
+			)
 			return
 		}
 		handlers.submitControl(response, request, actor, event, csrfToken)
@@ -120,10 +170,12 @@ func (handlers controlHandlers) submitControl(
 	form, err := overrideForm(request)
 	var preview *frontend.OverridePreview
 	action := request.Form.Get("action")
+	previewAction, activating := strings.CutPrefix(action, "activate-")
 	fieldErrors := make(map[string]string)
 	var inputErr *controlInputError
 	if errors.As(err, &inputErr) {
 		fieldErrors[inputErr.Field] = inputErr.Message
+		err = errInvalidControlInput
 	}
 	if err == nil {
 		fieldErrors = validateControlForm(action, form)
@@ -132,8 +184,9 @@ func (handlers controlHandlers) submitControl(
 		}
 	}
 	if err == nil &&
-		(strings.HasPrefix(action, "activate-") || action == "clear") &&
+		(activating || action == "clear") &&
 		request.Form.Get("confirmed") != "true" {
+		fieldErrors["confirmed"] = "Confirm this action."
 		err = errInvalidControlInput
 	}
 	if err == nil {
@@ -172,21 +225,117 @@ func (handlers controlHandlers) submitControl(
 			handlers.browser.frontendError(response, request, "apply Display Override", err)
 			return
 		}
+		if preview == nil && activating {
+			preview, err = handlers.previewForAction(request, actor, event.ID, action, form)
+			if err != nil {
+				status, message, known = controlError(err)
+				if !known {
+					handlers.browser.frontendError(
+						response,
+						request,
+						"refresh Display Override preview",
+						err,
+					)
+					return
+				}
+				fieldErrors = nil
+			}
+		}
+		submittedAction := action
+		if activating {
+			submittedAction = "preview-" + previewAction
+		}
 		handlers.renderControl(
-			response, request, actor, event, csrfToken, status, message, preview,
-			action, form, fieldErrors,
+			response, request, actor, event, csrfToken, status,
+			controlFormErrors(message, action, request.Form, fieldErrors),
+			preview, submittedAction, form,
 		)
 		return
 	}
 	if preview != nil {
 		handlers.renderControl(
 			response, request, actor, event, csrfToken,
-			http.StatusOK, "", preview, "", frontend.OverrideForm{}, nil,
+			http.StatusOK, nil, preview, "", frontend.OverrideForm{},
 		)
 		return
 	}
 	handlers.stream.Notify()
 	http.Redirect(response, request, controlPath(event.ID), http.StatusSeeOther)
+}
+
+func (handlers controlHandlers) previewForAction(
+	request *http.Request,
+	actor auth.Account,
+	eventID int,
+	action string,
+	form frontend.OverrideForm,
+) (*frontend.OverridePreview, error) {
+	action, _ = strings.CutPrefix(action, "activate-")
+	switch action {
+	case "stage-message":
+		return handlers.previewStageMessage(request, actor, eventID, form)
+	case "technical-difficulties":
+		return handlers.previewTechnicalDifficulties(request, actor, eventID, form)
+	case "urgent-notice":
+		return handlers.previewUrgentNotice(request, actor, eventID, form)
+	default:
+		return nil, errInvalidControlInput
+	}
+}
+
+func controlFormErrors(
+	message string,
+	action string,
+	values url.Values,
+	fields map[string]string,
+) frontend.FormErrors {
+	if len(fields) == 0 {
+		return frontend.FormErrors{{Message: message}}
+	}
+	result := make(frontend.FormErrors, 0, len(fields))
+	keys := make([]string, 0, len(fields))
+	for field := range fields {
+		keys = append(keys, field)
+	}
+	slices.Sort(keys)
+	for _, field := range keys {
+		fieldID := frontend.ControlFieldID(action, field)
+		if action == "clear" && field == "confirmed" {
+			overrideID, _ := strconv.Atoi(values.Get("override_id"))
+			fieldID = frontend.ControlClearFieldID(overrideID)
+		}
+		result = append(result, frontend.FormError{
+			FieldID: fieldID,
+			Label:   controlFieldLabel(field),
+			Message: fields[field],
+		})
+	}
+	return result
+}
+
+func controlFieldLabel(field string) string {
+	switch field {
+	case "text":
+		return "Message"
+	case "target_group_key":
+		return "Display Group"
+	case "target_type":
+		return "Target"
+	case "target_id":
+		return "Target numeric ID"
+	case "target_key":
+		return "Target key"
+	case "presentation":
+		return "Presentation"
+	case "duration_seconds":
+		return "Duration"
+	case "emphasis":
+		return "Emphasis"
+	case "confirmed":
+		return "Confirmation"
+	default:
+		return field
+	}
 }
 
 var errInvalidControlInput = errors.New("invalid control input")
@@ -205,8 +354,8 @@ func overrideForm(request *http.Request) (frontend.OverrideForm, error) {
 		Text: request.Form.Get("text"), TargetGroupKey: request.Form.Get("target_group_key"),
 		TargetType: request.Form.Get("target_type"),
 		TargetKey:  request.Form.Get("target_key"), Presentation: request.Form.Get("presentation"),
-		UntilCleared: request.Form.Get("until_cleared") == "true",
-		Emphasis:     request.Form.Get("emphasis"),
+		TargetIDRaw: request.Form.Get("target_id"), DurationRaw: request.Form.Get("duration_seconds"),
+		UntilCleared: request.Form.Get("until_cleared") == "true", Emphasis: request.Form.Get("emphasis"),
 	}
 	duration, err := strconv.Atoi(request.Form.Get("duration_seconds"))
 	if request.Form.Get("duration_seconds") == "" {
@@ -450,11 +599,10 @@ func (handlers controlHandlers) renderControl(
 	event events.Event,
 	csrfToken string,
 	status int,
-	message string,
+	formErrors frontend.FormErrors,
 	preview *frontend.OverridePreview,
 	submittedAction string,
 	form frontend.OverrideForm,
-	fieldErrors map[string]string,
 ) {
 	var state rundown.CrewRundown
 	var err error
@@ -496,7 +644,7 @@ func (handlers controlHandlers) renderControl(
 		CanEmergencyAlert: canUseEmergencyAlert(actor, event.ID),
 		Sessions:          sessions, Active: active, ClearCommandIDs: clearCommandIDs,
 		Preview: preview, SubmittedAction: submittedAction, Form: form,
-		FieldErrors: fieldErrors, Error: message,
+		Errors: formErrors,
 	}))
 }
 
