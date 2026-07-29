@@ -2180,8 +2180,8 @@ func TestBackstageNavigationReflectsAuthorityAndInterface(t *testing.T) {
 		"Pat Producer",
 		[]string{
 			"Event Displays",
+			"Sessions and Competitions",
 			"Plan and publish",
-			"Competition Entries and Attachments",
 			"Results and Prizegiving",
 		},
 		[]string{"Installation"},
@@ -2189,17 +2189,28 @@ func TestBackstageNavigationReflectsAuthorityAndInterface(t *testing.T) {
 	operator := assertBackstage(
 		"Opal Operator",
 		[]string{
-			"Sessions and Displays",
+			"Sessions and Competitions",
+			"Live operations",
 			"Program Output and Overrides",
 			"Emergency Alerts",
 			"Results and Prizegiving",
 		},
-		[]string{"Event Displays", "Plan and publish", "Competition Entries and Attachments", "Installation"},
+		[]string{"Event Displays", "Plan and publish", "Installation"},
 	)
+	for _, path := range []string{
+		"/backstage/events/1/operations",
+		"/backstage/events/1/control",
+		"/backstage/events/1/control/emergency-alerts",
+	} {
+		page := getFrontendPage(t, operator, server.address, path)
+		if page.status != http.StatusOK {
+			t.Errorf("display-scoped Operator %s = %d, want 200: %q", path, page.status, page.body)
+		}
+	}
 	observer := assertBackstage(
 		"Olive Observer",
-		[]string{"Event overview"},
-		[]string{"Event Displays", "Sessions and Displays", "Results and Prizegiving", "Installation"},
+		[]string{"Event overview", "Sessions and Competitions"},
+		[]string{"Event Displays", "Live operations", "Results and Prizegiving", "Installation"},
 	)
 	for role, client := range map[string]*http.Client{
 		"Producer": producer,
@@ -2210,6 +2221,21 @@ func TestBackstageNavigationReflectsAuthorityAndInterface(t *testing.T) {
 			t, client, server.address, "/backstage/events/1",
 		); overview.status != http.StatusOK {
 			t.Errorf("%s Event overview = %d, want 200", role, overview.status)
+		}
+		sessions := getFrontendPage(
+			t,
+			client,
+			server.address,
+			"/backstage/events/1/sessions",
+		)
+		if sessions.status != http.StatusOK {
+			t.Errorf("%s Sessions and Competitions = %d, want 200", role, sessions.status)
+		}
+		if !strings.Contains(
+			sessions.body,
+			"No Sessions are available in your Event scope.",
+		) {
+			t.Errorf("%s empty Sessions state lacks explanation", role)
 		}
 		settings := getFrontendPage(t, client, server.address, "/backstage/events/1/settings")
 		wantStatus := http.StatusNotFound
@@ -5379,6 +5405,7 @@ func TestBrowserPlansAndPublishesEvent(t *testing.T) {
 	})
 	if csvPreview.status != http.StatusOK ||
 		!strings.Contains(csvPreview.body, "Imported Session") ||
+		!strings.Contains(csvPreview.body, "<details open><summary>CSV import") ||
 		!strings.Contains(csvPreview.body, "Confirm CSV import") {
 		t.Fatalf("CSV preview = %d %q", csvPreview.status, csvPreview.body)
 	}
@@ -5412,6 +5439,7 @@ func TestBrowserPlansAndPublishesEvent(t *testing.T) {
 	})
 	if icalendarPreview.status != http.StatusOK ||
 		!strings.Contains(icalendarPreview.body, "iCalendar Session") ||
+		!strings.Contains(icalendarPreview.body, "<details open><summary>iCalendar import") ||
 		!strings.Contains(icalendarPreview.body, "Confirm iCalendar import") {
 		t.Fatalf("iCalendar preview = %d %q", icalendarPreview.status, icalendarPreview.body)
 	}
@@ -5455,7 +5483,7 @@ func TestBrowserManagesCompetitionEntries(t *testing.T) {
 	for _, want := range []string{
 		"Competition Entries and Attachments",
 		`<html lang="en-GB" data-locale="en-GB">`,
-		`href="/backstage/events/1/planning#competition-entries"`,
+		`href="/backstage/events/1/sessions"`,
 		"Submission Deadline",
 		"2099-08-21 13:30 CEST",
 		`src="/assets/event-time.js"`,
@@ -7611,10 +7639,15 @@ func TestBrowserDefersAndResolvesCompetitionEntries(t *testing.T) {
 	operator.CheckRedirect = func(*http.Request, []*http.Request) error {
 		return http.ErrUseLastResponse
 	}
-	backstage := getFrontendPage(t, operator, server.address, "/backstage")
+	backstage := getFrontendPage(
+		t,
+		operator,
+		server.address,
+		"/backstage/events/1/sessions",
+	)
 	if backstage.status != http.StatusOK ||
 		!strings.Contains(backstage.body, `href="`+path+`"`) ||
-		!strings.Contains(backstage.body, "Demo Competition Entries and Attachments") {
+		!strings.Contains(backstage.body, "Competition Entries and Attachments") {
 		t.Fatalf("Operator Competition Entry navigation = %d %q", backstage.status, backstage.body)
 	}
 	page = getFrontendPage(t, operator, server.address, path)

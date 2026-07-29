@@ -128,7 +128,7 @@ func seedDemoInstallation(ctx context.Context, dataDir string) (returnErr error)
 		return err
 	}
 	administrator := administratorSession.Account
-	accounts := make(map[string]auth.Account, 4)
+	accounts := make(map[string]auth.Account, 5)
 	for _, seed := range []struct {
 		handle, displayName string
 	}{
@@ -136,6 +136,7 @@ func seedDemoInstallation(ctx context.Context, dataDir string) (returnErr error)
 		{"voter", "Demo Voter"},
 		{"producer", "Demo Producer"},
 		{"operator", "Demo Operator"},
+		{"observer", "Demo Observer"},
 	} {
 		created, createErr := authentication.CreateAccountWithDisplayName(
 			ctx,
@@ -394,6 +395,16 @@ func seedDemoJourneys(
 	eventID int,
 	demo demoRundown,
 ) error {
+	if _, err := installation.Events().GrantEventAccess(
+		ctx,
+		administrator,
+		eventID,
+		accounts["observer"].ID,
+		string(viewer.Observer),
+		"demo-grant-observer",
+	); err != nil {
+		return err
+	}
 	if _, err := installation.Events().GrantScopedEventAccess(
 		ctx,
 		administrator,

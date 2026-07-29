@@ -497,9 +497,9 @@ func (handlers operationHandlers) render(
 ) {
 	var state rundown.CrewRundown
 	var err error
-	if actor.CanOperateEvent(event.ID) {
+	if actor.CanOperateEvent(event.ID) && canReadBackstageRundown(actor, event.ID) {
 		state, err = handlers.rundown.CrewRundown(request.Context(), actor, event.ID)
-	} else {
+	} else if !actor.CanOperateEvent(event.ID) {
 		state.Locations, err = handlers.rundown.DisplayLocations(
 			request.Context(), actor, event.ID,
 		)
@@ -513,7 +513,11 @@ func (handlers operationHandlers) render(
 		actor,
 		handlers.stream.Cursor(),
 	)
-	if err != nil {
+	displaysAvailable := true
+	if errors.Is(err, displays.ErrCrewRequired) {
+		displayStatuses = nil
+		displaysAvailable = false
+	} else if err != nil {
 		handlers.browser.frontendError(response, request, "read Display operations", err)
 		return
 	}
@@ -562,10 +566,11 @@ func (handlers operationHandlers) render(
 		frontend.Operations(frontend.OperationsPage{
 			AccountName: actor.Name, CSRFToken: csrfToken,
 			ReducedEffects:        reducedEffectsCookie(request),
-			Navigation:            backstageNavigation(actor),
+			Navigation:            backstageNavigation(actor, request.URL.Path),
 			Event:                 event,
 			Rundown:               state,
 			Displays:              displayStatuses,
+			DisplaysAvailable:     displaysAvailable,
 			CommandIDs:            commandIDs,
 			OperableSessionIDs:    operableSessionIDs,
 			DisplayCommandIDs:     displayCommandIDs,

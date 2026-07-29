@@ -29,7 +29,20 @@ type PlanningPage struct {
 	ICalendarData   string
 	ICalendarChoices string
 	CommandID       string
+	SubmittedAction string
 	Error           string
+}
+
+type BackstageSessionsPage struct {
+	AccountName    string
+	CSRFToken      string
+	ReducedEffects bool
+	Navigation     BackstageNavigation
+	Event          events.Event
+	Role           string
+	Sessions       []rundown.CrewSession
+	Manage         map[int]bool
+	Producer       bool
 }
 
 type NewEventPage struct {
@@ -153,8 +166,8 @@ templ Planning(page PlanningPage) {
 							}
 						</ul>
 					</section>
-					<section>
-						<h2>Edit Draft structure</h2>
+					<details open?={ page.SubmittedAction == "draft" }>
+						<summary>Edit Draft structure</summary>
 						<p>Create related structure together, or reference current Draft IDs.</p>
 						<form class="stack" method="post">
 							<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
@@ -248,7 +261,7 @@ templ Planning(page PlanningPage) {
 							</fieldset>
 							<button type="submit">Apply Draft edit</button>
 						</form>
-					</section>
+					</details>
 					<section>
 						<h2>Materialized Draft</h2>
 						for _, location := range page.Draft.Locations {
@@ -507,8 +520,8 @@ templ Planning(page PlanningPage) {
 							}
 						}
 					</section>
-					<section>
-						<h2>CSV import</h2>
+					<details open?={ strings.HasPrefix(page.SubmittedAction, "csv-") }>
+						<summary>CSV import</summary>
 						<form class="stack" method="post">
 							<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
 							<input type="hidden" name="action" value="csv-preview"/>
@@ -539,9 +552,9 @@ templ Planning(page PlanningPage) {
 								<button type="submit">Confirm CSV import</button>
 							</form>
 						}
-					</section>
-					<section>
-						<h2>iCalendar import</h2>
+					</details>
+					<details open?={ strings.HasPrefix(page.SubmittedAction, "icalendar-") }>
+						<summary>iCalendar import</summary>
 						<form class="stack" method="post">
 							<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
 							<input type="hidden" name="action" value="icalendar-preview"/>
@@ -575,10 +588,59 @@ templ Planning(page PlanningPage) {
 								<button type="submit">Confirm iCalendar import</button>
 							</form>
 						}
-					</section>
+					</details>
 				</main>
 			</div>
 			<script src={ EventTimePath } defer></script>
+		</body>
+	</html>
+}
+
+templ BackstageSessions(page BackstageSessionsPage) {
+	<!doctype html>
+	<html lang={ page.Event.EventLocale } data-locale={ page.Event.EventLocale }>
+		@Head("Sessions and Competitions · " + page.Event.Name + " · Beamers")
+		<body data-reduced-effects={ strconv.FormatBool(page.ReducedEffects) }>
+			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, true)
+			<div class="backstage-layout">
+				@BackstageNavigationViews(page.Navigation)
+				<main>
+					<h1>Sessions and Competitions</h1>
+					<p>{ page.Event.Name } · { page.Role }</p>
+					if page.Producer {
+						<p>
+							<a href={ templ.SafeURL(
+								"/backstage/events/" + strconv.Itoa(page.Event.ID) + "/planning",
+							) }>Plan and publish the Rundown</a>
+						</p>
+					}
+					if len(page.Sessions) == 0 {
+						<p role="status">No Sessions are available in your Event scope.</p>
+					}
+					for _, session := range page.Sessions {
+						<article>
+							<h2>{ session.Title }</h2>
+							<p>{ string(session.Type) } · { string(session.Lifecycle) }</p>
+							if session.Type == rundown.SessionCompetition {
+								if page.Manage[session.ID] {
+									<a href={ templ.SafeURL(
+										"/backstage/events/" + strconv.Itoa(page.Event.ID) +
+										"/competitions/" + strconv.Itoa(session.ID) + "/entries",
+									) }>Competition Entries and Attachments</a>
+								} else {
+									<p>Competition workflow is read-only for your Event Grant.</p>
+								}
+							}
+							if session.Type == rundown.SessionPresentation && page.Producer {
+								<a href={ templ.SafeURL(
+									"/backstage/events/" + strconv.Itoa(page.Event.ID) +
+									"/presentations/" + strconv.Itoa(session.ID) + "/submission",
+								) }>Presentation Submitter and Attachments</a>
+							}
+						</article>
+					}
+				</main>
+			</div>
 		</body>
 	</html>
 }

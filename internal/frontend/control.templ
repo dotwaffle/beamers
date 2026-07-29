@@ -16,6 +16,8 @@ type ControlPage struct {
 	ReducedEffects bool
 	Navigation    BackstageNavigation
 	Event         events.Event
+	CanControl    bool
+	CanEmergencyAlert bool
 	Sessions      []rundown.CrewSession
 	Active          []overrides.ActiveOverride
 	ClearCommandIDs map[int]string
@@ -78,39 +80,43 @@ templ Control(page ControlPage) {
 						}
 						<p>Program control keeps Previous, Current, Next, Preview, and committed Program Output visible. Preview does not change Displays until Take.</p>
 					</section>
-					if page.Preview != nil {
-						@OverrideConfirmation(page)
-					}
-					@OverrideForms(page)
-					<section>
-						<h2>Active Overrides</h2>
-						if len(page.Active) == 0 {
-							<p>No active Overrides.</p>
-						} else {
-							for _, active := range page.Active {
-								<article>
-									<h3>{ string(active.Kind) }</h3>
-									<p>{ active.Text }</p>
-									<p>{ string(active.Presentation) } · { string(active.Target.Type) }</p>
-									@ResolvedDisplays(active.Displays)
-									if active.Kind == store.DisplayOverrideEmergencyAlert {
-										<a href={ emergencyClearConfirmationPath(page.Event.ID, active.ID) }>Review and clear Emergency Alert</a>
-									} else {
-										<form method="post">
-											<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
-											<input type="hidden" name="build_version" value={ page.BuildVersion }/>
-											<input type="hidden" name="action" value="clear"/>
-											<input type="hidden" name="override_id" value={ strconv.Itoa(active.ID) }/>
-											<input type="hidden" name="expected_revision" value={ strconv.Itoa(active.Revision) }/>
-											<input type="hidden" name="command_id" value={ page.ClearCommandIDs[active.ID] }/>
-											<label><input type="checkbox" name="confirmed" value="true" required/> Confirm clear</label>
-											<button type="submit">Clear { string(active.Kind) }</button>
-										</form>
-									}
-								</article>
-							}
+					if page.CanControl {
+						if page.Preview != nil {
+							@OverrideConfirmation(page)
 						}
-					</section>
+						@OverrideForms(page)
+						<section>
+							<h2>Active Overrides</h2>
+							if len(page.Active) == 0 {
+								<p>No active Overrides.</p>
+							} else {
+								for _, active := range page.Active {
+									<article>
+										<h3>{ string(active.Kind) }</h3>
+										<p>{ active.Text }</p>
+										<p>{ string(active.Presentation) } · { string(active.Target.Type) }</p>
+										@ResolvedDisplays(active.Displays)
+										if active.Kind == store.DisplayOverrideEmergencyAlert {
+											<a href={ emergencyClearConfirmationPath(page.Event.ID, active.ID) }>Review and clear Emergency Alert</a>
+										} else {
+											<form method="post">
+												<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+												<input type="hidden" name="build_version" value={ page.BuildVersion }/>
+												<input type="hidden" name="action" value="clear"/>
+												<input type="hidden" name="override_id" value={ strconv.Itoa(active.ID) }/>
+												<input type="hidden" name="expected_revision" value={ strconv.Itoa(active.Revision) }/>
+												<input type="hidden" name="command_id" value={ page.ClearCommandIDs[active.ID] }/>
+												<label><input type="checkbox" name="confirmed" value="true" required/> Confirm clear</label>
+												<button type="submit">Clear { string(active.Kind) }</button>
+											</form>
+										}
+									</article>
+								}
+							}
+						</section>
+					} else {
+						<p role="status">No Lane or Display Group scope assigned. Program Output and Overrides are unavailable.</p>
+					}
 				</main>
 			</div>
 		</body>
@@ -169,15 +175,17 @@ templ OverrideForms(page ControlPage) {
 			<button type="submit">Preview Urgent Notice</button>
 		</form>
 	</section>
-	<section id="emergency-alerts">
-		<h2>Emergency Alert</h2>
-		<p role="alert">Emergency Alert is a persistent fullscreen Replace and supplements the venue emergency system.</p>
-		<form class="stack" method="get" action={ emergencyConfirmationPath(page.Event.ID) }>
-			@TextAreaField("Message", "emergency-text", "text", "", "", true)
-			@OverrideTargetFields(page, "")
-			<button type="submit">Preview Emergency Alert</button>
-		</form>
-	</section>
+	if page.CanEmergencyAlert {
+		<section id="emergency-alerts">
+			<h2>Emergency Alert</h2>
+			<p role="alert">Emergency Alert is a persistent fullscreen Replace and supplements the venue emergency system.</p>
+			<form class="stack" method="get" action={ emergencyConfirmationPath(page.Event.ID) }>
+				@TextAreaField("Message", "emergency-text", "text", "", "", true)
+				@OverrideTargetFields(page, "")
+				<button type="submit">Preview Emergency Alert</button>
+			</form>
+		</section>
+	}
 }
 
 templ OverrideCommonFields(page ControlPage, action string) {

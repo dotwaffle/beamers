@@ -337,7 +337,7 @@ func (handlers themeHandlers) render(
 		frontend.ThemeAdministration(frontend.ThemePage{
 			AccountName: actor.Name, CSRFToken: csrfToken,
 			ReducedEffects:   reducedEffectsCookie(request),
-			Navigation:       backstageNavigation(actor),
+			Navigation:       backstageNavigation(actor, request.URL.Path),
 			ActiveRevisionID: active.ID,
 			Revisions:        summaries,
 			Preview: frontend.ThemePreview{

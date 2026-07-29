@@ -49,6 +49,11 @@ func registerControlRoutes(
 	route := backstagePageRoute()
 	route.maxBodyBytes = maxAuthBodyBytes
 	mux.HandleFunc("/backstage/events/{eventID}/control", route, handlers.control)
+	mux.HandleFunc(
+		"/backstage/events/{eventID}/control/emergency-alerts",
+		route,
+		handlers.control,
+	)
 }
 
 func (handlers controlHandlers) control(
@@ -451,10 +456,14 @@ func (handlers controlHandlers) renderControl(
 	form frontend.OverrideForm,
 	fieldErrors map[string]string,
 ) {
-	state, err := handlers.rundown.CrewRundown(request.Context(), actor, event.ID)
-	if err != nil {
-		handlers.browser.frontendError(response, request, "read Program Channels", err)
-		return
+	var state rundown.CrewRundown
+	var err error
+	if canReadBackstageRundown(actor, event.ID) {
+		state, err = handlers.rundown.CrewRundown(request.Context(), actor, event.ID)
+		if err != nil {
+			handlers.browser.frontendError(response, request, "read Program Channels", err)
+			return
+		}
 	}
 	sessions := make([]rundown.CrewSession, 0, len(state.Sessions))
 	for _, session := range state.Sessions {
@@ -482,8 +491,10 @@ func (handlers controlHandlers) renderControl(
 	handlers.browser.render(response, request, status, frontend.Control(frontend.ControlPage{
 		AccountName: actor.Name, CSRFToken: csrfToken, BuildVersion: handlers.buildVersion,
 		ReducedEffects: reducedEffectsCookie(request),
-		Navigation:     backstageNavigation(actor), Event: event,
-		Sessions: sessions, Active: active, ClearCommandIDs: clearCommandIDs,
+		Navigation:     backstageNavigation(actor, request.URL.Path), Event: event,
+		CanControl:        canUseBackstageControl(actor, event.ID),
+		CanEmergencyAlert: canUseEmergencyAlert(actor, event.ID),
+		Sessions:          sessions, Active: active, ClearCommandIDs: clearCommandIDs,
 		Preview: preview, SubmittedAction: submittedAction, Form: form,
 		FieldErrors: fieldErrors, Error: message,
 	}))

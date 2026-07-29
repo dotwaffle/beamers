@@ -1,12 +1,16 @@
 package server
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/events"
+	"github.com/dotwaffle/beamers/internal/frontend"
 	"github.com/dotwaffle/beamers/internal/rundown"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
@@ -43,7 +47,7 @@ func TestBackstageNavigationReflectsEffectiveAuthority(t *testing.T) {
 		},
 	}
 
-	navigation := backstageNavigation(account)
+	navigation := backstageNavigation(account, "")
 	if !navigation.Administrator {
 		t.Fatal("Administrator section hidden")
 	}
@@ -55,42 +59,52 @@ func TestBackstageNavigationReflectsEffectiveAuthority(t *testing.T) {
 	}
 	if got := backstageSectionLabels(navigation.Events[0]); !reflect.DeepEqual(got, []string{
 		"Event overview",
-		"Final Files Export",
 		"Event settings",
 		"Event Displays",
+		"Sessions and Competitions",
 		"Plan and publish",
 		"Event Theme",
 		"Voting Keys",
-		"Sessions and Displays",
+		"Live operations",
 		"Program Output and Overrides",
 		"Emergency Alerts",
-		"Competition Entries and Attachments",
 		"Results and Prizegiving",
+		"Final Files Export",
 	}) {
 		t.Fatalf("Producer sections = %v", got)
 	}
 	if got := backstageSectionLabels(navigation.Events[1]); !reflect.DeepEqual(got, []string{
 		"Event overview",
-		"Final Files Export",
-		"Sessions and Displays",
+		"Sessions and Competitions",
+		"Live operations",
 		"Program Output and Overrides",
 		"Emergency Alerts",
-		"Competition Entries and Attachments",
 		"Results and Prizegiving",
+		"Final Files Export",
 	}) {
 		t.Fatalf("scoped Operator sections = %v", got)
 	}
 	if got := backstageSectionLabels(navigation.Events[2]); !reflect.DeepEqual(got, []string{
 		"Event overview",
+		"Sessions and Competitions",
 		"Final Files Export",
 	}) {
 		t.Fatalf("Observer sections = %v", got)
 	}
 	if got := backstageSectionLabels(navigation.Events[3]); !reflect.DeepEqual(got, []string{
 		"Event overview",
+		"Sessions and Competitions",
+		"Live operations",
+		"Program Output and Overrides",
+		"Emergency Alerts",
 		"Final Files Export",
 	}) {
 		t.Fatalf("capability-only Operator sections = %v", got)
+	}
+	for _, section := range navigation.Events[3].Sections[2:5] {
+		if section.UnavailableReason == "" || section.Href != "" {
+			t.Errorf("blocked section = %+v, want reason without link", section)
+		}
 	}
 }
 
@@ -112,7 +126,7 @@ func TestCompetitionAccessRequiresEverySessionLane(t *testing.T) {
 }
 
 func TestBackstageNavigationRejectsAttendeeAndSeparatesRouteInterfaces(t *testing.T) {
-	if navigation := backstageNavigation(auth.Account{}); navigation.Administrator ||
+	if navigation := backstageNavigation(auth.Account{}, ""); navigation.Administrator ||
 		len(navigation.Events) != 0 {
 		t.Fatalf("attendee navigation = %+v", navigation)
 	}
@@ -127,18 +141,20 @@ func TestBackstageNavigationRejectsAttendeeAndSeparatesRouteInterfaces(t *testin
 	registerControlRoutes(routes, nil, nil, nil, nil, nil, "", nil)
 	registerVotingRoutes(routes, nil, nil, nil, nil, nil, nil)
 	for path, want := range map[string]interfaceKind{
-		"/profile":                        publicInterface,
-		"/backstage":                      crewInterface,
-		"/backstage/administration":       crewInterface,
-		"/admin/registration":             crewInterface,
-		"/backstage/events/1":             crewInterface,
-		"/backstage/events/1/settings":    crewInterface,
-		"/backstage/events/1/planning":    crewInterface,
-		"/backstage/events/1/operations":  crewInterface,
-		"/backstage/events/1/control":     crewInterface,
-		"/backstage/events/1/voting-keys": crewInterface,
-		"/voting":                         publicInterface,
-		"/backstage/events/new":           crewInterface,
+		"/profile":                                     publicInterface,
+		"/backstage":                                   crewInterface,
+		"/backstage/administration":                    crewInterface,
+		"/admin/registration":                          crewInterface,
+		"/backstage/events/1":                          crewInterface,
+		"/backstage/events/1/sessions":                 crewInterface,
+		"/backstage/events/1/settings":                 crewInterface,
+		"/backstage/events/1/planning":                 crewInterface,
+		"/backstage/events/1/operations":               crewInterface,
+		"/backstage/events/1/control":                  crewInterface,
+		"/backstage/events/1/control/emergency-alerts": crewInterface,
+		"/backstage/events/1/voting-keys":              crewInterface,
+		"/voting":                                      publicInterface,
+		"/backstage/events/new":                        crewInterface,
 	} {
 		request := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, http.NoBody)
 		contract, ok := routes.contract(request)
@@ -154,7 +170,7 @@ func TestBackstageNavigationRejectsAttendeeAndSeparatesRouteInterfaces(t *testin
 func TestBackstageControlNavigationUsesDedicatedRoute(t *testing.T) {
 	navigation := backstageNavigation(auth.Account{
 		EventRoles: map[int]viewer.Role{7: viewer.Producer},
-	})
+	}, "")
 	for _, section := range navigation.Events[0].Sections {
 		if section.Label == "Program Output and Overrides" {
 			if section.Href != "/backstage/events/7/control" {
@@ -164,6 +180,177 @@ func TestBackstageControlNavigationUsesDedicatedRoute(t *testing.T) {
 		}
 	}
 	t.Fatal("Program Output and Overrides navigation missing")
+}
+
+func TestBackstageNavigationLinksOwningWorkflows(t *testing.T) {
+	navigation := backstageNavigation(auth.Account{
+		EventRoles: map[int]viewer.Role{7: viewer.Producer},
+	}, "")
+	want := map[string]string{
+		"Sessions and Competitions":    "/backstage/events/7/sessions",
+		"Plan and publish":             "/backstage/events/7/planning",
+		"Live operations":              "/backstage/events/7/operations",
+		"Program Output and Overrides": "/backstage/events/7/control",
+		"Emergency Alerts":             "/backstage/events/7/control/emergency-alerts#emergency-alerts",
+		"Results and Prizegiving":      "/backstage/events/7/results",
+	}
+	for _, section := range navigation.Events[0].Sections {
+		href, ok := want[section.Label]
+		if !ok {
+			continue
+		}
+		if section.Href != href {
+			t.Errorf("%s href = %q, want %q", section.Label, section.Href, href)
+		}
+		delete(want, section.Label)
+	}
+	if len(want) != 0 {
+		t.Fatalf("missing workflow links: %v", want)
+	}
+}
+
+func TestBackstageNavigationRendersEquivalentActiveViewsAndBreadcrumbs(t *testing.T) {
+	navigation := backstageNavigation(auth.Account{
+		EventRoles: map[int]viewer.Role{7: viewer.Producer},
+		EventNames: map[int]string{7: "Revision"},
+	}, "/backstage/events/7/results")
+
+	var rendered bytes.Buffer
+	if err := frontend.BackstageNavigationViews(navigation).Render(
+		t.Context(),
+		&rendered,
+	); err != nil {
+		t.Fatalf("render Backstage navigation: %v", err)
+	}
+	html := rendered.String()
+	if got := strings.Count(html, `href="/backstage/events/7/results"`); got != 2 {
+		t.Fatalf("Results links = %d, want mobile and desktop", got)
+	}
+	if got := strings.Count(html, `aria-current="page"`); got != 3 {
+		t.Fatalf("current markers = %d, want mobile, desktop, and breadcrumb", got)
+	}
+	for _, label := range []string{"Revision", "Producer", "Backstage", "Results and Prizegiving"} {
+		if !strings.Contains(html, label) {
+			t.Errorf("rendered navigation missing %q", label)
+		}
+	}
+}
+
+func TestBackstageEmergencyNavigationMarksEmergencyTaskCurrent(t *testing.T) {
+	navigation := backstageNavigation(auth.Account{
+		EventRoles: map[int]viewer.Role{7: viewer.Producer},
+		EventNames: map[int]string{7: "Revision"},
+	}, "/backstage/events/7/control/emergency-alerts")
+
+	for _, section := range navigation.Events[0].Sections {
+		if section.Label == "Emergency Alerts" && section.Current {
+			if got := navigation.Breadcrumbs[len(navigation.Breadcrumbs)-1].Label; got != section.Label {
+				t.Fatalf("current breadcrumb = %q, want %q", got, section.Label)
+			}
+			return
+		}
+	}
+	t.Fatal("Emergency Alerts task is not current")
+}
+
+func TestBackstageControlHidesUnavailableActions(t *testing.T) {
+	for _, test := range []struct {
+		name         string
+		canControl   bool
+		canEmergency bool
+	}{
+		{name: "unscoped"},
+		{name: "scoped", canControl: true},
+		{name: "emergency", canControl: true, canEmergency: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var rendered bytes.Buffer
+			if err := frontend.Control(frontend.ControlPage{
+				CanControl:        test.canControl,
+				CanEmergencyAlert: test.canEmergency,
+			}).Render(t.Context(), &rendered); err != nil {
+				t.Fatalf("render controls: %v", err)
+			}
+			html := rendered.String()
+			if got := strings.Contains(html, "Preview Stage Message"); got != test.canControl {
+				t.Fatalf("Override controls visible = %t, want %t", got, test.canControl)
+			}
+			if got := strings.Contains(html, `id="emergency-alerts"`); got != test.canEmergency {
+				t.Fatalf(
+					"Emergency Alert controls visible = %t, want %t",
+					got,
+					test.canEmergency,
+				)
+			}
+			if got := strings.Contains(
+				html,
+				"No Lane or Display Group scope assigned.",
+			); got == test.canControl {
+				t.Fatalf("blocked reason visible = %t, can control = %t", got, test.canControl)
+			}
+		})
+	}
+}
+
+func TestBackstagePlanningUsesNativeTaskDisclosure(t *testing.T) {
+	var rendered bytes.Buffer
+	if err := frontend.Planning(frontend.PlanningPage{}).Render(
+		t.Context(),
+		&rendered,
+	); err != nil {
+		t.Fatalf("render planning: %v", err)
+	}
+	html := rendered.String()
+	for _, task := range []string{
+		"Edit Draft structure",
+		"CSV import",
+		"iCalendar import",
+	} {
+		if !strings.Contains(html, "<summary>"+task+"</summary>") {
+			t.Errorf("%s is not a native disclosure", task)
+		}
+	}
+}
+
+func TestBackstageSessionsLinksActualCompetitionWorkflowByRole(t *testing.T) {
+	session := rundown.CrewSession{
+		ID:    9,
+		Title: "Demo Competition",
+		Type:  rundown.SessionCompetition,
+	}
+	for _, test := range []struct {
+		name      string
+		canManage bool
+	}{
+		{name: "Observer"},
+		{name: "Producer", canManage: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var rendered bytes.Buffer
+			if err := frontend.BackstageSessions(frontend.BackstageSessionsPage{
+				Event:    events.Event{ID: 7},
+				Sessions: []rundown.CrewSession{session},
+				Manage:   map[int]bool{9: test.canManage},
+			}).Render(t.Context(), &rendered); err != nil {
+				t.Fatalf("render Sessions and Competitions: %v", err)
+			}
+			html := rendered.String()
+			if !strings.Contains(html, "Demo Competition") {
+				t.Fatal("Competition name missing")
+			}
+			hasWorkflow := strings.Contains(
+				html,
+				`href="/backstage/events/7/competitions/9/entries"`,
+			)
+			if hasWorkflow != test.canManage {
+				t.Fatalf(
+					"Competition workflow visible = %t, want %t",
+					hasWorkflow,
+					test.canManage,
+				)
+			}
+		})
+	}
 }
 
 func backstageEventIDs(navigation backstageNavigationModel) []int {

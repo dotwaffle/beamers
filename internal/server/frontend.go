@@ -361,7 +361,7 @@ func (handlers frontendHandlers) renderProfile(
 			credentialCommandID,
 			reducedEffectsCookie(request),
 			backstageAccessible(request) &&
-				backstageAvailable(backstageNavigation(actor)),
+				backstageAvailable(backstageNavigation(actor, "")),
 		),
 	)
 }
@@ -543,7 +543,7 @@ func (handlers frontendHandlers) registrationPolicy(
 			open,
 			reducedEffectsCookie(request),
 			actor.Name,
-			backstageNavigation(actor),
+			backstageNavigation(actor, request.URL.Path),
 		),
 	)
 }
@@ -556,14 +556,9 @@ func (handlers frontendHandlers) backstage(response http.ResponseWriter, request
 	if !ok {
 		return
 	}
-	navigation := backstageNavigation(actor)
+	navigation := backstageNavigation(actor, request.URL.Path)
 	if !backstageAvailable(navigation) {
 		http.NotFound(response, request)
-		return
-	}
-	navigation, err := handlers.backstageCompetitionNavigation(request, actor, navigation)
-	if err != nil {
-		handlers.frontendError(response, request, "read Competition navigation", err)
 		return
 	}
 	csrfToken, err := handlers.csrfToken(response, request)
@@ -586,43 +581,6 @@ func (handlers frontendHandlers) backstage(response http.ResponseWriter, request
 
 type backstageNavigationModel = frontend.BackstageNavigation
 type backstageEventNavigation = frontend.BackstageEvent
-
-func (handlers frontendHandlers) backstageCompetitionNavigation(
-	request *http.Request,
-	account auth.Account,
-	navigation backstageNavigationModel,
-) (backstageNavigationModel, error) {
-	for eventIndex := range navigation.Events {
-		event := &navigation.Events[eventIndex]
-		if account.EventRoles[event.ID] != viewer.Operator {
-			continue
-		}
-		sectionIndex := slices.IndexFunc(event.Sections, func(section frontend.BackstageSection) bool {
-			return section.ID == "event-"+strconv.Itoa(event.ID)+"-entries"
-		})
-		if sectionIndex < 0 {
-			continue
-		}
-		state, err := handlers.rundown.CrewRundown(request.Context(), account, event.ID)
-		if err != nil {
-			return backstageNavigationModel{}, err
-		}
-		sections := append([]frontend.BackstageSection(nil), event.Sections[:sectionIndex]...)
-		for _, session := range state.Sessions {
-			if session.Type != rundown.SessionCompetition ||
-				!canAccessCompetition(account, event.ID, session) {
-				continue
-			}
-			sections = append(sections, frontend.BackstageSection{
-				ID:    "event-" + strconv.Itoa(event.ID) + "-competition-" + strconv.Itoa(session.ID),
-				Label: session.Title + " Entries and Attachments",
-				Href:  competitionEntriesPath(event.ID, session.ID),
-			})
-		}
-		event.Sections = append(sections, event.Sections[sectionIndex+1:]...)
-	}
-	return navigation, nil
-}
 
 func canAccessCompetition(
 	account auth.Account,
@@ -647,7 +605,10 @@ func canAccessCompetition(
 	return true
 }
 
-func backstageNavigation(account auth.Account) backstageNavigationModel {
+func backstageNavigation(
+	account auth.Account,
+	activePath string,
+) backstageNavigationModel {
 	eventIDs := make([]int, 0, len(account.EventRoles))
 	for eventID := range account.EventRoles {
 		eventIDs = append(eventIDs, eventID)
@@ -662,50 +623,59 @@ func backstageNavigation(account auth.Account) backstageNavigationModel {
 		sections := []frontend.BackstageSection{
 			backstageSection(eventID, "overview", "Event overview"),
 		}
-		if account.Administrator {
-			sections = append(
-				sections,
-				backstageSection(eventID, "final-files", "Final Files Export"),
-			)
-		}
 		if role == viewer.Producer {
 			sections = append(sections,
 				backstageSection(eventID, "settings", "Event settings"),
 				backstageSection(eventID, "display-settings", "Event Displays"),
+			)
+		}
+		sections = append(
+			sections,
+			backstageSection(eventID, "sessions", "Sessions and Competitions"),
+		)
+		if role == viewer.Producer {
+			sections = append(sections,
 				backstageSection(eventID, "planning", "Plan and publish"),
 				backstageSection(eventID, "theme", "Event Theme"),
 				backstageSection(eventID, "voting", "Voting Keys"),
 			)
 		}
-		scope := account.EventScopes[eventID]
-		if role == viewer.Producer ||
-			role == viewer.Operator &&
-				(len(scope.LaneIDs) != 0 || len(scope.DisplayGroupKeys) != 0) {
+		canControl := canUseBackstageControl(account, eventID)
+		if canControl {
 			sections = append(sections,
-				backstageSection(eventID, "operation", "Sessions and Displays"),
+				backstageSection(eventID, "operation", "Live operations"),
 			)
+		} else if role == viewer.Operator {
+			sections = append(sections, backstageUnavailableSection(
+				eventID,
+				"operation",
+				"Live operations",
+				"No Lane or Display Group scope assigned.",
+			))
 		}
-		if role == viewer.Producer ||
-			role == viewer.Operator &&
-				(len(scope.LaneIDs) != 0 ||
-					len(scope.DisplayGroupKeys) != 0) {
+		if canControl {
 			sections = append(sections,
 				backstageSection(eventID, "control", "Program Output and Overrides"),
 			)
+		} else if role == viewer.Operator {
+			sections = append(sections, backstageUnavailableSection(
+				eventID,
+				"control",
+				"Program Output and Overrides",
+				"No Lane or Display Group scope assigned.",
+			))
 		}
-		if account.HasCapability(eventID, viewer.EmergencyAlert) &&
-			(role == viewer.Producer ||
-				len(scope.LaneIDs) != 0 ||
-				len(scope.DisplayGroupKeys) != 0) {
+		if canUseEmergencyAlert(account, eventID) {
 			sections = append(sections,
 				backstageSection(eventID, "emergency", "Emergency Alerts"),
 			)
-		}
-		if role == viewer.Producer ||
-			role == viewer.Operator && len(scope.LaneIDs) != 0 {
-			sections = append(sections,
-				backstageSection(eventID, "entries", "Competition Entries and Attachments"),
-			)
+		} else if account.HasCapability(eventID, viewer.EmergencyAlert) {
+			sections = append(sections, backstageUnavailableSection(
+				eventID,
+				"emergency",
+				"Emergency Alerts",
+				"No Lane or Display Group scope assigned.",
+			))
 		}
 		if role == viewer.Producer ||
 			account.HasCapability(eventID, viewer.ViewResults) ||
@@ -714,12 +684,44 @@ func backstageNavigation(account auth.Account) backstageNavigationModel {
 				backstageSection(eventID, "results", "Results and Prizegiving"),
 			)
 		}
+		if account.Administrator {
+			sections = append(
+				sections,
+				backstageSection(eventID, "final-files", "Final Files Export"),
+			)
+		}
 		navigation.Events = append(navigation.Events, backstageEventNavigation{
 			ID: eventID, Name: account.EventNames[eventID],
 			Role: string(role), Sections: sections,
 		})
 	}
+	if activePath != "" {
+		markBackstageLocation(&navigation, activePath)
+	}
 	return navigation
+}
+
+func canUseBackstageControl(account auth.Account, eventID int) bool {
+	if account.CanProduceEvent(eventID) {
+		return true
+	}
+	if account.EventRoles[eventID] != viewer.Operator {
+		return false
+	}
+	scope := account.EventScopes[eventID]
+	return len(scope.LaneIDs) != 0 || len(scope.DisplayGroupKeys) != 0
+}
+
+func canReadBackstageRundown(account auth.Account, eventID int) bool {
+	role := account.EventRoles[eventID]
+	return role == viewer.Producer ||
+		role == viewer.Observer ||
+		role == viewer.Operator && len(account.EventScopes[eventID].LaneIDs) != 0
+}
+
+func canUseEmergencyAlert(account auth.Account, eventID int) bool {
+	return account.HasCapability(eventID, viewer.EmergencyAlert) &&
+		canUseBackstageControl(account, eventID)
 }
 
 func backstageSection(eventID int, fragment, label string) frontend.BackstageSection {
@@ -734,6 +736,9 @@ func backstageSection(eventID int, fragment, label string) frontend.BackstageSec
 	if fragment == "display-settings" {
 		href = "/backstage/events/" + strconv.Itoa(eventID) + "/display-settings"
 	}
+	if fragment == "sessions" {
+		href = "/backstage/events/" + strconv.Itoa(eventID) + "/sessions"
+	}
 	if fragment == "final-files" {
 		href = "/backstage/events/" + strconv.Itoa(eventID) + "/final-files"
 	}
@@ -746,15 +751,15 @@ func backstageSection(eventID int, fragment, label string) frontend.BackstageSec
 	if fragment == "control" {
 		href = "/backstage/events/" + strconv.Itoa(eventID) + "/control"
 	}
+	if fragment == "emergency" {
+		href = "/backstage/events/" + strconv.Itoa(eventID) +
+			"/control/emergency-alerts#emergency-alerts"
+	}
 	if fragment == "voting" {
 		href = "/backstage/events/" + strconv.Itoa(eventID) + "/voting-keys"
 	}
 	if fragment == "theme" {
 		href = "/backstage/events/" + strconv.Itoa(eventID) + "/theme"
-	}
-	if fragment == "entries" {
-		href = "/backstage/events/" + strconv.Itoa(eventID) +
-			"/planning#competition-entries"
 	}
 	if fragment == "results" {
 		href = "/backstage/events/" + strconv.Itoa(eventID) + "/results"
@@ -763,6 +768,70 @@ func backstageSection(eventID int, fragment, label string) frontend.BackstageSec
 		ID:    id,
 		Label: label,
 		Href:  href,
+	}
+}
+
+func backstageUnavailableSection(
+	eventID int,
+	fragment string,
+	label string,
+	reason string,
+) frontend.BackstageSection {
+	section := backstageSection(eventID, fragment, label)
+	section.Href = ""
+	section.UnavailableReason = reason
+	return section
+}
+
+func markBackstageLocation(
+	navigation *backstageNavigationModel,
+	activePath string,
+) {
+	if activePath == "/backstage" {
+		navigation.Breadcrumbs = []frontend.Breadcrumb{{Label: "Backstage"}}
+		return
+	}
+	navigation.Breadcrumbs = []frontend.Breadcrumb{{
+		Label: "Backstage",
+		Href:  "/backstage",
+	}}
+	for eventIndex := range navigation.Events {
+		event := &navigation.Events[eventIndex]
+		eventPath := "/backstage/events/" + strconv.Itoa(event.ID)
+		if activePath != eventPath &&
+			!strings.HasPrefix(activePath, eventPath+"/") {
+			continue
+		}
+		eventCrumb := frontend.Breadcrumb{Label: event.Name}
+		if activePath != eventPath {
+			eventCrumb.Href = eventPath
+		}
+		navigation.Breadcrumbs = append(navigation.Breadcrumbs, eventCrumb)
+		for sectionIndex := range event.Sections {
+			section := &event.Sections[sectionIndex]
+			sectionPath, _, _ := strings.Cut(section.Href, "#")
+			current := activePath == sectionPath
+			if strings.HasSuffix(section.ID, "-planning") &&
+				strings.HasPrefix(activePath, eventPath+"/presentations/") {
+				current = true
+			}
+			if strings.HasSuffix(section.ID, "-sessions") &&
+				strings.HasPrefix(activePath, eventPath+"/competitions/") {
+				current = true
+			}
+			if !current || section.UnavailableReason != "" {
+				continue
+			}
+			section.Current = true
+			if activePath != eventPath {
+				navigation.Breadcrumbs = append(
+					navigation.Breadcrumbs,
+					frontend.Breadcrumb{Label: section.Label},
+				)
+			}
+			return
+		}
+		return
 	}
 }
 
@@ -831,7 +900,7 @@ func (handlers frontendHandlers) shell(
 	case err == nil:
 		shell.accountName = account.Name
 		shell.backstage = backstageAccessible(request) &&
-			backstageAvailable(backstageNavigation(account))
+			backstageAvailable(backstageNavigation(account, ""))
 		shell.reducedEffects, err = handlers.authentication.ReducedEffects(
 			request.Context(),
 			cookie.Value,

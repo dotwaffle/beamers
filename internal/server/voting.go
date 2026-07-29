@@ -145,7 +145,7 @@ func (handlers votingHandlers) renderRedemption(
 			AccountName: actor.Name, CSRFToken: csrfToken,
 			ReducedEffects: reducedEffectsCookie(request),
 			Backstage: backstageAccessible(request) &&
-				backstageAvailable(backstageNavigation(actor)),
+				backstageAvailable(backstageNavigation(actor, "")),
 			CommandID: commandID, EventID: eventID, Message: message, Success: success,
 			OpenBallots: ballots,
 		},
@@ -225,7 +225,7 @@ func (handlers votingHandlers) renderBallot(
 		frontend.VotingBallotPage{
 			AccountName: actor.Name, CSRFToken: csrfToken,
 			ReducedEffects: reducedEffectsCookie(request),
-			Backstage:      backstageAccessible(request) && backstageAvailable(backstageNavigation(actor)),
+			Backstage:      backstageAccessible(request) && backstageAvailable(backstageNavigation(actor, "")),
 			CommandID:      commandID, Ballot: ballot,
 			StreamID: cursor.StreamID, StreamPosition: cursor.Position,
 		},
@@ -442,8 +442,9 @@ func (handlers votingHandlers) renderCompetition(
 	handlers.browser.render(response, request, status, frontend.CompetitionVoting(
 		frontend.CompetitionVotingPage{
 			AccountName: actor.Name, CSRFToken: csrfToken,
-			ReducedEffects: reducedEffectsCookie(request), Navigation: backstageNavigation(actor),
-			Producer: actor.CanProduceEvent(eventID), CommandID: commandID,
+			ReducedEffects: reducedEffectsCookie(request),
+			Navigation:     backstageNavigation(actor, request.URL.Path),
+			Producer:       actor.CanProduceEvent(eventID), CommandID: commandID,
 			Window: window, Participation: participation, Message: message,
 		},
 	))
@@ -565,8 +566,9 @@ func (handlers votingHandlers) renderKeys(
 	}
 	handlers.browser.render(response, request, status, frontend.VotingKeys(frontend.VotingKeyPage{
 		AccountName: actor.Name, CSRFToken: csrfToken,
-		ReducedEffects: reducedEffectsCookie(request), Navigation: backstageNavigation(actor),
-		CommandID: commandID, Event: foundEvent,
+		ReducedEffects: reducedEffectsCookie(request),
+		Navigation:     backstageNavigation(actor, request.URL.Path),
+		CommandID:      commandID, Event: foundEvent,
 		ExpiryValue: now.Add(24 * time.Hour).In(location).Format("2006-01-02T15:04"),
 		Keys:        keys, Issued: issued, Message: message, Now: now,
 	}))

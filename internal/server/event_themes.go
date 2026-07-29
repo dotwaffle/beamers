@@ -211,7 +211,8 @@ func (handlers eventThemeHandlers) render(
 		status,
 		frontend.EventThemeAdministration(frontend.EventThemePage{
 			EventID: eventID, AccountName: actor.Name, CSRFToken: csrfToken,
-			ReducedEffects: reducedEffectsCookie(request), Navigation: backstageNavigation(actor),
+			ReducedEffects:   reducedEffectsCookie(request),
+			Navigation:       backstageNavigation(actor, request.URL.Path),
 			ActiveRevisionID: active.Revision.ID, Revisions: summaries,
 			RevisionID: preview.Revision.ID, Config: preview.Revision.Config,
 			Resolved: preview.Resolved, Variants: preview.Variants,

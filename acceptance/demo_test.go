@@ -91,6 +91,7 @@ func assertDemoSignIn(t *testing.T, address string, expectWarning bool) {
 	for handle, displayName := range map[string]string{
 		"administrator": "Demo Administrator",
 		"attendee":      "Demo Attendee",
+		"observer":      "Demo Observer",
 		"operator":      "Demo Operator",
 		"producer":      "Demo Producer",
 		"voter":         "Demo Voter",
@@ -118,7 +119,8 @@ func assertDemoSignIn(t *testing.T, address string, expectWarning bool) {
 			}
 		}
 		hasBackstage := strings.Contains(signedIn.body, `href="/backstage"`)
-		wantBackstage := handle == "administrator" || handle == "operator" || handle == "producer"
+		wantBackstage := handle == "administrator" || handle == "observer" ||
+			handle == "operator" || handle == "producer"
 		if hasBackstage != wantBackstage {
 			t.Fatalf(
 				"%s Backstage navigation = %t, want %t",

@@ -279,7 +279,7 @@ func (handlers installationHandlers) render(
 			AccountName:    actor.Name,
 			CSRFToken:      csrfToken,
 			ReducedEffects: reducedEffectsCookie(request),
-			Navigation:     backstageNavigation(actor),
+			Navigation:     backstageNavigation(actor, request.URL.Path),
 			Statuses:       statuses,
 			Capacity: frontend.InstallationCapacity{
 				Status:        diagnostics.Capacity.Status,

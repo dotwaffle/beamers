@@ -188,8 +188,9 @@ func (handlers entryHandlers) renderPresentationSubmission(
 	handlers.browser.render(response, request, status, frontend.PresentationSubmission(
 		frontend.PresentationSubmissionPage{
 			AccountName: actor.Name, CSRFToken: csrfToken,
-			ReducedEffects: reducedEffectsCookie(request), Navigation: backstageNavigation(actor),
-			CommandID: commandID, Event: foundEvent, State: state, Accounts: accounts,
+			ReducedEffects: reducedEffectsCookie(request),
+			Navigation:     backstageNavigation(actor, request.URL.Path),
+			CommandID:      commandID, Event: foundEvent, State: state, Accounts: accounts,
 			ReopenWindows: windows, Error: message,
 		},
 	))

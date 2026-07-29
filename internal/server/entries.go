@@ -891,8 +891,9 @@ func (handlers entryHandlers) render(
 		frontend.CompetitionEntriesPage{
 			AccountID: actor.ID, AccountName: actor.Name, Producer: actor.CanProduceEvent(eventID),
 			CSRFToken:      csrfToken,
-			ReducedEffects: reducedEffectsCookie(request), Navigation: backstageNavigation(actor),
-			CommandID: commandID, Event: event, State: state, Preflight: preflight,
+			ReducedEffects: reducedEffectsCookie(request),
+			Navigation:     backstageNavigation(actor, request.URL.Path),
+			CommandID:      commandID, Event: event, State: state, Preflight: preflight,
 			Attachments: attachmentState, Program: programState, Error: message,
 			SubmissionAccounts: submissionAccounts,
 		},

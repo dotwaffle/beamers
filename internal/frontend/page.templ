@@ -11,6 +11,7 @@ import "github.com/dotwaffle/beamers/internal/events"
 type BackstageNavigation struct {
 	Administrator bool
 	Events        []BackstageEvent
+	Breadcrumbs   []Breadcrumb
 }
 
 type BackstageEvent struct {
@@ -21,9 +22,11 @@ type BackstageEvent struct {
 }
 
 type BackstageSection struct {
-	ID    string
-	Label string
-	Href  string
+	ID                string
+	Label             string
+	Href              string
+	Current           bool
+	UnavailableReason string
 }
 
 type Shell struct {
@@ -472,7 +475,14 @@ templ BackstageLinks(navigation BackstageNavigation) {
 				<p>{ event.Role }</p>
 				<ul>
 					for _, section := range event.Sections {
-						<li><a href={ templ.SafeURL(section.Href) }>{ section.Label }</a></li>
+						<li>
+							if section.UnavailableReason != "" {
+								<span>{ section.Label }</span>
+								<p>{ section.UnavailableReason }</p>
+							} else {
+								@EventLink(section.Label, section.Href, section.Current)
+							}
+						</li>
 					}
 				</ul>
 			</section>
@@ -488,6 +498,11 @@ templ BackstageNavigationViews(navigation BackstageNavigation) {
 	<aside class="backstage-sidebar">
 		@BackstageLinks(navigation)
 	</aside>
+	if len(navigation.Breadcrumbs) > 0 {
+		<div class="backstage-breadcrumbs">
+			@EventBreadcrumbs(navigation.Breadcrumbs)
+		</div>
+	}
 }
 
 templ Backstage(

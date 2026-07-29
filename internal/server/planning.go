@@ -21,6 +21,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/events"
 	"github.com/dotwaffle/beamers/internal/frontend"
 	"github.com/dotwaffle/beamers/internal/rundown"
+	"github.com/dotwaffle/beamers/internal/store"
 )
 
 type planningHandlers struct {
@@ -57,6 +58,11 @@ func registerPlanningRoutes(
 	route := backstagePageRoute()
 	route.maxBodyBytes = maxRundownRPCBodyBytes
 	mux.HandleFunc("/backstage/events/{eventID}", route, handlers.overview)
+	mux.HandleFunc(
+		"/backstage/events/{eventID}/sessions",
+		route,
+		handlers.sessions,
+	)
 	mux.HandleFunc("/backstage/events/{eventID}/settings", route, handlers.settings)
 	mux.HandleFunc(
 		"/backstage/events/{eventID}/display-settings",
@@ -65,6 +71,61 @@ func registerPlanningRoutes(
 	)
 	mux.HandleFunc("/backstage/events/{eventID}/planning", route, handlers.planning)
 	mux.HandleFunc("/backstage/events/new", route, handlers.newEvent)
+}
+
+func (handlers planningHandlers) sessions(
+	response http.ResponseWriter,
+	request *http.Request,
+) {
+	if !frontendReadAllowed(response, request) {
+		return
+	}
+	actor, ok := handlers.browser.browserAccount(response, request)
+	if !ok {
+		return
+	}
+	eventID, err := positivePathID(request, "eventID")
+	role, granted := actor.EventRoles[eventID]
+	if err != nil || !granted {
+		http.NotFound(response, request)
+		return
+	}
+	event, err := handlers.events.CrewEvent(request.Context(), actor, eventID)
+	if err != nil {
+		handlers.browser.frontendError(response, request, "read Event", err)
+		return
+	}
+	var state rundown.CrewRundown
+	if canReadBackstageRundown(actor, eventID) {
+		state, err = handlers.queries.CrewRundown(request.Context(), actor, eventID)
+		if errors.Is(err, store.ErrEventNotFound) {
+			state = rundown.CrewRundown{}
+		} else if err != nil {
+			handlers.browser.frontendError(response, request, "read Sessions", err)
+			return
+		}
+	}
+	manage := make(map[int]bool)
+	for _, session := range state.Sessions {
+		if session.Type == rundown.SessionCompetition &&
+			canAccessCompetition(actor, eventID, session) {
+			manage[session.ID] = true
+		}
+	}
+	csrfToken, err := handlers.browser.csrfToken(response, request)
+	if err != nil {
+		handlers.browser.frontendError(response, request, "create CSRF proof", err)
+		return
+	}
+	handlers.browser.render(response, request, http.StatusOK, frontend.BackstageSessions(
+		frontend.BackstageSessionsPage{
+			AccountName: actor.Name, CSRFToken: csrfToken,
+			ReducedEffects: reducedEffectsCookie(request),
+			Navigation:     backstageNavigation(actor, request.URL.Path),
+			Event:          event, Role: string(role), Sessions: state.Sessions,
+			Manage: manage, Producer: actor.CanProduceEvent(eventID),
+		},
+	))
 }
 
 func (handlers planningHandlers) overview(response http.ResponseWriter, request *http.Request) {
@@ -103,8 +164,9 @@ func (handlers planningHandlers) overview(response http.ResponseWriter, request 
 	handlers.browser.render(response, request, http.StatusOK, frontend.EventOverview(
 		frontend.EventOverviewPage{
 			AccountName: actor.Name, CSRFToken: csrfToken,
-			ReducedEffects: reducedEffectsCookie(request), Navigation: backstageNavigation(actor),
-			Event: overview.Event, Active: overview.Active,
+			ReducedEffects: reducedEffectsCookie(request),
+			Navigation:     backstageNavigation(actor, request.URL.Path),
+			Event:          overview.Event, Active: overview.Active,
 			AttachmentRelease: overview.AttachmentRelease,
 			Rundown:           preview, Role: string(role),
 			Producer: actor.CanProduceEvent(eventID), Administrator: actor.Administrator,
@@ -230,8 +292,9 @@ func (handlers planningHandlers) renderSettings(
 	handlers.browser.render(response, request, status, frontend.EventSettings(
 		frontend.EventSettingsPage{
 			AccountName: actor.Name, CSRFToken: csrfToken,
-			ReducedEffects: reducedEffectsCookie(request), Navigation: backstageNavigation(actor),
-			Event: event, Release: release, Ceremonies: ceremonies,
+			ReducedEffects: reducedEffectsCookie(request),
+			Navigation:     backstageNavigation(actor, request.URL.Path),
+			Event:          event, Release: release, Ceremonies: ceremonies,
 			CommandID: commandID, Error: message,
 		},
 	))
@@ -362,8 +425,9 @@ func (handlers planningHandlers) renderDisplaySettings(
 	handlers.browser.render(response, request, status, frontend.DisplaySettings(
 		frontend.DisplaySettingsPage{
 			AccountName: actor.Name, CSRFToken: csrfToken,
-			ReducedEffects: reducedEffectsCookie(request), Navigation: backstageNavigation(actor),
-			Event: event, EventRevision: eventRevision, Draft: draft,
+			ReducedEffects: reducedEffectsCookie(request),
+			Navigation:     backstageNavigation(actor, request.URL.Path),
+			Event:          event, EventRevision: eventRevision, Draft: draft,
 			SessionTypes: displaySessionTypes(), Form: form,
 			CommandID: commandID, Error: formError,
 		},
@@ -768,8 +832,9 @@ func (handlers planningHandlers) renderNewEvent(
 	}
 	handlers.browser.render(response, request, status, frontend.NewEvent(frontend.NewEventPage{
 		AccountName: actor.Name, CSRFToken: csrfToken,
-		ReducedEffects: reducedEffectsCookie(request), Navigation: backstageNavigation(actor),
-		CommandID: commandID, GrantCommandID: grantCommandID,
+		ReducedEffects: reducedEffectsCookie(request),
+		Navigation:     backstageNavigation(actor, request.URL.Path),
+		CommandID:      commandID, GrantCommandID: grantCommandID,
 		GrantSelfDefault: len(existingEvents) == 0,
 		Error:            message,
 	}))
@@ -996,12 +1061,13 @@ func (handlers planningHandlers) render(
 	}
 	handlers.browser.render(response, request, status, frontend.Planning(frontend.PlanningPage{
 		AccountName: actor.Name, CSRFToken: csrfToken,
-		ReducedEffects: reducedEffectsCookie(request), Navigation: backstageNavigation(actor),
-		Event: event, Rundown: crew, Draft: draft, SessionBases: sessionBases, CurrentPreview: current,
+		ReducedEffects: reducedEffectsCookie(request),
+		Navigation:     backstageNavigation(actor, request.URL.Path),
+		Event:          event, Rundown: crew, Draft: draft, SessionBases: sessionBases, CurrentPreview: current,
 		PublishPreview: publishPreview, CSVPreview: csvPreview,
 		ICalendarPreview: icalendarPreview, CSVData: csvData, CSVMappings: csvMappings,
 		ICalendarData: icalendarData, ICalendarChoices: icalendarChoices,
-		CommandID: commandID, Error: message,
+		CommandID: commandID, SubmittedAction: request.Form.Get("action"), Error: message,
 	}))
 }
 

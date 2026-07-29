@@ -223,7 +223,7 @@ func (handlers entryHandlers) renderSubmissions(
 		frontend.SubmissionsPage{
 			AccountName: actor.Name, CSRFToken: csrfToken,
 			ReducedEffects: reducedEffectsCookie(request),
-			Backstage:      backstageAvailable(backstageNavigation(actor)),
+			Backstage:      backstageAvailable(backstageNavigation(actor, "")),
 			CommandID:      commandID, Competitions: competitions,
 			Presentations: presentations,
 			Ballots:       ballots,
