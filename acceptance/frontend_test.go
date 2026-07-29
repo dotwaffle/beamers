@@ -1002,6 +1002,9 @@ func TestBrowserFollowsCanonicalPublicEventJourney(t *testing.T) {
 	)
 
 	publicClient := authenticatedClient(t)
+	publicClient.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
 	schedule := getFrontendPage(
 		t,
 		publicClient,
@@ -1444,6 +1447,38 @@ func TestBrowserFollowsCanonicalPublicEventJourney(t *testing.T) {
 		"Results",
 	)
 
+	removedPaths := []string{
+		"/schedule",
+		"/schedule/sessions/" + strconv.FormatInt(presentationID, 10),
+		"/submissions",
+		"/results/events/1",
+		"/results/events/1/standalone/" + strconv.FormatInt(competitionID, 10),
+		"/results/events/1/event-awards",
+	}
+	for _, listener := range []struct {
+		name, address string
+		client        *http.Client
+	}{
+		{"Backstage", server.address, administrator},
+		{"public", server.publicAddress, publicClient},
+	} {
+		for _, path := range removedPaths {
+			response := getFrontendPage(t, listener.client, listener.address, path)
+			if response.status != http.StatusNotFound ||
+				response.header.Get("Location") != "" ||
+				response.body != "404 page not found\n" {
+				t.Errorf(
+					"%s listener removed path %s = %d Location %q body %q",
+					listener.name,
+					path,
+					response.status,
+					response.header.Get("Location"),
+					response.body,
+				)
+			}
+		}
+	}
+
 	for _, path := range []string{
 		"/events/unknown/schedule",
 		"/events/unknown/competitions",
@@ -1830,7 +1865,8 @@ func TestBrowserRecoversAccountWithoutEmail(t *testing.T) {
 func TestBrowserBuildsPrivateMyScheduleFromFavoriteSessions(t *testing.T) {
 	administrator, server := startAuthenticatedAdministratorWithPublicListener(t)
 	sessionID := prepareActiveSchedule(t, administrator, server)
-	sessionPath := "/schedule/sessions/" + strconv.FormatInt(sessionID, 10)
+	sessionPath := "/events/revision-2099/schedule/sessions/" + strconv.FormatInt(sessionID, 10)
+	favoritePath := "/schedule/sessions/" + strconv.FormatInt(sessionID, 10) + "/favorite"
 
 	anonymous := authenticatedClient(t)
 	anonymous.CheckRedirect = func(*http.Request, []*http.Request) error {
@@ -1838,7 +1874,7 @@ func TestBrowserBuildsPrivateMyScheduleFromFavoriteSessions(t *testing.T) {
 	}
 	page := getFrontendPage(t, anonymous, server.publicAddress, sessionPath)
 	if page.status != http.StatusOK ||
-		!strings.Contains(page.body, "/sign-in?return_to=%2Fschedule%2Fsessions%2F") {
+		!strings.Contains(page.body, "/sign-in?return_to=%2Fevents%2Frevision-2099%2Fschedule%2Fsessions%2F") {
 		t.Fatalf("anonymous Favorite invitation = %d %q", page.status, page.body)
 	}
 
@@ -1892,7 +1928,7 @@ func TestBrowserBuildsPrivateMyScheduleFromFavoriteSessions(t *testing.T) {
 		t,
 		anonymous,
 		server.address,
-		sessionPath+"/favorite",
+		favoritePath,
 		url.Values{
 			"csrf_token": {requireFrontendCSRF(t, page)},
 			"favorite":   {"true"},
@@ -1912,7 +1948,7 @@ func TestBrowserBuildsPrivateMyScheduleFromFavoriteSessions(t *testing.T) {
 	removeRequest, err := http.NewRequestWithContext(
 		t.Context(),
 		http.MethodPost,
-		"http://"+server.address+sessionPath+"/favorite",
+		"http://"+server.address+favoritePath,
 		strings.NewReader(removeValues.Encode()),
 	)
 	if err != nil {
@@ -1937,7 +1973,7 @@ func TestBrowserBuildsPrivateMyScheduleFromFavoriteSessions(t *testing.T) {
 		t,
 		anonymous,
 		server.address,
-		sessionPath+"/favorite",
+		favoritePath,
 		url.Values{
 			"csrf_token": {requireFrontendCSRF(t, page)},
 			"favorite":   {"true"},
@@ -1954,7 +1990,7 @@ func TestBrowserBuildsPrivateMyScheduleFromFavoriteSessions(t *testing.T) {
 		!strings.Contains(page.body, "Remove from My Schedule") {
 		t.Fatalf("My Schedule after Favorite = %d %q", page.status, page.body)
 	}
-	schedulePage := getFrontendPage(t, anonymous, server.address, "/schedule")
+	schedulePage := getFrontendPage(t, anonymous, server.address, "/events/revision-2099/schedule")
 	if schedulePage.status != http.StatusOK ||
 		!strings.Contains(schedulePage.body, "Opening Keynote") ||
 		!strings.Contains(schedulePage.body, "Remove from My Schedule") {
@@ -1966,7 +2002,12 @@ func TestBrowserBuildsPrivateMyScheduleFromFavoriteSessions(t *testing.T) {
 		strings.Contains(otherAccount.body, accountName) {
 		t.Fatalf("other Account inspected Favorites = %d %q", otherAccount.status, otherAccount.body)
 	}
-	public := getFrontendPage(t, authenticatedClient(t), server.publicAddress, "/schedule")
+	public := getFrontendPage(
+		t,
+		authenticatedClient(t),
+		server.publicAddress,
+		"/events/revision-2099/schedule",
+	)
 	if !strings.HasPrefix(public.header.Get("Cache-Control"), "public,") ||
 		public.header.Get("ETag") == "" {
 		t.Fatalf(
@@ -1989,7 +2030,7 @@ func TestBrowserBuildsPrivateMyScheduleFromFavoriteSessions(t *testing.T) {
 		url.Values{
 			"csrf_token": {requireFrontendCSRF(t, page)},
 			"favorite":   {"true"},
-			"return_to":  {"/schedule/sessions/2"},
+			"return_to":  {"/events/revision-2099/schedule/sessions/2"},
 		},
 	)
 	if privateSession.status != http.StatusNotFound {
@@ -2008,7 +2049,7 @@ func TestBrowserBuildsPrivateMyScheduleFromFavoriteSessions(t *testing.T) {
 		t,
 		anonymous,
 		server.address,
-		sessionPath+"/favorite",
+		favoritePath,
 		url.Values{
 			"csrf_token": {requireFrontendCSRF(t, page)},
 			"favorite":   {"false"},
@@ -2781,7 +2822,7 @@ func TestBrowserConfiguresEventDisplays(t *testing.T) {
 	form := url.Values{
 		"csrf_token":                                   {requireFrontendCSRF(t, page)},
 		"command_id":                                   {"browser-configure-event-displays"},
-		"expected_event_revision":                      {"1"},
+		"expected_event_revision":                      {"2"},
 		"rotation_seconds":                             {"30"},
 		"reduced_effects":                              {"true"},
 		"timer_threshold_seconds":                      {"600"},
@@ -2842,7 +2883,7 @@ func TestBrowserConfiguresEventDisplays(t *testing.T) {
 	invalid := postFrontendForm(t, administrator, server.address, path, url.Values{
 		"csrf_token":               {requireFrontendCSRF(t, latest)},
 		"command_id":               {"reject-browser-display-threshold"},
-		"expected_event_revision":  {"2"},
+		"expected_event_revision":  {"3"},
 		"rotation_seconds":         {"30"},
 		"timer_threshold_seconds":  {"600"},
 		"timer_threshold_emphasis": {"attention"},
@@ -3153,7 +3194,7 @@ func TestLiveCompetitionBallotUpdatesAndSurvivesRestart(t *testing.T) {
 	configuredEvent := postFrontendForm(t, administrator, server.address, settingsPath, url.Values{
 		"csrf_token":                        {requireFrontendCSRF(t, settings)},
 		"command_id":                        {"publish-live-ballot-event"},
-		"expected_event_revision":           {"1"},
+		"expected_event_revision":           {"2"},
 		"event_name":                        {"Revision 2099"},
 		"public":                            {"true"},
 		"public_slug":                       {"revision-2099"},
@@ -5387,7 +5428,7 @@ func TestBrowserPlansAndPublishesEvent(t *testing.T) {
 		t.Fatalf("edited materialized Draft = %d %q", page.status, page.body)
 	}
 	publicSchedule := getFrontendPage(
-		t, authenticatedClient(t), server.publicAddress, "/schedule",
+		t, authenticatedClient(t), server.publicAddress, "/events/revision-2099/schedule",
 	)
 	for _, private := range []string{"Opening Ceremony", "Deferred Track", "Hall Alpha"} {
 		if strings.Contains(publicSchedule.body, private) {
@@ -6108,7 +6149,7 @@ func exercisePresentationSubmissionFlow(
 	presentationID int64,
 ) {
 	t.Helper()
-	submissionsPath := "/submissions"
+	submissionsPath := "/my-participation"
 	producerPath := "/backstage/events/1/presentations/" +
 		strconv.FormatInt(presentationID, 10) + "/submission"
 	uploadPath := "/submissions/1/presentations/" +
@@ -6462,7 +6503,7 @@ func exercisePresentationSubmissionFlow(
 		t,
 		authenticatedClient(t),
 		server.publicAddress,
-		"/schedule",
+		"/events/revision-2099/schedule",
 	)
 	if publicSchedule.status != http.StatusOK ||
 		!strings.Contains(publicSchedule.body, "Blair Final Speaker") ||
@@ -7384,7 +7425,8 @@ func TestBrowserPublishesAndCorrectsStandaloneResults(t *testing.T) {
 	}
 
 	scopePath := "/results/events/1/standalone/" + strconv.FormatInt(competitionID, 10)
-	html := getFrontendPage(t, authenticatedClient(t), server.publicAddress, scopePath)
+	htmlPath := "/events/revision-2099/results"
+	html := getFrontendPage(t, authenticatedClient(t), server.publicAddress, htmlPath)
 	text := getFrontendPage(t, authenticatedClient(t), server.publicAddress, scopePath+"/results.txt")
 	jsonRevisionOne := getFrontendPage(
 		t,
@@ -7399,15 +7441,19 @@ func TestBrowserPublishesAndCorrectsStandaloneResults(t *testing.T) {
 			!strings.Contains(response.body, "Standalone Winner") {
 			t.Fatalf("standalone %s Results = %d %q", label, response.status, response.body)
 		}
-		if response.header.Get("ETag") != html.header.Get("ETag") {
-			t.Fatalf("standalone %s ETag = %q, want %q", label, response.header.Get("ETag"), html.header.Get("ETag"))
-		}
+	}
+	if text.header.Get("ETag") != jsonRevisionOne.header.Get("ETag") {
+		t.Fatalf(
+			"standalone machine Results ETags = text %q JSON %q",
+			text.header.Get("ETag"),
+			jsonRevisionOne.header.Get("ETag"),
+		)
 	}
 
 	server.stop(t)
 	server = startBeamersWithPublicListener(t, server.bin, server.dataDir)
 	htmlAfterRestart := getFrontendPage(
-		t, authenticatedClient(t), server.publicAddress, scopePath,
+		t, authenticatedClient(t), server.publicAddress, htmlPath,
 	)
 	if htmlAfterRestart.status != http.StatusOK ||
 		htmlAfterRestart.body != html.body ||
@@ -7487,7 +7533,7 @@ func TestBrowserPublishesAndCorrectsStandaloneResults(t *testing.T) {
 	if published.status != http.StatusSeeOther {
 		t.Fatalf("publish browser Results Correction = %d %q", published.status, published.body)
 	}
-	corrected := getFrontendPage(t, authenticatedClient(t), server.publicAddress, scopePath)
+	corrected := getFrontendPage(t, authenticatedClient(t), server.publicAddress, htmlPath)
 	prior := getFrontendPage(
 		t,
 		authenticatedClient(t),
@@ -7569,7 +7615,7 @@ func TestBrowserPublishesAndCorrectsStandaloneResults(t *testing.T) {
 	eventAwardsPath := "/results/events/1/event-awards"
 	for label, response := range map[string]frontendResponse{
 		"HTML": getFrontendPage(
-			t, authenticatedClient(t), server.publicAddress, eventAwardsPath,
+			t, authenticatedClient(t), server.publicAddress, "/events/revision-2099/results",
 		),
 		"text": getFrontendPage(
 			t, authenticatedClient(t), server.publicAddress, eventAwardsPath+"/results.txt",
@@ -7839,7 +7885,7 @@ func TestBrowserDefersAndResolvesCompetitionEntries(t *testing.T) {
 		t,
 		authenticatedClient(t),
 		server.publicAddress,
-		"/schedule/sessions/"+strconv.FormatInt(competitionID, 10),
+		"/events/revision-2099/schedule/sessions/"+strconv.FormatInt(competitionID, 10),
 	)
 	withheldName := names[firstDeferredID-1]
 	if strings.Contains(public.body, withheldName) ||

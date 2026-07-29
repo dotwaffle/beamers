@@ -618,10 +618,10 @@ func (service *Service) SetFavorite(
 
 // Path returns the stable public deep link for a Session identity.
 func (session Session) Path() string {
-	if session.EventSlug != "" {
-		return "/events/" + session.EventSlug + "/schedule/sessions/" + strconv.Itoa(session.ID)
+	if session.EventSlug == "" {
+		return "/"
 	}
-	return "/schedule/sessions/" + strconv.Itoa(session.ID)
+	return "/events/" + session.EventSlug + "/schedule/sessions/" + strconv.Itoa(session.ID)
 }
 
 // CompetitionPath returns the canonical focused public Competition page.
@@ -645,10 +645,10 @@ func (session Session) PathWithTimezone(viewerTimezone string) string {
 
 // SchedulePath preserves the complete shareable Schedule view.
 func (snapshot Snapshot) SchedulePath() string {
-	if snapshot.EventSlug != "" {
-		return snapshot.viewPath("/events/" + snapshot.EventSlug + "/schedule")
+	if snapshot.EventSlug == "" {
+		return "/"
 	}
-	return snapshot.viewPath("/schedule")
+	return snapshot.viewPath("/events/" + snapshot.EventSlug + "/schedule")
 }
 
 // ViewPath preserves the current Schedule or My Schedule view.

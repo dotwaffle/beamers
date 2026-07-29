@@ -84,7 +84,6 @@ func registerEntryRoutes(
 	submissionRoute := browserPageRoute()
 	submissionRoute.maxBodyBytes = defaultRequestBytes
 	mux.HandleFunc("/my-participation", submissionRoute, handlers.submissions)
-	mux.HandleFunc("/submissions", submissionRoute, handlers.submissions)
 	submissionUploadRoute := browserPageRoute()
 	submissionUploadRoute.timeout = uploadRequestTimeout
 	submissionUploadRoute.maxBodyBytes = maxUploadRequestBytes

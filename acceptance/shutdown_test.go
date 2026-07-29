@@ -190,7 +190,7 @@ func TestExecutableDrainsBusyDisplayWithinDeclaredBudgets(t *testing.T) {
 					t,
 					&http.Client{Timeout: time.Second},
 					process.address,
-					"/schedule",
+					"/",
 				)
 				if closeErr := schedule.Body.Close(); closeErr != nil {
 					t.Errorf("close Schedule response: %v", closeErr)

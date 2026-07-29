@@ -1084,11 +1084,6 @@ func registerPublicResultsRoutes(
 ) {
 	handlers := publicResultsHandlers{service: service, logger: logger}
 	mux.HandleFunc(
-		"/results/events/{eventID}/{scope}/{sessionID}",
-		browserPageRoute(),
-		handlers.latestHTML,
-	)
-	mux.HandleFunc(
 		"/results/events/{eventID}/{scope}/{sessionID}/results.txt",
 		publicRoute(),
 		handlers.latestText,
@@ -1097,11 +1092,6 @@ func registerPublicResultsRoutes(
 		"/results/events/{eventID}/{scope}/{sessionID}/revisions/{revision}/results.json",
 		publicRoute(),
 		handlers.versionedJSON,
-	)
-	mux.HandleFunc(
-		"/results/events/{eventID}/event-awards",
-		browserPageRoute(),
-		handlers.latestEventAwardsHTML,
 	)
 	mux.HandleFunc(
 		"/results/events/{eventID}/event-awards/results.txt",
@@ -1113,7 +1103,6 @@ func registerPublicResultsRoutes(
 		publicRoute(),
 		handlers.versionedEventAwardsJSON,
 	)
-	mux.HandleFunc("/results/events/{eventID}", browserPageRoute(), handlers.latestEventHTML)
 	mux.HandleFunc(
 		"/results/events/{eventID}/results.txt",
 		publicRoute(),
@@ -1257,13 +1246,6 @@ func (handlers canonicalEventResultsHandlers) latest(
 	)
 }
 
-func (handlers publicResultsHandlers) latestHTML(
-	response http.ResponseWriter,
-	request *http.Request,
-) {
-	handlers.serve(response, request, 0, "text/html; charset=utf-8")
-}
-
 func (handlers publicResultsHandlers) latestText(
 	response http.ResponseWriter,
 	request *http.Request,
@@ -1283,13 +1265,6 @@ func (handlers publicResultsHandlers) versionedJSON(
 	handlers.serve(response, request, revision, "application/json")
 }
 
-func (handlers publicResultsHandlers) latestEventAwardsHTML(
-	response http.ResponseWriter,
-	request *http.Request,
-) {
-	handlers.serveEventAwards(response, request, 0, "text/html; charset=utf-8")
-}
-
 func (handlers publicResultsHandlers) latestEventAwardsText(
 	response http.ResponseWriter,
 	request *http.Request,
@@ -1307,13 +1282,6 @@ func (handlers publicResultsHandlers) versionedEventAwardsJSON(
 		return
 	}
 	handlers.serveEventAwards(response, request, revision, "application/json")
-}
-
-func (handlers publicResultsHandlers) latestEventHTML(
-	response http.ResponseWriter,
-	request *http.Request,
-) {
-	handlers.serveEvent(response, request, 0, "text/html; charset=utf-8")
 }
 
 func (handlers publicResultsHandlers) latestEventText(

@@ -374,23 +374,6 @@ func TestAdministratorRevisesPreviewsActivatesAndRestoresInstallationTheme(t *te
 func TestProducerActivatesInheritedEventThemeAcrossPublicSchedule(t *testing.T) {
 	producer, server := startAuthenticatedAdministrator(t)
 	prepareActiveSchedule(t, producer, server)
-	published := requestJSONMethod(
-		t.Context(),
-		http.MethodPut,
-		producer,
-		server.address,
-		"/crew/events/1",
-		map[string]any{
-			"name": "Revision 2099", "public": true, "public_slug": "revision-2099",
-			"planned_start_date": "2099-08-21", "planned_end_date": "2099-08-23",
-			"timezone": "Europe/Berlin", "event_locale": "en-GB",
-			"content_language": "en-GB", "event_day_boundary": "06:00",
-			"expected_revision": 1, "command_id": "publish-themed-event",
-		},
-	)
-	if published.err != nil || published.status != http.StatusOK {
-		t.Fatalf("publish themed Event = %d %q, %v", published.status, published.body, published.err)
-	}
 	displayClient := enrollAndAssignDisplay(
 		t, producer, server, "Theme Display", "location-signage",
 	)
@@ -516,10 +499,10 @@ func TestProducerActivatesInheritedEventThemeAcrossPublicSchedule(t *testing.T) 
 		t,
 		producer,
 		server.address,
-		"/schedule",
+		"/events/revision-2099/schedule",
 		"/assets/events/1/theme.css",
 	)
-	assertGETContains(t, producer, server.address, "/schedule", "Pause effects")
+	assertGETContains(t, producer, server.address, "/events/revision-2099/schedule", "Pause effects")
 	displayPage := readDisplayHTML(t, displayClient, server.address)
 	for _, want := range []string{
 		`display-layout-location-signage`,
@@ -1549,7 +1532,7 @@ func TestProducerConfiguresAccessibleBuiltInDisplayViews(t *testing.T) {
 	displayClient := enrollAndAssignDisplay(t, administrator, server, "Themed Display", "event-overview")
 
 	configureInput := map[string]any{
-		"expected_event_revision": 1,
+		"expected_event_revision": 2,
 		"rotation_seconds":        30,
 		"reduced_effects":         true,
 		"theme": map[string]any{
@@ -3190,7 +3173,7 @@ func TestPublicScheduleListsOnlyPublicSessions(t *testing.T) {
 	client, server := startAuthenticatedAdministrator(t)
 	publicSessionID := prepareActiveSchedule(t, client, server)
 
-	response := get(t, authenticatedClient(t), server.address, "/schedule")
+	response := get(t, authenticatedClient(t), server.address, "/events/revision-2099/schedule")
 	body, readErr := io.ReadAll(response.Body)
 	closeErr := response.Body.Close()
 	if err := errors.Join(readErr, closeErr); err != nil {
@@ -3209,7 +3192,7 @@ func TestPublicScheduleListsOnlyPublicSessions(t *testing.T) {
 		"Main Hall",
 		"Main Lane",
 		"General",
-		fmt.Sprintf(`href="/schedule/sessions/%d"`, publicSessionID),
+		fmt.Sprintf(`href="/events/revision-2099/schedule/sessions/%d"`, publicSessionID),
 	} {
 		if !strings.Contains(page, want) {
 			t.Errorf("public Schedule does not contain %q; body: %s", want, page)
@@ -3233,7 +3216,7 @@ func TestPublicScheduleSessionHidesCrewOnlyAndUnknownIdentically(t *testing.T) {
 	client, server := startAuthenticatedAdministrator(t)
 	publicSessionID := prepareActiveSchedule(t, client, server)
 
-	public := get(t, authenticatedClient(t), server.address, fmt.Sprintf("/schedule/sessions/%d", publicSessionID))
+	public := get(t, authenticatedClient(t), server.address, fmt.Sprintf("/events/revision-2099/schedule/sessions/%d", publicSessionID))
 	publicBody, readErr := io.ReadAll(public.Body)
 	closeErr := public.Body.Close()
 	if err := errors.Join(readErr, closeErr); err != nil {
@@ -3242,7 +3225,7 @@ func TestPublicScheduleSessionHidesCrewOnlyAndUnknownIdentically(t *testing.T) {
 	if public.StatusCode != http.StatusOK || !strings.Contains(string(publicBody), "Opening Keynote") {
 		t.Errorf("public Session = %d %q, want 200 with title", public.StatusCode, publicBody)
 	}
-	ended := get(t, authenticatedClient(t), server.address, "/schedule/sessions/3")
+	ended := get(t, authenticatedClient(t), server.address, "/events/revision-2099/schedule/sessions/3")
 	endedBody, readErr := io.ReadAll(ended.Body)
 	closeErr = ended.Body.Close()
 	if err := errors.Join(readErr, closeErr); err != nil {
@@ -3252,13 +3235,13 @@ func TestPublicScheduleSessionHidesCrewOnlyAndUnknownIdentically(t *testing.T) {
 		t.Errorf("ended public Session = %d %q, want stable 200 deep link", ended.StatusCode, endedBody)
 	}
 
-	crewOnly := get(t, authenticatedClient(t), server.address, "/schedule/sessions/2")
+	crewOnly := get(t, authenticatedClient(t), server.address, "/events/revision-2099/schedule/sessions/2")
 	crewOnlyBody, readErr := io.ReadAll(crewOnly.Body)
 	closeErr = crewOnly.Body.Close()
 	if err := errors.Join(readErr, closeErr); err != nil {
 		t.Fatalf("read Crew Only Session response: %v", err)
 	}
-	unknown := get(t, authenticatedClient(t), server.address, "/schedule/sessions/999999")
+	unknown := get(t, authenticatedClient(t), server.address, "/events/revision-2099/schedule/sessions/999999")
 	unknownBody, readErr := io.ReadAll(unknown.Body)
 	closeErr = unknown.Body.Close()
 	if err := errors.Join(readErr, closeErr); err != nil {
@@ -3308,7 +3291,7 @@ func TestPublicScheduleDeepLinkSurvivesPublishedChanges(t *testing.T) {
 		t.Fatalf("rename and retime public Session: %v", err)
 	}
 	publishEditedDraft(t, client, edited.Msg, "publish-renamed-retimed-session")
-	path := fmt.Sprintf("/schedule/sessions/%d", sessionID)
+	path := fmt.Sprintf("/events/revision-2099/schedule/sessions/%d", sessionID)
 	changed := get(t, authenticatedClient(t), server.address, path)
 	changedBody, readErr := io.ReadAll(changed.Body)
 	closeErr := changed.Body.Close()
@@ -3344,7 +3327,7 @@ func TestPublicScheduleDeepLinkSurvivesPublishedChanges(t *testing.T) {
 	if joinedErr := errors.Join(readErr, closeErr); joinedErr != nil {
 		t.Fatalf("read hidden stable deep link: %v", joinedErr)
 	}
-	unknown := get(t, authenticatedClient(t), server.address, "/schedule/sessions/999999")
+	unknown := get(t, authenticatedClient(t), server.address, "/events/revision-2099/schedule/sessions/999999")
 	unknownBody, readErr := io.ReadAll(unknown.Body)
 	closeErr = unknown.Body.Close()
 	if joinedErr := errors.Join(readErr, closeErr); joinedErr != nil {
@@ -3420,7 +3403,7 @@ func TestPublicScheduleSupportsCacheableSnapshotsAndLiveInvalidation(t *testing.
 	publicSessionID := prepareActiveSchedule(t, client, server)
 	publicClient := authenticatedClient(t)
 
-	initial := get(t, publicClient, server.address, "/schedule")
+	initial := get(t, publicClient, server.address, "/events/revision-2099/schedule")
 	initialBody, readErr := io.ReadAll(initial.Body)
 	closeErr := initial.Body.Close()
 	if err := errors.Join(readErr, closeErr); err != nil {
@@ -3451,7 +3434,7 @@ func TestPublicScheduleSupportsCacheableSnapshotsAndLiveInvalidation(t *testing.
 	}
 
 	request, err := http.NewRequestWithContext(
-		t.Context(), http.MethodGet, "http://"+server.address+"/schedule", http.NoBody,
+		t.Context(), http.MethodGet, "http://"+server.address+"/events/revision-2099/schedule", http.NoBody,
 	)
 	if err != nil {
 		t.Fatalf("create conditional public Schedule request: %v", err)
@@ -3509,7 +3492,7 @@ func TestPublicScheduleSupportsCacheableSnapshotsAndLiveInvalidation(t *testing.
 	}
 
 	refreshedRequest, err := http.NewRequestWithContext(
-		t.Context(), http.MethodGet, "http://"+server.address+"/schedule", http.NoBody,
+		t.Context(), http.MethodGet, "http://"+server.address+"/events/revision-2099/schedule", http.NoBody,
 	)
 	if err != nil {
 		t.Fatalf("create refreshed Schedule request: %v", err)
@@ -3622,7 +3605,7 @@ func TestPublicScheduleEncodesFiltersAndLocalTimeInURL(t *testing.T) {
 
 	response := get(
 		t, publicClient, server.address,
-		"/schedule?day=2099-08-21&location=1&lane=1&track=1&time_zone=America%2FNew_York",
+		"/events/revision-2099/schedule?day=2099-08-21&location=1&lane=1&track=1&time_zone=America%2FNew_York",
 	)
 	body, readErr := io.ReadAll(response.Body)
 	closeErr := response.Body.Close()
@@ -3640,8 +3623,8 @@ func TestPublicScheduleEncodesFiltersAndLocalTimeInURL(t *testing.T) {
 		"Event Time (CEST +02:00): Forecast Start 21 Aug 2099 10:00 CEST",
 		"Attendee-local time (EDT -04:00): Forecast Start",
 		`datetime="2099-08-21T04:00:00-04:00">21 Aug 2099 04:00 EDT`,
-		fmt.Sprintf(`/schedule/sessions/%d?time_zone=America%%2FNew_York`, publicSessionID),
-		`hx-get="/schedule?day=2099-08-21&amp;lane=1&amp;location=1&amp;time_zone=America%2FNew_York&amp;track=1"`,
+		fmt.Sprintf(`/events/revision-2099/schedule/sessions/%d?time_zone=America%%2FNew_York`, publicSessionID),
+		`hx-get="/events/revision-2099/schedule?day=2099-08-21&amp;lane=1&amp;location=1&amp;time_zone=America%2FNew_York&amp;track=1"`,
 	} {
 		if !strings.Contains(page, expected) {
 			t.Errorf("filtered local-time Schedule missing %q: %s", expected, page)
@@ -3653,7 +3636,7 @@ func TestPublicScheduleEncodesFiltersAndLocalTimeInURL(t *testing.T) {
 		}
 	}
 
-	empty := get(t, publicClient, server.address, "/schedule?location=999999")
+	empty := get(t, publicClient, server.address, "/events/revision-2099/schedule?location=999999")
 	emptyBody, readErr := io.ReadAll(empty.Body)
 	closeErr = empty.Body.Close()
 	if joinedErr := errors.Join(readErr, closeErr); joinedErr != nil {
@@ -3662,7 +3645,7 @@ func TestPublicScheduleEncodesFiltersAndLocalTimeInURL(t *testing.T) {
 	if empty.StatusCode != http.StatusOK || strings.Contains(string(emptyBody), "Opening Keynote") {
 		t.Errorf("unmatched Schedule filter = %d %q", empty.StatusCode, emptyBody)
 	}
-	invalid := get(t, publicClient, server.address, "/schedule?lane=not-an-id")
+	invalid := get(t, publicClient, server.address, "/events/revision-2099/schedule?lane=not-an-id")
 	invalidBody, readErr := io.ReadAll(invalid.Body)
 	closeErr = invalid.Body.Close()
 	if joinedErr := errors.Join(readErr, closeErr); joinedErr != nil {
@@ -3696,7 +3679,7 @@ func TestPublicScheduleNormalizesActualStartWithoutChangingCrewHistory(t *testin
 
 	public := get(
 		t, authenticatedClient(t), server.address,
-		fmt.Sprintf("/schedule/sessions/%d", sessionID),
+		fmt.Sprintf("/events/communicated-time/schedule/sessions/%d", sessionID),
 	)
 	body, readErr := io.ReadAll(public.Body)
 	closeErr := public.Body.Close()
@@ -3752,7 +3735,7 @@ func TestPublicScheduleNormalizesActualEndWithoutChangingCrewHistory(t *testing.
 	}
 	public := get(
 		t, authenticatedClient(t), server.address,
-		fmt.Sprintf("/schedule/sessions/%d", sessionID),
+		fmt.Sprintf("/events/communicated-time/schedule/sessions/%d", sessionID),
 	)
 	body, readErr := io.ReadAll(public.Body)
 	closeErr := public.Body.Close()
@@ -3804,7 +3787,7 @@ func TestProducerCreatesIncludedCompetitionEntry(t *testing.T) {
 			rundownv1.EntryDisposition_ENTRY_DISPOSITION_INCLUDED {
 		t.Fatalf("Competition configuration = %+v", configured.Msg)
 	}
-	schedulePage := get(t, authenticatedClient(t), server.address, "/schedule")
+	schedulePage := get(t, authenticatedClient(t), server.address, "/events/revision-2099/schedule")
 	schedulePageBody, readErr := io.ReadAll(schedulePage.Body)
 	closeErr := schedulePage.Body.Close()
 	if joinedErr := errors.Join(readErr, closeErr); joinedErr != nil {
@@ -3862,7 +3845,7 @@ func TestProducerCreatesIncludedCompetitionEntry(t *testing.T) {
 	entry = updated.Msg.GetEntry()
 	scheduleBody := func() string {
 		t.Helper()
-		response := get(t, authenticatedClient(t), server.address, "/schedule/sessions/"+strconv.FormatInt(competitionID, 10))
+		response := get(t, authenticatedClient(t), server.address, "/events/revision-2099/schedule/sessions/"+strconv.FormatInt(competitionID, 10))
 		body, bodyReadErr := io.ReadAll(response.Body)
 		bodyCloseErr := response.Body.Close()
 		if joinedErr := errors.Join(bodyReadErr, bodyCloseErr); joinedErr != nil {
@@ -6062,6 +6045,17 @@ func prepareCommunicatedTimeSchedule(
 		map[string]any{"account_id": 1, "role": "Producer", "command_id": "grant-communicated-time-producer"},
 		http.StatusCreated, "{\"event_id\":1,\"account_id\":1,\"role\":\"Producer\"}\n",
 	)
+	publishEventListing(
+		t,
+		client,
+		server,
+		"Communicated Time",
+		"communicated-time",
+		plannedStart.Format(time.DateOnly),
+		plannedStart.AddDate(0, 0, 1).Format(time.DateOnly),
+		"UTC",
+		"00:00",
+	)
 	rundownClient := rundownv1connect.NewRundownServiceClient(
 		client, "http://"+server.address, connect.WithProtoJSON(),
 	)
@@ -6150,6 +6144,17 @@ func prepareActiveSchedule(t *testing.T, client *http.Client, server *runningSer
 		t, client, server.address, "/admin/events/1/grants",
 		map[string]any{"account_id": 1, "role": "Producer", "command_id": "grant-schedule-producer"},
 		http.StatusCreated, "{\"event_id\":1,\"account_id\":1,\"role\":\"Producer\"}\n",
+	)
+	publishEventListing(
+		t,
+		client,
+		server,
+		"Revision 2099",
+		"revision-2099",
+		"2099-08-21",
+		"2099-08-23",
+		"Europe/Berlin",
+		"06:00",
 	)
 
 	rundownClient := rundownv1connect.NewRundownServiceClient(
@@ -6330,6 +6335,32 @@ func addSoftRippleSession(t *testing.T, client *http.Client, server *runningServ
 		t.Fatal("soft ripple Session ID is missing")
 	}
 	return sessionID
+}
+
+func publishEventListing(
+	t *testing.T,
+	client *http.Client,
+	server *runningServer,
+	name, slug, startDate, endDate, timezone, dayBoundary string,
+) {
+	t.Helper()
+	result := requestJSONMethod(
+		t.Context(),
+		http.MethodPut,
+		client,
+		server.address,
+		"/crew/events/1",
+		map[string]any{
+			"name": name, "public": true, "public_slug": slug,
+			"planned_start_date": startDate, "planned_end_date": endDate,
+			"timezone": timezone, "event_locale": "en-GB",
+			"content_language": "en-GB", "event_day_boundary": dayBoundary,
+			"expected_revision": 1, "command_id": "publish-test-event-listing",
+		},
+	)
+	if result.err != nil || result.status != http.StatusOK {
+		t.Fatalf("publish test Event listing = %d %q, %v", result.status, result.body, result.err)
+	}
 }
 
 func addPlacementLane(
@@ -6882,7 +6913,7 @@ func TestOperatorStartsPublishedSessionDurably(t *testing.T) {
 		t.Errorf("started Session state = %+v", state)
 	}
 	wantActualStart := state.GetActualStart().AsTime().In(time.FixedZone("CEST", 2*60*60)).Format(time.RFC3339)
-	public := get(t, authenticatedClient(t), server.address, "/schedule")
+	public := get(t, authenticatedClient(t), server.address, "/events/revision-2099/schedule")
 	publicBody, readErr := io.ReadAll(public.Body)
 	closeErr := public.Body.Close()
 	if err := errors.Join(readErr, closeErr); err != nil {
@@ -6897,7 +6928,7 @@ func TestOperatorStartsPublishedSessionDurably(t *testing.T) {
 	bin := server.bin
 	server.stop(t)
 	restarted := startBeamers(t, bin, dataDir)
-	deepLink := get(t, authenticatedClient(t), restarted.address, fmt.Sprintf("/schedule/sessions/%d", sessionID))
+	deepLink := get(t, authenticatedClient(t), restarted.address, fmt.Sprintf("/events/revision-2099/schedule/sessions/%d", sessionID))
 	deepLinkBody, readErr := io.ReadAll(deepLink.Body)
 	closeErr = deepLink.Body.Close()
 	if err := errors.Join(readErr, closeErr); err != nil {
@@ -6989,7 +7020,7 @@ func TestOperatorCancelsScheduledSessionWithPublicMessage(t *testing.T) {
 		t.Fatalf("exact Cancel Session retry = %+v, %v", retried, err)
 	}
 	public := get(
-		t, authenticatedClient(t), server.address, "/schedule",
+		t, authenticatedClient(t), server.address, "/events/revision-2099/schedule",
 	)
 	body, readErr := io.ReadAll(public.Body)
 	closeErr := public.Body.Close()
@@ -7047,7 +7078,7 @@ func TestProducerReinstatesCanceledLiveSessionFromPlacementPreview(t *testing.T)
 	}
 	canceledPublic := get(
 		t, authenticatedClient(t), server.address,
-		fmt.Sprintf("/schedule/sessions/%d", sessionID),
+		fmt.Sprintf("/events/revision-2099/schedule/sessions/%d", sessionID),
 	)
 	canceledBody, readErr := io.ReadAll(canceledPublic.Body)
 	closeErr := canceledPublic.Body.Close()
@@ -7186,7 +7217,7 @@ func TestProducerReinstatesCanceledLiveSessionFromPlacementPreview(t *testing.T)
 	}
 	public := get(
 		t, authenticatedClient(t), server.address,
-		fmt.Sprintf("/schedule/sessions/%d", sessionID),
+		fmt.Sprintf("/events/revision-2099/schedule/sessions/%d", sessionID),
 	)
 	body, readErr := io.ReadAll(public.Body)
 	closeErr = public.Body.Close()
@@ -7379,7 +7410,7 @@ func TestOperatorPreviewsAndAdjustsLiveSessionTarget(t *testing.T) {
 	if err != nil || !retried.Msg.GetForecastEnd().AsTime().Equal(adjusted.Msg.GetForecastEnd().AsTime()) {
 		t.Fatalf("exact Adjust Target retry = %+v, %v", retried, err)
 	}
-	listing := get(t, authenticatedClient(t), server.address, "/schedule")
+	listing := get(t, authenticatedClient(t), server.address, "/events/revision-2099/schedule")
 	body, readErr := io.ReadAll(listing.Body)
 	closeErr := listing.Body.Close()
 	if err := errors.Join(readErr, closeErr); err != nil {
@@ -7580,7 +7611,7 @@ func TestOperatorCorrectsLiveDetailsWithoutRewritingRunSnapshot(t *testing.T) {
 		}
 	}
 
-	public := get(t, authenticatedClient(t), server.address, "/schedule")
+	public := get(t, authenticatedClient(t), server.address, "/events/revision-2099/schedule")
 	publicBody, readErr := io.ReadAll(public.Body)
 	closeErr := public.Body.Close()
 	if combinedErr := errors.Join(readErr, closeErr); combinedErr != nil {
@@ -7637,7 +7668,7 @@ func TestOperatorCorrectsLiveDetailsWithoutRewritingRunSnapshot(t *testing.T) {
 	})); publishErr != nil {
 		t.Fatalf("Publish reviewed correction: %v", publishErr)
 	}
-	deepLink := get(t, authenticatedClient(t), server.address, fmt.Sprintf("/schedule/sessions/%d", sessionID))
+	deepLink := get(t, authenticatedClient(t), server.address, fmt.Sprintf("/events/revision-2099/schedule/sessions/%d", sessionID))
 	deepLinkBody, readErr := io.ReadAll(deepLink.Body)
 	closeErr = deepLink.Body.Close()
 	if combinedErr := errors.Join(readErr, closeErr); combinedErr != nil {
@@ -7759,7 +7790,7 @@ func TestOrdinaryPublishDoesNotAlterLiveSession(t *testing.T) {
 		!strings.Contains(structuralPreview.Msg.GetValidationFailures()[0], "currently Live Session") {
 		t.Errorf("Live Session Lane Publish validation = %v", structuralPreview.Msg.GetValidationFailures())
 	}
-	public := get(t, authenticatedClient(t), server.address, "/schedule")
+	public := get(t, authenticatedClient(t), server.address, "/events/revision-2099/schedule")
 	publicBody, readErr := io.ReadAll(public.Body)
 	closeErr := public.Body.Close()
 	if err := errors.Join(readErr, closeErr); err != nil {
@@ -8055,7 +8086,7 @@ func TestOperatorEndsLiveSessionWithoutMovingLaterSessions(t *testing.T) {
 		t.Errorf("ended Session state = %+v", state)
 	}
 
-	listing := get(t, authenticatedClient(t), server.address, "/schedule")
+	listing := get(t, authenticatedClient(t), server.address, "/events/revision-2099/schedule")
 	listingBody, readErr := io.ReadAll(listing.Body)
 	closeErr := listing.Body.Close()
 	if err := errors.Join(readErr, closeErr); err != nil {
@@ -8066,7 +8097,7 @@ func TestOperatorEndsLiveSessionWithoutMovingLaterSessions(t *testing.T) {
 		!strings.Contains(string(listingBody), "2099-08-21T12:00:00+02:00") {
 		t.Errorf("Schedule after End = %d %q", listing.StatusCode, listingBody)
 	}
-	deepLink := get(t, authenticatedClient(t), server.address, fmt.Sprintf("/schedule/sessions/%d", sessionID))
+	deepLink := get(t, authenticatedClient(t), server.address, fmt.Sprintf("/events/revision-2099/schedule/sessions/%d", sessionID))
 	deepLinkBody, readErr := io.ReadAll(deepLink.Body)
 	closeErr = deepLink.Body.Close()
 	if err := errors.Join(readErr, closeErr); err != nil {
