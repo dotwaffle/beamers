@@ -843,23 +843,23 @@ func TestBrowserCertification(t *testing.T) {
 		)
 	}
 	assertResponsivePageWidths(t, crewDriver, origin+"/", 320, 375, 768, 1024, 1440)
-	assertResponsivePageWidths(t, crewDriver, origin+"/events/revision-2099", 320, 1440)
+	assertResponsivePageWidths(t, crewDriver, origin+"/events/beamconf-2099", 320, 1440)
 	assertResponsivePageWidths(
 		t,
 		crewDriver,
-		origin+"/events/revision-2099/schedule",
+		origin+"/events/beamconf-2099/schedule",
 		320,
 		1440,
 	)
 	assertResponsivePageWidths(
 		t,
 		crewDriver,
-		origin+"/events/revision-2099/results",
+		origin+"/events/beamconf-2099/results",
 		320,
 		1440,
 	)
-	assertResponsivePageZoom(t, crewDriver, origin+"/events/revision-2099/schedule", 1024, 2)
-	assertResponsivePageZoom(t, crewDriver, origin+"/events/revision-2099/schedule", 1280, 4)
+	assertResponsivePageZoom(t, crewDriver, origin+"/events/beamconf-2099/schedule", 1024, 2)
+	assertResponsivePageZoom(t, crewDriver, origin+"/events/beamconf-2099/schedule", 1280, 4)
 	certifyLiveScheduleUpdate(
 		t,
 		crewDriver,
@@ -873,13 +873,13 @@ func TestBrowserCertification(t *testing.T) {
 		certifyInteractivePage(
 			t,
 			crewDriver,
-			origin+"/events/revision-2099",
+			origin+"/events/beamconf-2099",
 			"event",
 		),
 		certifyInteractivePage(
 			t,
 			crewDriver,
-			origin+"/events/revision-2099/schedule",
+			origin+"/events/beamconf-2099/schedule",
 			"schedule",
 		),
 		certifyResultsPage(t, crewDriver, origin),
@@ -1004,7 +1004,7 @@ func TestBrowserCertification(t *testing.T) {
 	overrideDriver := startBrowserSession(
 		t, client, secondCrewDriverEndpoint, config,
 	)
-	if err := overrideDriver.navigate(t.Context(), origin+"/events/revision-2099/schedule"); err != nil {
+	if err := overrideDriver.navigate(t.Context(), origin+"/events/beamconf-2099/schedule"); err != nil {
 		t.Fatalf("navigate Override console to cookie origin: %v", err)
 	}
 	addBrowserCookie(t, overrideDriver, browserCookie(
@@ -1469,7 +1469,7 @@ func openSecondaryCrewControl(
 ) (*webDriver, browserPageEvidence) {
 	t.Helper()
 	driver := startBrowserSession(t, client, driverEndpoint, config)
-	if err := driver.navigate(t.Context(), origin+"/events/revision-2099/schedule"); err != nil {
+	if err := driver.navigate(t.Context(), origin+"/events/beamconf-2099/schedule"); err != nil {
 		t.Fatalf("navigate second Crew console to cookie origin: %v", err)
 	}
 	addBrowserCookie(t, driver, browserCookie(
@@ -1833,7 +1833,7 @@ func certifyResultsPage(
 	evidence := certifyInteractivePage(
 		t,
 		driver,
-		origin+"/events/revision-2099/results",
+		origin+"/events/beamconf-2099/results",
 		"results",
 	)
 	metadata, err := driver.evaluateString(
@@ -1856,7 +1856,7 @@ func startCertifiedBrowserDisplay(
 ) browserPageEvidence {
 	t.Helper()
 	display.driver = startBrowserSession(t, client, display.driverEndpoint, config)
-	if err := display.driver.navigate(t.Context(), origin+"/events/revision-2099/schedule"); err != nil {
+	if err := display.driver.navigate(t.Context(), origin+"/events/beamconf-2099/schedule"); err != nil {
 		t.Fatalf("navigate to Display cookie origin: %v", err)
 	}
 	for _, path := range []string{"/display", "/beamers.display.v1.DisplayService"} {
@@ -2249,8 +2249,8 @@ func certifyDemoBrowserJourneys(
 	evidence := []browserPageEvidence{
 		certifyInteractivePage(t, driver, origin+"/", "demo-anonymous"),
 	}
-	clickBrowserLink(t, driver, "Revision Demo", "/events/revision-demo")
-	clickBrowserLink(t, driver, "Event Results", "/events/revision-demo/results")
+	clickBrowserLink(t, driver, "BeamParty 2099", "/events/beamparty-2099")
+	clickBrowserLink(t, driver, "Event Results", "/events/beamparty-2099/results")
 	focusKeyboardControl(t, driver, "demo-results")
 	resultsEvidence, err := driver.auditPage(t.Context(), "demo-results")
 	if err != nil {
@@ -2287,7 +2287,7 @@ func certifyDemoBrowserJourneys(
 			"attendee", "/my-participation", "demo-submission", false,
 			[]journeyLink{
 				{"My Participation", "/my-participation"},
-				{"View Competition", "/events/revision-demo/competitions/2"},
+				{"View Competition", "/events/beamparty-2099/competitions/2"},
 				{"Manage My Entry", "/my-participation"},
 			},
 		},
@@ -2658,7 +2658,7 @@ func certifyLiveScheduleUpdate(
 	sessionID int64,
 ) {
 	t.Helper()
-	target := "http://" + server.address + "/events/revision-2099/schedule?location=1"
+	target := "http://" + server.address + "/events/beamconf-2099/schedule?location=1"
 	if err := driver.navigate(t.Context(), target); err != nil {
 		t.Fatalf("navigate to live Schedule: %v", err)
 	}
@@ -2859,7 +2859,7 @@ func assertEventNavigationModes(
 	origin string,
 ) {
 	t.Helper()
-	if err := driver.navigate(t.Context(), origin+"/events/revision-2099"); err != nil {
+	if err := driver.navigate(t.Context(), origin+"/events/beamconf-2099"); err != nil {
 		t.Fatalf("navigate to public Event: %v", err)
 	}
 	if err := driver.setWindowSize(t.Context(), 320); err != nil {
@@ -2922,22 +2922,22 @@ func certifyFrontendNavigationJourney(
 	if err := driver.navigate(t.Context(), origin+"/"); err != nil {
 		t.Fatalf("navigate to Frontend root: %v", err)
 	}
-	clickBrowserLink(t, driver, "Revision 2099", "/events/revision-2099")
-	clickBrowserLink(t, driver, "Event Schedule", "/events/revision-2099/schedule")
+	clickBrowserLink(t, driver, "BeamConf 2099", "/events/beamconf-2099")
+	clickBrowserLink(t, driver, "Event Schedule", "/events/beamconf-2099/schedule")
 	clickBrowserLink(
 		t,
 		driver,
 		"Live Browser Keynote",
-		"/events/revision-2099/schedule/sessions/"+strconv.FormatInt(sessionID, 10),
+		"/events/beamconf-2099/schedule/sessions/"+strconv.FormatInt(sessionID, 10),
 	)
-	clickBrowserLink(t, driver, "Competitions", "/events/revision-2099/competitions")
+	clickBrowserLink(t, driver, "Competitions", "/events/beamconf-2099/competitions")
 	clickBrowserLink(
 		t,
 		driver,
 		"Demo Competition",
-		"/events/revision-2099/competitions/"+strconv.FormatInt(competitionID, 10),
+		"/events/beamconf-2099/competitions/"+strconv.FormatInt(competitionID, 10),
 	)
-	clickBrowserLink(t, driver, "Event Results", "/events/revision-2099/results")
+	clickBrowserLink(t, driver, "Event Results", "/events/beamconf-2099/results")
 	clickBrowserLink(t, driver, "Profile", "/profile")
 	clickBrowserLink(t, driver, "My Participation", "/my-participation")
 	clickBrowserLink(t, driver, "Backstage", "/backstage")

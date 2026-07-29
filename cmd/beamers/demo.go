@@ -153,7 +153,7 @@ func seedDemoInstallation(ctx context.Context, dataDir string) (returnErr error)
 	}
 
 	event, err := installation.Events().Create(ctx, administrator, events.CreateInput{
-		Name:             "Revision Demo",
+		Name:             "BeamParty 2099",
 		PlannedStartDate: "2099-08-21",
 		PlannedEndDate:   "2099-08-22",
 		Timezone:         "Europe/Berlin",
@@ -190,7 +190,7 @@ func seedDemoInstallation(ctx context.Context, dataDir string) (returnErr error)
 	event, err = installation.Events().Update(ctx, producer, event.ID, events.CreateInput{
 		Name:             event.Name,
 		Public:           true,
-		PublicSlug:       "revision-demo",
+		PublicSlug:       "beamparty-2099",
 		PlannedStartDate: event.PlannedStartDate,
 		PlannedEndDate:   event.PlannedEndDate,
 		Timezone:         event.Timezone,
