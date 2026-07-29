@@ -892,8 +892,9 @@ func (handlers backstageResultsHandlers) renderPage(
 	}
 	handlers.browser.render(response, request, status, frontend.Results(frontend.ResultsPage{
 		AccountName: actor.Name, CSRFToken: csrfToken,
-		ReducedEffects: reducedEffectsCookie(request), Navigation: backstageNavigation(actor),
-		CommandID: commandID, Event: event,
+		ReducedEffects: reducedEffectsCookie(request),
+		Navigation:     backstageNavigation(actor, request.URL.Path),
+		CommandID:      commandID, Event: event,
 		CanManage:    actor.HasCapability(eventID, viewer.ManageResults),
 		Producer:     actor.CanProduceEvent(eventID),
 		Competitions: competitions, Prizegivings: prizegivings, Error: message,

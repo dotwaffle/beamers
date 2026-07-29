@@ -21,6 +21,7 @@ type OperationsPage struct {
 	Event                 events.Event
 	Rundown               rundown.CrewRundown
 	Displays              []displays.Status
+	DisplaysAvailable     bool
 	CommandIDs            map[string]string
 	OperableSessionIDs    map[int]bool
 	DisplayCommandIDs     map[int]string
@@ -194,7 +195,9 @@ templ Operations(page OperationsPage) {
 								<button type="submit">Enroll or recover Display</button>
 							</form>
 						}
-						if len(page.Displays) == 0 {
+						if !page.DisplaysAvailable {
+							<p>Display operations are unavailable while this Event is not active.</p>
+						} else if len(page.Displays) == 0 {
 							<p>No enrolled Displays.</p>
 						} else {
 							for _, display := range page.Displays {

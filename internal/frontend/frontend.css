@@ -167,9 +167,19 @@ nav form:first-of-type {
   padding-block: 0.55rem;
 }
 
+.backstage-layout main details > summary {
+  cursor: pointer;
+  min-block-size: 2.75rem;
+  padding-block: 0.55rem;
+}
+
 .backstage-sidebar,
 .event-sidebar {
   display: none;
+}
+
+.backstage-breadcrumbs {
+  min-width: 0;
 }
 
 .backstage-links {
@@ -407,6 +417,11 @@ body[data-reduced-effects="true"] main {
     padding: 1rem;
     position: sticky;
     top: 1rem;
+  }
+
+  .backstage-breadcrumbs,
+  .backstage-layout main {
+    grid-column: 2;
   }
 }
 

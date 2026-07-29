@@ -18,12 +18,14 @@
     return found;
   };
   const controls = [...document.querySelectorAll(
-    "a[href],button,input,select,textarea",
+    "a[href],button,input,select,textarea,summary",
   )].filter((element) => !element.matches('input[type="hidden"]') &&
     visible(element));
   const unlabeledControls = controls
     .filter((element) => {
-      if (element.localName === "button" || element.localName === "a") {
+      if (element.localName === "button" ||
+        element.localName === "a" ||
+        element.localName === "summary") {
         return !element.textContent.trim() &&
           !element.getAttribute("aria-label") &&
           !element.getAttribute("aria-labelledby");
@@ -79,7 +81,7 @@
     return (light + 0.05) / (dark + 0.05);
   };
   const contrastFailures = [...document.querySelectorAll(
-    "h1,h2,h3,p,label,button,a,li,strong,input,select",
+    "h1,h2,h3,p,label,button,a,li,strong,input,select,summary",
   )]
     .filter((element) => visible(element) && (
       element.textContent.trim() || element.value
@@ -103,7 +105,7 @@
   const active = document.activeElement;
   const keyboardOperable = active &&
     active !== document.body &&
-    active.matches("a[href],button,input,select,textarea,[tabindex]");
+    active.matches("a[href],button,input,select,textarea,summary,[tabindex]");
   const activeStyle = keyboardOperable ? getComputedStyle(active) : null;
   const focusVisible = Boolean(activeStyle) && (
     activeStyle.outlineStyle !== "none" &&

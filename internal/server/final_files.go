@@ -177,8 +177,9 @@ func (handlers finalFilesHandlers) renderBackstage(
 	handlers.browser.render(response, request, status, frontend.FinalFiles(
 		frontend.FinalFilesPage{
 			AccountName: actor.Name, CSRFToken: csrfToken,
-			ReducedEffects: reducedEffectsCookie(request), Navigation: backstageNavigation(actor),
-			Event: event, Plan: plan, TotalSize: totalSize, Error: message,
+			ReducedEffects: reducedEffectsCookie(request),
+			Navigation:     backstageNavigation(actor, request.URL.Path),
+			Event:          event, Plan: plan, TotalSize: totalSize, Error: message,
 		},
 	))
 }

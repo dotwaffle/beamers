@@ -2197,6 +2197,7 @@ func certifyDemoBrowserJourneys(
 		{"producer", "/backstage/events/1/results", "demo-producer", true},
 		{"administrator", "/backstage/themes", "demo-administrator", true},
 		{"operator", "/backstage/events/1/operations", "demo-operator", true},
+		{"observer", "/backstage/events/1", "demo-observer", true},
 	} {
 		account := authenticatedClient(t)
 		assertJSONRequest(
@@ -2255,6 +2256,63 @@ func certifyDemoBrowserJourneys(
 				hasBackstage,
 				journey.backstage,
 			)
+		}
+		if journey.handle == "producer" ||
+			journey.handle == "operator" ||
+			journey.handle == "observer" {
+			role, roleErr := driver.evaluateString(
+				t.Context(),
+				`return document.querySelector(".backstage-links p")?.textContent.trim() || "";`,
+			)
+			wantRole := strings.ToUpper(journey.handle[:1]) + journey.handle[1:]
+			if roleErr != nil || role != wantRole {
+				t.Fatalf(
+					"%s Backstage role = %q, %v; want %q",
+					journey.handle,
+					role,
+					roleErr,
+					wantRole,
+				)
+			}
+			clickBrowserLink(
+				t,
+				driver,
+				"Sessions and Competitions",
+				"/backstage/events/1/sessions",
+			)
+			hasCompetitionWorkflow, workflowErr := driver.evaluateBool(
+				t.Context(),
+				`return [...document.querySelectorAll("main a")].some(`+
+					`link => link.textContent.trim() === "Competition Entries and Attachments");`,
+			)
+			wantCompetitionWorkflow := journey.handle != "observer"
+			if workflowErr != nil ||
+				hasCompetitionWorkflow != wantCompetitionWorkflow {
+				t.Fatalf(
+					"%s Competition workflow = %t, %v; want %t",
+					journey.handle,
+					hasCompetitionWorkflow,
+					workflowErr,
+					wantCompetitionWorkflow,
+				)
+			}
+			if wantCompetitionWorkflow {
+				path, pathErr := driver.evaluateString(
+					t.Context(),
+					`return [...document.querySelectorAll("main a")].find(`+
+						`link => link.textContent.trim() === `+
+						`"Competition Entries and Attachments").getAttribute("href");`,
+				)
+				if pathErr != nil {
+					t.Fatalf("read %s Competition workflow: %v", journey.handle, pathErr)
+				}
+				clickBrowserLink(
+					t,
+					driver,
+					"Competition Entries and Attachments",
+					path,
+				)
+			}
 		}
 		switch journey.surface {
 		case "demo-submission":
@@ -2569,6 +2627,54 @@ func assertBackstageNavigationModes(
 				sidebar,
 			)
 		}
+		equivalent, err := driver.evaluateBool(
+			t.Context(),
+			`const links = selector => [...document.querySelectorAll(selector + " a")].map(`+
+				`link => link.textContent.trim() + "|" + link.getAttribute("href"));`+
+				`return JSON.stringify(links(".backstage-drawer")) === `+
+				`JSON.stringify(links(".backstage-sidebar"));`,
+		)
+		if err != nil || !equivalent {
+			t.Fatalf(
+				"Backstage navigation parity at %d pixels = %t, %v",
+				check.width,
+				equivalent,
+				err,
+			)
+		}
+	}
+	if err := driver.navigate(
+		t.Context(),
+		origin+"/backstage/events/1/results",
+	); err != nil {
+		t.Fatalf("navigate to Backstage Results: %v", err)
+	}
+	current, err := driver.evaluateBool(
+		t.Context(),
+		`return document.querySelectorAll(`+
+			`'.backstage-links a[aria-current="page"]').length === 2 && `+
+			`document.querySelector('.breadcrumbs [aria-current="page"]')?.textContent.trim() === `+
+			`"Results and Prizegiving";`,
+	)
+	if err != nil || !current {
+		t.Fatalf("Backstage active navigation and breadcrumbs = %t, %v", current, err)
+	}
+	err = driver.navigate(
+		t.Context(),
+		origin+"/backstage/events/1/control/emergency-alerts#emergency-alerts",
+	)
+	if err != nil {
+		t.Fatalf("navigate to Backstage Emergency Alerts: %v", err)
+	}
+	current, err = driver.evaluateBool(
+		t.Context(),
+		`return document.querySelectorAll(`+
+			`'.backstage-links a[aria-current="page"]').length === 2 && `+
+			`document.querySelector('.breadcrumbs [aria-current="page"]')?.textContent.trim() === `+
+			`"Emergency Alerts" && location.hash === "#emergency-alerts";`,
+	)
+	if err != nil || !current {
+		t.Fatalf("Backstage Emergency navigation and breadcrumbs = %t, %v", current, err)
 	}
 }
 

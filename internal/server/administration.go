@@ -406,7 +406,7 @@ func (handlers administrationHandlers) render(
 		frontend.Administration(frontend.AdministrationPage{
 			AccountName: actor.Name, CSRFToken: csrfToken,
 			ReducedEffects:       reducedEffectsCookie(request),
-			Navigation:           backstageNavigation(actor),
+			Navigation:           backstageNavigation(actor, request.URL.Path),
 			Accounts:             accounts,
 			Events:               foundEvents,
 			Grants:               grants,
