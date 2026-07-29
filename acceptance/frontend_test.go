@@ -2768,8 +2768,33 @@ func TestBrowserEventOverviewAndSettings(t *testing.T) {
 
 	settingsPath := frontendLinkPath(t, overview, "Event settings")
 	settings := getFrontendPage(t, administrator, server.address, settingsPath)
-	configured := postFrontendForm(t, administrator, server.address, settingsPath, url.Values{
+	invalid := postFrontendForm(t, administrator, server.address, settingsPath, url.Values{
 		"csrf_token":                        {requireFrontendCSRF(t, settings)},
+		"command_id":                        {"browser-invalid-event-settings"},
+		"expected_event_revision":           {"1"},
+		"event_name":                        {""},
+		"planned_start_date":                {"2026-08-21"},
+		"planned_end_date":                  {"2026-08-23"},
+		"timezone":                          {"Europe/Berlin"},
+		"event_locale":                      {"de-DE"},
+		"content_language":                  {"fr"},
+		"event_day_boundary":                {"06:00"},
+		"entry_default_disposition":         {"Included"},
+		"submission_eligibility":            {"AllAccounts"},
+		"voting_method":                     {"Range1To5"},
+		"self_vote_policy":                  {"Allowed"},
+		"target_adjustment_presets_seconds": {"-300,300,600"},
+	})
+	if invalid.status != http.StatusUnprocessableEntity ||
+		!strings.Contains(invalid.body, `name="content_language" value="fr"`) {
+		t.Fatalf("invalid Event settings = %d %q", invalid.status, invalid.body)
+	}
+	assertAccessibleFormErrors(t, invalid, map[string]string{
+		"event-name": "must be 1 to 200 characters without control characters",
+	})
+
+	configured := postFrontendForm(t, administrator, server.address, settingsPath, url.Values{
+		"csrf_token":                        {requireFrontendCSRF(t, invalid)},
 		"command_id":                        {"browser-update-event-settings"},
 		"expected_event_revision":           {"1"},
 		"event_name":                        {"Revision Browser"},
@@ -2818,9 +2843,10 @@ func TestBrowserEventOverviewAndSettings(t *testing.T) {
 	})
 	if stale.status != http.StatusConflict ||
 		!strings.Contains(stale.body, "Event changed") ||
-		strings.Contains(stale.body, `value="Stale Event"`) {
+		!strings.Contains(stale.body, `value="Stale Event"`) {
 		t.Fatalf("stale Event settings = %d %q", stale.status, stale.body)
 	}
+	assertAccessibleFormErrors(t, stale, nil)
 
 	planning := getFrontendPage(
 		t,
@@ -2875,6 +2901,22 @@ func TestBrowserControlsEventAttachmentRelease(t *testing.T) {
 			t.Fatalf("Event release settings lack %q: %d %q", want, settings.status, settings.body)
 		}
 	}
+	invalid := postFrontendForm(t, administrator, server.address, settingsPath, url.Values{
+		"csrf_token":                {requireFrontendCSRF(t, settings)},
+		"action":                    {"configure-attachment-release"},
+		"command_id":                {"browser-invalid-event-release"},
+		"expected_release_revision": {"1"},
+		"release_policy":            {"Later"},
+		"cue_session_id":            {strconv.FormatInt(ceremonyID, 10)},
+	})
+	if invalid.status != http.StatusUnprocessableEntity ||
+		!strings.Contains(invalid.body, `value="`+strconv.FormatInt(ceremonyID, 10)+`" selected`) {
+		t.Fatalf("invalid Event Attachment release = %d %q", invalid.status, invalid.body)
+	}
+	assertAccessibleFormErrors(t, invalid, map[string]string{
+		"release-policy": "Check the Attachment release settings and confirmation.",
+	})
+
 	configured := postFrontendForm(t, administrator, server.address, settingsPath, url.Values{
 		"csrf_token":                {requireFrontendCSRF(t, settings)},
 		"action":                    {"configure-attachment-release"},
@@ -2938,6 +2980,10 @@ func TestBrowserControlsEventAttachmentRelease(t *testing.T) {
 		!strings.Contains(stale.body, "Release impact changed") {
 		t.Fatalf("stale Event Release Cue = %d %q", stale.status, stale.body)
 	}
+	assertAccessibleFormErrors(t, stale, nil)
+	if regexp.MustCompile(`<input[^>]+id="release-cue-confirmed"[^>]+checked`).MatchString(stale.body) {
+		t.Fatalf("stale Event Release Cue retained confirmation: %q", stale.body)
+	}
 	assertPublicAttachmentOnListeners(
 		t, server, fixture.publicVersion.ID,
 		http.StatusNotFound, "Attachment Version not found\n",
@@ -2971,6 +3017,9 @@ func TestBrowserControlsEventAttachmentRelease(t *testing.T) {
 	if unconfirmed.status != http.StatusUnprocessableEntity {
 		t.Fatalf("unconfirmed Event Release Cue = %d %q", unconfirmed.status, unconfirmed.body)
 	}
+	assertAccessibleFormErrors(t, unconfirmed, map[string]string{
+		"release-cue-confirmed": "Check the Attachment release settings and confirmation.",
+	})
 	fire := url.Values{
 		"csrf_token":                {requireFrontendCSRF(t, preview)},
 		"action":                    {"fire-attachment-release-cue"},
@@ -3119,6 +3168,9 @@ func TestBrowserConfiguresEventDisplays(t *testing.T) {
 		) {
 		t.Fatalf("invalid Event Display settings = %d %q", invalid.status, invalid.body)
 	}
+	assertAccessibleFormErrors(t, invalid, map[string]string{
+		"session." + strconv.FormatInt(sessionID, 10) + ".threshold-seconds-0": "must be an integer from 1 to 86400",
+	})
 
 	stale := postFrontendForm(t, administrator, server.address, path, url.Values{
 		"csrf_token":               {requireFrontendCSRF(t, latest)},
@@ -3133,6 +3185,7 @@ func TestBrowserConfiguresEventDisplays(t *testing.T) {
 		!strings.Contains(stale.body, `value="31"`) {
 		t.Fatalf("stale Event Display settings = %d %q", stale.status, stale.body)
 	}
+	assertAccessibleFormErrors(t, stale, nil)
 	committed := requestJSONMethod(
 		t.Context(),
 		http.MethodGet,
@@ -5548,8 +5601,34 @@ func TestBrowserPlansAndPublishesEvent(t *testing.T) {
 	}
 
 	page = getFrontendPage(t, administrator, server.address, path)
-	created := postFrontendForm(t, administrator, server.address, path, url.Values{
+	invalidDraft := postFrontendForm(t, administrator, server.address, path, url.Values{
 		"csrf_token":              {requireFrontendCSRF(t, page)},
+		"action":                  {"draft"},
+		"command_id":              {"browser-invalid-rundown"},
+		"expected_draft_revision": {"0"},
+		"location_name":           {"Safe Hall"},
+		"lane_name":               {"Safe Stage"},
+		"track_name":              {"Safe Track"},
+		"session_title":           {strings.Repeat("x", 201)},
+		"session_type":            {"Ceremony"},
+		"audience_visibility":     {"Public"},
+		"planned_start":           {"2026-08-21T10:00"},
+		"planned_end":             {"2026-08-21T10:30"},
+		"timing_policy":           {"FixedEnd"},
+		"minimum_duration":        {"15m"},
+		"start_boundary":          {"Hard"},
+		"end_boundary":            {"Soft"},
+	})
+	if invalidDraft.status != http.StatusUnprocessableEntity ||
+		!strings.Contains(invalidDraft.body, `name="location_name" value="Safe Hall"`) {
+		t.Fatalf("invalid Draft structure = %d %q", invalidDraft.status, invalidDraft.body)
+	}
+	assertAccessibleFormErrors(t, invalidDraft, map[string]string{
+		"draft-session-title": "must be 1 to 200 characters without control characters",
+	})
+
+	created := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":              {requireFrontendCSRF(t, invalidDraft)},
 		"action":                  {"draft"},
 		"command_id":              {"browser-create-rundown"},
 		"expected_draft_revision": {"0"},
@@ -5589,9 +5668,11 @@ func TestBrowserPlansAndPublishesEvent(t *testing.T) {
 	})
 	if stale.status != http.StatusConflict ||
 		!strings.Contains(stale.body, `role="alert"`) ||
-		!strings.Contains(stale.body, "Draft changed") {
+		!strings.Contains(stale.body, "Draft changed") ||
+		!strings.Contains(stale.body, `name="location_name" value="Stale Hall"`) {
 		t.Fatalf("stale Draft response = %d %q", stale.status, stale.body)
 	}
+	assertAccessibleFormErrors(t, stale, nil)
 
 	preview := postFrontendForm(t, administrator, server.address, path, url.Values{
 		"csrf_token": {requireFrontendCSRF(t, page)},
@@ -5613,6 +5694,7 @@ func TestBrowserPlansAndPublishesEvent(t *testing.T) {
 	staleConfirmation.Set("csrf_token", requireFrontendCSRF(t, preview))
 	staleConfirmation.Set("action", "publish")
 	staleConfirmation.Set("command_id", "browser-stale-publish")
+	staleConfirmation.Set("publish_note", "Safe publish note")
 	deferred := postFrontendForm(t, administrator, server.address, path, url.Values{
 		"csrf_token":              {requireFrontendCSRF(t, page)},
 		"action":                  {"draft"},
@@ -5627,20 +5709,17 @@ func TestBrowserPlansAndPublishesEvent(t *testing.T) {
 		t, administrator, server.address, path, staleConfirmation,
 	)
 	if stalePublish.status != http.StatusConflict ||
-		!strings.Contains(stalePublish.body, "Publish Preview is stale") {
+		!strings.Contains(stalePublish.body, "Publish Preview is stale") ||
+		!strings.Contains(stalePublish.body, "Confirm publish") ||
+		!strings.Contains(stalePublish.body, "Safe publish note") {
 		t.Fatalf("stale Publish = %d %q", stalePublish.status, stalePublish.body)
 	}
-	page = getFrontendPage(t, administrator, server.address, path)
-	preview = postFrontendForm(t, administrator, server.address, path, url.Values{
-		"csrf_token": {requireFrontendCSRF(t, page)},
-		"action":     {"publish-preview"},
-		"change_id":  {"4"},
-	})
+	assertAccessibleFormErrors(t, stalePublish, nil)
 	confirmation := frontendNamedValues(
-		preview.body,
+		stalePublish.body,
 		"draft_revision", "published_revision", "fingerprint", "change_id",
 	)
-	confirmation.Set("csrf_token", requireFrontendCSRF(t, preview))
+	confirmation.Set("csrf_token", requireFrontendCSRF(t, stalePublish))
 	confirmation.Set("action", "publish")
 	confirmation.Set("command_id", "browser-publish-rundown")
 	published := postFrontendForm(t, administrator, server.address, path, confirmation)
@@ -5681,6 +5760,19 @@ func TestBrowserPlansAndPublishesEvent(t *testing.T) {
 
 	const csvMappings = "kind=record_type\nkey=external_key\ntitle=title\nstart=planned_start\nend=planned_end\nlane=lane\nlocation=location"
 	const csvData = "kind,key,title,start,end,lane,location\nSession,browser-session,Imported Session,2026-08-21T11:00:00+02:00,2026-08-21T11:30:00+02:00,Main Stage,Hall Alpha\n"
+	invalidCSV := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":   {requireFrontendCSRF(t, page)},
+		"action":       {"csv-preview"},
+		"csv_mappings": {"not-a-mapping"},
+		"csv_data":     {csvData},
+	})
+	if invalidCSV.status != http.StatusUnprocessableEntity ||
+		!strings.Contains(invalidCSV.body, csvData) {
+		t.Fatalf("invalid CSV preview = %d %q", invalidCSV.status, invalidCSV.body)
+	}
+	assertAccessibleFormErrors(t, invalidCSV, map[string]string{
+		"csv-mappings": "must use one source=target mapping per line",
+	})
 	csvPreview := postFrontendForm(t, administrator, server.address, path, url.Values{
 		"csrf_token":   {requireFrontendCSRF(t, page)},
 		"action":       {"csv-preview"},
@@ -5700,6 +5792,30 @@ func TestBrowserPlansAndPublishesEvent(t *testing.T) {
 	)
 	csvConfirmation["proposal_id"] = frontendCheckboxValues(csvPreview.body, "proposal_id")
 	csvConfirmation.Set("csrf_token", requireFrontendCSRF(t, csvPreview))
+	csvConfirmation.Set("action", "csv-import")
+	csvConfirmation.Set("command_id", "browser-import-csv")
+	csvConfirmation.Set("csv_mappings", csvMappings)
+	csvConfirmation.Set("csv_data", csvData)
+	invalidCSVConfirmation := csvConfirmation
+	invalidCSVConfirmation.Del("proposal_id")
+	invalidCSVConfirmation.Set("command_id", "browser-empty-import-csv")
+	emptyCSV := postFrontendForm(
+		t, administrator, server.address, path, invalidCSVConfirmation,
+	)
+	if emptyCSV.status != http.StatusUnprocessableEntity ||
+		!strings.Contains(emptyCSV.body, csvData) {
+		t.Fatalf("empty CSV selection = %d %q", emptyCSV.status, emptyCSV.body)
+	}
+	assertAccessibleFormErrors(t, emptyCSV, map[string]string{
+		"csv-proposal-ids": "select at least one proposal",
+	})
+	csvConfirmation = frontendNamedValues(
+		emptyCSV.body,
+		"expected_draft_revision",
+		"fingerprint",
+	)
+	csvConfirmation["proposal_id"] = frontendCheckboxOptions(emptyCSV.body, "proposal_id")
+	csvConfirmation.Set("csrf_token", requireFrontendCSRF(t, emptyCSV))
 	csvConfirmation.Set("action", "csv-import")
 	csvConfirmation.Set("command_id", "browser-import-csv")
 	csvConfirmation.Set("csv_mappings", csvMappings)
@@ -5737,6 +5853,32 @@ func TestBrowserPlansAndPublishesEvent(t *testing.T) {
 		"proposal_id",
 	)
 	icalendarConfirmation.Set("csrf_token", requireFrontendCSRF(t, icalendarPreview))
+	icalendarConfirmation.Set("action", "icalendar-import")
+	icalendarConfirmation.Set("command_id", "browser-import-icalendar")
+	icalendarConfirmation.Set("icalendar_data", icalendarData)
+	invalidICalendarConfirmation := icalendarConfirmation
+	invalidICalendarConfirmation.Del("proposal_id")
+	invalidICalendarConfirmation.Set("command_id", "browser-empty-import-icalendar")
+	emptyICalendar := postFrontendForm(
+		t, administrator, server.address, path, invalidICalendarConfirmation,
+	)
+	if emptyICalendar.status != http.StatusUnprocessableEntity ||
+		!strings.Contains(emptyICalendar.body, icalendarData) {
+		t.Fatalf("empty iCalendar selection = %d %q", emptyICalendar.status, emptyICalendar.body)
+	}
+	assertAccessibleFormErrors(t, emptyICalendar, map[string]string{
+		"icalendar-proposal-ids": "select at least one proposal",
+	})
+	icalendarConfirmation = frontendNamedValues(
+		emptyICalendar.body,
+		"expected_draft_revision",
+		"fingerprint",
+	)
+	icalendarConfirmation["proposal_id"] = frontendCheckboxOptions(
+		emptyICalendar.body,
+		"proposal_id",
+	)
+	icalendarConfirmation.Set("csrf_token", requireFrontendCSRF(t, emptyICalendar))
 	icalendarConfirmation.Set("action", "icalendar-import")
 	icalendarConfirmation.Set("command_id", "browser-import-icalendar")
 	icalendarConfirmation.Set("icalendar_data", icalendarData)
@@ -5809,8 +5951,26 @@ func TestBrowserManagesCompetitionEntries(t *testing.T) {
 		t.Fatalf("unscoped Operator Reopen Window update = %d %q", denied.status, denied.body)
 	}
 
-	created := postFrontendForm(t, administrator, server.address, path, url.Values{
+	invalidEntryDetails := strings.Repeat("d", 10001)
+	invalidEntry := postFrontendForm(t, administrator, server.address, path, url.Values{
 		"csrf_token":     {requireFrontendCSRF(t, page)},
+		"action":         {"create-entry"},
+		"command_id":     {"browser-invalid-entry"},
+		"entry_name":     {""},
+		"public_details": {invalidEntryDetails},
+		"crew_notes":     {"Safe Crew note"},
+	})
+	if invalidEntry.status != http.StatusUnprocessableEntity ||
+		!strings.Contains(invalidEntry.body, invalidEntryDetails) {
+		t.Fatalf("invalid Entry creation = %d %q", invalidEntry.status, invalidEntry.body)
+	}
+	assertAccessibleFormErrors(t, invalidEntry, map[string]string{
+		"create-entry-entry-name":     "Enter an Entry name.",
+		"create-entry-public-details": "Enter no more than 10000 characters.",
+	})
+
+	created := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":     {requireFrontendCSRF(t, invalidEntry)},
 		"action":         {"create-entry"},
 		"command_id":     {"browser-create-entry"},
 		"entry_name":     {"Project Aurora"},
@@ -5889,6 +6049,21 @@ func TestBrowserManagesCompetitionEntries(t *testing.T) {
 		!strings.Contains(page.body, "review current: false") {
 		t.Fatalf("Entry edit did not invalidate review = %d %q", page.status, page.body)
 	}
+	staleEntry := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, page)},
+		"action":            {"update-entry"},
+		"command_id":        {"browser-stale-entry"},
+		"entry_id":          {"1"},
+		"expected_revision": {"2"},
+		"entry_name":        {"Safe stale Entry"},
+		"public_details":    {"Safe stale public details"},
+		"crew_notes":        {"Safe stale Crew notes"},
+	})
+	if staleEntry.status != http.StatusConflict ||
+		!strings.Contains(staleEntry.body, `value="Safe stale Entry"`) {
+		t.Fatalf("stale Entry update = %d %q", staleEntry.status, staleEntry.body)
+	}
+	assertAccessibleFormErrors(t, staleEntry, nil)
 
 	rejected := postFrontendForm(t, administrator, server.address, path, url.Values{
 		"csrf_token":        {requireFrontendCSRF(t, page)},
@@ -5972,6 +6147,32 @@ func TestBrowserManagesCompetitionEntries(t *testing.T) {
 	}
 
 	uploadPath := path + "/upload"
+	invalidUpload := requestMultipart(
+		t.Context(),
+		administrator,
+		server.address,
+		uploadPath,
+		map[string]string{
+			"csrf_token": requireFrontendCSRF(t, page),
+			"command_id": "browser-invalid-upload",
+			"entry_id":   "1",
+			"name":       "",
+			"crew_only":  "true",
+		},
+		"safe.txt",
+		"text/plain",
+		[]byte("must not persist"),
+	)
+	if invalidUpload.status != http.StatusUnprocessableEntity ||
+		!strings.Contains(invalidUpload.body, `name="crew_only" value="true" checked`) {
+		t.Fatalf("invalid browser Attachment upload = %d %q", invalidUpload.status, invalidUpload.body)
+	}
+	assertAccessibleFormErrors(t, frontendResponse{
+		status: invalidUpload.status, header: invalidUpload.header, body: invalidUpload.body,
+	}, map[string]string{
+		"upload-entry-1-name": "Enter an Attachment name.",
+	})
+
 	firstUpload := requestMultipart(
 		t.Context(),
 		administrator,
@@ -6106,8 +6307,23 @@ func TestBrowserManagesCompetitionEntries(t *testing.T) {
 	}
 
 	expiresAt := time.Now().UTC().Add(3 * time.Hour).Format("2006-01-02T15:04")
-	reopened := postFrontendForm(t, administrator, server.address, path, url.Values{
+	invalidReopen := postFrontendForm(t, administrator, server.address, path, url.Values{
 		"csrf_token": {requireFrontendCSRF(t, page)},
+		"action":     {"create-reopen-window"},
+		"command_id": {"browser-invalid-reopen-entry"},
+		"entry_id":   {"1"},
+		"reason":     {""},
+		"expires_at": {"not-a-date"},
+	})
+	if invalidReopen.status != http.StatusUnprocessableEntity {
+		t.Fatalf("invalid Reopen Window = %d %q", invalidReopen.status, invalidReopen.body)
+	}
+	assertAccessibleFormErrors(t, invalidReopen, map[string]string{
+		"create-reopen-window-1-reason":     "is required",
+		"create-reopen-window-1-expires-at": "must be a valid local date and time",
+	})
+	reopened := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token": {requireFrontendCSRF(t, invalidReopen)},
 		"action":     {"create-reopen-window"},
 		"command_id": {"browser-reopen-entry"},
 		"entry_id":   {"1"},
@@ -6139,6 +6355,7 @@ func TestBrowserManagesCompetitionEntries(t *testing.T) {
 		t.Fatalf("extend Reopen Window = %d %q", extended.status, extended.body)
 	}
 	page = getFrontendPage(t, administrator, server.address, path)
+	staleExpiry := time.Now().UTC().Add(5 * time.Hour).Format("2006-01-02T15:04")
 	stale := postFrontendForm(t, administrator, server.address, path, url.Values{
 		"csrf_token":        {requireFrontendCSRF(t, page)},
 		"action":            {"extend-reopen-window"},
@@ -6146,12 +6363,14 @@ func TestBrowserManagesCompetitionEntries(t *testing.T) {
 		"entry_id":          {"1"},
 		"window_id":         {"1"},
 		"expected_revision": {"1"},
-		"expires_at":        {time.Now().UTC().Add(5 * time.Hour).Format("2006-01-02T15:04")},
+		"expires_at":        {staleExpiry},
 	})
 	if stale.status != http.StatusConflict ||
-		!strings.Contains(stale.body, "Attachment state changed. Reload and try again.") {
+		!strings.Contains(stale.body, "Attachment state changed. Reload and try again.") ||
+		!strings.Contains(stale.body, `value="`+staleExpiry+`"`) {
 		t.Fatalf("stale Reopen Window extension = %d %q", stale.status, stale.body)
 	}
+	assertAccessibleFormErrors(t, stale, nil)
 	page = getFrontendPage(t, administrator, server.address, path)
 	invalid := postFrontendForm(t, administrator, server.address, path, url.Values{
 		"csrf_token":        {requireFrontendCSRF(t, page)},
@@ -6166,6 +6385,9 @@ func TestBrowserManagesCompetitionEntries(t *testing.T) {
 		!strings.Contains(invalid.body, "Choose an expiry later than the current expiry.") {
 		t.Fatalf("invalid Reopen Window extension = %d %q", invalid.status, invalid.body)
 	}
+	assertAccessibleFormErrors(t, invalid, map[string]string{
+		"extend-reopen-window-1-1-expires-at": "Choose an expiry later than the current expiry.",
+	})
 	page = getFrontendPage(t, administrator, server.address, path)
 	unbounded := postFrontendForm(t, administrator, server.address, path, url.Values{
 		"csrf_token":        {requireFrontendCSRF(t, page)},
@@ -6233,6 +6455,9 @@ func TestBrowserManagesCompetitionEntries(t *testing.T) {
 	if unconfirmed.status != http.StatusUnprocessableEntity {
 		t.Fatalf("unconfirmed Reopen Window closure = %d %q", unconfirmed.status, unconfirmed.body)
 	}
+	assertAccessibleFormErrors(t, unconfirmed, map[string]string{
+		"close-reopen-window-1-1-confirm-close": "must be checked",
+	})
 	page = getFrontendPage(t, administrator, server.address, path)
 	closedWindow := postFrontendForm(t, administrator, server.address, path, url.Values{
 		"csrf_token":        {requireFrontendCSRF(t, page)},
@@ -6418,6 +6643,18 @@ func exercisePresentationSubmissionFlow(
 	if assigned.status != http.StatusSeeOther {
 		t.Fatalf("assign Presentation Submitter = %d %q", assigned.status, assigned.body)
 	}
+	staleAssignment := postFrontendForm(t, administrator, server.address, producerPath, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, producerPage)},
+		"action":            {"assign-submitter"},
+		"command_id":        {"stale-presentation-assignment"},
+		"expected_revision": {frontendNamedValues(producerPage.body, "expected_revision").Get("expected_revision")},
+		"account_id":        {"3"},
+	})
+	if staleAssignment.status != http.StatusConflict ||
+		!strings.Contains(staleAssignment.body, `value="3" selected`) {
+		t.Fatalf("stale Presentation assignment = %d %q", staleAssignment.status, staleAssignment.body)
+	}
+	assertAccessibleFormErrors(t, staleAssignment, nil)
 
 	presentationPath := "/events/revision-2099/schedule/sessions/" +
 		strconv.FormatInt(presentationID, 10)
@@ -6479,7 +6716,7 @@ func exercisePresentationSubmissionFlow(
 		t.Fatalf("invalid Presentation values = %q", invalidPresentation.body)
 	}
 	updated := postFrontendForm(t, alex, server.address, submissionsPath, url.Values{
-		"csrf_token":        {requireFrontendCSRF(t, alexPage)},
+		"csrf_token":        {requireFrontendCSRF(t, invalidPresentation)},
 		"action":            {"update-presentation"},
 		"command_id":        {"alex-update-presentation"},
 		"event_id":          {"1"},
@@ -6638,8 +6875,22 @@ func exercisePresentationSubmissionFlow(
 	}
 
 	producerPage = getFrontendPage(t, administrator, server.address, producerPath)
-	reopened := postFrontendForm(t, administrator, server.address, producerPath, url.Values{
+	invalidReopen := postFrontendForm(t, administrator, server.address, producerPath, url.Values{
 		"csrf_token": {requireFrontendCSRF(t, producerPage)},
+		"action":     {"create-reopen-window"},
+		"command_id": {"invalid-reopen-presentation-submission"},
+		"reason":     {""},
+		"expires_at": {"not-a-date"},
+	})
+	if invalidReopen.status != http.StatusUnprocessableEntity {
+		t.Fatalf("invalid Presentation Reopen Window = %d %q", invalidReopen.status, invalidReopen.body)
+	}
+	assertAccessibleFormErrors(t, invalidReopen, map[string]string{
+		"create-reopen-window-reason":     "is required",
+		"create-reopen-window-expires-at": "must be a valid local date and time",
+	})
+	reopened := postFrontendForm(t, administrator, server.address, producerPath, url.Values{
+		"csrf_token": {requireFrontendCSRF(t, invalidReopen)},
 		"action":     {"create-reopen-window"},
 		"command_id": {"reopen-presentation-submission"},
 		"reason":     {"Submitter correction"},
@@ -6679,6 +6930,9 @@ func exercisePresentationSubmissionFlow(
 		!strings.Contains(invalid.body, "Choose an expiry later than the current expiry.") {
 		t.Fatalf("invalid Presentation Reopen Window extension = %d %q", invalid.status, invalid.body)
 	}
+	assertAccessibleFormErrors(t, invalid, map[string]string{
+		"extend-reopen-window-" + strconv.FormatInt(presentationID, 10) + "-1-expires-at": "Choose an expiry later than the current expiry.",
+	})
 	producerPage = getFrontendPage(t, administrator, server.address, producerPath)
 	closedWindow := postFrontendForm(t, administrator, server.address, producerPath, url.Values{
 		"csrf_token":        {requireFrontendCSRF(t, producerPage)},
@@ -6766,7 +7020,8 @@ func exercisePresentationSubmissionFlow(
 	auditBody, err := io.ReadAll(audit.Body)
 	_ = audit.Body.Close()
 	if err != nil ||
-		bytes.Count(auditBody, []byte(`"action":"AssignPresentationSubmitter"`)) != 2 ||
+		bytes.Count(auditBody, []byte(`"action":"AssignPresentationSubmitter"`)) != 3 ||
+		!bytes.Contains(auditBody, []byte(`"reason":"stale_presentation_submission"`)) ||
 		!bytes.Contains(auditBody, []byte(`"note":"Submitter Account #3"`)) {
 		t.Fatalf("Presentation assignment Audit evidence = %s (%v)", auditBody, err)
 	}
@@ -8167,13 +8422,44 @@ func TestBrowserDefersAndResolvesCompetitionEntries(t *testing.T) {
 		t.Fatalf("end browser Competition = %d %q", ended.status, ended.body)
 	}
 
+	page = getFrontendPage(t, administrator, server.address, path)
+	invalidPublicMessage := strings.Repeat("p", 10001)
+	invalidResolution := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":                      {requireFrontendCSRF(t, page)},
+		"action":                          {"resolve-entry"},
+		"command_id":                      {"browser-invalid-resolution"},
+		"entry_id":                        {strconv.FormatInt(firstDeferredID, 10)},
+		"expected_revision":               {frontendEntryRevision(t, page.body, int(firstDeferredID))},
+		"result_disposition":              {"Withheld"},
+		"crew_reason":                     {"Organizer decision"},
+		"public_disqualification_message": {invalidPublicMessage},
+	})
+	if invalidResolution.status != http.StatusUnprocessableEntity {
+		t.Fatalf("invalid Entry resolution = %d %q", invalidResolution.status, invalidResolution.body)
+	}
+	assertAccessibleFormErrors(t, invalidResolution, map[string]string{
+		"resolve-entry-" + strconv.FormatInt(firstDeferredID, 10) +
+			"-public-disqualification-message": "Enter no more than 10000 characters.",
+	})
+	resolved := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":         {requireFrontendCSRF(t, invalidResolution)},
+		"action":             {"resolve-entry"},
+		"command_id":         {"browser-resolve-corrected"},
+		"entry_id":           {strconv.FormatInt(firstDeferredID, 10)},
+		"expected_revision":  {frontendEntryRevision(t, invalidResolution.body, int(firstDeferredID))},
+		"result_disposition": {"Withheld"},
+		"crew_reason":        {"Organizer decision"},
+	})
+	if resolved.status != http.StatusSeeOther {
+		t.Fatalf("corrected Entry resolution = %d %q", resolved.status, resolved.body)
+	}
+
 	resolutions := []struct {
 		entryID     int64
 		disposition string
 		reason      string
 		public      string
 	}{
-		{firstDeferredID, "Withheld", "Organizer decision", ""},
 		{presentedID, "Disqualified", "Rules violation", "Disqualified after review"},
 		{secondDeferredID, "Eligible", "Technical failure accepted", ""},
 	}
@@ -8292,6 +8578,17 @@ func frontendNamedValues(body string, names ...string) url.Values {
 func frontendCheckboxValues(body, name string) []string {
 	expression := regexp.MustCompile(
 		`type="checkbox" name="` + regexp.QuoteMeta(name) + `" value="([^"]*)" checked`,
+	)
+	var values []string
+	for _, match := range expression.FindAllStringSubmatch(body, -1) {
+		values = append(values, match[1])
+	}
+	return values
+}
+
+func frontendCheckboxOptions(body, name string) []string {
+	expression := regexp.MustCompile(
+		`type="checkbox"\s+name="` + regexp.QuoteMeta(name) + `"\s+value="([^"]*)"`,
 	)
 	var values []string
 	for _, match := range expression.FindAllStringSubmatch(body, -1) {
@@ -8499,7 +8796,7 @@ func assertAccessibleFormErrors(
 func requireFrontendCSRF(t *testing.T, response frontendResponse) string {
 	t.Helper()
 	match := frontendCSRFInput.FindStringSubmatch(response.body)
-	if response.status != http.StatusOK || len(match) != 2 {
+	if len(match) != 2 {
 		t.Fatalf("CSRF page = %d %q", response.status, response.body)
 	}
 	return match[1]

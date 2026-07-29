@@ -1,7 +1,9 @@
 package frontend
 
 import (
+	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/dotwaffle/beamers/internal/attachments"
@@ -25,7 +27,84 @@ type CompetitionEntriesPage struct {
 	Attachments   attachments.CrewState
 	Program       programcontrol.State
 	SubmissionAccounts []competition.SubmissionAccount
-	Error         string
+	SubmittedAction string
+	Form            url.Values
+	Errors          FormErrors
+}
+
+func WorkflowFieldID(action string, targetID, versionID, windowID int, field string) string {
+	result := action
+	for _, id := range []int{targetID, versionID, windowID} {
+		if id > 0 {
+			result += "-" + strconv.Itoa(id)
+		}
+	}
+	return result + "-" + strings.ReplaceAll(field, "_", "-")
+}
+
+func workflowMatches(
+	form url.Values,
+	submittedAction,
+	action string,
+	entryID, versionID, windowID int,
+) bool {
+	if submittedAction != action {
+		return false
+	}
+	for field, id := range map[string]int{
+		"entry_id": entryID, "version_id": versionID, "window_id": windowID,
+	} {
+		if _, present := form[field]; id > 0 && present && form.Get(field) != strconv.Itoa(id) {
+			return false
+		}
+	}
+	return true
+}
+
+func workflowValue(
+	form url.Values,
+	submittedAction, action string,
+	entryID, versionID, windowID int,
+	field, fallback string,
+) string {
+	if workflowMatches(form, submittedAction, action, entryID, versionID, windowID) {
+		if _, ok := form[field]; ok {
+			return form.Get(field)
+		}
+	}
+	return fallback
+}
+
+func (page CompetitionEntriesPage) matches(
+	action string,
+	entryID, versionID, windowID int,
+) bool {
+	return workflowMatches(
+		page.Form, page.SubmittedAction, action, entryID, versionID, windowID,
+	)
+}
+
+func (page CompetitionEntriesPage) value(
+	action string,
+	entryID, versionID, windowID int,
+	field, fallback string,
+) string {
+	return workflowValue(
+		page.Form, page.SubmittedAction, action, entryID, versionID, windowID,
+		field, fallback,
+	)
+}
+
+func (page CompetitionEntriesPage) checked(
+	action string,
+	entryID, versionID, windowID int,
+	field string,
+	fallback bool,
+) bool {
+	if page.matches(action, entryID, versionID, windowID) {
+		return page.Form.Get(field) == "true"
+	}
+	return fallback
 }
 
 func entriesTime(value time.Time, timezone string) string {
@@ -81,6 +160,9 @@ templ ReopenWindows(
 	windows []store.ReopenWindow,
 	producer bool,
 	now time.Time,
+	form url.Values,
+	submittedAction string,
+	errors FormErrors,
 ) {
 	<h4>Reopen Windows</h4>
 	for _, window := range windows {
@@ -99,7 +181,18 @@ templ ReopenWindows(
 					<input type="hidden" name="entry_id" value={ strconv.Itoa(window.TargetID) }/>
 					<input type="hidden" name="window_id" value={ strconv.Itoa(window.ID) }/>
 					<input type="hidden" name="expected_revision" value={ strconv.Itoa(window.Revision) }/>
-					<label>Extend until ({ timezone }) <input type="datetime-local" name="expires_at" required/></label>
+					<label for={ WorkflowFieldID("extend-reopen-window", window.TargetID, 0, window.ID, "expires_at") }>
+						Extend until ({ timezone })
+					</label>
+					<input
+						id={ WorkflowFieldID("extend-reopen-window", window.TargetID, 0, window.ID, "expires_at") }
+						type="datetime-local"
+						name="expires_at"
+						value={ workflowValue(form, submittedAction, "extend-reopen-window", window.TargetID, 0, window.ID, "expires_at", "") }
+						required
+						{ errors.Attributes(WorkflowFieldID("extend-reopen-window", window.TargetID, 0, window.ID, "expires_at"))... }
+					/>
+					@FieldError(errors, WorkflowFieldID("extend-reopen-window", window.TargetID, 0, window.ID, "expires_at"))
 					<button type="submit">Extend Reopen Window</button>
 				</form>
 				<form method="post">
@@ -109,7 +202,18 @@ templ ReopenWindows(
 					<input type="hidden" name="entry_id" value={ strconv.Itoa(window.TargetID) }/>
 					<input type="hidden" name="window_id" value={ strconv.Itoa(window.ID) }/>
 					<input type="hidden" name="expected_revision" value={ strconv.Itoa(window.Revision) }/>
-					<label><input type="checkbox" name="confirm_close" value="true" required/> Confirm early closure</label>
+					<label for={ WorkflowFieldID("close-reopen-window", window.TargetID, 0, window.ID, "confirm_close") }>
+						<input
+							id={ WorkflowFieldID("close-reopen-window", window.TargetID, 0, window.ID, "confirm_close") }
+							type="checkbox"
+							name="confirm_close"
+							value="true"
+							required
+							{ errors.Attributes(WorkflowFieldID("close-reopen-window", window.TargetID, 0, window.ID, "confirm_close"))... }
+						/>
+						Confirm early closure
+					</label>
+					@FieldError(errors, WorkflowFieldID("close-reopen-window", window.TargetID, 0, window.ID, "confirm_close"))
 					<button type="submit">Close Reopen Window early</button>
 				</form>
 			}
@@ -144,6 +248,63 @@ func entryVersionPath(eventID, versionID int) string {
 		"/attachment-versions/" + strconv.Itoa(versionID)
 }
 
+templ workflowInput(
+	page CompetitionEntriesPage,
+	action string,
+	entryID, versionID, windowID int,
+	field, label, inputType, fallback string,
+	required bool,
+) {
+	<label for={ WorkflowFieldID(action, entryID, versionID, windowID, field) }>{ label }</label>
+	<input
+		id={ WorkflowFieldID(action, entryID, versionID, windowID, field) }
+		type={ inputType }
+		name={ field }
+		value={ page.value(action, entryID, versionID, windowID, field, fallback) }
+		required?={ required }
+		{ page.Errors.Attributes(WorkflowFieldID(action, entryID, versionID, windowID, field))... }
+	/>
+	@FieldError(page.Errors, WorkflowFieldID(action, entryID, versionID, windowID, field))
+}
+
+templ workflowTextarea(
+	page CompetitionEntriesPage,
+	action string,
+	entryID int,
+	field, label, fallback string,
+) {
+	<label for={ WorkflowFieldID(action, entryID, 0, 0, field) }>{ label }</label>
+	<textarea
+		id={ WorkflowFieldID(action, entryID, 0, 0, field) }
+		name={ field }
+		{ page.Errors.Attributes(WorkflowFieldID(action, entryID, 0, 0, field))... }
+	>{ page.value(action, entryID, 0, 0, field, fallback) }</textarea>
+	@FieldError(page.Errors, WorkflowFieldID(action, entryID, 0, 0, field))
+}
+
+templ workflowSelect(
+	page CompetitionEntriesPage,
+	action string,
+	entryID, versionID int,
+	field, label string,
+	options []string,
+	fallback string,
+) {
+	<label for={ WorkflowFieldID(action, entryID, versionID, 0, field) }>{ label }</label>
+	<select
+		id={ WorkflowFieldID(action, entryID, versionID, 0, field) }
+		name={ field }
+		{ page.Errors.Attributes(WorkflowFieldID(action, entryID, versionID, 0, field))... }
+	>
+		for _, option := range options {
+			<option value={ option } selected?={ page.value(action, entryID, versionID, 0, field, fallback) == option }>
+				{ option }
+			</option>
+		}
+	</select>
+	@FieldError(page.Errors, WorkflowFieldID(action, entryID, versionID, 0, field))
+}
+
 templ CompetitionEntries(page CompetitionEntriesPage) {
 	<!doctype html>
 	<html lang={ page.Event.EventLocale } data-locale={ page.Event.EventLocale }>
@@ -158,9 +319,7 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 					<p><strong>Submission Deadline:</strong> @EventTime(page.State.SubmissionDeadline, page.Event.Timezone, page.Event.EventLocale)</p>
 					<p><strong>Submission Eligibility:</strong> { string(page.State.EffectiveSubmissionEligibility) }</p>
 					<p>Forecast Time is managed independently in Program Control.</p>
-					if page.Error != "" {
-						<p class="error" role="alert">{ page.Error }</p>
-					}
+					@ErrorSummary(page.Errors)
 					<section aria-labelledby="start-preflight">
 						<h2 id="start-preflight">Start preflight</h2>
 						if len(page.Preflight.Blockers) == 0 {
@@ -181,14 +340,30 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 								<input type="hidden" name="action" value="configure-readiness"/>
 								<input type="hidden" name="command_id" value={ page.CommandID }/>
 								<input type="hidden" name="expected_readiness_revision" value={ strconv.Itoa(page.State.ReadinessRevision) }/>
-								<label>
-									<input type="checkbox" name="require_entry_review" value="true" checked?={ page.State.RequireEntryReview }/>
+								<label for={ WorkflowFieldID("configure-readiness", 0, 0, 0, "require_entry_review") }>
+									<input
+										id={ WorkflowFieldID("configure-readiness", 0, 0, 0, "require_entry_review") }
+										type="checkbox"
+										name="require_entry_review"
+										value="true"
+										checked?={ page.checked("configure-readiness", 0, 0, 0, "require_entry_review", page.State.RequireEntryReview) }
+										{ page.Errors.Attributes(WorkflowFieldID("configure-readiness", 0, 0, 0, "require_entry_review"))... }
+									/>
 									Require current Entry review
 								</label>
-								<label>
-									<input type="checkbox" name="file_delivery_required" value="true" checked?={ page.State.FileDeliveryRequired }/>
+								@FieldError(page.Errors, WorkflowFieldID("configure-readiness", 0, 0, 0, "require_entry_review"))
+								<label for={ WorkflowFieldID("configure-readiness", 0, 0, 0, "file_delivery_required") }>
+									<input
+										id={ WorkflowFieldID("configure-readiness", 0, 0, 0, "file_delivery_required") }
+										type="checkbox"
+										name="file_delivery_required"
+										value="true"
+										checked?={ page.checked("configure-readiness", 0, 0, 0, "file_delivery_required", page.State.FileDeliveryRequired) }
+										{ page.Errors.Attributes(WorkflowFieldID("configure-readiness", 0, 0, 0, "file_delivery_required"))... }
+									/>
 									File Delivery Required
 								</label>
+								@FieldError(page.Errors, WorkflowFieldID("configure-readiness", 0, 0, 0, "file_delivery_required"))
 								<button type="submit">Configure readiness</button>
 							</form>
 						}
@@ -201,16 +376,17 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 								<input type="hidden" name="action" value="configure-submission-eligibility"/>
 								<input type="hidden" name="command_id" value={ page.CommandID }/>
 								<input type="hidden" name="expected_submission_eligibility_revision" value={ strconv.Itoa(page.State.SubmissionEligibilityRevision) }/>
-								<label>
-									<input type="checkbox" name="override" value="true" checked?={ page.State.SubmissionEligibilityOverride != "" }/>
+								<label for={ WorkflowFieldID("configure-submission-eligibility", 0, 0, 0, "override") }>
+									<input
+										id={ WorkflowFieldID("configure-submission-eligibility", 0, 0, 0, "override") }
+										type="checkbox"
+										name="override"
+										value="true"
+										checked?={ page.checked("configure-submission-eligibility", 0, 0, 0, "override", page.State.SubmissionEligibilityOverride != "") }
+									/>
 									Override Event policy
 								</label>
-								<label>Eligibility
-									<select name="submission_eligibility">
-										<option value="AllAccounts" selected?={ page.State.EffectiveSubmissionEligibility == competition.SubmissionAllAccounts }>All Accounts</option>
-										<option value="VotingEligibleAccounts" selected?={ page.State.EffectiveSubmissionEligibility == competition.SubmissionVotingEligible }>Voting Eligible Accounts</option>
-									</select>
-								</label>
+								@workflowSelect(page, "configure-submission-eligibility", 0, 0, "submission_eligibility", "Eligibility", []string{"AllAccounts", "VotingEligibleAccounts"}, string(page.State.EffectiveSubmissionEligibility))
 								<button type="submit">Configure Submission Eligibility</button>
 							</form>
 						</section>
@@ -237,15 +413,9 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 								<input type="hidden" name="action" value="configure-order"/>
 								<input type="hidden" name="command_id" value={ page.CommandID }/>
 								<input type="hidden" name="expected_order_revision" value={ strconv.Itoa(page.State.EntryOrder.Revision) }/>
-								<label>Order policy
-									<select name="order_policy">
-										<option>SubmissionOrder</option>
-										<option>ManualOrder</option>
-										<option>DeterministicShuffle</option>
-									</select>
-								</label>
-								<label>Shuffle seed <input type="number" name="order_seed" value={ strconv.FormatInt(page.State.EntryOrder.Seed, 10) }/></label>
-								<label>Manual Entry IDs, comma-separated <input name="manual_entry_ids"/></label>
+								@workflowSelect(page, "configure-order", 0, 0, "order_policy", "Order policy", []string{"SubmissionOrder", "ManualOrder", "DeterministicShuffle"}, string(page.State.EntryOrder.Policy))
+								@workflowInput(page, "configure-order", 0, 0, 0, "order_seed", "Shuffle seed", "number", strconv.FormatInt(page.State.EntryOrder.Seed, 10), false)
+								@workflowInput(page, "configure-order", 0, 0, 0, "manual_entry_ids", "Manual Entry IDs, comma-separated", "text", "", false)
 								<button type="submit">Configure Entry order</button>
 							</form>
 						}
@@ -284,17 +454,19 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 								<input type="hidden" name="action" value="competition-release-policy"/>
 								<input type="hidden" name="command_id" value={ page.CommandID }/>
 								<input type="hidden" name="expected_revision" value={ strconv.Itoa(page.Attachments.CompetitionRelease.Revision) }/>
-								<label>
-									<input type="checkbox" name="override" value="true" checked?={ page.Attachments.CompetitionRelease.Override }/>
+								<label for={ WorkflowFieldID("competition-release-policy", 0, 0, 0, "override") }>
+									<input
+										id={ WorkflowFieldID("competition-release-policy", 0, 0, 0, "override") }
+										type="checkbox"
+										name="override"
+										value="true"
+										checked?={ page.checked("competition-release-policy", 0, 0, 0, "override", page.Attachments.CompetitionRelease.Override) }
+										{ page.Errors.Attributes(WorkflowFieldID("competition-release-policy", 0, 0, 0, "override"))... }
+									/>
 									Override Event policy
 								</label>
-								<label>Release Policy
-									<select name="release_policy">
-										<option>OnLive</option>
-										<option>OnEnded</option>
-										<option>OnEventReleaseCue</option>
-									</select>
-								</label>
+								@FieldError(page.Errors, WorkflowFieldID("competition-release-policy", 0, 0, 0, "override"))
+								@workflowSelect(page, "competition-release-policy", 0, 0, "release_policy", "Release Policy", []string{"OnLive", "OnEnded", "OnEventReleaseCue"}, string(page.Attachments.CompetitionRelease.Policy))
 								<button type="submit">Configure release policy</button>
 							</form>
 						}
@@ -306,9 +478,9 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 								<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
 								<input type="hidden" name="action" value="create-entry"/>
 								<input type="hidden" name="command_id" value={ page.CommandID }/>
-								<label>Entry name <input name="entry_name" required/></label>
-								<label>Public details <textarea name="public_details"></textarea></label>
-								<label>Crew notes <textarea name="crew_notes"></textarea></label>
+								@workflowInput(page, "create-entry", 0, 0, 0, "entry_name", "Entry name", "text", "", true)
+								@workflowTextarea(page, "create-entry", 0, "public_details", "Public details", "")
+								@workflowTextarea(page, "create-entry", 0, "crew_notes", "Crew notes", "")
 								<button type="submit">Create Entry</button>
 							</form>
 						</section>
@@ -349,13 +521,21 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 											<input type="hidden" name="command_id" value={ page.CommandID }/>
 											<input type="hidden" name="entry_id" value={ strconv.Itoa(entry.ID) }/>
 											<input type="hidden" name="expected_revision" value={ strconv.Itoa(entry.Revision) }/>
-											<label>Submitter Account
-												<select name="account_id" required>
+											<label for={ WorkflowFieldID("assign-submitter", entry.ID, 0, 0, "account_id") }>Submitter Account</label>
+											<select
+												id={ WorkflowFieldID("assign-submitter", entry.ID, 0, 0, "account_id") }
+												name="account_id"
+												required
+												{ page.Errors.Attributes(WorkflowFieldID("assign-submitter", entry.ID, 0, 0, "account_id"))... }
+											>
 													for _, account := range page.SubmissionAccounts {
-														<option value={ strconv.Itoa(account.ID) }>{ "@" + account.Handle + " — " + account.Name }</option>
+														<option
+															value={ strconv.Itoa(account.ID) }
+															selected?={ page.value("assign-submitter", entry.ID, 0, 0, "account_id", "") == strconv.Itoa(account.ID) }
+														>{ "@" + account.Handle + " — " + account.Name }</option>
 													}
-												</select>
-											</label>
+											</select>
+											@FieldError(page.Errors, WorkflowFieldID("assign-submitter", entry.ID, 0, 0, "account_id"))
 											<button type="submit">Assign Submitter Account</button>
 										</form>
 									}
@@ -365,9 +545,9 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 										<input type="hidden" name="command_id" value={ page.CommandID }/>
 										<input type="hidden" name="entry_id" value={ strconv.Itoa(entry.ID) }/>
 										<input type="hidden" name="expected_revision" value={ strconv.Itoa(entry.Revision) }/>
-										<label>Entry name <input name="entry_name" value={ entry.Name } required/></label>
-										<label>Public details <textarea name="public_details">{ entry.PublicDetails }</textarea></label>
-										<label>Crew notes <textarea name="crew_notes">{ entry.CrewNotes }</textarea></label>
+										@workflowInput(page, "update-entry", entry.ID, 0, 0, "entry_name", "Entry name", "text", entry.Name, true)
+										@workflowTextarea(page, "update-entry", entry.ID, "public_details", "Public details", entry.PublicDetails)
+										@workflowTextarea(page, "update-entry", entry.ID, "crew_notes", "Crew notes", entry.CrewNotes)
 										<button type="submit">Update Entry</button>
 									</form>
 									<form method="post">
@@ -384,13 +564,18 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 										<input type="hidden" name="command_id" value={ page.CommandID }/>
 										<input type="hidden" name="entry_id" value={ strconv.Itoa(entry.ID) }/>
 										<input type="hidden" name="expected_revision" value={ strconv.Itoa(entry.Revision) }/>
-										<label>Disposition
-											<select name="disposition">
-												<option>Pending</option>
-												<option>Included</option>
-												<option>Rejected</option>
-											</select>
+										@workflowSelect(page, "change-disposition", entry.ID, 0, "disposition", "Disposition", []string{"Pending", "Included", "Rejected"}, string(entry.Disposition))
+										<label for={ WorkflowFieldID("change-disposition", entry.ID, 0, 0, "confirmed_live_override") }>
+											<input
+												id={ WorkflowFieldID("change-disposition", entry.ID, 0, 0, "confirmed_live_override") }
+												type="checkbox"
+												name="confirmed_live_override"
+												value="true"
+												{ page.Errors.Attributes(WorkflowFieldID("change-disposition", entry.ID, 0, 0, "confirmed_live_override"))... }
+											/>
+											Confirm live disposition override
 										</label>
+										@FieldError(page.Errors, WorkflowFieldID("change-disposition", entry.ID, 0, 0, "confirmed_live_override"))
 										<button type="submit">Change disposition</button>
 									</form>
 								}
@@ -400,7 +585,7 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 									<input type="hidden" name="command_id" value={ page.CommandID }/>
 									<input type="hidden" name="entry_id" value={ strconv.Itoa(entry.ID) }/>
 									<input type="hidden" name="expected_revision" value={ strconv.Itoa(entry.Revision) }/>
-									<label>Technical Failure Crew Reason <input name="crew_reason" required/></label>
+									@workflowInput(page, "record-technical-failure", entry.ID, 0, 0, "crew_reason", "Technical Failure Crew Reason", "text", "", true)
 									<button type="submit">Record Technical Failure</button>
 								</form>
 								if page.Producer {
@@ -410,15 +595,9 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 										<input type="hidden" name="command_id" value={ page.CommandID }/>
 										<input type="hidden" name="entry_id" value={ strconv.Itoa(entry.ID) }/>
 										<input type="hidden" name="expected_revision" value={ strconv.Itoa(entry.Revision) }/>
-										<label>Final resolution
-											<select name="result_disposition">
-												<option>Eligible</option>
-												<option>Disqualified</option>
-												<option>Withheld</option>
-											</select>
-										</label>
-										<label>Crew Reason <input name="crew_reason" required/></label>
-										<label>Public disqualification message <input name="public_disqualification_message"/></label>
+										@workflowSelect(page, "resolve-entry", entry.ID, 0, "result_disposition", "Final resolution", []string{"Eligible", "Disqualified", "Withheld"}, "Eligible")
+										@workflowInput(page, "resolve-entry", entry.ID, 0, 0, "crew_reason", "Crew Reason", "text", "", true)
+										@workflowInput(page, "resolve-entry", entry.ID, 0, 0, "public_disqualification_message", "Public disqualification message", "text", "", false)
 										<button type="submit">Resolve Entry</button>
 									</form>
 									<form method="post">
@@ -427,8 +606,19 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 										<input type="hidden" name="command_id" value={ page.CommandID }/>
 										<input type="hidden" name="entry_id" value={ strconv.Itoa(entry.ID) }/>
 										<input type="hidden" name="expected_revision" value={ strconv.Itoa(entry.Revision) }/>
-										<label><input type="checkbox" name="hold" value="true" checked?={ entry.ReleaseHold }/> Entry Release Hold</label>
-										<label>Crew Reason <input name="crew_reason" required/></label>
+										<label for={ WorkflowFieldID("entry-release-hold", entry.ID, 0, 0, "hold") }>
+											<input
+												id={ WorkflowFieldID("entry-release-hold", entry.ID, 0, 0, "hold") }
+												type="checkbox"
+												name="hold"
+												value="true"
+												checked?={ page.checked("entry-release-hold", entry.ID, 0, 0, "hold", entry.ReleaseHold) }
+												{ page.Errors.Attributes(WorkflowFieldID("entry-release-hold", entry.ID, 0, 0, "hold"))... }
+											/>
+											Entry Release Hold
+										</label>
+										@FieldError(page.Errors, WorkflowFieldID("entry-release-hold", entry.ID, 0, 0, "hold"))
+										@workflowInput(page, "entry-release-hold", entry.ID, 0, 0, "crew_reason", "Crew Reason", "text", "", true)
 										<button type="submit">Set Entry Release Hold</button>
 									</form>
 								}
@@ -449,10 +639,24 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 										<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
 										<input type="hidden" name="command_id" value={ page.CommandID }/>
 										<input type="hidden" name="entry_id" value={ strconv.Itoa(entry.ID) }/>
-										<label>Attachment name <input name="name" required/></label>
-										<label>File <input type="file" name="file" required/></label>
-										<label>
-											<input type="checkbox" name="crew_only" value="true"/>
+										@workflowInput(page, "upload-entry", entry.ID, 0, 0, "name", "Attachment name", "text", "", true)
+										<label for={ WorkflowFieldID("upload-entry", entry.ID, 0, 0, "file") }>File</label>
+										<input
+											id={ WorkflowFieldID("upload-entry", entry.ID, 0, 0, "file") }
+											type="file"
+											name="file"
+											required
+											{ page.Errors.Attributes(WorkflowFieldID("upload-entry", entry.ID, 0, 0, "file"))... }
+										/>
+										@FieldError(page.Errors, WorkflowFieldID("upload-entry", entry.ID, 0, 0, "file"))
+										<label for={ WorkflowFieldID("upload-entry", entry.ID, 0, 0, "crew_only") }>
+											<input
+												id={ WorkflowFieldID("upload-entry", entry.ID, 0, 0, "crew_only") }
+												type="checkbox"
+												name="crew_only"
+												value="true"
+												checked?={ page.checked("upload-entry", entry.ID, 0, 0, "crew_only", false) }
+											/>
 											Crew Only Release Eligibility
 										</label>
 										<button type="submit">Upload immutable Version</button>
@@ -485,8 +689,30 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 												<input type="hidden" name="entry_id" value={ strconv.Itoa(entry.ID) }/>
 												<input type="hidden" name="version_id" value={ strconv.Itoa(version.ID) }/>
 												<input type="hidden" name="expected_revision" value={ strconv.Itoa(version.ReadinessRevision) }/>
-												<label><input type="checkbox" name="final" value="true" checked?={ version.Final }/> Final Version</label>
-												<label><input type="checkbox" name="primary" value="true" checked?={ version.Primary }/> Primary Attachment</label>
+												<label for={ WorkflowFieldID("attachment-readiness", entry.ID, version.ID, 0, "final") }>
+													<input
+														id={ WorkflowFieldID("attachment-readiness", entry.ID, version.ID, 0, "final") }
+														type="checkbox"
+														name="final"
+														value="true"
+														checked?={ page.checked("attachment-readiness", entry.ID, version.ID, 0, "final", version.Final) }
+														{ page.Errors.Attributes(WorkflowFieldID("attachment-readiness", entry.ID, version.ID, 0, "final"))... }
+													/>
+													Final Version
+												</label>
+												@FieldError(page.Errors, WorkflowFieldID("attachment-readiness", entry.ID, version.ID, 0, "final"))
+												<label for={ WorkflowFieldID("attachment-readiness", entry.ID, version.ID, 0, "primary") }>
+													<input
+														id={ WorkflowFieldID("attachment-readiness", entry.ID, version.ID, 0, "primary") }
+														type="checkbox"
+														name="primary"
+														value="true"
+														checked?={ page.checked("attachment-readiness", entry.ID, version.ID, 0, "primary", version.Primary) }
+														{ page.Errors.Attributes(WorkflowFieldID("attachment-readiness", entry.ID, version.ID, 0, "primary"))... }
+													/>
+													Primary Attachment
+												</label>
+												@FieldError(page.Errors, WorkflowFieldID("attachment-readiness", entry.ID, version.ID, 0, "primary"))
 												<button type="submit">Set Final and Primary</button>
 											</form>
 											<form method="post">
@@ -495,7 +721,18 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 												<input type="hidden" name="command_id" value={ page.CommandID }/>
 												<input type="hidden" name="version_id" value={ strconv.Itoa(version.ID) }/>
 												<input type="hidden" name="expected_revision" value={ strconv.Itoa(version.ReleaseRevision) }/>
-												<label><input type="checkbox" name="hold" value="true" checked?={ version.ReleaseHold }/> Release Hold</label>
+												<label for={ WorkflowFieldID("version-release-hold", 0, version.ID, 0, "hold") }>
+													<input
+														id={ WorkflowFieldID("version-release-hold", 0, version.ID, 0, "hold") }
+														type="checkbox"
+														name="hold"
+														value="true"
+														checked?={ page.checked("version-release-hold", 0, version.ID, 0, "hold", version.ReleaseHold) }
+														{ page.Errors.Attributes(WorkflowFieldID("version-release-hold", 0, version.ID, 0, "hold"))... }
+													/>
+													Release Hold
+												</label>
+												@FieldError(page.Errors, WorkflowFieldID("version-release-hold", 0, version.ID, 0, "hold"))
 												<button type="submit">Set Version Release Hold</button>
 											</form>
 										}
@@ -510,6 +747,9 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 									entryReopenWindows(page.Attachments.ReopenWindows, entry.ID),
 									page.Producer,
 									time.Now(),
+									page.Form,
+									page.SubmittedAction,
+									page.Errors,
 								)
 								if page.Producer {
 									<form method="post">
@@ -517,8 +757,8 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 										<input type="hidden" name="action" value="create-reopen-window"/>
 										<input type="hidden" name="command_id" value={ page.CommandID }/>
 										<input type="hidden" name="entry_id" value={ strconv.Itoa(entry.ID) }/>
-										<label>Reopen reason <input name="reason" required/></label>
-										<label>Expires at ({ page.Event.Timezone }) <input type="datetime-local" name="expires_at" required/></label>
+										@workflowInput(page, "create-reopen-window", entry.ID, 0, 0, "reason", "Reopen reason", "text", "", true)
+										@workflowInput(page, "create-reopen-window", entry.ID, 0, 0, "expires_at", "Expires at (" + page.Event.Timezone + ")", "datetime-local", "", true)
 										<button type="submit">Create bounded Reopen Window</button>
 									</form>
 								}

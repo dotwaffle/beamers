@@ -191,7 +191,7 @@ func (handlers planningHandlers) settings(response http.ResponseWriter, request 
 	}
 	switch request.Method {
 	case http.MethodGet, http.MethodHead:
-		handlers.renderSettings(response, request, actor, eventID, csrfToken, http.StatusOK, "")
+		handlers.renderSettings(response, request, actor, eventID, csrfToken, http.StatusOK, nil)
 	case http.MethodPost:
 		if !handlers.browser.validForm(response, request) {
 			return
@@ -238,8 +238,8 @@ func (handlers planningHandlers) settings(response http.ResponseWriter, request 
 			}
 		}
 		if inputErr != nil {
-			status, message := planningError(inputErr)
-			handlers.renderSettings(response, request, actor, eventID, csrfToken, status, message)
+			status, formErrors := eventSettingsErrors(inputErr, request.Form.Get("action"))
+			handlers.renderSettings(response, request, actor, eventID, csrfToken, status, formErrors)
 			return
 		}
 		handlers.notifyDisplays()
@@ -261,7 +261,7 @@ func (handlers planningHandlers) renderSettings(
 	eventID int,
 	csrfToken string,
 	status int,
-	message string,
+	formErrors frontend.FormErrors,
 ) {
 	event, err := handlers.events.CrewEvent(request.Context(), actor, eventID)
 	if err != nil {
@@ -295,9 +295,54 @@ func (handlers planningHandlers) renderSettings(
 			ReducedEffects: reducedEffectsCookie(request),
 			Navigation:     backstageNavigation(actor, request.URL.Path),
 			Event:          event, Release: release, Ceremonies: ceremonies,
-			CommandID: commandID, Error: message,
+			CommandID: commandID, SubmittedAction: request.Form.Get("action"),
+			Form: request.Form, Errors: formErrors,
 		},
 	))
+}
+
+func eventSettingsErrors(err error, action string) (int, frontend.FormErrors) {
+	status, message := planningError(err)
+	field, label := "", ""
+	var eventValidation *events.ValidationError
+	var rundownValidation *rundown.ValidationError
+	switch {
+	case errors.As(err, &eventValidation):
+		field, label = eventSettingsField(eventValidation.Field)
+		message = eventValidation.Message
+	case errors.As(err, &rundownValidation):
+		field, label = eventSettingsField(rundownValidation.Field)
+		message = rundownValidation.Message
+	case errors.Is(err, events.ErrEventSlugUnavailable):
+		field, label = "public-slug", "Current Event Slug"
+	case errors.Is(err, attachments.ErrReleasePolicy):
+		field, label = "release-policy", "Event Release Policy"
+	case errors.Is(err, attachments.ErrInvalidInput) && action == "configure-attachment-release":
+		field, label = "cue-session", "Optional release Ceremony"
+	case errors.Is(err, attachments.ErrInvalidInput) && action == "fire-attachment-release-cue":
+		field, label = "release-cue-confirmed", "Release confirmation"
+	}
+	return status, frontend.FormErrors{{FieldID: field, Label: label, Message: message}}
+}
+
+func eventSettingsField(field string) (string, string) {
+	fields := map[string][2]string{
+		"name":                              {"event-name", "Event name"},
+		"public":                            {"event-public", "Public visibility"},
+		"public_slug":                       {"public-slug", "Current Event Slug"},
+		"planned_start_date":                {"planned-start-date", "Planned start"},
+		"planned_end_date":                  {"planned-end-date", "Planned end"},
+		"timezone":                          {"event-timezone", "Timezone"},
+		"event_locale":                      {"event-locale", "Event locale"},
+		"content_language":                  {"content-language", "Content language"},
+		"event_day_boundary":                {"event-day-boundary", "Event day boundary"},
+		"entry_default_disposition":         {"entry-default-disposition", "New Competition Entry disposition"},
+		"submission_eligibility":            {"submission-eligibility", "New Competition Submission Eligibility"},
+		"voting_method":                     {"voting-method", "Competition Voting Method"},
+		"self_vote_policy":                  {"self-vote-policy", "Competition Self-Vote Policy"},
+		"target_adjustment_presets_seconds": {"target-adjustment-presets", "Target adjustment presets"},
+	}
+	return fields[field][0], fields[field][1]
 }
 
 func (handlers planningHandlers) displaySettings(
@@ -355,7 +400,7 @@ func (handlers planningHandlers) displaySettings(
 			)
 		}
 		if inputErr != nil {
-			status, feedback, known := displaySettingsError(inputErr)
+			status, formErrors, errorSection, known := displaySettingsError(inputErr)
 			if !known {
 				handlers.browser.frontendError(
 					response,
@@ -375,7 +420,8 @@ func (handlers planningHandlers) displaySettings(
 				csrfToken,
 				form,
 				status,
-				feedback,
+				formErrors,
+				errorSection,
 			)
 			return
 		}
@@ -401,7 +447,8 @@ func (handlers planningHandlers) displaySettings(
 		csrfToken,
 		form,
 		http.StatusOK,
-		frontend.DisplaySettingsError{},
+		nil,
+		"",
 	)
 }
 
@@ -415,7 +462,8 @@ func (handlers planningHandlers) renderDisplaySettings(
 	csrfToken string,
 	form frontend.DisplaySettingsForm,
 	status int,
-	formError frontend.DisplaySettingsError,
+	formErrors frontend.FormErrors,
+	errorSection string,
 ) {
 	commandID, err := planningCommandID(handlers.browser.random)
 	if err != nil {
@@ -429,7 +477,7 @@ func (handlers planningHandlers) renderDisplaySettings(
 			Navigation:     backstageNavigation(actor, request.URL.Path),
 			Event:          event, EventRevision: eventRevision, Draft: draft,
 			SessionTypes: displaySessionTypes(), Form: form,
-			CommandID: commandID, Error: formError,
+			CommandID: commandID, Errors: formErrors, ErrorSection: errorSection,
 		},
 	))
 }
@@ -447,25 +495,26 @@ func (err *displaySettingsInputError) Error() string {
 
 func displaySettingsError(
 	err error,
-) (int, frontend.DisplaySettingsError, bool) {
+) (int, frontend.FormErrors, string, bool) {
 	var inputError *displaySettingsInputError
 	if errors.As(err, &inputError) {
-		return http.StatusUnprocessableEntity, frontend.DisplaySettingsError{
-			Message: inputError.Error(), FieldID: inputError.fieldID,
-			FieldMessage: inputError.message, Section: inputError.section,
-		}, true
+		return http.StatusUnprocessableEntity, frontend.FormErrors{{
+			FieldID: inputError.fieldID, Label: inputError.field,
+			Message: inputError.message,
+		}}, inputError.section, true
 	}
 	status, message := planningError(err)
 	if status == http.StatusInternalServerError {
-		return status, frontend.DisplaySettingsError{}, false
+		return status, nil, "", false
 	}
-	feedback := frontend.DisplaySettingsError{Message: message}
 	var validation *events.ValidationError
 	if errors.As(err, &validation) && validation.Field == "rotation_seconds" {
-		feedback.FieldID = "rotation_seconds"
-		feedback.FieldMessage = validation.Message
+		return status, frontend.FormErrors{{
+			FieldID: "rotation_seconds", Label: "Rotation interval",
+			Message: validation.Message,
+		}}, "", true
 	}
-	return status, feedback, true
+	return status, frontend.FormErrors{{Message: message}}, "", true
 }
 
 func displaySettingsInput(
@@ -857,7 +906,7 @@ func (handlers planningHandlers) planning(response http.ResponseWriter, request 
 	}
 	switch request.Method {
 	case http.MethodGet, http.MethodHead:
-		handlers.render(response, request, actor, eventID, csrfToken, http.StatusOK, "", nil, nil, nil, "", "", "", "")
+		handlers.render(response, request, actor, eventID, csrfToken, http.StatusOK, nil, nil, nil, nil, "", "", "", "")
 	case http.MethodPost:
 		if !handlers.browser.validForm(response, request) {
 			return
@@ -916,6 +965,18 @@ func (handlers planningHandlers) submit(
 			mutated = err == nil
 			if mutated {
 				handlers.notifyDisplays()
+			} else if errors.Is(err, rundown.ErrStalePreview) {
+				var preview rundown.PublishPreview
+				preview, previewErr := handlers.queries.PublishPreview(
+					request.Context(),
+					actor,
+					rundown.PublishPreviewInput{
+						EventID: eventID, ChangeIDs: input.Confirmation.ChangeIDs,
+					},
+				)
+				if previewErr == nil {
+					publishPreview = &preview
+				}
 			}
 		}
 	case "csv-preview":
@@ -945,6 +1006,19 @@ func (handlers planningHandlers) submit(
 		if err == nil {
 			_, err = handlers.commands.ImportCSV(request.Context(), actor, input)
 			mutated = err == nil
+			if err != nil {
+				var preview rundown.CSVImportPreview
+				preview, previewErr := handlers.queries.PreviewCSVImport(
+					request.Context(),
+					actor,
+					rundown.CSVImportPreviewInput{
+						EventID: eventID, CSVData: input.CSVData, Mappings: input.Mappings,
+					},
+				)
+				if previewErr == nil {
+					csvPreview = &preview
+				}
+			}
 		}
 	case "icalendar-preview":
 		var choices []rundown.ICalendarOccurrenceChoice
@@ -973,6 +1047,19 @@ func (handlers planningHandlers) submit(
 		if err == nil {
 			_, err = handlers.commands.ImportICalendar(request.Context(), actor, input)
 			mutated = err == nil
+			if err != nil {
+				var preview rundown.ICalendarImportPreview
+				preview, previewErr := handlers.queries.PreviewICalendarImport(
+					request.Context(),
+					actor,
+					rundown.ICalendarImportPreviewInput{
+						EventID: eventID, Data: input.Data, Choices: input.Choices,
+					},
+				)
+				if previewErr == nil {
+					icalendarPreview = &preview
+				}
+			}
 		}
 	default:
 		err = formValidationError("action", "must identify a planning action")
@@ -986,7 +1073,7 @@ func (handlers planningHandlers) submit(
 		)
 		return
 	}
-	status, message := planningError(err)
+	status, formErrors := planningFormErrors(err, request.Form)
 	handlers.render(
 		response,
 		request,
@@ -994,7 +1081,7 @@ func (handlers planningHandlers) submit(
 		eventID,
 		csrfToken,
 		status,
-		message,
+		formErrors,
 		publishPreview,
 		csvPreview,
 		icalendarPreview,
@@ -1012,7 +1099,7 @@ func (handlers planningHandlers) render(
 	eventID int,
 	csrfToken string,
 	status int,
-	message string,
+	formErrors frontend.FormErrors,
 	publishPreview *rundown.PublishPreview,
 	csvPreview *rundown.CSVImportPreview,
 	icalendarPreview *rundown.ICalendarImportPreview,
@@ -1067,8 +1154,129 @@ func (handlers planningHandlers) render(
 		PublishPreview: publishPreview, CSVPreview: csvPreview,
 		ICalendarPreview: icalendarPreview, CSVData: csvData, CSVMappings: csvMappings,
 		ICalendarData: icalendarData, ICalendarChoices: icalendarChoices,
-		CommandID: commandID, SubmittedAction: request.Form.Get("action"), Error: message,
+		CommandID: commandID, SubmittedAction: request.Form.Get("action"),
+		Form: request.Form, Errors: formErrors,
 	}))
+}
+
+func planningFormErrors(err error, values url.Values) (int, frontend.FormErrors) {
+	status, message := planningError(err)
+	if err == nil {
+		return status, nil
+	}
+	var validation *rundown.ValidationError
+	if !errors.As(err, &validation) {
+		return status, frontend.FormErrors{{Message: message}}
+	}
+	field, label := planningValidationField(validation.Field)
+	if field == "" {
+		return status, frontend.FormErrors{{Message: validation.Error()}}
+	}
+	target, id := "draft", 0
+	switch {
+	case strings.HasPrefix(field, "csv_"):
+		return status, frontend.FormErrors{{
+			FieldID: strings.ReplaceAll(field, "_", "-"), Label: label,
+			Message: validation.Message,
+		}}
+	case strings.HasPrefix(field, "icalendar_"):
+		return status, frontend.FormErrors{{
+			FieldID: strings.ReplaceAll(field, "_", "-"), Label: label,
+			Message: validation.Message,
+		}}
+	case field == "change_id":
+		return status, frontend.FormErrors{{
+			FieldID: "publish-changes", Label: label, Message: validation.Message,
+		}}
+	case field == "publish_note":
+		return status, frontend.FormErrors{{
+			FieldID: "publish-note", Label: label, Message: validation.Message,
+		}}
+	case field == "proposal_ids":
+		importType := strings.TrimSuffix(values.Get("action"), "-import")
+		return status, frontend.FormErrors{{
+			FieldID: importType + "-proposal-ids", Label: label, Message: validation.Message,
+		}}
+	}
+	for _, candidate := range []string{"location", "lane", "track", "session"} {
+		if parsed, parseErr := strconv.Atoi(values.Get(candidate + "_id")); parseErr == nil && parsed > 0 {
+			target, id = candidate, parsed
+			break
+		}
+	}
+	if target == "draft" {
+		switch field {
+		case "session_lane_ids", "session_location_ids", "session_track_ids":
+			field = strings.TrimSuffix(field, "s")
+		}
+	}
+	return status, frontend.FormErrors{{
+		FieldID: frontend.PlanningFieldID(target, id, field), Label: label,
+		Message: validation.Message,
+	}}
+}
+
+func planningValidationField(field string) (string, string) {
+	fields := map[string][2]string{
+		"locations.name":                     {"location_name", "Location name"},
+		"lanes.name":                         {"lane_name", "Lane name"},
+		"lanes.location":                     {"lane_location_id", "Lane Location"},
+		"tracks.name":                        {"track_name", "Track name"},
+		"sessions.title":                     {"session_title", "Session title"},
+		"sessions.speaker":                   {"session_speaker", "Speaker"},
+		"sessions.type":                      {"session_type", "Session type"},
+		"sessions.audience_visibility":       {"audience_visibility", "Audience visibility"},
+		"sessions.public_details":            {"public_details", "Public details"},
+		"sessions.crew_notes":                {"crew_notes", "Crew notes"},
+		"sessions.planned_end":               {"planned_end", "Planned end"},
+		"sessions.timing_policy":             {"timing_policy", "Timing policy"},
+		"sessions.minimum_duration":          {"minimum_duration", "Minimum duration"},
+		"sessions.start_boundary":            {"start_boundary", "Start boundary"},
+		"sessions.end_boundary":              {"end_boundary", "End boundary"},
+		"sessions.boundary":                  {"start_boundary", "Start boundary"},
+		"sessions.upload_deadline":           {"upload_deadline", "Presentation upload deadline"},
+		"sessions.submission_deadline":       {"submission_deadline", "Competition submission deadline"},
+		"sessions.entry_default_disposition": {"session_entry_default_disposition", "New Entry disposition"},
+		"sessions.lanes":                     {"session_lane_ids", "Lanes"},
+		"sessions.locations":                 {"session_location_ids", "Locations"},
+		"sessions.tracks":                    {"session_track_ids", "Tracks"},
+		"location_name":                      {"location_name", "Location name"},
+		"lane_name":                          {"lane_name", "Lane name"},
+		"lane_location_id":                   {"lane_location_id", "Lane Location"},
+		"track_name":                         {"track_name", "Track name"},
+		"session_title":                      {"session_title", "Session title"},
+		"session_speaker":                    {"session_speaker", "Speaker"},
+		"session_type":                       {"session_type", "Session type"},
+		"audience_visibility":                {"audience_visibility", "Audience visibility"},
+		"public_details":                     {"public_details", "Public details"},
+		"crew_notes":                         {"crew_notes", "Crew notes"},
+		"planned_start":                      {"planned_start", "Planned start"},
+		"planned_end":                        {"planned_end", "Planned end"},
+		"timing_policy":                      {"timing_policy", "Timing policy"},
+		"minimum_duration":                   {"minimum_duration", "Minimum duration"},
+		"start_boundary":                     {"start_boundary", "Start boundary"},
+		"end_boundary":                       {"end_boundary", "End boundary"},
+		"session_lane_id":                    {"session_lane_id", "Current Draft Lane ID"},
+		"session_location_id":                {"session_location_id", "Current Draft Location ID"},
+		"session_track_id":                   {"session_track_id", "Current Draft Track ID"},
+		"session_lane_ids":                   {"session_lane_ids", "Lanes"},
+		"session_location_ids":               {"session_location_ids", "Locations"},
+		"session_track_ids":                  {"session_track_ids", "Tracks"},
+		"upload_deadline":                    {"upload_deadline", "Presentation upload deadline"},
+		"submission_deadline":                {"submission_deadline", "Competition submission deadline"},
+		"session_entry_default_disposition":  {"session_entry_default_disposition", "New Entry disposition"},
+		"proposal_ids":                       {"proposal_ids", "Proposals to apply"},
+		"csv_mappings":                       {"csv_mappings", "Field mappings"},
+		"csv_data":                           {"csv_data", "CSV data"},
+		"icalendar_choices":                  {"icalendar_choices", "Occurrence choices"},
+		"icalendar_data":                     {"icalendar_data", "iCalendar data"},
+		"change_id":                          {"change_id", "Draft changes"},
+		"publish_note":                       {"publish_note", "Publish note"},
+	}
+	if found, ok := fields[field]; ok {
+		return found[0], found[1]
+	}
+	return "", ""
 }
 
 func planningCommandID(random io.Reader) (string, error) {

@@ -3,6 +3,7 @@ package server
 import (
 	"errors"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/frontend"
 	"github.com/dotwaffle/beamers/internal/presentation"
+	"github.com/dotwaffle/beamers/internal/rundown"
 )
 
 func (handlers entryHandlers) presentationSubmission(
@@ -43,7 +45,7 @@ func (handlers entryHandlers) presentationSubmission(
 			sessionID,
 			csrfToken,
 			http.StatusOK,
-			"",
+			nil,
 		)
 	case http.MethodPost:
 		if !handlers.browser.validForm(response, request) {
@@ -60,7 +62,7 @@ func (handlers entryHandlers) presentationSubmission(
 			)
 			return
 		}
-		status, message := presentationSubmissionError(err)
+		status, formErrors := presentationSubmissionFormErrors(err, request.Form, sessionID)
 		handlers.renderPresentationSubmission(
 			response,
 			request,
@@ -69,7 +71,7 @@ func (handlers entryHandlers) presentationSubmission(
 			sessionID,
 			csrfToken,
 			status,
-			message,
+			formErrors,
 		)
 	default:
 		frontendMethodNotAllowed(response, http.MethodGet+", "+http.MethodHead+", "+http.MethodPost)
@@ -89,7 +91,7 @@ func (handlers entryHandlers) submitPresentationSubmission(
 		}
 		accountID, err := entryFormPositiveInt(request, "account_id")
 		if err != nil {
-			return err
+			return formValidationError("account_id", "must identify a Submitter Account")
 		}
 		_, err = handlers.presentation.AssignSubmitter(
 			request.Context(),
@@ -101,6 +103,9 @@ func (handlers entryHandlers) submitPresentationSubmission(
 		)
 		return err
 	case "create-reopen-window":
+		if strings.TrimSpace(request.Form.Get("reason")) == "" {
+			return formValidationError("reason", "is required")
+		}
 		foundEvent, err := handlers.events.CrewEvent(request.Context(), actor, eventID)
 		if err != nil {
 			return err
@@ -115,7 +120,7 @@ func (handlers entryHandlers) submitPresentationSubmission(
 			location,
 		)
 		if err != nil {
-			return presentation.ErrInvalidInput
+			return formValidationError("expires_at", "must be a valid local date and time")
 		}
 		_, err = handlers.attachments.CreateReopenWindow(
 			request.Context(),
@@ -148,7 +153,7 @@ func (handlers entryHandlers) renderPresentationSubmission(
 	eventID, sessionID int,
 	csrfToken string,
 	status int,
-	message string,
+	formErrors frontend.FormErrors,
 ) {
 	foundEvent, err := handlers.events.CrewEvent(request.Context(), actor, eventID)
 	if err != nil {
@@ -191,13 +196,62 @@ func (handlers entryHandlers) renderPresentationSubmission(
 			ReducedEffects: reducedEffectsCookie(request),
 			Navigation:     backstageNavigation(actor, request.URL.Path),
 			CommandID:      commandID, Event: foundEvent, State: state, Accounts: accounts,
-			ReopenWindows: windows, Error: message,
+			ReopenWindows: windows, SubmittedAction: request.Form.Get("action"),
+			Form: request.Form, Errors: formErrors,
 		},
 	))
 }
 
-func presentationSubmissionError(err error) (int, string) {
+func presentationSubmissionFormErrors(
+	err error,
+	values url.Values,
+	sessionID int,
+) (int, frontend.FormErrors) {
+	status, message := presentationSubmissionError(err)
+	if err == nil {
+		return status, nil
+	}
+	action := values.Get("action")
+	targetID, _ := strconv.Atoi(values.Get("entry_id"))
+	if targetID == 0 && (action == "extend-reopen-window" || action == "close-reopen-window") {
+		targetID = sessionID
+	}
+	windowID, _ := strconv.Atoi(values.Get("window_id"))
+	if action == "create-reopen-window" {
+		if validationErrors := createReopenWindowFormErrors(values, 0); len(validationErrors) > 0 {
+			return status, validationErrors
+		}
+	}
+	field, label, fieldMessage := "", "", message
+	var validation *rundown.ValidationError
 	switch {
+	case errors.As(err, &validation):
+		field, fieldMessage = validation.Field, validation.Message
+	case errors.Is(err, attachments.ErrReopenWindowExtension),
+		errors.Is(err, attachments.ErrReopenWindowExpiry):
+		field, label = "expires_at", "Expiry"
+	case errors.Is(err, attachments.ErrInvalidInput) && action == "create-reopen-window":
+		field, label = "expires_at", "Expiry"
+	case errors.Is(err, presentation.ErrInvalidInput) && action == "assign-submitter":
+		field, label = "account_id", "Submitter Account"
+	}
+	if field == "" {
+		return status, frontend.FormErrors{{Message: message}}
+	}
+	if label == "" {
+		label = strings.ReplaceAll(field, "_", " ")
+	}
+	return status, frontend.FormErrors{{
+		FieldID: frontend.WorkflowFieldID(action, targetID, 0, windowID, field),
+		Label:   label, Message: fieldMessage,
+	}}
+}
+
+func presentationSubmissionError(err error) (int, string) {
+	var validation *rundown.ValidationError
+	switch {
+	case errors.As(err, &validation):
+		return http.StatusUnprocessableEntity, validation.Error()
 	case errors.Is(err, attachments.ErrInvalidInput),
 		errors.Is(err, presentation.ErrInvalidInput),
 		errors.Is(err, command.ErrInvalidID):

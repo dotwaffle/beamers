@@ -2,12 +2,14 @@ package frontend
 
 import (
 	"bytes"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/dotwaffle/beamers/internal/attachments"
 	"github.com/dotwaffle/beamers/internal/events"
+	"github.com/dotwaffle/beamers/internal/rundown"
 	"github.com/dotwaffle/beamers/internal/voting"
 )
 
@@ -81,6 +83,41 @@ func TestSelectionControlsKeepNativeSizing(t *testing.T) {
 		if !strings.Contains(string(stylesheet), want) {
 			t.Errorf("Frontend stylesheet missing %q", want)
 		}
+	}
+}
+
+func TestImportProposalErrorsDescribeCheckboxGroups(t *testing.T) {
+	t.Parallel()
+
+	for _, importType := range []string{"csv", "icalendar"} {
+		t.Run(importType, func(t *testing.T) {
+			t.Parallel()
+
+			page := PlanningPage{
+				Event:           events.Event{EventLocale: "en"},
+				SubmittedAction: importType + "-import",
+				Form:            url.Values{"action": {importType + "-import"}},
+				Errors:          FormErrors{{FieldID: importType + "-proposal-ids", Message: "select one"}},
+			}
+			if importType == "csv" {
+				page.CSVPreview = &rundown.CSVImportPreview{}
+			} else {
+				page.ICalendarPreview = &rundown.ICalendarImportPreview{}
+			}
+			var output bytes.Buffer
+			if err := Planning(page).Render(t.Context(), &output); err != nil {
+				t.Fatalf("render planning page: %v", err)
+			}
+			for _, want := range []string{
+				`id="` + importType + `-proposal-ids" aria-describedby="` +
+					importType + `-proposal-ids-error" aria-invalid="true"`,
+				`id="` + importType + `-proposal-ids-error"`,
+			} {
+				if !strings.Contains(output.String(), want) {
+					t.Errorf("planning page lacks %q: %s", want, output.String())
+				}
+			}
+		})
 	}
 }
 

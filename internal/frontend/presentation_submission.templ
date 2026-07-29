@@ -1,6 +1,7 @@
 package frontend
 
 import (
+	"net/url"
 	"strconv"
 	"time"
 
@@ -19,7 +20,9 @@ type PresentationSubmissionPage struct {
 	State          presentation.State
 	Accounts       []presentation.Account
 	ReopenWindows  []store.ReopenWindow
-	Error          string
+	SubmittedAction string
+	Form            url.Values
+	Errors          FormErrors
 }
 
 templ PresentationSubmission(page PresentationSubmissionPage) {
@@ -33,9 +36,7 @@ templ PresentationSubmission(page PresentationSubmissionPage) {
 				<main id="main-content" tabindex="-1">
 					<h1>{ page.State.SessionTitle }</h1>
 					<p><a href={ templ.SafeURL("/backstage/events/" + strconv.Itoa(page.Event.ID) + "/planning") }>Back to planning</a></p>
-					if page.Error != "" {
-						<p class="error" role="alert">{ page.Error }</p>
-					}
+					@ErrorSummary(page.Errors)
 					if page.State.SubmitterAccountID == 0 {
 						<p><strong>Submitter:</strong> Crew Managed</p>
 					} else {
@@ -52,33 +53,57 @@ templ PresentationSubmission(page PresentationSubmissionPage) {
 						page.ReopenWindows,
 						true,
 						time.Now(),
+						page.Form,
+						page.SubmittedAction,
+						page.Errors,
 					)
 					<form method="post">
 						<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
 						<input type="hidden" name="action" value="assign-submitter"/>
 						<input type="hidden" name="command_id" value={ page.CommandID }/>
 						<input type="hidden" name="expected_revision" value={ strconv.Itoa(page.State.Revision) }/>
-						<label>Submitter Account
-							<select name="account_id" required>
+						<label for={ WorkflowFieldID("assign-submitter", 0, 0, 0, "account_id") }>Submitter Account</label>
+						<select
+							id={ WorkflowFieldID("assign-submitter", 0, 0, 0, "account_id") }
+							name="account_id"
+							required
+							{ page.Errors.Attributes(WorkflowFieldID("assign-submitter", 0, 0, 0, "account_id"))... }
+						>
 								for _, account := range page.Accounts {
 									<option
 										value={ strconv.Itoa(account.ID) }
-										selected?={ account.ID == page.State.SubmitterAccountID }
+										selected?={ workflowValue(page.Form, page.SubmittedAction, "assign-submitter", 0, 0, 0, "account_id", strconv.Itoa(page.State.SubmitterAccountID)) == strconv.Itoa(account.ID) }
 									>{ "@" + account.Handle + " — " + account.Name }</option>
 								}
-							</select>
-						</label>
+						</select>
+						@FieldError(page.Errors, WorkflowFieldID("assign-submitter", 0, 0, 0, "account_id"))
 						<button type="submit">Assign or replace Submitter Account</button>
 					</form>
 					<form class="stack" method="post">
 						<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
 						<input type="hidden" name="action" value="create-reopen-window"/>
 						<input type="hidden" name="command_id" value={ page.CommandID }/>
-						<label>Reopen reason <input name="reason" required/></label>
-						<label>
+						<label for={ WorkflowFieldID("create-reopen-window", 0, 0, 0, "reason") }>Reopen reason</label>
+						<input
+							id={ WorkflowFieldID("create-reopen-window", 0, 0, 0, "reason") }
+							name="reason"
+							value={ workflowValue(page.Form, page.SubmittedAction, "create-reopen-window", 0, 0, 0, "reason", "") }
+							required
+							{ page.Errors.Attributes(WorkflowFieldID("create-reopen-window", 0, 0, 0, "reason"))... }
+						/>
+						@FieldError(page.Errors, WorkflowFieldID("create-reopen-window", 0, 0, 0, "reason"))
+						<label for={ WorkflowFieldID("create-reopen-window", 0, 0, 0, "expires_at") }>
 							Expires at ({ page.Event.Timezone })
-							<input type="datetime-local" name="expires_at" required/>
 						</label>
+						<input
+							id={ WorkflowFieldID("create-reopen-window", 0, 0, 0, "expires_at") }
+							type="datetime-local"
+							name="expires_at"
+							value={ workflowValue(page.Form, page.SubmittedAction, "create-reopen-window", 0, 0, 0, "expires_at", "") }
+							required
+							{ page.Errors.Attributes(WorkflowFieldID("create-reopen-window", 0, 0, 0, "expires_at"))... }
+						/>
+						@FieldError(page.Errors, WorkflowFieldID("create-reopen-window", 0, 0, 0, "expires_at"))
 						<button type="submit">Create bounded Reopen Window</button>
 					</form>
 				</main>
