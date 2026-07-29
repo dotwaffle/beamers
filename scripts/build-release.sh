@@ -56,8 +56,6 @@ if [ "$mode" = "--binary-only" ]; then
 	exit 0
 fi
 
-"$repository/scripts/check-build-toolchain.sh" \
-	>"$output/beamers-build-toolchain.txt"
 archive="$output/beamers-oci-linux-amd64.tar"
 docker_archive="$output/beamers-image-linux-amd64.tar"
 docker buildx build \

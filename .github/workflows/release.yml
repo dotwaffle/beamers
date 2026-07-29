@@ -58,7 +58,7 @@ jobs:
           cache: true
 
       - name: Set up Docker Buildx
-        uses: ./.github/actions/setup-buildx
+        uses: docker/setup-buildx-action@v4
 
       - name: Run canonical checks
         run: mise run check
@@ -87,7 +87,6 @@ jobs:
             dist/beamers-image-linux-amd64.tar.sha256 \
             dist/beamers-oci-linux-amd64.tar \
             dist/beamers-oci-linux-amd64.tar.sha256 \
-            dist/beamers-build-toolchain.txt \
             --verify-tag \
             --draft \
             --generate-notes
