@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -140,7 +141,7 @@ func (handlers operationHandlers) operations(
 	case http.MethodGet, http.MethodHead:
 		handlers.render(
 			response, request, actor, event, csrfToken,
-			http.StatusOK, "", operationPreview{},
+			http.StatusOK, nil, operationPreview{},
 		)
 	case http.MethodPost:
 		if !handlers.browser.validForm(response, request) {
@@ -183,7 +184,7 @@ func (handlers operationHandlers) submit(
 	if preview.target != nil || preview.end != nil || preview.reinstatement != nil {
 		handlers.render(
 			response, request, actor, event, csrfToken,
-			http.StatusOK, "", preview,
+			http.StatusOK, nil, preview,
 		)
 		return
 	}
@@ -318,6 +319,22 @@ func (handlers operationHandlers) previewReinstate(
 	if err != nil {
 		return errInvalidOperationInput
 	}
+	return handlers.previewReinstateAt(
+		request,
+		actor,
+		event.ID,
+		preview,
+		forecastStart,
+	)
+}
+
+func (handlers operationHandlers) previewReinstateAt(
+	request *http.Request,
+	actor auth.Account,
+	eventID int,
+	preview *operationPreview,
+	forecastStart time.Time,
+) error {
 	laneIDs, locationIDs, err := operationPlacement(request)
 	if err != nil {
 		return err
@@ -326,7 +343,7 @@ func (handlers operationHandlers) previewReinstate(
 		request.Context(),
 		actor,
 		sessioncontrol.PreviewReinstateInput{
-			EventID: event.ID, SessionID: preview.sessionID,
+			EventID: eventID, SessionID: preview.sessionID,
 			ForecastStart: forecastStart, LaneIDs: laneIDs, LocationIDs: locationIDs,
 		},
 	)
@@ -382,7 +399,190 @@ func (handlers operationHandlers) renderOperationError(
 		handlers.browser.frontendError(response, request, "submit Session operation", err)
 		return
 	}
-	handlers.render(response, request, actor, event, csrfToken, status, message, preview)
+	if refreshErr := handlers.refreshOperationPreview(
+		request,
+		actor,
+		event,
+		err,
+		&preview,
+	); refreshErr != nil {
+		status, message, known = operationError(refreshErr)
+		if !known {
+			handlers.browser.frontendError(
+				response,
+				request,
+				"refresh Session operation preview",
+				refreshErr,
+			)
+			return
+		}
+		err = refreshErr
+	}
+	handlers.render(
+		response,
+		request,
+		actor,
+		event,
+		csrfToken,
+		status,
+		operationFormErrors(
+			err,
+			request.Form.Get("action"),
+			preview.sessionID,
+			request.Form,
+			message,
+		),
+		preview,
+	)
+}
+
+func (handlers operationHandlers) refreshOperationPreview(
+	request *http.Request,
+	actor auth.Account,
+	event events.Event,
+	reason error,
+	preview *operationPreview,
+) error {
+	if request.Form.Get("action") == "adjust-target" &&
+		(errors.Is(reason, sessioncontrol.ErrLiveStateRevisionConflict) ||
+			errors.Is(reason, sessioncontrol.ErrTargetPreviewStale) ||
+			errors.Is(reason, sessioncontrol.ErrTargetConfirmation) ||
+			errors.Is(reason, sessioncontrol.ErrHardBoundaryConfirmation)) {
+		return handlers.previewTarget(request, actor, event.ID, preview)
+	}
+	if request.Form.Get("action") == "reinstate-session" &&
+		(errors.Is(reason, sessioncontrol.ErrLiveStateRevisionConflict) ||
+			errors.Is(reason, sessioncontrol.ErrReinstatePreviewStale) ||
+			errors.Is(reason, sessioncontrol.ErrReinstateConfirmation) ||
+			errors.Is(reason, sessioncontrol.ErrHardBoundaryConfirmation)) {
+		forecastStart, err := time.Parse(time.RFC3339, request.Form.Get("forecast_start"))
+		if err != nil {
+			return errInvalidOperationInput
+		}
+		return handlers.previewReinstateAt(
+			request,
+			actor,
+			event.ID,
+			preview,
+			forecastStart,
+		)
+	}
+	if request.Form.Get("action") == "end-session" &&
+		(errors.Is(reason, sessioncontrol.ErrLiveStateRevisionConflict) ||
+			errors.Is(reason, sessioncontrol.ErrDeferredEntriesConfirmation) ||
+			errors.Is(reason, sessioncontrol.ErrDeferredEntriesPreviewStale)) {
+		found, err := handlers.competition.PreflightEnd(
+			request.Context(),
+			actor,
+			event.ID,
+			preview.sessionID,
+		)
+		preview.end = &found
+		return err
+	}
+	return nil
+}
+
+func operationFormErrors(
+	err error,
+	action string,
+	sessionID int,
+	values url.Values,
+	message string,
+) frontend.FormErrors {
+	if action == "assign-display" {
+		sessionID, _ = strconv.Atoi(values.Get("display_id"))
+	}
+	fieldID, label, fieldMessage := "", "", message
+	var validation *rundown.ValidationError
+	switch {
+	case errors.As(err, &validation):
+		fieldID = frontend.OperationFieldID(action, sessionID, validation.Field)
+		label, fieldMessage = operationFieldLabel(validation.Field), validation.Message
+	case errors.Is(err, displays.ErrInvalidDisplay) && action == "enroll-display":
+		fieldID = frontend.OperationFieldID(action, 0, "code")
+		label, fieldMessage = "Enrollment code", "Enter a valid Enrollment code."
+	case errors.Is(err, displays.ErrAssignmentReference) && action == "assign-display":
+		fieldID = frontend.OperationFieldID(action, sessionID, "location_id")
+		label, fieldMessage = "Location", "Choose a location from the active Event."
+	case errors.Is(err, sessioncontrol.ErrHardBoundaryConfirmation) &&
+		action == "adjust-target":
+		fieldID = frontend.OperationFieldID(action, sessionID, "hard_boundary_confirmed")
+		label, fieldMessage = "Hard Boundary confirmation", "Confirm Hard Boundary movement."
+	case action == "adjust-target" &&
+		(errors.Is(err, sessioncontrol.ErrLiveStateRevisionConflict) ||
+			errors.Is(err, sessioncontrol.ErrTargetPreviewStale)):
+		fieldID = frontend.OperationFieldID(action, sessionID, "confirmed")
+		label = "Adjust Target confirmation"
+		fieldMessage = "The timing preview changed; review and confirm Adjust Target again."
+	case errors.Is(err, sessioncontrol.ErrTargetConfirmation) &&
+		action == "adjust-target":
+		fieldID = frontend.OperationFieldID(action, sessionID, "confirmed")
+		label, fieldMessage = "Adjust Target confirmation", "Confirm Adjust Target."
+	case errors.Is(err, sessioncontrol.ErrHardBoundaryConfirmation) &&
+		action == "reinstate-session":
+		fieldID = frontend.OperationFieldID(action, sessionID, "hard_boundary_confirmed")
+		label, fieldMessage = "Hard Boundary confirmation", "Confirm Hard Boundary movement."
+	case action == "reinstate-session" &&
+		(errors.Is(err, sessioncontrol.ErrLiveStateRevisionConflict) ||
+			errors.Is(err, sessioncontrol.ErrReinstatePreviewStale)):
+		fieldID = frontend.OperationFieldID(action, sessionID, "confirmed")
+		label = "Reinstate confirmation"
+		fieldMessage = "The placement preview changed; review and confirm Reinstate again."
+	case errors.Is(err, sessioncontrol.ErrReinstateConfirmation) &&
+		action == "reinstate-session":
+		fieldID = frontend.OperationFieldID(action, sessionID, "confirmed")
+		label, fieldMessage = "Reinstate confirmation", "Confirm Reinstate."
+	case action == "end-session" &&
+		(errors.Is(err, sessioncontrol.ErrLiveStateRevisionConflict) ||
+			errors.Is(err, sessioncontrol.ErrDeferredEntriesPreviewStale)):
+		fieldID = frontend.OperationFieldID(action, sessionID, "confirmed_deferred_entries")
+		label = "Deferred Entries confirmation"
+		fieldMessage = "The deferred Entry preview changed; review and confirm again."
+	case errors.Is(err, sessioncontrol.ErrDeferredEntriesConfirmation) &&
+		action == "end-session":
+		fieldID = frontend.OperationFieldID(action, sessionID, "confirmed_deferred_entries")
+		label, fieldMessage = "Deferred Entries confirmation", "Confirm deferred Entries."
+	case errors.Is(err, errInvalidOperationInput) && action == "preview-adjust-target":
+		fieldID = frontend.OperationFieldID(action, sessionID, "adjustment")
+		label, fieldMessage = "Target adjustment", "Enter a duration such as 5m."
+	case errors.Is(err, errInvalidOperationInput) && action == "preview-reinstate":
+		fieldID = frontend.OperationFieldID(action, sessionID, "forecast_start")
+		label, fieldMessage = "New Forecast Start", "Enter a valid Forecast Start."
+	case errors.Is(err, sessioncontrol.ErrCancelConfirmation):
+		fieldID = frontend.OperationFieldID(action, sessionID, "confirmed")
+		label, fieldMessage = "Cancellation confirmation", "Confirm cancellation."
+	case errors.Is(err, sessioncontrol.ErrCancellationText):
+		fieldID = frontend.OperationFieldID(action, sessionID, "public_cancellation_message")
+		label = "Public cancellation message"
+	case errors.Is(err, sessioncontrol.ErrReinstatePlacement):
+		fieldID = frontend.OperationFieldID(action, sessionID, "lane_ids")
+		label = "Lane IDs"
+	}
+	return frontend.FormErrors{{
+		FieldID: fieldID, Label: label, Message: fieldMessage,
+	}}
+}
+
+func operationFieldLabel(field string) string {
+	switch field {
+	case "lane_ids":
+		return "Lane IDs"
+	case "location_ids":
+		return "Location IDs"
+	case "display_id":
+		return "Display ID"
+	case "location_id":
+		return "Location"
+	case "view_key":
+		return "View"
+	case "display_group_keys":
+		return "Display Group keys"
+	case "name":
+		return "Display name"
+	default:
+		return field
+	}
 }
 
 func operationSessionInput(request *http.Request) (int, int, error) {
@@ -397,10 +597,13 @@ func operationSessionInput(request *http.Request) (int, int, error) {
 	return sessionID, revision, nil
 }
 
-func operationIDs(value string) ([]int, error) {
+func operationIDs(value, field, label string) ([]int, error) {
 	ids, err := positiveFormIDs(commaSeparatedValues(value))
 	if err != nil || len(ids) == 0 {
-		return nil, errInvalidOperationInput
+		return nil, formValidationError(
+			field,
+			"Enter "+label+" as comma-separated positive integers.",
+		)
 	}
 	return ids, nil
 }
@@ -414,11 +617,15 @@ func operationAdjustment(request *http.Request) (time.Duration, error) {
 }
 
 func operationPlacement(request *http.Request) ([]int, []int, error) {
-	laneIDs, err := operationIDs(request.Form.Get("lane_ids"))
+	laneIDs, err := operationIDs(request.Form.Get("lane_ids"), "lane_ids", "Lane IDs")
 	if err != nil {
 		return nil, nil, err
 	}
-	locationIDs, err := operationIDs(request.Form.Get("location_ids"))
+	locationIDs, err := operationIDs(
+		request.Form.Get("location_ids"),
+		"location_ids",
+		"Location IDs",
+	)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -426,7 +633,10 @@ func operationPlacement(request *http.Request) ([]int, []int, error) {
 }
 
 func operationError(err error) (int, string, bool) {
+	var validation *rundown.ValidationError
 	switch {
+	case errors.As(err, &validation):
+		return http.StatusBadRequest, "Check the operation details and try again.", true
 	case errors.Is(err, errInvalidOperationInput):
 		return http.StatusBadRequest, "Check the operation details and try again.", true
 	case errors.Is(err, command.ErrInvalidID):
@@ -492,7 +702,7 @@ func (handlers operationHandlers) render(
 	event events.Event,
 	csrfToken string,
 	status int,
-	message string,
+	formErrors frontend.FormErrors,
 	preview operationPreview,
 ) {
 	var state rundown.CrewRundown
@@ -524,6 +734,10 @@ func (handlers operationHandlers) render(
 	commandIDs := make(map[string]string, len(state.Sessions)*5)
 	operableSessionIDs := make(map[int]bool, len(state.Sessions))
 	for _, session := range state.Sessions {
+		if session.ID == preview.sessionID &&
+			(preview.target != nil || preview.end != nil || preview.reinstatement != nil) {
+			preview.revision = session.LiveStateRevision
+		}
 		if !canAccessCompetition(actor, event.ID, session) {
 			continue
 		}
@@ -586,7 +800,9 @@ func (handlers operationHandlers) render(
 			ForecastStart:         preview.forecastStart,
 			LaneIDs:               preview.laneIDs,
 			LocationIDs:           preview.locationIDs,
-			Error:                 message,
+			SubmittedAction:       request.Form.Get("action"),
+			Form:                  request.Form,
+			Errors:                formErrors,
 		}),
 	)
 }

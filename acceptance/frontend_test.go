@@ -2620,6 +2620,20 @@ func TestBackstageExportsFinalFiles(t *testing.T) {
 	if unconfirmed.status != http.StatusBadRequest {
 		t.Fatalf("unconfirmed Final Files Export = %d, want 400", unconfirmed.status)
 	}
+	assertAccessibleFormErrors(t, unconfirmed, map[string]string{
+		"final-files-confirmed": "Confirm the ZIP download",
+	})
+	stale := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":     {requireFrontendCSRF(t, unconfirmed)},
+		"preview_digest": {"obsolete-preview"},
+		"confirmed":      {"true"},
+	})
+	if stale.status != http.StatusConflict {
+		t.Fatalf("stale Final Files Export = %d, want 409", stale.status)
+	}
+	assertAccessibleFormErrors(t, stale, map[string]string{
+		"final-files-confirmed": "Review the current files",
+	})
 	download := postFrontendForm(t, administrator, server.address, path, url.Values{
 		"csrf_token":     {requireFrontendCSRF(t, preview)},
 		"preview_digest": {digest},
@@ -2690,8 +2704,10 @@ func TestBackstageExportsFinalFiles(t *testing.T) {
 	freshDigest := frontendNamedValues(conflict.body, "preview_digest").Get("preview_digest")
 	if conflict.status != http.StatusConflict ||
 		!strings.Contains(conflict.body, "Preview changed") ||
+		!strings.Contains(conflict.body, `id="error-summary"`) ||
 		freshDigest == "" ||
-		freshDigest == digest {
+		freshDigest == digest ||
+		strings.Contains(conflict.body, `name="confirmed" value="true" checked`) {
 		t.Fatalf("stale Final Files Export = %d %q", conflict.status, conflict.body)
 	}
 
@@ -4124,6 +4140,9 @@ func TestBackstageOperatesBackupsAndDiagnostics(t *testing.T) {
 	if unconfirmed.status != http.StatusUnprocessableEntity {
 		t.Fatalf("unconfirmed Backup = %d %q", unconfirmed.status, unconfirmed.body)
 	}
+	assertAccessibleFormErrors(t, unconfirmed, map[string]string{
+		"installation-backup-sanitized-confirm": "Confirm the Sanitized Backup",
+	})
 	sanitized := postFrontendForm(
 		t,
 		administrator,
@@ -4173,13 +4192,28 @@ func TestBackstageOperatesBackupsAndDiagnostics(t *testing.T) {
 			failedReauthentication.body,
 		)
 	}
+	if strings.Contains(failedReauthentication.body, `value="wrong password"`) {
+		t.Fatalf("failed Backup retained password: %q", failedReauthentication.body)
+	}
+	if !strings.Contains(
+		failedReauthentication.body,
+		`name="acknowledge_protection" value="true" required checked`,
+	) {
+		t.Fatalf(
+			"failed Backup dropped protection acknowledgment: %q",
+			failedReauthentication.body,
+		)
+	}
+	assertAccessibleFormErrors(t, failedReauthentication, map[string]string{
+		"installation-backup-full-fidelity-password": "current password",
+	})
 	fullFidelity := postFrontendForm(
 		t,
 		administrator,
 		server.address,
 		"/backstage/installation",
 		url.Values{
-			"csrf_token":             {requireFrontendCSRF(t, page)},
+			"csrf_token":             {requireFrontendCSRF(t, failedReauthentication)},
 			"action":                 {"backup-full-fidelity"},
 			"password":               {"correct horse battery staple"},
 			"acknowledge_protection": {"true"},
@@ -4202,6 +4236,26 @@ func TestBackstageOperatesBackupsAndDiagnostics(t *testing.T) {
 	if err != nil || manifest.Mode != backup.FullFidelity {
 		t.Fatalf("verify Full-Fidelity Backup = %+v, %v", manifest, err)
 	}
+
+	missingRestore := postFrontendMultipart(
+		t,
+		administrator,
+		server.address,
+		"/backstage/installation",
+		map[string]string{
+			"csrf_token": requireFrontendCSRF(t, page),
+			"action":     "prepare-restore",
+		},
+		"",
+		"",
+		nil,
+	)
+	if missingRestore.status != http.StatusUnprocessableEntity {
+		t.Fatalf("missing Restore Backup ZIP = %d %q", missingRestore.status, missingRestore.body)
+	}
+	assertAccessibleFormErrors(t, missingRestore, map[string]string{
+		"installation-restore-backup": "Choose a Backup ZIP",
+	})
 
 	prepared := postFrontendMultipart(
 		t,
@@ -4445,13 +4499,40 @@ func TestBackstageOperatesBackupsAndDiagnostics(t *testing.T) {
 			restartedPage.body,
 		)
 	}
-	canceled := postFrontendForm(
+	failedCancellation := postFrontendForm(
 		t,
 		administrator,
 		server.address,
 		"/backstage/installation",
 		url.Values{
 			"csrf_token":               {requireFrontendCSRF(t, restartedPage)},
+			"action":                   {"cancel-restore"},
+			"password":                 {"wrong password"},
+			"acknowledge_cancellation": {"true"},
+		},
+	)
+	if failedCancellation.status != http.StatusUnauthorized ||
+		strings.Contains(failedCancellation.body, `value="wrong password"`) ||
+		!strings.Contains(
+			failedCancellation.body,
+			`name="acknowledge_cancellation" value="true" required checked`,
+		) {
+		t.Fatalf(
+			"failed Restore cancellation = %d %q",
+			failedCancellation.status,
+			failedCancellation.body,
+		)
+	}
+	assertAccessibleFormErrors(t, failedCancellation, map[string]string{
+		"installation-cancel-restore-password": "current password",
+	})
+	canceled := postFrontendForm(
+		t,
+		administrator,
+		server.address,
+		"/backstage/installation",
+		url.Values{
+			"csrf_token":               {requireFrontendCSRF(t, failedCancellation)},
 			"action":                   {"cancel-restore"},
 			"password":                 {"correct horse battery staple"},
 			"acknowledge_cancellation": {"true"},
@@ -4513,9 +4594,27 @@ func TestBrowserAdministersAccountsAndEventGrants(t *testing.T) {
 		}
 	}
 
+	invalidAccount := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":     {requireFrontendCSRF(t, page)},
+		"action":         {"create-account"},
+		"command_id":     {"browser-invalid-administration-account"},
+		"account_handle": {"opal"},
+		"display_name":   {"Retain Opal Operator"},
+		"password":       {"tiny-secret"},
+	})
+	if invalidAccount.status != http.StatusUnprocessableEntity ||
+		!strings.Contains(invalidAccount.body, `value="opal"`) ||
+		!strings.Contains(invalidAccount.body, `value="Retain Opal Operator"`) ||
+		strings.Contains(invalidAccount.body, `value="tiny-secret"`) {
+		t.Fatalf("invalid browser Account creation = %d %q", invalidAccount.status, invalidAccount.body)
+	}
+	assertAccessibleFormErrors(t, invalidAccount, map[string]string{
+		"administration-account-password": "12 to 1024 characters",
+	})
+
 	const password = "operator administration correct horse battery staple"
 	created := postFrontendForm(t, administrator, server.address, path, url.Values{
-		"csrf_token":     {requireFrontendCSRF(t, page)},
+		"csrf_token":     {requireFrontendCSRF(t, invalidAccount)},
 		"action":         {"create-account"},
 		"command_id":     {"browser-create-administration-account"},
 		"account_handle": {"opal"},
@@ -4529,8 +4628,54 @@ func TestBrowserAdministersAccountsAndEventGrants(t *testing.T) {
 	if !strings.Contains(page.body, "Opal Operator") {
 		t.Fatalf("created Account absent: %d %q", page.status, page.body)
 	}
-	granted := postFrontendForm(t, administrator, server.address, path, url.Values{
+	invalidGrant := postFrontendForm(t, administrator, server.address, path, url.Values{
 		"csrf_token":         {requireFrontendCSRF(t, page)},
+		"action":             {"grant"},
+		"command_id":         {"browser-invalid-administration-grant"},
+		"account_id":         {"2"},
+		"event_id":           {"2"},
+		"role":               {"Spectator"},
+		"lane_ids":           {"7, 9"},
+		"display_group_keys": {"retain-stage"},
+		"capability":         {"ViewResults"},
+	})
+	if invalidGrant.status != http.StatusUnprocessableEntity ||
+		!strings.Contains(invalidGrant.body, `value="2" selected`) ||
+		!strings.Contains(invalidGrant.body, `value="7, 9"`) ||
+		!strings.Contains(invalidGrant.body, `value="retain-stage"`) ||
+		!strings.Contains(invalidGrant.body, `value="ViewResults" checked`) {
+		t.Fatalf("invalid browser Event Grant = %d %q", invalidGrant.status, invalidGrant.body)
+	}
+	assertAccessibleFormErrors(t, invalidGrant, map[string]string{
+		"administration-grant-role": "valid Event role",
+	})
+	invalidCapabilities := postFrontendForm(
+		t,
+		administrator,
+		server.address,
+		path,
+		url.Values{
+			"csrf_token": {requireFrontendCSRF(t, invalidGrant)},
+			"action":     {"grant"},
+			"command_id": {"browser-invalid-administration-capabilities"},
+			"account_id": {"2"},
+			"event_id":   {"1"},
+			"role":       {"Observer"},
+			"capability": {"EmergencyAlert"},
+		},
+	)
+	if invalidCapabilities.status != http.StatusUnprocessableEntity {
+		t.Fatalf(
+			"invalid browser Event Grant capabilities = %d %q",
+			invalidCapabilities.status,
+			invalidCapabilities.body,
+		)
+	}
+	assertAccessibleFormErrors(t, invalidCapabilities, map[string]string{
+		"administration-grant-capabilities": "Observer may receive only ViewResults",
+	})
+	granted := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":         {requireFrontendCSRF(t, invalidGrant)},
 		"action":             {"grant"},
 		"command_id":         {"browser-grant-administration-account"},
 		"account_id":         {"2"},
@@ -4563,7 +4708,10 @@ func TestBrowserAdministersAccountsAndEventGrants(t *testing.T) {
 		"role":       {"Observer"},
 	})
 	if duplicateGrant.status != http.StatusConflict ||
-		!strings.Contains(duplicateGrant.body, `role="alert"`) {
+		!strings.Contains(duplicateGrant.body, `role="alert"`) ||
+		!strings.Contains(duplicateGrant.body, `id="error-summary"`) ||
+		!strings.Contains(duplicateGrant.body, `value="2" selected`) ||
+		!strings.Contains(duplicateGrant.body, `<option selected>Observer</option>`) {
 		t.Fatalf("duplicate browser Event Grant = %d %q", duplicateGrant.status, duplicateGrant.body)
 	}
 	page = getFrontendPage(t, administrator, server.address, path)
@@ -4717,16 +4865,82 @@ func TestBrowserPreflightsAndActivatesEvent(t *testing.T) {
 		invalidConfirmation,
 	)
 	if invalidActivation.status != http.StatusUnprocessableEntity ||
-		!strings.Contains(invalidActivation.body, `role="alert"`) {
+		!strings.Contains(invalidActivation.body, `role="alert"`) ||
+		!strings.Contains(invalidActivation.body, `id="error-summary"`) ||
+		!strings.Contains(invalidActivation.body, `name="action" value="activate"`) {
 		t.Fatalf(
 			"invalid browser Event activation = %d %q",
 			invalidActivation.status,
 			invalidActivation.body,
 		)
 	}
-	activated := postFrontendForm(t, administrator, server.address, path, confirmation)
+	assertAccessibleFormErrors(t, invalidActivation, map[string]string{
+		"administration-activation-1-confirmation": "valid command identity",
+	})
+	correctedConfirmation := frontendActivationFormValues(
+		t,
+		invalidActivation.body,
+		"csrf_token",
+		"event_id",
+		"event_revision",
+		"published_revision",
+		"activation_generation",
+		"fingerprint",
+		"command_id",
+	)
+	correctedConfirmation.Set("action", "activate")
+	activated := postFrontendForm(
+		t,
+		administrator,
+		server.address,
+		path,
+		correctedConfirmation,
+	)
 	if activated.status != http.StatusSeeOther {
 		t.Fatalf("browser Event activation = %d %q", activated.status, activated.body)
+	}
+	staleActivation := postFrontendForm(
+		t,
+		administrator,
+		server.address,
+		path,
+		confirmation,
+	)
+	if staleActivation.status != http.StatusConflict {
+		t.Fatalf(
+			"stale browser Event activation = %d %q",
+			staleActivation.status,
+			staleActivation.body,
+		)
+	}
+	assertAccessibleFormErrors(t, staleActivation, map[string]string{
+		"administration-activation-1-confirmation": "Preflight is stale",
+	})
+	refreshedConfirmation := frontendActivationFormValues(
+		t,
+		staleActivation.body,
+		"csrf_token",
+		"event_id",
+		"event_revision",
+		"published_revision",
+		"activation_generation",
+		"fingerprint",
+		"command_id",
+	)
+	refreshedConfirmation.Set("action", "activate")
+	refreshedActivation := postFrontendForm(
+		t,
+		administrator,
+		server.address,
+		path,
+		refreshedConfirmation,
+	)
+	if refreshedActivation.status != http.StatusSeeOther {
+		t.Fatalf(
+			"refreshed browser Event activation = %d %q",
+			refreshedActivation.status,
+			refreshedActivation.body,
+		)
 	}
 
 	dataDir := server.dataDir
@@ -4735,7 +4949,7 @@ func TestBrowserPreflightsAndActivatesEvent(t *testing.T) {
 	server = startBeamersWithPublicListener(t, bin, dataDir)
 	page = getFrontendPage(t, administrator, server.address, path)
 	if !strings.Contains(page.body, "Active Event #1") ||
-		!strings.Contains(page.body, "generation 2") {
+		!strings.Contains(page.body, "generation 3") {
 		t.Fatalf("restarted Active Event = %d %q", page.status, page.body)
 	}
 	server.stop(t)
@@ -4795,6 +5009,7 @@ func TestBrowserOperatesSessionDurably(t *testing.T) {
 		!strings.Contains(stale.body, "Session changed") {
 		t.Fatalf("stale browser Session command = %d %q", stale.status, stale.body)
 	}
+	assertAccessibleFormErrors(t, stale, nil)
 
 	dataDir, bin := server.dataDir, server.bin
 	server.stop(t)
@@ -4842,6 +5057,25 @@ func TestBrowserPreviewsAdjustsCancelsAndReinstatesSession(t *testing.T) {
 		t.Fatalf("start before browser adjustment = %d %q", started.status, started.body)
 	}
 	page = getFrontendPage(t, producer, server.address, path)
+	invalidAdjustment := postFrontendForm(t, producer, server.address, path, url.Values{
+		"csrf_token":                   {requireFrontendCSRF(t, page)},
+		"action":                       {"preview-adjust-target"},
+		"session_id":                   {strconv.FormatInt(sessionID, 10)},
+		"expected_live_state_revision": {"1"},
+		"adjustment":                   {"not-a-duration"},
+	})
+	if invalidAdjustment.status != http.StatusBadRequest ||
+		!strings.Contains(invalidAdjustment.body, `value="not-a-duration"`) {
+		t.Fatalf(
+			"invalid target adjustment = %d %q",
+			invalidAdjustment.status,
+			invalidAdjustment.body,
+		)
+	}
+	assertAccessibleFormErrors(t, invalidAdjustment, map[string]string{
+		"preview-adjust-target-" + strconv.FormatInt(sessionID, 10) + "-adjustment": "Enter a duration",
+	})
+
 	preview := postFrontendForm(t, producer, server.address, path, url.Values{
 		"csrf_token":                   {requireFrontendCSRF(t, page)},
 		"action":                       {"preview-adjust-target"},
@@ -4870,6 +5104,100 @@ func TestBrowserPreviewsAdjustsCancelsAndReinstatesSession(t *testing.T) {
 	)
 	adjustment.Set("csrf_token", requireFrontendCSRF(t, preview))
 	adjustment.Set("action", "adjust-target")
+	unconfirmedAdjustment := postFrontendForm(
+		t,
+		producer,
+		server.address,
+		path,
+		adjustment,
+	)
+	if unconfirmedAdjustment.status != http.StatusConflict ||
+		!strings.Contains(unconfirmedAdjustment.body, "Adjust Target Preview") ||
+		regexp.MustCompile(
+			`id="adjust-target-`+strconv.FormatInt(sessionID, 10)+
+				`-confirmed"[^>]+checked`,
+		).MatchString(unconfirmedAdjustment.body) {
+		t.Fatalf(
+			"unconfirmed Adjust Target = %d %q",
+			unconfirmedAdjustment.status,
+			unconfirmedAdjustment.body,
+		)
+	}
+	assertAccessibleFormErrors(t, unconfirmedAdjustment, map[string]string{
+		"adjust-target-" + strconv.FormatInt(sessionID, 10) + "-confirmed": "Confirm Adjust Target",
+	})
+
+	staleAdjustment := frontendNamedValues(
+		unconfirmedAdjustment.body,
+		"session_id",
+		"expected_live_state_revision",
+		"adjustment",
+		"preview_fingerprint",
+		"command_id",
+	)
+	staleAdjustment.Set("csrf_token", requireFrontendCSRF(t, unconfirmedAdjustment))
+	staleAdjustment.Set("action", "adjust-target")
+	staleAdjustment.Set("preview_fingerprint", "stale-target-preview")
+	staleAdjustment.Set("confirmed", "true")
+	staleAdjustment.Set("hard_boundary_confirmed", "true")
+	staleTarget := postFrontendForm(t, producer, server.address, path, staleAdjustment)
+	if staleTarget.status != http.StatusConflict ||
+		!strings.Contains(staleTarget.body, "Adjust Target Preview") ||
+		regexp.MustCompile(
+			`id="adjust-target-`+strconv.FormatInt(sessionID, 10)+
+				`-confirmed"[^>]+checked`,
+		).MatchString(staleTarget.body) {
+		t.Fatalf("stale Adjust Target = %d %q", staleTarget.status, staleTarget.body)
+	}
+	assertAccessibleFormErrors(t, staleTarget, map[string]string{
+		"adjust-target-" + strconv.FormatInt(sessionID, 10) + "-confirmed": "review and confirm",
+	})
+
+	hardBoundaryAdjustment := frontendNamedValues(
+		staleTarget.body,
+		"session_id",
+		"expected_live_state_revision",
+		"adjustment",
+		"preview_fingerprint",
+		"command_id",
+	)
+	hardBoundaryAdjustment.Set("csrf_token", requireFrontendCSRF(t, staleTarget))
+	hardBoundaryAdjustment.Set("action", "adjust-target")
+	hardBoundaryAdjustment.Set("confirmed", "true")
+	missingHardBoundary := postFrontendForm(
+		t,
+		producer,
+		server.address,
+		path,
+		hardBoundaryAdjustment,
+	)
+	if missingHardBoundary.status != http.StatusConflict ||
+		!strings.Contains(missingHardBoundary.body, "Adjust Target Preview") ||
+		regexp.MustCompile(
+			`id="adjust-target-`+strconv.FormatInt(sessionID, 10)+
+				`-hard-boundary-confirmed"[^>]+checked`,
+		).MatchString(missingHardBoundary.body) {
+		t.Fatalf(
+			"unconfirmed Hard Boundary adjustment = %d %q",
+			missingHardBoundary.status,
+			missingHardBoundary.body,
+		)
+	}
+	assertAccessibleFormErrors(t, missingHardBoundary, map[string]string{
+		"adjust-target-" + strconv.FormatInt(sessionID, 10) +
+			"-hard-boundary-confirmed": "Confirm Hard Boundary movement",
+	})
+
+	adjustment = frontendNamedValues(
+		missingHardBoundary.body,
+		"session_id",
+		"expected_live_state_revision",
+		"adjustment",
+		"preview_fingerprint",
+		"command_id",
+	)
+	adjustment.Set("csrf_token", requireFrontendCSRF(t, missingHardBoundary))
+	adjustment.Set("action", "adjust-target")
 	adjustment.Set("confirmed", "true")
 	adjustment.Set("hard_boundary_confirmed", "true")
 	adjusted := postFrontendForm(t, producer, server.address, path, adjustment)
@@ -4878,6 +5206,38 @@ func TestBrowserPreviewsAdjustsCancelsAndReinstatesSession(t *testing.T) {
 	}
 
 	page = getFrontendPage(t, producer, server.address, path)
+	unconfirmedCancellation := postFrontendForm(t, producer, server.address, path, url.Values{
+		"csrf_token":                   {requireFrontendCSRF(t, page)},
+		"action":                       {"cancel-session"},
+		"command_id":                   {"browser-unconfirmed-cancellation"},
+		"session_id":                   {strconv.FormatInt(sessionID, 10)},
+		"expected_live_state_revision": {"2"},
+		"public_cancellation_message":  {"Retain this public message."},
+		"crew_notes":                   {"Retain these Crew notes."},
+	})
+	if unconfirmedCancellation.status != http.StatusUnprocessableEntity ||
+		!strings.Contains(
+			unconfirmedCancellation.body,
+			`value="Retain this public message."`,
+		) ||
+		!strings.Contains(
+			unconfirmedCancellation.body,
+			">Retain these Crew notes.</textarea>",
+		) ||
+		regexp.MustCompile(
+			`id="cancel-session-`+strconv.FormatInt(sessionID, 10)+
+				`-confirmed"[^>]+checked`,
+		).MatchString(unconfirmedCancellation.body) {
+		t.Fatalf(
+			"unconfirmed cancellation = %d %q",
+			unconfirmedCancellation.status,
+			unconfirmedCancellation.body,
+		)
+	}
+	assertAccessibleFormErrors(t, unconfirmedCancellation, map[string]string{
+		"cancel-session-" + strconv.FormatInt(sessionID, 10) + "-confirmed": "Confirm cancellation",
+	})
+
 	canceled := postFrontendForm(t, producer, server.address, path, url.Values{
 		"csrf_token":                   {requireFrontendCSRF(t, page)},
 		"action":                       {"cancel-session"},
@@ -4896,8 +5256,46 @@ func TestBrowserPreviewsAdjustsCancelsAndReinstatesSession(t *testing.T) {
 		!strings.Contains(page.body, `name="action" value="preview-reinstate"`) {
 		t.Fatalf("canceled browser Session = %d %q", page.status, page.body)
 	}
-	reinstatePreview := postFrontendForm(t, producer, server.address, path, url.Values{
+	invalidLaneIDs := postFrontendForm(t, producer, server.address, path, url.Values{
 		"csrf_token":                   {requireFrontendCSRF(t, page)},
+		"action":                       {"preview-reinstate"},
+		"session_id":                   {strconv.FormatInt(sessionID, 10)},
+		"expected_live_state_revision": {"3"},
+		"forecast_start":               {"2099-08-21T11:30"},
+		"lane_ids":                     {"not-lane-ids"},
+		"location_ids":                 {"1"},
+	})
+	if invalidLaneIDs.status != http.StatusBadRequest ||
+		!strings.Contains(invalidLaneIDs.body, `value="not-lane-ids"`) {
+		t.Fatalf("invalid Reinstate Lane IDs = %d %q", invalidLaneIDs.status, invalidLaneIDs.body)
+	}
+	assertAccessibleFormErrors(t, invalidLaneIDs, map[string]string{
+		"preview-reinstate-" + strconv.FormatInt(sessionID, 10) + "-lane-ids": "Enter Lane IDs",
+	})
+
+	invalidLocationIDs := postFrontendForm(t, producer, server.address, path, url.Values{
+		"csrf_token":                   {requireFrontendCSRF(t, invalidLaneIDs)},
+		"action":                       {"preview-reinstate"},
+		"session_id":                   {strconv.FormatInt(sessionID, 10)},
+		"expected_live_state_revision": {"3"},
+		"forecast_start":               {"2099-08-21T11:30"},
+		"lane_ids":                     {"1"},
+		"location_ids":                 {"not-location-ids"},
+	})
+	if invalidLocationIDs.status != http.StatusBadRequest ||
+		!strings.Contains(invalidLocationIDs.body, `value="not-location-ids"`) {
+		t.Fatalf(
+			"invalid Reinstate Location IDs = %d %q",
+			invalidLocationIDs.status,
+			invalidLocationIDs.body,
+		)
+	}
+	assertAccessibleFormErrors(t, invalidLocationIDs, map[string]string{
+		"preview-reinstate-" + strconv.FormatInt(sessionID, 10) + "-location-ids": "Enter Location IDs",
+	})
+
+	reinstatePreview := postFrontendForm(t, producer, server.address, path, url.Values{
+		"csrf_token":                   {requireFrontendCSRF(t, invalidLocationIDs)},
 		"action":                       {"preview-reinstate"},
 		"session_id":                   {strconv.FormatInt(sessionID, 10)},
 		"expected_live_state_revision": {"3"},
@@ -4933,6 +5331,107 @@ func TestBrowserPreviewsAdjustsCancelsAndReinstatesSession(t *testing.T) {
 	)
 	reinstatement.Set("csrf_token", requireFrontendCSRF(t, reinstatePreview))
 	reinstatement.Set("action", "reinstate-session")
+	unconfirmedReinstatement := postFrontendForm(
+		t,
+		producer,
+		server.address,
+		path,
+		reinstatement,
+	)
+	if unconfirmedReinstatement.status != http.StatusConflict ||
+		!strings.Contains(unconfirmedReinstatement.body, "Reinstate Session Preview") ||
+		regexp.MustCompile(
+			`id="reinstate-session-`+strconv.FormatInt(sessionID, 10)+
+				`-confirmed"[^>]+checked`,
+		).MatchString(unconfirmedReinstatement.body) {
+		t.Fatalf(
+			"unconfirmed Reinstate Session = %d %q",
+			unconfirmedReinstatement.status,
+			unconfirmedReinstatement.body,
+		)
+	}
+	assertAccessibleFormErrors(t, unconfirmedReinstatement, map[string]string{
+		"reinstate-session-" + strconv.FormatInt(sessionID, 10) + "-confirmed": "Confirm Reinstate",
+	})
+
+	staleReinstatement := frontendNamedValues(
+		unconfirmedReinstatement.body,
+		"session_id",
+		"expected_live_state_revision",
+		"forecast_start",
+		"lane_ids",
+		"location_ids",
+		"preview_fingerprint",
+		"command_id",
+	)
+	staleReinstatement.Set("csrf_token", requireFrontendCSRF(t, unconfirmedReinstatement))
+	staleReinstatement.Set("action", "reinstate-session")
+	staleReinstatement.Set("preview_fingerprint", "stale-reinstate-preview")
+	staleReinstatement.Set("confirmed", "true")
+	staleReinstatement.Set("hard_boundary_confirmed", "true")
+	staleReinstate := postFrontendForm(t, producer, server.address, path, staleReinstatement)
+	if staleReinstate.status != http.StatusConflict ||
+		!strings.Contains(staleReinstate.body, "Reinstate Session Preview") ||
+		regexp.MustCompile(
+			`id="reinstate-session-`+strconv.FormatInt(sessionID, 10)+
+				`-confirmed"[^>]+checked`,
+		).MatchString(staleReinstate.body) {
+		t.Fatalf("stale Reinstate Session = %d %q", staleReinstate.status, staleReinstate.body)
+	}
+	assertAccessibleFormErrors(t, staleReinstate, map[string]string{
+		"reinstate-session-" + strconv.FormatInt(sessionID, 10) +
+			"-confirmed": "review and confirm",
+	})
+
+	hardBoundaryReinstatement := frontendNamedValues(
+		staleReinstate.body,
+		"session_id",
+		"expected_live_state_revision",
+		"forecast_start",
+		"lane_ids",
+		"location_ids",
+		"preview_fingerprint",
+		"command_id",
+	)
+	hardBoundaryReinstatement.Set("csrf_token", requireFrontendCSRF(t, staleReinstate))
+	hardBoundaryReinstatement.Set("action", "reinstate-session")
+	hardBoundaryReinstatement.Set("confirmed", "true")
+	missingReinstateHardBoundary := postFrontendForm(
+		t,
+		producer,
+		server.address,
+		path,
+		hardBoundaryReinstatement,
+	)
+	if missingReinstateHardBoundary.status != http.StatusConflict ||
+		!strings.Contains(missingReinstateHardBoundary.body, "Reinstate Session Preview") ||
+		regexp.MustCompile(
+			`id="reinstate-session-`+strconv.FormatInt(sessionID, 10)+
+				`-hard-boundary-confirmed"[^>]+checked`,
+		).MatchString(missingReinstateHardBoundary.body) {
+		t.Fatalf(
+			"unconfirmed Reinstate Hard Boundary = %d %q",
+			missingReinstateHardBoundary.status,
+			missingReinstateHardBoundary.body,
+		)
+	}
+	assertAccessibleFormErrors(t, missingReinstateHardBoundary, map[string]string{
+		"reinstate-session-" + strconv.FormatInt(sessionID, 10) +
+			"-hard-boundary-confirmed": "Confirm Hard Boundary movement",
+	})
+
+	reinstatement = frontendNamedValues(
+		missingReinstateHardBoundary.body,
+		"session_id",
+		"expected_live_state_revision",
+		"forecast_start",
+		"lane_ids",
+		"location_ids",
+		"preview_fingerprint",
+		"command_id",
+	)
+	reinstatement.Set("csrf_token", requireFrontendCSRF(t, missingReinstateHardBoundary))
+	reinstatement.Set("action", "reinstate-session")
 	reinstatement.Set("confirmed", "true")
 	reinstatement.Set("hard_boundary_confirmed", "true")
 	reinstated := postFrontendForm(t, producer, server.address, path, reinstatement)
@@ -4957,6 +5456,59 @@ func TestBrowserAdministersDisplaysAndRecovery(t *testing.T) {
 	secondCode, _ := prepareBrowserEnrollment(t, server)
 
 	page := getFrontendPage(t, administrator, server.address, path)
+	invalidEnrollment := postFrontendForm(
+		t,
+		administrator,
+		server.address,
+		path,
+		url.Values{
+			"csrf_token": {requireFrontendCSRF(t, page)},
+			"action":     {"enroll-display"},
+			"command_id": {"browser-invalid-display-name"},
+			"code":       {firstCode},
+			"name":       {""},
+		},
+	)
+	if invalidEnrollment.status != http.StatusBadRequest ||
+		strings.Contains(invalidEnrollment.body, `value="`+firstCode+`"`) {
+		t.Fatalf(
+			"invalid browser Display Enrollment = %d %q",
+			invalidEnrollment.status,
+			invalidEnrollment.body,
+		)
+	}
+	assertAccessibleFormErrors(t, invalidEnrollment, map[string]string{
+		"enroll-display-name": "Enter a Display name",
+	})
+	page = invalidEnrollment
+	invalidRecovery := postFrontendForm(
+		t,
+		administrator,
+		server.address,
+		path,
+		url.Values{
+			"csrf_token": {requireFrontendCSRF(t, page)},
+			"action":     {"enroll-display"},
+			"command_id": {"browser-invalid-display-recovery"},
+			"code":       {firstCode},
+			"name":       {"Retain Recovery Display"},
+			"display_id": {"not-a-number"},
+		},
+	)
+	if invalidRecovery.status != http.StatusBadRequest ||
+		strings.Contains(invalidRecovery.body, `value="`+firstCode+`"`) ||
+		!strings.Contains(invalidRecovery.body, `value="Retain Recovery Display"`) ||
+		!strings.Contains(invalidRecovery.body, `value="not-a-number"`) {
+		t.Fatalf(
+			"invalid browser Display recovery = %d %q",
+			invalidRecovery.status,
+			invalidRecovery.body,
+		)
+	}
+	assertAccessibleFormErrors(t, invalidRecovery, map[string]string{
+		"enroll-display-display-id": "Enter a positive Display ID",
+	})
+	page = invalidRecovery
 	enroll := func(code, name, commandID string, displayID int) {
 		t.Helper()
 		values := url.Values{
@@ -4987,6 +5539,33 @@ func TestBrowserAdministersDisplaysAndRecovery(t *testing.T) {
 			t.Fatalf("Display operations page lacks %q: %q", want, page.body)
 		}
 	}
+	invalidAssignment := postFrontendForm(
+		t,
+		administrator,
+		server.address,
+		path,
+		url.Values{
+			"csrf_token":         {requireFrontendCSRF(t, page)},
+			"action":             {"assign-display"},
+			"command_id":         {"browser-invalid-display-assignment"},
+			"display_id":         {"1"},
+			"location_id":        {"1"},
+			"view_key":           {"invalid-view"},
+			"display_group_keys": {"retain-stage"},
+		},
+	)
+	if invalidAssignment.status != http.StatusBadRequest ||
+		!strings.Contains(invalidAssignment.body, `value="retain-stage"`) {
+		t.Fatalf(
+			"invalid browser Display Assignment = %d %q",
+			invalidAssignment.status,
+			invalidAssignment.body,
+		)
+	}
+	assertAccessibleFormErrors(t, invalidAssignment, map[string]string{
+		"assign-display-1-view-key": "Choose a valid Display view",
+	})
+	page = invalidAssignment
 	assign := func(displayID int, groups, commandID string) {
 		t.Helper()
 		response := postFrontendForm(t, administrator, server.address, path, url.Values{
@@ -5054,9 +5633,12 @@ func TestBrowserAdministersDisplaysAndRecovery(t *testing.T) {
 	})
 	if recovery.status != http.StatusConflict ||
 		!strings.Contains(recovery.body, "active credential") ||
-		!strings.Contains(recovery.body, "Existing Display ID for recovery") {
+		!strings.Contains(recovery.body, "Existing Display ID for recovery") ||
+		!strings.Contains(recovery.body, `value="1"`) ||
+		strings.Contains(recovery.body, `value="`+recoveryCode+`"`) {
 		t.Fatalf("unsafe Display recovery = %d %q", recovery.status, recovery.body)
 	}
+	assertAccessibleFormErrors(t, recovery, nil)
 	page = getFrontendPage(t, administrator, server.address, path)
 	if count := strings.Count(page.body, `data-display-id="`); count != 2 {
 		t.Fatalf("Display recovery produced %d identities, want 2: %q", count, page.body)
@@ -5187,9 +5769,11 @@ func TestBrowserControlsProgramOutputAndOverrides(t *testing.T) {
 	})
 	if staleControl.status != http.StatusConflict ||
 		!strings.Contains(staleControl.body, "reload required") ||
+		!strings.Contains(staleControl.body, "Stale control") ||
 		staleControl.header.Get("X-Beamers-Build") != buildVersion {
 		t.Fatalf("stale Backstage control = %d %q", staleControl.status, staleControl.body)
 	}
+	assertAccessibleFormErrors(t, staleControl, nil)
 	invalidPreview := postFrontendForm(t, administrator, server.address, path, url.Values{
 		"csrf_token":       {requireFrontendCSRF(t, page)},
 		"build_version":    {buildVersion},
@@ -5215,6 +5799,9 @@ func TestBrowserControlsProgramOutputAndOverrides(t *testing.T) {
 			)
 		}
 	}
+	assertAccessibleFormErrors(t, invalidPreview, map[string]string{
+		"stage-target-group": "Enter a Display Group.",
+	})
 	invalidTarget := postFrontendForm(t, administrator, server.address, path, url.Values{
 		"csrf_token":       {requireFrontendCSRF(t, page)},
 		"build_version":    {buildVersion},
@@ -5238,6 +5825,29 @@ func TestBrowserControlsProgramOutputAndOverrides(t *testing.T) {
 			t.Fatalf("invalid Override target lacks %q: %d %q",
 				want, invalidTarget.status, invalidTarget.body)
 		}
+	}
+	assertAccessibleFormErrors(t, invalidTarget, map[string]string{
+		"preview-urgent-notice-target-id":  "Leave the numeric ID empty",
+		"preview-urgent-notice-target-key": "Leave the Display Group key empty",
+	})
+	invalidNumber := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":       {requireFrontendCSRF(t, page)},
+		"build_version":    {buildVersion},
+		"action":           {"preview-urgent-notice"},
+		"text":             {"Retain malformed numbers"},
+		"target_type":      {"Location"},
+		"target_id":        {"not-a-number"},
+		"presentation":     {"Overlay"},
+		"duration_seconds": {"also-not-a-number"},
+	})
+	if invalidNumber.status != http.StatusUnprocessableEntity ||
+		!strings.Contains(invalidNumber.body, `value="not-a-number"`) ||
+		!strings.Contains(invalidNumber.body, `value="also-not-a-number"`) {
+		t.Fatalf(
+			"invalid Override numbers = %d %q",
+			invalidNumber.status,
+			invalidNumber.body,
+		)
 	}
 
 	previewAndActivate := func(
@@ -5311,6 +5921,23 @@ func TestBrowserControlsProgramOutputAndOverrides(t *testing.T) {
 	); retried.status != http.StatusSeeOther {
 		t.Fatalf("exact Stage Message retry = %d %q", retried.status, retried.body)
 	}
+	staleActivation := maps.Clone(stageConfirmation)
+	staleActivation.Set("build_version", "obsolete-build")
+	staleActivationResponse := postFrontendForm(
+		t, administrator, server.address, path, staleActivation,
+	)
+	if staleActivationResponse.status != http.StatusConflict ||
+		!strings.Contains(staleActivationResponse.body, "Confirm Stage Message") ||
+		!strings.Contains(staleActivationResponse.body, "Two minutes remaining") {
+		t.Fatalf(
+			"stale Stage Message activation = %d %q",
+			staleActivationResponse.status,
+			staleActivationResponse.body,
+		)
+	}
+	assertAccessibleFormErrors(t, staleActivationResponse, map[string]string{
+		"override-confirmed": "review and confirm this refreshed preview",
+	})
 	unconfirmed := maps.Clone(stageConfirmation)
 	unconfirmed.Del("confirmed")
 	if rejected := postFrontendForm(
@@ -5318,11 +5945,37 @@ func TestBrowserControlsProgramOutputAndOverrides(t *testing.T) {
 	); rejected.status != http.StatusUnprocessableEntity ||
 		!strings.Contains(rejected.body, `role="alert"`) {
 		t.Fatalf("unconfirmed Stage Message = %d %q", rejected.status, rejected.body)
+	} else {
+		assertAccessibleFormErrors(t, rejected, map[string]string{
+			"override-confirmed": "Confirm Stage Message",
+		})
 	}
 	page = getFrontendPage(t, administrator, server.address, path)
 	if count := strings.Count(page.body, "<h3>StageMessage</h3>"); count != 1 {
 		t.Fatalf("exact Stage Message retry created %d active Overrides: %q", count, page.body)
 	}
+	clearStage := frontendNamedValues(
+		page.body,
+		"override_id",
+		"expected_revision",
+		"command_id",
+		"build_version",
+	)
+	clearStage.Set("csrf_token", requireFrontendCSRF(t, page))
+	clearStage.Set("action", "clear")
+	unconfirmedClear := postFrontendForm(
+		t, administrator, server.address, path, clearStage,
+	)
+	if unconfirmedClear.status != http.StatusUnprocessableEntity {
+		t.Fatalf(
+			"unconfirmed Stage Message clear = %d %q",
+			unconfirmedClear.status,
+			unconfirmedClear.body,
+		)
+	}
+	assertAccessibleFormErrors(t, unconfirmedClear, map[string]string{
+		"override-clear-" + clearStage.Get("override_id") + "-confirmed": "Confirm this action",
+	})
 
 	previewAndActivate(
 		"technical-difficulties",
@@ -5348,6 +6001,28 @@ func TestBrowserControlsProgramOutputAndOverrides(t *testing.T) {
 		"Overlay",
 	)
 	emergencyPath := "/crew/events/1/emergency-alerts/confirmation"
+	invalidEmergency := getFrontendPage(
+		t,
+		administrator,
+		server.address,
+		emergencyPath+"?"+url.Values{
+			"text":        {"Retain invalid Emergency Alert"},
+			"target_type": {"Location"},
+			"target_id":   {"not-a-number"},
+		}.Encode(),
+	)
+	if invalidEmergency.status != http.StatusBadRequest ||
+		!strings.Contains(invalidEmergency.body, "Retain invalid Emergency Alert") ||
+		!strings.Contains(invalidEmergency.body, `value="not-a-number"`) {
+		t.Fatalf(
+			"invalid Emergency Alert preview = %d %q",
+			invalidEmergency.status,
+			invalidEmergency.body,
+		)
+	}
+	assertAccessibleFormErrors(t, invalidEmergency, map[string]string{
+		"emergency-target-id": "positive numeric target ID",
+	})
 	emergencyPreview := getFrontendPage(
 		t,
 		administrator,
@@ -5388,12 +6063,33 @@ func TestBrowserControlsProgramOutputAndOverrides(t *testing.T) {
 	emergencyConfirmation.Set("confirmation_method", "Keyboard")
 	staleEmergency := maps.Clone(emergencyConfirmation)
 	staleEmergency.Set("build_version", "obsolete-build")
-	if stale := postFrontendForm(
+	staleEmergencyResponse := postFrontendForm(
 		t, administrator, server.address, emergencyPath, staleEmergency,
-	); stale.status != http.StatusConflict ||
-		stale.header.Get("X-Beamers-Build") != buildVersion {
-		t.Fatalf("stale Emergency Alert = %d %q", stale.status, stale.body)
+	)
+	if staleEmergencyResponse.status != http.StatusConflict ||
+		staleEmergencyResponse.header.Get("X-Beamers-Build") != buildVersion ||
+		!strings.Contains(staleEmergencyResponse.body, "Evacuate using marked exits") ||
+		!strings.Contains(staleEmergencyResponse.body, `name="confirmation_method" value="Keyboard"`) {
+		t.Fatalf(
+			"stale Emergency Alert = %d %q",
+			staleEmergencyResponse.status,
+			staleEmergencyResponse.body,
+		)
 	}
+	assertAccessibleFormErrors(t, staleEmergencyResponse, map[string]string{
+		"emergency-alert-confirmation": "review this refreshed Emergency Alert",
+	})
+	emergencyConfirmation = frontendNamedValues(
+		staleEmergencyResponse.body,
+		"target_type",
+		"target_id",
+		"target_key",
+		"text",
+		"preview_fingerprint",
+		"command_id",
+		"build_version",
+	)
+	emergencyConfirmation.Set("confirmation_method", "Keyboard")
 	emergency := postFrontendForm(
 		t, administrator, server.address, emergencyPath, emergencyConfirmation,
 	)
@@ -5436,12 +6132,29 @@ func TestBrowserControlsProgramOutputAndOverrides(t *testing.T) {
 	clearConfirmation.Set("confirmation_method", "Keyboard")
 	staleClear := maps.Clone(clearConfirmation)
 	staleClear.Set("build_version", "obsolete-build")
-	if stale := postFrontendForm(
+	staleClearResponse := postFrontendForm(
 		t, administrator, server.address, clearPath, staleClear,
-	); stale.status != http.StatusConflict ||
-		stale.header.Get("X-Beamers-Build") != buildVersion {
-		t.Fatalf("stale Emergency clear = %d %q", stale.status, stale.body)
+	)
+	if staleClearResponse.status != http.StatusConflict ||
+		staleClearResponse.header.Get("X-Beamers-Build") != buildVersion ||
+		!strings.Contains(staleClearResponse.body, "Evacuate using marked exits") ||
+		!strings.Contains(staleClearResponse.body, `name="confirmation_method" value="Keyboard"`) {
+		t.Fatalf(
+			"stale Emergency clear = %d %q",
+			staleClearResponse.status,
+			staleClearResponse.body,
+		)
 	}
+	assertAccessibleFormErrors(t, staleClearResponse, map[string]string{
+		"emergency-clear-confirmation": "review this refreshed Emergency Alert clear",
+	})
+	clearConfirmation = frontendNamedValues(
+		staleClearResponse.body,
+		"expected_revision",
+		"command_id",
+		"build_version",
+	)
+	clearConfirmation.Set("confirmation_method", "Keyboard")
 	cleared := postFrontendForm(
 		t, administrator, server.address, clearPath, clearConfirmation,
 	)
@@ -7574,6 +8287,120 @@ func TestBrowserStagesAndReviewsCompetitionResults(t *testing.T) {
 			t.Fatalf("Results page lacks %q: %d %q", want, page.status, page.body)
 		}
 	}
+	invalidDraft := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":             {requireFrontendCSRF(t, page)},
+		"action":                 {"save-results-draft"},
+		"command_id":             {"browser-invalid-results"},
+		"competition_session_id": {strconv.FormatInt(competitionID, 10)},
+		"expected_revision":      {"0"},
+		"disposition":            {"NoPublicResults"},
+		"no_public_reason":       {"Retain this Crew Reason."},
+		"tally_override_reason":  {"Retain this tally reason."},
+		"public_explanation":     {"Retain this Results explanation."},
+		"score_type":             {"Duration"},
+		"score_visibility":       {"CrewOnly"},
+		"score_unit":             {"seconds"},
+		"score_precision":        {"-1"},
+		"score_requirement":      {"Optional"},
+		"score_interpretation":   {"LowerWins"},
+		"standing_entry_id": {
+			strconv.FormatInt(firstID, 10),
+			strconv.FormatInt(secondID, 10),
+		},
+		"standing":      {"Unplaced", "Placed"},
+		"placement":     {"", "2"},
+		"display_order": {"2", "1"},
+		"score":         {"1m2s", "59s"},
+	})
+	if invalidDraft.status != http.StatusUnprocessableEntity ||
+		!strings.Contains(
+			invalidDraft.body,
+			">Retain this Results explanation.</textarea>",
+		) ||
+		!strings.Contains(invalidDraft.body, ">Retain this Crew Reason.</textarea>") ||
+		!strings.Contains(invalidDraft.body, `<option selected>NoPublicResults</option>`) ||
+		!strings.Contains(invalidDraft.body, `<option selected>Duration</option>`) ||
+		!strings.Contains(invalidDraft.body, `<option selected>CrewOnly</option>`) ||
+		!strings.Contains(invalidDraft.body, `name="score_unit" value="seconds"`) ||
+		!strings.Contains(invalidDraft.body, `<option selected>Optional</option>`) ||
+		!strings.Contains(invalidDraft.body, `<option selected>LowerWins</option>`) ||
+		!strings.Contains(invalidDraft.body, `name="score" value="1m2s"`) ||
+		!strings.Contains(invalidDraft.body, `name="score" value="59s"`) {
+		t.Fatalf("invalid Results Draft = %d %q", invalidDraft.status, invalidDraft.body)
+	}
+	assertAccessibleFormErrors(t, invalidDraft, map[string]string{
+		"results-" + strconv.FormatInt(competitionID, 10) + "-score-precision": "nonnegative integer",
+	})
+	invalidPlacement := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":             {requireFrontendCSRF(t, invalidDraft)},
+		"action":                 {"save-results-draft"},
+		"command_id":             {"browser-invalid-results-placement"},
+		"competition_session_id": {strconv.FormatInt(competitionID, 10)},
+		"expected_revision":      {"0"},
+		"disposition":            {"Publish"},
+		"score_type":             {"Decimal"},
+		"score_visibility":       {"Public"},
+		"score_unit":             {"points"},
+		"score_precision":        {"1"},
+		"score_requirement":      {"Required"},
+		"score_interpretation":   {"HigherWins"},
+		"standing_entry_id": {
+			strconv.FormatInt(firstID, 10),
+			strconv.FormatInt(secondID, 10),
+		},
+		"standing":      {"Placed", "Placed"},
+		"placement":     {"not-a-number", "2"},
+		"display_order": {"1", "2"},
+		"score":         {"9.5", "8.0"},
+	})
+	if invalidPlacement.status != http.StatusUnprocessableEntity ||
+		!strings.Contains(invalidPlacement.body, `name="placement" value="not-a-number"`) ||
+		!strings.Contains(invalidPlacement.body, `name="score" value="9.5"`) ||
+		!strings.Contains(invalidPlacement.body, `name="score" value="8.0"`) {
+		t.Fatalf(
+			"invalid Results placement = %d %q",
+			invalidPlacement.status,
+			invalidPlacement.body,
+		)
+	}
+	assertAccessibleFormErrors(t, invalidPlacement, map[string]string{
+		"results-" + strconv.FormatInt(competitionID, 10) + "-placement-" +
+			strconv.FormatInt(firstID, 10): "positive integer",
+	})
+	invalidRanking := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":             {requireFrontendCSRF(t, invalidPlacement)},
+		"action":                 {"save-results-draft"},
+		"command_id":             {"browser-invalid-results-ranking"},
+		"competition_session_id": {strconv.FormatInt(competitionID, 10)},
+		"expected_revision":      {"0"},
+		"disposition":            {"Publish"},
+		"score_type":             {"Decimal"},
+		"score_visibility":       {"Public"},
+		"score_unit":             {"points"},
+		"score_precision":        {"1"},
+		"score_requirement":      {"Required"},
+		"score_interpretation":   {"HigherWins"},
+		"standing_entry_id": {
+			strconv.FormatInt(firstID, 10),
+			strconv.FormatInt(secondID, 10),
+		},
+		"standing":      {"Placed", "Placed"},
+		"placement":     {"2", "1"},
+		"display_order": {"1", "2"},
+		"score":         {"9.5", "8.0"},
+	})
+	if invalidRanking.status != http.StatusUnprocessableEntity {
+		t.Fatalf(
+			"invalid Results ranking = %d %q",
+			invalidRanking.status,
+			invalidRanking.body,
+		)
+	}
+	assertAccessibleFormErrors(t, invalidRanking, map[string]string{
+		"results-" + strconv.FormatInt(competitionID, 10) +
+			"-result-standings": "competition ranking",
+	})
+
 	save := func(commandID, expectedRevision string, placements []string) frontendResponse {
 		t.Helper()
 		return postFrontendForm(t, administrator, server.address, path, url.Values{
@@ -7589,6 +8416,7 @@ func TestBrowserStagesAndReviewsCompetitionResults(t *testing.T) {
 			"score_precision":        {"1"},
 			"score_requirement":      {"Required"},
 			"score_interpretation":   {"HigherWins"},
+			"public_explanation":     {"Retain this Results explanation."},
 			"standing_entry_id": {
 				strconv.FormatInt(firstID, 10),
 				strconv.FormatInt(secondID, 10),
@@ -7607,6 +8435,17 @@ func TestBrowserStagesAndReviewsCompetitionResults(t *testing.T) {
 		!strings.Contains(page.body, "Ready: false") {
 		t.Fatalf("saved browser Results missing revision state: %d %q", page.status, page.body)
 	}
+	staleDraft := save("browser-stale-results", "0", []string{"1", "2"})
+	if staleDraft.status != http.StatusConflict ||
+		!strings.Contains(staleDraft.body, "Results changed") ||
+		!strings.Contains(
+			staleDraft.body,
+			">Retain this Results explanation.</textarea>",
+		) {
+		t.Fatalf("stale Results Draft = %d %q", staleDraft.status, staleDraft.body)
+	}
+	assertAccessibleFormErrors(t, staleDraft, nil)
+	page = getFrontendPage(t, administrator, server.address, path)
 
 	ready := postFrontendForm(t, administrator, server.address, path, url.Values{
 		"csrf_token":             {requireFrontendCSRF(t, page)},
@@ -7633,8 +8472,42 @@ func TestBrowserStagesAndReviewsCompetitionResults(t *testing.T) {
 		t.Fatalf("changed browser Results did not clear Ready: %d %q", page.status, page.body)
 	}
 
-	awarded := postFrontendForm(t, administrator, server.address, path, url.Values{
+	invalidAwards := postFrontendForm(t, administrator, server.address, path, url.Values{
 		"csrf_token":                {requireFrontendCSRF(t, page)},
+		"action":                    {"save-competition-awards"},
+		"command_id":                {"browser-invalid-results-awards"},
+		"competition_session_id":    {strconv.FormatInt(competitionID, 10)},
+		"expected_revision":         {"2"},
+		"award_key":                 {"retained-key"},
+		"award_name":                {"Retained Competition Award"},
+		"award_recipient_entry_ids": {strconv.FormatInt(firstID, 10)},
+		"award_recipient_names":     {"Retained recipient"},
+		"award_promoted":            {"true"},
+		"award_display_order":       {"not-a-number"},
+	})
+	if invalidAwards.status != http.StatusUnprocessableEntity ||
+		!strings.Contains(invalidAwards.body, `name="award_key" value="retained-key"`) ||
+		!strings.Contains(
+			invalidAwards.body,
+			`name="award_name" value="Retained Competition Award"`,
+		) ||
+		!strings.Contains(
+			invalidAwards.body,
+			">Retained recipient</textarea>",
+		) ||
+		!strings.Contains(
+			invalidAwards.body,
+			`name="award_display_order" value="not-a-number"`,
+		) {
+		t.Fatalf("invalid Competition Awards = %d %q", invalidAwards.status, invalidAwards.body)
+	}
+	assertAccessibleFormErrors(t, invalidAwards, map[string]string{
+		"competition-awards-" + strconv.FormatInt(competitionID, 10) +
+			"-award-display-order-0": "positive integer",
+	})
+
+	awarded := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":                {requireFrontendCSRF(t, invalidAwards)},
 		"action":                    {"save-competition-awards"},
 		"command_id":                {"browser-save-results-awards"},
 		"competition_session_id":    {strconv.FormatInt(competitionID, 10)},
@@ -7655,6 +8528,30 @@ func TestBrowserStagesAndReviewsCompetitionResults(t *testing.T) {
 			t.Fatalf("Competition Award page lacks %q: %d %q", want, page.status, page.body)
 		}
 	}
+	staleAwards := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":                {requireFrontendCSRF(t, page)},
+		"action":                    {"save-competition-awards"},
+		"command_id":                {"browser-stale-results-awards"},
+		"competition_session_id":    {strconv.FormatInt(competitionID, 10)},
+		"expected_revision":         {"2"},
+		"award_key":                 {"stale-key"},
+		"award_name":                {"Stale Competition Award"},
+		"award_recipient_entry_ids": {strconv.FormatInt(firstID, 10)},
+		"award_recipient_names":     {"Stale recipient"},
+		"award_promoted":            {"false"},
+		"award_display_order":       {"1"},
+	})
+	if staleAwards.status != http.StatusConflict ||
+		!strings.Contains(staleAwards.body, `name="award_key" value="stale-key"`) ||
+		!strings.Contains(
+			staleAwards.body,
+			`name="award_name" value="Stale Competition Award"`,
+		) ||
+		!strings.Contains(staleAwards.body, ">Stale recipient</textarea>") {
+		t.Fatalf("stale Competition Awards = %d %q", staleAwards.status, staleAwards.body)
+	}
+	assertAccessibleFormErrors(t, staleAwards, nil)
+	page = getFrontendPage(t, administrator, server.address, path)
 
 	ready = postFrontendForm(t, administrator, server.address, path, url.Values{
 		"csrf_token":             {requireFrontendCSRF(t, page)},
@@ -7688,8 +8585,32 @@ func TestBrowserStagesAndReviewsCompetitionResults(t *testing.T) {
 	}
 
 	template := "{{.Event.Name}} Results\n{{range .Items}}{{with .Competition}}{{.Title}}{{end}}{{end}}"
-	savedPlan := postFrontendForm(t, administrator, server.address, path, url.Values{
+	invalidPlan := postFrontendForm(t, administrator, server.address, path, url.Values{
 		"csrf_token":                     {requireFrontendCSRF(t, page)},
+		"action":                         {"save-prizegiving-plan"},
+		"command_id":                     {"browser-invalid-prizegiving-plan"},
+		"ceremony_session_id":            {ceremonyID},
+		"expected_revision":              {"0"},
+		"plan_competition_session_id":    {strconv.FormatInt(competitionID, 10)},
+		"release_policy":                 {"AllAtCue"},
+		"results_text_template_revision": {"0"},
+		"results_text_template":          {"Retain this Prizegiving template."},
+	})
+	if invalidPlan.status != http.StatusUnprocessableEntity ||
+		!strings.Contains(invalidPlan.body, ">Retain this Prizegiving template.</textarea>") ||
+		!strings.Contains(invalidPlan.body, `<option selected>AllAtCue</option>`) ||
+		!regexp.MustCompile(
+			`name="plan_competition_session_id" value="`+
+				strconv.FormatInt(competitionID, 10)+`" checked`,
+		).MatchString(invalidPlan.body) {
+		t.Fatalf("invalid browser Prizegiving plan = %d %q", invalidPlan.status, invalidPlan.body)
+	}
+	assertAccessibleFormErrors(t, invalidPlan, map[string]string{
+		"prizegiving-" + ceremonyID + "-results-text-template-revision": "positive integer",
+	})
+
+	savedPlan := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":                     {requireFrontendCSRF(t, invalidPlan)},
 		"action":                         {"save-prizegiving-plan"},
 		"command_id":                     {"browser-save-prizegiving-plan"},
 		"ceremony_session_id":            {ceremonyID},
@@ -7713,6 +8634,51 @@ func TestBrowserStagesAndReviewsCompetitionResults(t *testing.T) {
 			t.Fatalf("browser Prizegiving plan lacks %q: %d %q", want, page.status, page.body)
 		}
 	}
+	invalidEditedPlan := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":                     {requireFrontendCSRF(t, page)},
+		"action":                         {"save-prizegiving-plan"},
+		"command_id":                     {"browser-invalid-edited-prizegiving-plan"},
+		"ceremony_session_id":            {ceremonyID},
+		"expected_revision":              {"1"},
+		"plan_competition_session_id":    {strconv.FormatInt(competitionID, 10)},
+		"release_policy":                 {"AtCeremonyEnd"},
+		"results_text_template_revision": {"2"},
+		"results_text_template":          {"Retain this edited Prizegiving template."},
+		"item_kind":                      {"CompetitionResults", "CompetitionAward"},
+		"item_competition_session_id":    {strconv.FormatInt(competitionID, 10), strconv.FormatInt(competitionID, 10)},
+		"item_award_key":                 {"", "audience-choice"},
+		"sequence_display_order":         {"not-a-number", "4"},
+		"reveal_method":                  {"AnimatedScoreBars", "SequentialPodium"},
+		"publication_display_order":      {"2", "1"},
+	})
+	if invalidEditedPlan.status != http.StatusUnprocessableEntity ||
+		!strings.Contains(
+			invalidEditedPlan.body,
+			`name="sequence_display_order" value="not-a-number"`,
+		) ||
+		!strings.Contains(
+			invalidEditedPlan.body,
+			`name="sequence_display_order" value="4"`,
+		) ||
+		!strings.Contains(invalidEditedPlan.body, `<option selected>AnimatedScoreBars</option>`) ||
+		!strings.Contains(invalidEditedPlan.body, `<option selected>SequentialPodium</option>`) ||
+		!strings.Contains(
+			invalidEditedPlan.body,
+			`name="publication_display_order" value="2"`,
+		) ||
+		!strings.Contains(
+			invalidEditedPlan.body,
+			`name="publication_display_order" value="1"`,
+		) {
+		t.Fatalf(
+			"invalid edited Prizegiving plan = %d %q",
+			invalidEditedPlan.status,
+			invalidEditedPlan.body,
+		)
+	}
+	assertAccessibleFormErrors(t, invalidEditedPlan, map[string]string{
+		"prizegiving-" + ceremonyID + "-sequence-display-order-0": "positive integer",
+	})
 
 	editedPlan := postFrontendForm(t, administrator, server.address, path, url.Values{
 		"csrf_token":                     {requireFrontendCSRF(t, page)},
@@ -8052,6 +9018,35 @@ func TestBrowserPublishesAndCorrectsStandaloneResults(t *testing.T) {
 		"Corrected Demo Competition",
 		1,
 	)
+	malformed := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":                   {requireFrontendCSRF(t, page)},
+		"action":                       {"save-results-correction"},
+		"command_id":                   {"browser-malformed-correction"},
+		"correction_scope":             {"Standalone"},
+		"correction_scope_session_id":  {strconv.FormatInt(competitionID, 10)},
+		"expected_correction_revision": {"0"},
+		"base_publication_revision":    {"1"},
+		"corrected_results_json":       {`{"items":`},
+		"crew_reason":                  {"Retain this Correction Crew Reason."},
+		"public_note":                  {"Retain this Correction public note."},
+	})
+	if malformed.status != http.StatusUnprocessableEntity ||
+		!strings.Contains(malformed.body, `>{&#34;items&#34;:</textarea>`) ||
+		!strings.Contains(
+			malformed.body,
+			">Retain this Correction Crew Reason.</textarea>",
+		) ||
+		!strings.Contains(
+			malformed.body,
+			">Retain this Correction public note.</textarea>",
+		) {
+		t.Fatalf("malformed browser Results Correction = %d %q", malformed.status, malformed.body)
+	}
+	assertAccessibleFormErrors(t, malformed, map[string]string{
+		"results-correction-" + strconv.FormatInt(competitionID, 10) +
+			"-corrected-results-json": "valid Results JSON",
+	})
+	page = malformed
 	reasonless := postFrontendForm(t, administrator, server.address, path, url.Values{
 		"csrf_token":                   {requireFrontendCSRF(t, page)},
 		"action":                       {"save-results-correction"},
@@ -8065,7 +9060,13 @@ func TestBrowserPublishesAndCorrectsStandaloneResults(t *testing.T) {
 	if reasonless.status != http.StatusUnprocessableEntity {
 		t.Fatalf("reasonless browser Results Correction = %d %q", reasonless.status, reasonless.body)
 	}
-	page = getFrontendPage(t, administrator, server.address, path)
+	if !strings.Contains(reasonless.body, "Corrected Demo Competition") {
+		t.Fatalf("reasonless Results Correction lost safe JSON: %q", reasonless.body)
+	}
+	assertAccessibleFormErrors(t, reasonless, map[string]string{
+		"results-correction-" + strconv.FormatInt(competitionID, 10) + "-crew-reason": "Crew Reason",
+	})
+	page = reasonless
 	correction := postFrontendForm(t, administrator, server.address, path, url.Values{
 		"csrf_token":                   {requireFrontendCSRF(t, page)},
 		"action":                       {"save-results-correction"},
@@ -8127,8 +9128,48 @@ func TestBrowserPublishesAndCorrectsStandaloneResults(t *testing.T) {
 	}
 
 	page = getFrontendPage(t, administrator, server.address, path)
+	invalidEventAwards := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, page)},
+		"action":            {"save-event-awards"},
+		"command_id":        {"browser-invalid-event-awards"},
+		"expected_revision": {"0"},
+		"event_award_key":   {"retained-event-key"},
+		"event_award_name":  {"Retained Event Award"},
+		"event_award_recipient_entry_ids": {
+			strconv.FormatInt(created.Msg.GetEntry().GetId(), 10),
+		},
+		"event_award_recipient_names": {"Retained Event recipient"},
+		"event_award_path":            {"Standalone"},
+		"event_award_display_order":   {"not-a-number"},
+	})
+	if invalidEventAwards.status != http.StatusUnprocessableEntity ||
+		!strings.Contains(
+			invalidEventAwards.body,
+			`name="event_award_key" value="retained-event-key"`,
+		) ||
+		!strings.Contains(
+			invalidEventAwards.body,
+			`name="event_award_name" value="Retained Event Award"`,
+		) ||
+		!strings.Contains(
+			invalidEventAwards.body,
+			">Retained Event recipient</textarea>",
+		) ||
+		!strings.Contains(
+			invalidEventAwards.body,
+			`name="event_award_display_order" value="not-a-number"`,
+		) {
+		t.Fatalf(
+			"invalid browser Event Awards = %d %q",
+			invalidEventAwards.status,
+			invalidEventAwards.body,
+		)
+	}
+	assertAccessibleFormErrors(t, invalidEventAwards, map[string]string{
+		"event-awards-event-award-display-order-0": "positive integer",
+	})
 	eventAwards := postFrontendForm(t, administrator, server.address, path, url.Values{
-		"csrf_token":                      {requireFrontendCSRF(t, page)},
+		"csrf_token":                      {requireFrontendCSRF(t, invalidEventAwards)},
 		"action":                          {"save-event-awards"},
 		"command_id":                      {"browser-save-event-awards"},
 		"expected_revision":               {"0"},
@@ -8148,6 +9189,41 @@ func TestBrowserPublishesAndCorrectsStandaloneResults(t *testing.T) {
 			t.Fatalf("browser Event Awards lack %q: %d %q", want, page.status, page.body)
 		}
 	}
+	staleEventAwards := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":        {requireFrontendCSRF(t, page)},
+		"action":            {"save-event-awards"},
+		"command_id":        {"browser-stale-event-awards"},
+		"expected_revision": {"0"},
+		"event_award_key":   {"stale-event-key"},
+		"event_award_name":  {"Stale Event Award"},
+		"event_award_recipient_entry_ids": {
+			strconv.FormatInt(created.Msg.GetEntry().GetId(), 10),
+		},
+		"event_award_recipient_names": {"Stale Event recipient"},
+		"event_award_path":            {"Standalone"},
+		"event_award_display_order":   {"1"},
+	})
+	if staleEventAwards.status != http.StatusConflict ||
+		!strings.Contains(
+			staleEventAwards.body,
+			`name="event_award_key" value="stale-event-key"`,
+		) ||
+		!strings.Contains(
+			staleEventAwards.body,
+			`name="event_award_name" value="Stale Event Award"`,
+		) ||
+		!strings.Contains(
+			staleEventAwards.body,
+			">Stale Event recipient</textarea>",
+		) {
+		t.Fatalf(
+			"stale browser Event Awards = %d %q",
+			staleEventAwards.status,
+			staleEventAwards.body,
+		)
+	}
+	assertAccessibleFormErrors(t, staleEventAwards, nil)
+	page = getFrontendPage(t, administrator, server.address, path)
 	eventAwardsReady := postFrontendForm(t, administrator, server.address, path, url.Values{
 		"csrf_token":            {requireFrontendCSRF(t, page)},
 		"action":                {"mark-event-awards-ready"},
@@ -8416,6 +9492,62 @@ func TestBrowserDefersAndResolvesCompetitionEntries(t *testing.T) {
 	)
 	end.Set("csrf_token", requireFrontendCSRF(t, endPreview))
 	end.Set("action", "end-session")
+	unconfirmedEnd := postFrontendForm(t, operator, server.address, operationsPath, end)
+	if unconfirmedEnd.status != http.StatusConflict ||
+		!strings.Contains(unconfirmedEnd.body, "End Competition Preview") {
+		t.Fatalf(
+			"unconfirmed browser Competition End = %d %q",
+			unconfirmedEnd.status,
+			unconfirmedEnd.body,
+		)
+	}
+	endConfirmationID := "end-session-" + strconv.FormatInt(competitionID, 10) +
+		"-confirmed-deferred-entries"
+	if regexp.MustCompile(`id="` + endConfirmationID + `"[^>]+checked`).MatchString(
+		unconfirmedEnd.body,
+	) {
+		t.Fatalf("unconfirmed browser Competition End remained checked: %q", unconfirmedEnd.body)
+	}
+	assertAccessibleFormErrors(t, unconfirmedEnd, map[string]string{
+		endConfirmationID: "Confirm deferred Entries.",
+	})
+
+	endFormStart = strings.Index(unconfirmedEnd.body, `name="action" value="end-session"`)
+	endFormEnd = strings.Index(unconfirmedEnd.body[endFormStart:], "</form>")
+	end = frontendNamedValues(
+		unconfirmedEnd.body[endFormStart:endFormStart+endFormEnd],
+		"session_id",
+		"expected_live_state_revision",
+		"command_id",
+		"deferred_entries_fingerprint",
+	)
+	end.Set("csrf_token", requireFrontendCSRF(t, unconfirmedEnd))
+	end.Set("action", "end-session")
+	end.Set("deferred_entries_fingerprint", "stale-end-preview")
+	end.Set("confirmed_deferred_entries", "true")
+	staleEnd := postFrontendForm(t, operator, server.address, operationsPath, end)
+	if staleEnd.status != http.StatusConflict ||
+		!strings.Contains(staleEnd.body, "End Competition Preview") {
+		t.Fatalf("stale browser Competition End = %d %q", staleEnd.status, staleEnd.body)
+	}
+	if regexp.MustCompile(`id="` + endConfirmationID + `"[^>]+checked`).MatchString(staleEnd.body) {
+		t.Fatalf("stale browser Competition End remained checked: %q", staleEnd.body)
+	}
+	assertAccessibleFormErrors(t, staleEnd, map[string]string{
+		endConfirmationID: "review and confirm",
+	})
+
+	endFormStart = strings.Index(staleEnd.body, `name="action" value="end-session"`)
+	endFormEnd = strings.Index(staleEnd.body[endFormStart:], "</form>")
+	end = frontendNamedValues(
+		staleEnd.body[endFormStart:endFormStart+endFormEnd],
+		"session_id",
+		"expected_live_state_revision",
+		"command_id",
+		"deferred_entries_fingerprint",
+	)
+	end.Set("csrf_token", requireFrontendCSRF(t, staleEnd))
+	end.Set("action", "end-session")
 	end.Set("confirmed_deferred_entries", "true")
 	ended := postFrontendForm(t, operator, server.address, operationsPath, end)
 	if ended.status != http.StatusSeeOther {
@@ -8575,6 +9707,21 @@ func frontendNamedValues(body string, names ...string) url.Values {
 	return values
 }
 
+func frontendActivationFormValues(
+	t *testing.T,
+	body string,
+	names ...string,
+) url.Values {
+	t.Helper()
+	for _, form := range regexp.MustCompile(`(?s)<form\b.*?</form>`).FindAllString(body, -1) {
+		if strings.Contains(form, `name="action" value="activate"`) {
+			return frontendNamedValues(form, names...)
+		}
+	}
+	t.Fatalf("page has no activation form: %q", body)
+	return nil
+}
+
 func frontendCheckboxValues(body, name string) []string {
 	expression := regexp.MustCompile(
 		`type="checkbox" name="` + regexp.QuoteMeta(name) + `" value="([^"]*)" checked`,
@@ -8671,14 +9818,16 @@ func postFrontendMultipart(
 			t.Fatalf("write multipart field %s: %v", name, err)
 		}
 	}
-	file, err := writer.CreateFormFile(fileField, filename)
-	if err != nil {
-		t.Fatalf("create multipart file: %v", err)
+	if fileField != "" {
+		file, err := writer.CreateFormFile(fileField, filename)
+		if err != nil {
+			t.Fatalf("create multipart file: %v", err)
+		}
+		if _, err = file.Write(content); err != nil {
+			t.Fatalf("write multipart file: %v", err)
+		}
 	}
-	if _, err = file.Write(content); err != nil {
-		t.Fatalf("write multipart file: %v", err)
-	}
-	if err = writer.Close(); err != nil {
+	if err := writer.Close(); err != nil {
 		t.Fatalf("close multipart body: %v", err)
 	}
 	request, err := http.NewRequestWithContext(

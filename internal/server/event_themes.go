@@ -218,7 +218,7 @@ func (handlers eventThemeHandlers) render(
 			Resolved: preview.Resolved, Variants: preview.Variants,
 			Findings:        preview.Findings,
 			CreateCommandID: createCommandID, ActivateCommandID: activateCommandID,
-			Error: message,
+			Form: request.Form, Errors: themeFormErrors(request.Form, message, true),
 		}),
 	)
 }
@@ -269,6 +269,32 @@ func eventThemeVariantNames() []string {
 		themevalue.VariantLocationSignage,
 		themevalue.VariantStandby,
 	}
+}
+
+func eventThemeValidation(form url.Values) (string, *themevalue.ValidationError) {
+	config := eventThemeConfig(form)
+	if _, err := themevalue.ResolveEvent(themevalue.DefaultConfig(), config, ""); err != nil {
+		var validation *themevalue.ValidationError
+		if errors.As(err, &validation) {
+			return validation.Field, validation
+		}
+	}
+	for _, variant := range eventThemeVariantNames() {
+		if _, configured := config.Variants[variant]; !configured {
+			continue
+		}
+		if _, err := themevalue.ResolveEvent(
+			themevalue.DefaultConfig(),
+			config,
+			variant,
+		); err != nil {
+			var validation *themevalue.ValidationError
+			if errors.As(err, &validation) {
+				return variant + "_" + validation.Field, validation
+			}
+		}
+	}
+	return "", nil
 }
 
 func eventThemeAdministrationPath(eventID, revisionID int) string {

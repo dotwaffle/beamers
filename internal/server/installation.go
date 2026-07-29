@@ -60,9 +60,9 @@ func (handlers installationHandlers) installation(
 	}
 	switch request.Method {
 	case http.MethodGet, http.MethodHead:
-		handlers.render(response, request, actor, csrfToken)
+		handlers.render(response, request, actor, csrfToken, http.StatusOK, nil)
 	case http.MethodPost:
-		handlers.submit(response, request, actor)
+		handlers.submit(response, request, actor, csrfToken)
 	default:
 		frontendMethodNotAllowed(response, http.MethodGet+", "+http.MethodHead+", "+http.MethodPost)
 	}
@@ -72,10 +72,14 @@ func (handlers installationHandlers) submit(
 	response http.ResponseWriter,
 	request *http.Request,
 	actor auth.Account,
+	csrfToken string,
 ) {
 	mediaType, _, err := mime.ParseMediaType(request.Header.Get("Content-Type"))
 	if err != nil {
-		http.Error(response, "invalid form submission", http.StatusBadRequest)
+		handlers.render(
+			response, request, actor, csrfToken, http.StatusBadRequest,
+			frontend.FormErrors{{Message: "Check the installation action and try again."}},
+		)
 		return
 	}
 	if mediaType == "multipart/form-data" {
@@ -87,7 +91,7 @@ func (handlers installationHandlers) submit(
 				handlers.browser.logger.Warn("remove Restore form staging", "error", err)
 			}
 		}()
-		handlers.prepareRestore(response, request)
+		handlers.prepareRestore(response, request, actor, csrfToken)
 		return
 	}
 	if !handlers.browser.validForm(response, request) {
@@ -96,33 +100,46 @@ func (handlers installationHandlers) submit(
 	switch request.Form.Get("action") {
 	case "backup-sanitized":
 		if request.Form.Get("confirm") != "true" {
-			http.Error(response, "Backup confirmation required", http.StatusUnprocessableEntity)
+			handlers.render(
+				response, request, actor, csrfToken, http.StatusUnprocessableEntity,
+				installationFieldError(
+					"installation-backup-sanitized-confirm",
+					"Confirmation",
+					"Confirm the Sanitized Backup download.",
+				),
+			)
 			return
 		}
 		handlers.archives.downloadBackup(response, request, backup.Sanitized)
 	case "backup-full-fidelity":
 		if request.Form.Get("acknowledge_protection") != "true" {
-			http.Error(
-				response,
-				"Full-Fidelity Backup protection acknowledgment required",
-				http.StatusUnprocessableEntity,
+			handlers.render(
+				response, request, actor, csrfToken, http.StatusUnprocessableEntity,
+				installationFieldError(
+					"installation-backup-full-fidelity-acknowledge-protection",
+					"Protection acknowledgment",
+					"Acknowledge how you will protect this Backup.",
+				),
 			)
 			return
 		}
-		if !handlers.reauthenticate(response, request, actor) {
+		if !handlers.reauthenticate(response, request, actor, csrfToken) {
 			return
 		}
 		handlers.archives.downloadBackup(response, request, backup.FullFidelity)
 	case "cancel-restore":
 		if request.Form.Get("acknowledge_cancellation") != "true" {
-			http.Error(
-				response,
-				"prepared Restore cancellation acknowledgment required",
-				http.StatusUnprocessableEntity,
+			handlers.render(
+				response, request, actor, csrfToken, http.StatusUnprocessableEntity,
+				installationFieldError(
+					"installation-cancel-restore-acknowledge-cancellation",
+					"Cancellation acknowledgment",
+					"Confirm that you want to abandon this prepared Restore.",
+				),
 			)
 			return
 		}
-		if !handlers.reauthenticate(response, request, actor) {
+		if !handlers.reauthenticate(response, request, actor, csrfToken) {
 			return
 		}
 		journalPath, err := handlers.journalPath()
@@ -141,21 +158,36 @@ func (handlers installationHandlers) submit(
 			http.StatusSeeOther,
 		)
 	default:
-		http.Error(response, "invalid installation action", http.StatusUnprocessableEntity)
+		handlers.render(
+			response, request, actor, csrfToken, http.StatusUnprocessableEntity,
+			frontend.FormErrors{{Message: "Choose a valid installation action."}},
+		)
 	}
 }
 
 func (handlers installationHandlers) prepareRestore(
 	response http.ResponseWriter,
 	request *http.Request,
+	actor auth.Account,
+	csrfToken string,
 ) {
 	if request.FormValue("action") != "prepare-restore" {
-		http.Error(response, "invalid installation action", http.StatusUnprocessableEntity)
+		handlers.render(
+			response, request, actor, csrfToken, http.StatusUnprocessableEntity,
+			frontend.FormErrors{{Message: "Choose a valid installation action."}},
+		)
 		return
 	}
 	archive, _, err := request.FormFile("backup")
 	if err != nil {
-		http.Error(response, "Backup ZIP is required", http.StatusUnprocessableEntity)
+		handlers.render(
+			response, request, actor, csrfToken, http.StatusUnprocessableEntity,
+			installationFieldError(
+				"installation-restore-backup",
+				"Backup ZIP",
+				"Choose a Backup ZIP to prepare.",
+			),
+		)
 		return
 	}
 	defer func() {
@@ -179,6 +211,7 @@ func (handlers installationHandlers) reauthenticate(
 	response http.ResponseWriter,
 	request *http.Request,
 	actor auth.Account,
+	csrfToken string,
 ) bool {
 	err := handlers.browser.authentication.Reauthenticate(
 		request.Context(),
@@ -186,7 +219,19 @@ func (handlers installationHandlers) reauthenticate(
 		request.Form.Get("password"),
 	)
 	if errors.Is(err, auth.ErrAuthenticationFailed) {
-		http.Error(response, "reauthentication failed", http.StatusUnauthorized)
+		action := request.Form.Get("action")
+		fieldID := "installation-backup-full-fidelity-password"
+		if action == "cancel-restore" {
+			fieldID = "installation-cancel-restore-password"
+		}
+		handlers.render(
+			response, request, actor, csrfToken, http.StatusUnauthorized,
+			installationFieldError(
+				fieldID,
+				"Password",
+				"Enter your current password.",
+			),
+		)
 		return false
 	}
 	if err != nil {
@@ -201,6 +246,8 @@ func (handlers installationHandlers) render(
 	request *http.Request,
 	actor auth.Account,
 	csrfToken string,
+	status int,
+	formErrors frontend.FormErrors,
 ) {
 	diagnostics := handlers.diagnostics.collect(request.Context(), actor)
 	journalPath, err := handlers.journalPath()
@@ -274,7 +321,7 @@ func (handlers installationHandlers) render(
 	handlers.browser.render(
 		response,
 		request,
-		http.StatusOK,
+		status,
 		frontend.Installation(frontend.InstallationPage{
 			AccountName:    actor.Name,
 			CSRFToken:      csrfToken,
@@ -293,8 +340,18 @@ func (handlers installationHandlers) render(
 			},
 			Prepared: prepared,
 			Message:  message,
+			Form:     request.Form,
+			Errors:   formErrors,
 		}),
 	)
+}
+
+func installationFieldError(fieldID, label, message string) frontend.FormErrors {
+	return frontend.FormErrors{{
+		FieldID: fieldID,
+		Label:   label,
+		Message: message,
+	}}
 }
 
 func (handlers installationHandlers) journalPath() (string, error) {

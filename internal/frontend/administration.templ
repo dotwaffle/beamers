@@ -1,6 +1,8 @@
 package frontend
 
 import (
+	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -37,7 +39,74 @@ type AdministrationPage struct {
 	ActiveEvent    activation.ActiveEvent
 	Preflight      *activation.Preflight
 	ActivationCommandID string
-	Error          string
+	SubmittedAction string
+	Form            url.Values
+	Errors          FormErrors
+}
+
+func AdministrationFieldID(action string, targetID int, field string) string {
+	prefix := "administration-" + strings.TrimPrefix(action, "create-")
+	switch action {
+	case "create-account":
+		prefix = "administration-account"
+	case "grant":
+		prefix = "administration-grant"
+	case "preflight":
+		prefix = "administration-preflight"
+	case "activate":
+		prefix = "administration-activation"
+	case "issue-recovery-token":
+		prefix = "administration-recovery"
+	case "prune-event-slug-alias":
+		prefix = "administration-alias"
+	}
+	if targetID > 0 {
+		prefix += "-" + strconv.Itoa(targetID)
+	}
+	return prefix + "-" + strings.ReplaceAll(field, "_", "-")
+}
+
+func (page AdministrationPage) submitted(action string, targetID int) bool {
+	if page.SubmittedAction != action {
+		return false
+	}
+	if targetID == 0 {
+		return true
+	}
+	field := "account_id"
+	if action == "prune-event-slug-alias" {
+		field = "alias_id"
+	}
+	return page.Form.Get(field) == strconv.Itoa(targetID)
+}
+
+func (page AdministrationPage) value(
+	action string,
+	targetID int,
+	field, fallback string,
+) string {
+	if page.submitted(action, targetID) {
+		if _, ok := page.Form[field]; ok {
+			return page.Form.Get(field)
+		}
+	}
+	return fallback
+}
+
+func (page AdministrationPage) selected(
+	action string,
+	targetID int,
+	field, value, fallback string,
+) bool {
+	return page.value(action, targetID, field, fallback) == value
+}
+
+func (page AdministrationPage) checked(
+	action string,
+	targetID int,
+	field, value string,
+) bool {
+	return page.submitted(action, targetID) && slices.Contains(page.Form[field], value)
 }
 
 templ Administration(page AdministrationPage) {
@@ -50,9 +119,7 @@ templ Administration(page AdministrationPage) {
 				@BackstageNavigationViews(page.Navigation)
 				<main id="main-content" tabindex="-1">
 					<h1>Accounts, Event Grants, and activation</h1>
-					if page.Error != "" {
-						<p role="alert">{ page.Error }</p>
-					}
+					@ErrorSummary(page.Errors)
 					if page.RecoveryToken != nil {
 						<section role="status">
 							<h2>Administrator Recovery Token</h2>
@@ -77,13 +144,18 @@ templ Administration(page AdministrationPage) {
 										<input type="hidden" name="account_id" value={ strconv.Itoa(account.ID) }/>
 										<label>
 											Reason
-											<select name="reason">
-												<option value="crew_departed">Crew departed</option>
-												<option value="access_revoked">Access revoked</option>
-												<option value="account_compromised">Account compromised</option>
-												<option value="duplicate_account">Duplicate Account</option>
+											<select
+												id={ AdministrationFieldID("disable-account", account.ID, "reason") }
+												name="reason"
+												{ page.Errors.Attributes(AdministrationFieldID("disable-account", account.ID, "reason"))... }
+											>
+												<option value="crew_departed" selected?={ page.selected("disable-account", account.ID, "reason", "crew_departed", "crew_departed") }>Crew departed</option>
+												<option value="access_revoked" selected?={ page.selected("disable-account", account.ID, "reason", "access_revoked", "crew_departed") }>Access revoked</option>
+												<option value="account_compromised" selected?={ page.selected("disable-account", account.ID, "reason", "account_compromised", "crew_departed") }>Account compromised</option>
+												<option value="duplicate_account" selected?={ page.selected("disable-account", account.ID, "reason", "duplicate_account", "crew_departed") }>Duplicate Account</option>
 											</select>
 										</label>
+										@FieldError(page.Errors, AdministrationFieldID("disable-account", account.ID, "reason"))
 										<button type="submit">Disable Account</button>
 									</form>
 									<form method="post" action="/backstage/administration">
@@ -93,8 +165,16 @@ templ Administration(page AdministrationPage) {
 										<input type="hidden" name="account_id" value={ strconv.Itoa(account.ID) }/>
 										<label>
 											Offline verification
-											<input name="reason" maxlength="1000" required/>
+											<input
+												id={ AdministrationFieldID("issue-recovery-token", account.ID, "reason") }
+												name="reason"
+												value={ page.value("issue-recovery-token", account.ID, "reason", "") }
+												maxlength="1000"
+												required
+												{ page.Errors.Attributes(AdministrationFieldID("issue-recovery-token", account.ID, "reason"))... }
+											/>
 										</label>
+										@FieldError(page.Errors, AdministrationFieldID("issue-recovery-token", account.ID, "reason"))
 										<button type="submit">Issue Recovery Token</button>
 									</form>
 								</li>
@@ -104,9 +184,42 @@ templ Administration(page AdministrationPage) {
 							<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
 							<input type="hidden" name="action" value="create-account"/>
 							<input type="hidden" name="command_id" value={ page.AccountCommandID }/>
-							<label>Account Handle <input name="account_handle" autocomplete="off" required/></label>
-							<label>Display Name <input name="display_name" autocomplete="name" required/></label>
-							<label>Password <input type="password" name="password" minlength="12" required/></label>
+							<label>
+								Account Handle
+								<input
+									id={ AdministrationFieldID("create-account", 0, "account_handle") }
+									name="account_handle"
+									value={ page.value("create-account", 0, "account_handle", "") }
+									autocomplete="off"
+									required
+									{ page.Errors.Attributes(AdministrationFieldID("create-account", 0, "account_handle"))... }
+								/>
+							</label>
+							@FieldError(page.Errors, AdministrationFieldID("create-account", 0, "account_handle"))
+							<label>
+								Display Name
+								<input
+									id={ AdministrationFieldID("create-account", 0, "display_name") }
+									name="display_name"
+									value={ page.value("create-account", 0, "display_name", "") }
+									autocomplete="name"
+									required
+									{ page.Errors.Attributes(AdministrationFieldID("create-account", 0, "display_name"))... }
+								/>
+							</label>
+							@FieldError(page.Errors, AdministrationFieldID("create-account", 0, "display_name"))
+							<label>
+								Password
+								<input
+									id={ AdministrationFieldID("create-account", 0, "password") }
+									type="password"
+									name="password"
+									minlength="12"
+									required
+									{ page.Errors.Attributes(AdministrationFieldID("create-account", 0, "password"))... }
+								/>
+							</label>
+							@FieldError(page.Errors, AdministrationFieldID("create-account", 0, "password"))
 							<button type="submit">Create Account</button>
 						</form>
 					</section>
@@ -136,36 +249,84 @@ templ Administration(page AdministrationPage) {
 							<input type="hidden" name="command_id" value={ page.GrantCommandID }/>
 							<label>
 								Account
-								<select name="account_id" required>
+								<select
+									id={ AdministrationFieldID("grant", 0, "account_id") }
+									name="account_id"
+									required
+									{ page.Errors.Attributes(AdministrationFieldID("grant", 0, "account_id"))... }
+								>
 									for _, account := range page.Accounts {
-										<option value={ strconv.Itoa(account.ID) }>{ "@" + account.Handle } — { account.Name }</option>
+										<option
+											value={ strconv.Itoa(account.ID) }
+											selected?={ page.selected("grant", 0, "account_id", strconv.Itoa(account.ID), "") }
+										>{ "@" + account.Handle } — { account.Name }</option>
 									}
 								</select>
 							</label>
+							@FieldError(page.Errors, AdministrationFieldID("grant", 0, "account_id"))
 							<label>
 								Event
-								<select name="event_id" required>
+								<select
+									id={ AdministrationFieldID("grant", 0, "event_id") }
+									name="event_id"
+									required
+									{ page.Errors.Attributes(AdministrationFieldID("grant", 0, "event_id"))... }
+								>
 									for _, event := range page.Events {
-										<option value={ strconv.Itoa(event.ID) }>{ event.Name }</option>
+										<option
+											value={ strconv.Itoa(event.ID) }
+											selected?={ page.selected("grant", 0, "event_id", strconv.Itoa(event.ID), "") }
+										>{ event.Name }</option>
 									}
 								</select>
 							</label>
+							@FieldError(page.Errors, AdministrationFieldID("grant", 0, "event_id"))
 							<label>
 								Role
-								<select name="role">
-									<option>Producer</option>
-									<option>Operator</option>
-									<option>Observer</option>
+								<select
+									id={ AdministrationFieldID("grant", 0, "role") }
+									name="role"
+									{ page.Errors.Attributes(AdministrationFieldID("grant", 0, "role"))... }
+								>
+									<option selected?={ page.selected("grant", 0, "role", "Producer", "Producer") }>Producer</option>
+									<option selected?={ page.selected("grant", 0, "role", "Operator", "Producer") }>Operator</option>
+									<option selected?={ page.selected("grant", 0, "role", "Observer", "Producer") }>Observer</option>
 								</select>
 							</label>
-							<label>Lane IDs <input name="lane_ids" inputmode="numeric" placeholder="1, 2"/></label>
-							<label>Display group keys <input name="display_group_keys" placeholder="stage, stream"/></label>
-							<fieldset>
+							@FieldError(page.Errors, AdministrationFieldID("grant", 0, "role"))
+							<label>
+								Lane IDs
+								<input
+									id={ AdministrationFieldID("grant", 0, "lane_ids") }
+									name="lane_ids"
+									value={ page.value("grant", 0, "lane_ids", "") }
+									inputmode="numeric"
+									placeholder="1, 2"
+									{ page.Errors.Attributes(AdministrationFieldID("grant", 0, "lane_ids"))... }
+								/>
+							</label>
+							@FieldError(page.Errors, AdministrationFieldID("grant", 0, "lane_ids"))
+							<label>
+								Display group keys
+								<input
+									id={ AdministrationFieldID("grant", 0, "display_group_keys") }
+									name="display_group_keys"
+									value={ page.value("grant", 0, "display_group_keys", "") }
+									placeholder="stage, stream"
+									{ page.Errors.Attributes(AdministrationFieldID("grant", 0, "display_group_keys"))... }
+								/>
+							</label>
+							@FieldError(page.Errors, AdministrationFieldID("grant", 0, "display_group_keys"))
+							<fieldset
+								id={ AdministrationFieldID("grant", 0, "capabilities") }
+								{ page.Errors.Attributes(AdministrationFieldID("grant", 0, "capabilities"))... }
+							>
 								<legend>Additional capabilities</legend>
-								<label><input type="checkbox" name="capability" value="EmergencyAlert"/> Emergency Alert</label>
-								<label><input type="checkbox" name="capability" value="ViewResults"/> View Results</label>
-								<label><input type="checkbox" name="capability" value="ManageResults"/> Manage Results</label>
+								<label><input type="checkbox" name="capability" value="EmergencyAlert" checked?={ page.checked("grant", 0, "capability", "EmergencyAlert") }/> Emergency Alert</label>
+								<label><input type="checkbox" name="capability" value="ViewResults" checked?={ page.checked("grant", 0, "capability", "ViewResults") }/> View Results</label>
+								<label><input type="checkbox" name="capability" value="ManageResults" checked?={ page.checked("grant", 0, "capability", "ManageResults") }/> Manage Results</label>
 							</fieldset>
+							@FieldError(page.Errors, AdministrationFieldID("grant", 0, "capabilities"))
 							<button type="submit">Grant Event access</button>
 						</form>
 					</section>
@@ -190,12 +351,21 @@ templ Administration(page AdministrationPage) {
 							<input type="hidden" name="action" value="preflight"/>
 							<label>
 								Event
-								<select name="event_id" required>
+								<select
+									id={ AdministrationFieldID("preflight", 0, "event_id") }
+									name="event_id"
+									required
+									{ page.Errors.Attributes(AdministrationFieldID("preflight", 0, "event_id"))... }
+								>
 									for _, event := range page.Events {
-										<option value={ strconv.Itoa(event.ID) }>{ event.Name }</option>
+										<option
+											value={ strconv.Itoa(event.ID) }
+											selected?={ page.selected("preflight", 0, "event_id", strconv.Itoa(event.ID), "") }
+										>{ event.Name }</option>
 									}
 								</select>
 							</label>
+							@FieldError(page.Errors, AdministrationFieldID("preflight", 0, "event_id"))
 							<button type="submit">Run Activation Preflight</button>
 						</form>
 						if page.Preflight != nil {
@@ -230,7 +400,12 @@ templ Administration(page AdministrationPage) {
 									<input type="hidden" name="activation_generation" value={ strconv.Itoa(page.Preflight.Confirmation.ActivationGeneration) }/>
 									<input type="hidden" name="fingerprint" value={ page.Preflight.Confirmation.Fingerprint }/>
 									<input type="hidden" name="command_id" value={ page.ActivationCommandID }/>
-									<button type="submit">Activate Event</button>
+									<button
+										id={ AdministrationFieldID("activate", page.Preflight.EventID, "confirmation") }
+										type="submit"
+										{ page.Errors.Attributes(AdministrationFieldID("activate", page.Preflight.EventID, "confirmation"))... }
+									>Activate Event</button>
+									@FieldError(page.Errors, AdministrationFieldID("activate", page.Preflight.EventID, "confirmation"))
 								</form>
 							}
 						}
@@ -256,9 +431,17 @@ templ Administration(page AdministrationPage) {
 											<input type="hidden" name="command_id" value={ page.PruneAliasCommandIDs[alias.ID] }/>
 											<input type="hidden" name="alias_id" value={ strconv.Itoa(alias.ID) }/>
 											<label>
-												<input type="checkbox" name="confirmed" value="true" required/>
+												<input
+													id={ AdministrationFieldID("prune-event-slug-alias", alias.ID, "confirmed") }
+													type="checkbox"
+													name="confirmed"
+													value="true"
+													required
+													{ page.Errors.Attributes(AdministrationFieldID("prune-event-slug-alias", alias.ID, "confirmed"))... }
+												/>
 												Prune this alias. Its slug becomes reusable; stale links may break or retarget.
 											</label>
+											@FieldError(page.Errors, AdministrationFieldID("prune-event-slug-alias", alias.ID, "confirmed"))
 											<button type="submit">Prune Event Slug Alias</button>
 										</form>
 									</li>

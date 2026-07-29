@@ -90,7 +90,7 @@ func (handlers finalFilesHandlers) backstage(
 	switch request.Method {
 	case http.MethodGet, http.MethodHead:
 		handlers.renderBackstage(
-			response, request, actor, event, plan, csrfToken, http.StatusOK, "",
+			response, request, actor, event, plan, csrfToken, http.StatusOK, nil,
 		)
 	case http.MethodPost:
 		if !handlers.browser.validForm(response, request) {
@@ -106,7 +106,7 @@ func (handlers finalFilesHandlers) backstage(
 				plan,
 				csrfToken,
 				http.StatusBadRequest,
-				"Review and confirm the exact preview before downloading.",
+				finalFilesConfirmationErrors(request),
 			)
 			return
 		}
@@ -119,7 +119,11 @@ func (handlers finalFilesHandlers) backstage(
 				plan,
 				csrfToken,
 				http.StatusConflict,
-				"Preview changed. Review the current files before downloading.",
+				frontend.FormErrors{{
+					FieldID: "final-files-confirmed",
+					Label:   "Confirmation",
+					Message: "Preview changed. Review the current files before downloading.",
+				}},
 			)
 			return
 		}
@@ -144,7 +148,11 @@ func (handlers finalFilesHandlers) backstage(
 				plan,
 				csrfToken,
 				http.StatusConflict,
-				"Preview changed. Review the current files before downloading.",
+				frontend.FormErrors{{
+					FieldID: "final-files-confirmed",
+					Label:   "Confirmation",
+					Message: "Preview changed. Review the current files before downloading.",
+				}},
 			)
 			return
 		}
@@ -168,7 +176,7 @@ func (handlers finalFilesHandlers) renderBackstage(
 	plan attachments.FinalFilesPlan,
 	csrfToken string,
 	status int,
-	message string,
+	formErrors frontend.FormErrors,
 ) {
 	var totalSize int64
 	for _, file := range plan.Files {
@@ -179,9 +187,22 @@ func (handlers finalFilesHandlers) renderBackstage(
 			AccountName: actor.Name, CSRFToken: csrfToken,
 			ReducedEffects: reducedEffectsCookie(request),
 			Navigation:     backstageNavigation(actor, request.URL.Path),
-			Event:          event, Plan: plan, TotalSize: totalSize, Error: message,
+			Event:          event, Plan: plan, TotalSize: totalSize, Errors: formErrors,
 		},
 	))
+}
+
+func finalFilesConfirmationErrors(request *http.Request) frontend.FormErrors {
+	if request.Form.Get("confirmed") != "true" {
+		return frontend.FormErrors{{
+			FieldID: "final-files-confirmed",
+			Label:   "Confirmation",
+			Message: "Confirm the ZIP download after reviewing the exact preview.",
+		}}
+	}
+	return frontend.FormErrors{{
+		Message: "Review and confirm the exact preview before downloading.",
+	}}
 }
 
 func (handlers finalFilesHandlers) preview(

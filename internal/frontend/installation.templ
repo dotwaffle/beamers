@@ -1,5 +1,6 @@
 package frontend
 
+import "net/url"
 import "strconv"
 
 // InstallationStatus is one bounded operator-visible component status.
@@ -41,6 +42,8 @@ type InstallationPage struct {
 	Capacity       InstallationCapacity
 	Prepared       PreparedRestore
 	Message        string
+	Form           url.Values
+	Errors         FormErrors
 }
 
 // Installation renders installation diagnostics and guarded maintenance forms.
@@ -54,6 +57,7 @@ templ Installation(page InstallationPage) {
 				@BackstageNavigationViews(page.Navigation)
 				<main id="main-content" tabindex="-1">
 					<h1>Installation health</h1>
+					@ErrorSummary(page.Errors)
 					if page.Message != "" {
 						<p role="status">{ page.Message }</p>
 					}
@@ -94,9 +98,17 @@ templ Installation(page InstallationPage) {
 							<h3>Sanitized Backup</h3>
 							<p>Excludes authentication secrets. Accounts must be re-bootstrapped after Restore.</p>
 							<label>
-								<input type="checkbox" name="confirm" value="true" required/>
+								<input
+									id="installation-backup-sanitized-confirm"
+									type="checkbox"
+									name="confirm"
+									value="true"
+									required
+									{ page.Errors.Attributes("installation-backup-sanitized-confirm")... }
+								/>
 								Create and download this Backup
 							</label>
+							@FieldError(page.Errors, "installation-backup-sanitized-confirm")
 							<button type="submit">Download Sanitized Backup</button>
 						</form>
 						<form class="stack" method="post" action="/backstage/installation">
@@ -106,12 +118,29 @@ templ Installation(page InstallationPage) {
 							<p>Contains authentication secrets and is not encrypted by Beamers.</p>
 							<label>
 								Password
-								<input type="password" name="password" autocomplete="current-password" required/>
+								<input
+									id="installation-backup-full-fidelity-password"
+									type="password"
+									name="password"
+									autocomplete="current-password"
+									required
+									{ page.Errors.Attributes("installation-backup-full-fidelity-password")... }
+								/>
 							</label>
+							@FieldError(page.Errors, "installation-backup-full-fidelity-password")
 							<label>
-								<input type="checkbox" name="acknowledge_protection" value="true" required/>
+								<input
+									id="installation-backup-full-fidelity-acknowledge-protection"
+									type="checkbox"
+									name="acknowledge_protection"
+									value="true"
+									required
+									checked?={ page.Form.Get("action") == "backup-full-fidelity" && page.Form.Get("acknowledge_protection") == "true" }
+									{ page.Errors.Attributes("installation-backup-full-fidelity-acknowledge-protection")... }
+								/>
 								I will protect this unencrypted Backup outside Beamers
 							</label>
+							@FieldError(page.Errors, "installation-backup-full-fidelity-acknowledge-protection")
 							<button type="submit">Download Full-Fidelity Backup</button>
 						</form>
 					</section>
@@ -128,8 +157,16 @@ templ Installation(page InstallationPage) {
 							<input type="hidden" name="action" value="prepare-restore"/>
 							<label>
 								Backup ZIP
-								<input type="file" name="backup" accept=".zip,application/zip" required/>
+								<input
+									id="installation-restore-backup"
+									type="file"
+									name="backup"
+									accept=".zip,application/zip"
+									required
+									{ page.Errors.Attributes("installation-restore-backup")... }
+								/>
 							</label>
+							@FieldError(page.Errors, "installation-restore-backup")
 							<button type="submit">Prepare Restore</button>
 						</form>
 						if page.Prepared.Present {
@@ -154,12 +191,29 @@ templ Installation(page InstallationPage) {
 								<input type="hidden" name="action" value="cancel-restore"/>
 								<label>
 									Password
-									<input type="password" name="password" autocomplete="current-password" required/>
+									<input
+										id="installation-cancel-restore-password"
+										type="password"
+										name="password"
+										autocomplete="current-password"
+										required
+										{ page.Errors.Attributes("installation-cancel-restore-password")... }
+									/>
 								</label>
+								@FieldError(page.Errors, "installation-cancel-restore-password")
 								<label>
-									<input type="checkbox" name="acknowledge_cancellation" value="true" required/>
+									<input
+										id="installation-cancel-restore-acknowledge-cancellation"
+										type="checkbox"
+										name="acknowledge_cancellation"
+										value="true"
+										required
+										checked?={ page.Form.Get("action") == "cancel-restore" && page.Form.Get("acknowledge_cancellation") == "true" }
+										{ page.Errors.Attributes("installation-cancel-restore-acknowledge-cancellation")... }
+									/>
 									Abandon this prepared Restore
 								</label>
+								@FieldError(page.Errors, "installation-cancel-restore-acknowledge-cancellation")
 								<button type="submit">Cancel Prepared Restore</button>
 							</form>
 						} else {

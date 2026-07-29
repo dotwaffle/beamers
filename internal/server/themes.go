@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/command"
@@ -347,9 +348,55 @@ func (handlers themeHandlers) render(
 			},
 			CreateCommandID:   createCommandID,
 			ActivateCommandID: activateCommandID,
-			Error:             message,
+			Form:              request.Form,
+			Errors:            themeFormErrors(request.Form, message, false),
 		}),
 	)
+}
+
+func themeFormErrors(
+	form url.Values,
+	message string,
+	event bool,
+) frontend.FormErrors {
+	if message == "" {
+		return nil
+	}
+	if form.Get("action") == "activate" {
+		fieldID := frontend.ThemeFieldID("activation_confirmation")
+		if event {
+			fieldID = frontend.EventThemeFieldID("activation_confirmation")
+		}
+		return frontend.FormErrors{{
+			FieldID: fieldID,
+			Label:   "Activation confirmation",
+			Message: message,
+		}}
+	}
+	var validation *themevalue.ValidationError
+	field := ""
+	if form.Get("action") == "create-draft" {
+		if event {
+			field, validation = eventThemeValidation(form)
+		} else {
+			err := themevalue.ValidateDraft(themeConfig(form))
+			if errors.As(err, &validation) {
+				field = validation.Field
+			}
+		}
+	}
+	if validation != nil {
+		prefix := "theme-"
+		if event {
+			prefix = "event-theme-"
+		}
+		return frontend.FormErrors{{
+			FieldID: prefix + strings.ReplaceAll(field, "_", "-"),
+			Label:   strings.ReplaceAll(field, "_", " "),
+			Message: validation.Message,
+		}}
+	}
+	return frontend.FormErrors{{Message: message}}
 }
 
 func validateThemeForm(form url.Values) error {

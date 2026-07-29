@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -86,7 +87,7 @@ func (handlers backstageResultsHandlers) page(
 	}
 	switch request.Method {
 	case http.MethodGet, http.MethodHead:
-		handlers.renderPage(response, request, actor, eventID, csrfToken, http.StatusOK, "")
+		handlers.renderPage(response, request, actor, eventID, csrfToken, http.StatusOK, nil)
 	case http.MethodPost:
 		if !handlers.browser.validForm(response, request) {
 			return
@@ -315,7 +316,125 @@ func (handlers backstageResultsHandlers) submitPage(
 		return
 	}
 	status, message := backstageResultsError(err)
-	handlers.renderPage(response, request, actor, eventID, csrfToken, status, message)
+	handlers.renderPage(
+		response,
+		request,
+		actor,
+		eventID,
+		csrfToken,
+		status,
+		resultsFormErrors(err, request.Form, message),
+	)
+}
+
+func resultsFormErrors(
+	err error,
+	values url.Values,
+	message string,
+) frontend.FormErrors {
+	action := values.Get("action")
+	targetID, _ := strconv.Atoi(values.Get("competition_session_id"))
+	if strings.Contains(action, "prizegiving") {
+		targetID, _ = strconv.Atoi(values.Get("ceremony_session_id"))
+	}
+	if action == "save-results-correction" {
+		targetID, _ = strconv.Atoi(values.Get("correction_scope_session_id"))
+	}
+	var validation *rundown.ValidationError
+	if errors.As(err, &validation) {
+		return frontend.FormErrors{{
+			FieldID: frontend.ResultsFieldID(action, targetID, validation.Field),
+			Label:   resultsFieldLabel(validation.Field),
+			Message: validation.Message,
+		}}
+	}
+	if errors.Is(err, results.ErrCrewReasonRequired) &&
+		action == "save-results-correction" {
+		return frontend.FormErrors{{
+			FieldID: frontend.ResultsFieldID(action, targetID, "crew_reason"),
+			Label:   "Crew Reason",
+			Message: "Enter a Crew Reason.",
+		}}
+	}
+	if action == "save-results-correction" &&
+		strings.TrimSpace(values.Get("crew_reason")) == "" {
+		return frontend.FormErrors{{
+			FieldID: frontend.ResultsFieldID(action, targetID, "crew_reason"),
+			Label:   "Crew Reason",
+			Message: "Enter a Crew Reason.",
+		}}
+	}
+	if action == "save-prizegiving-plan" {
+		templateRevision, templateRevisionErr := strconv.Atoi(
+			values.Get("results_text_template_revision"),
+		)
+		switch {
+		case templateRevisionErr != nil || templateRevision <= 0:
+			return frontend.FormErrors{{
+				FieldID: frontend.ResultsFieldID(
+					action, targetID, "results_text_template_revision",
+				),
+				Label:   "Results text template revision",
+				Message: "Enter a positive integer.",
+			}}
+		case strings.TrimSpace(values.Get("results_text_template")) == "":
+			return frontend.FormErrors{{
+				FieldID: frontend.ResultsFieldID(
+					action, targetID, "results_text_template",
+				),
+				Label:   "Results text template",
+				Message: "Enter a Results text template.",
+			}}
+		case values.Get("release_policy") != "ProgressiveOnReveal" &&
+			values.Get("release_policy") != "AllAtCue" &&
+			values.Get("release_policy") != "AtCeremonyEnd":
+			return frontend.FormErrors{{
+				FieldID: frontend.ResultsFieldID(action, targetID, "release_policy"),
+				Label:   "Release policy",
+				Message: "Choose a valid release policy.",
+			}}
+		}
+	}
+	switch {
+	case errors.Is(err, results.ErrDisposition):
+		return frontend.FormErrors{{
+			FieldID: frontend.ResultsFieldID(
+				"save-results-draft", targetID, "disposition",
+			),
+			Label:   "Disposition",
+			Message: err.Error(),
+		}}
+	case errors.Is(err, results.ErrIncomplete),
+		errors.Is(err, results.ErrCompetitionRanking),
+		errors.Is(err, results.ErrUnplacedOrder),
+		errors.Is(err, results.ErrScoreRequired),
+		errors.Is(err, results.ErrInvalidScore):
+		return frontend.FormErrors{{
+			FieldID: frontend.ResultsFieldID(
+				"save-results-draft", targetID, "result_standings",
+			),
+			Label:   "Result Standings",
+			Message: err.Error(),
+		}}
+	case errors.Is(err, results.ErrInvalidAward):
+		return frontend.FormErrors{{
+			FieldID: frontend.ResultsFieldID(action, targetID, "award_details"),
+			Label:   "Award details",
+			Message: err.Error(),
+		}}
+	}
+	return frontend.FormErrors{{Message: message}}
+}
+
+func resultsFieldLabel(field string) string {
+	switch field {
+	case "score_precision":
+		return "Precision"
+	case "crew_reason":
+		return "Crew Reason"
+	default:
+		return strings.ReplaceAll(field, "_", " ")
+	}
 }
 
 func prizegivingPreflightFindings(
@@ -340,7 +459,10 @@ func eventAwardsInput(request *http.Request) ([]results.EventAward, error) {
 		len(keys) != len(displayNames) ||
 		len(keys) != len(paths) ||
 		len(keys) != len(orders) {
-		return nil, results.ErrInvalidInput
+		return nil, formValidationError(
+			"award_details",
+			"must contain complete Event Award rows",
+		)
 	}
 	awards := make([]results.EventAward, 0, len(keys))
 	for index := range keys {
@@ -352,16 +474,25 @@ func eventAwardsInput(request *http.Request) ([]results.EventAward, error) {
 		}
 		order, err := strconv.Atoi(orders[index])
 		if err != nil || order <= 0 {
-			return nil, results.ErrInvalidInput
+			return nil, formValidationError(
+				"event_award_display_order_"+strconv.Itoa(index),
+				"must be a positive integer",
+			)
 		}
 		recipients, err := awardRecipients(entryIDs[index], displayNames[index])
 		if err != nil {
-			return nil, err
+			return nil, formValidationError(
+				"event_award_recipient_entry_ids_"+strconv.Itoa(index),
+				"must contain comma-separated positive integers",
+			)
 		}
 		pathKind, pathSessionID, _ := strings.Cut(paths[index], ":")
 		path, err := eventAwardPath(pathKind, pathSessionID)
 		if err != nil {
-			return nil, err
+			return nil, formValidationError(
+				"event_award_path_"+strconv.Itoa(index),
+				"must identify a valid release path",
+			)
 		}
 		awards = append(awards, results.EventAward{
 			Award: results.Award{
@@ -425,7 +556,10 @@ func (handlers backstageResultsHandlers) resultsCorrectionInput(
 		[]byte(request.Form.Get("corrected_results_json")),
 		&corrected,
 	); err != nil {
-		return results.SaveCorrectionInput{}, results.ErrInvalidInput
+		return results.SaveCorrectionInput{}, formValidationError(
+			"corrected_results_json",
+			"must be valid Results JSON",
+		)
 	}
 	return results.SaveCorrectionInput{
 		EventID: eventID, Scope: scope, ScopeSessionID: scopeSessionID,
@@ -556,18 +690,35 @@ func prizegivingOrders(
 		}
 		sequenceOrder, err := strconv.Atoi(sequenceOrders[index])
 		if err != nil || sequenceOrder <= 0 {
-			return nil, nil, results.ErrInvalidInput
+			return nil, nil, formValidationError(
+				"sequence_display_order_"+strconv.Itoa(index),
+				"must be a positive integer",
+			)
 		}
 		publicationOrder, err := strconv.Atoi(publicationOrders[index])
 		if err != nil || publicationOrder <= 0 {
-			return nil, nil, results.ErrInvalidInput
+			return nil, nil, formValidationError(
+				"publication_display_order_"+strconv.Itoa(index),
+				"must be a positive integer",
+			)
+		}
+		revealMethod := results.RevealMethod(revealMethods[index])
+		switch revealMethod {
+		case results.RevealStatic,
+			results.RevealSequentialPodium,
+			results.RevealAnimatedScoreBars:
+		default:
+			return nil, nil, formValidationError(
+				"reveal_method_"+strconv.Itoa(index),
+				"must be a valid Reveal Method",
+			)
 		}
 		rows = append(rows, orderRow{
 			item: results.ResultItem{
 				Kind:                 results.ResultItemKind(kinds[index]),
 				CompetitionSessionID: sessionID, AwardKey: awardKeys[index],
 				DisplayOrder: sequenceOrder,
-				RevealMethod: results.RevealMethod(revealMethods[index]),
+				RevealMethod: revealMethod,
 			},
 			publicationOrder: publicationOrder,
 		})
@@ -604,7 +755,10 @@ func competitionAwardsInput(request *http.Request) ([]results.Award, error) {
 		len(keys) != len(displayNames) ||
 		len(keys) != len(promoted) ||
 		len(keys) != len(orders) {
-		return nil, results.ErrInvalidInput
+		return nil, formValidationError(
+			"award_details",
+			"must contain complete Competition Award rows",
+		)
 	}
 	awards := make([]results.Award, 0, len(keys))
 	for index := range keys {
@@ -616,15 +770,24 @@ func competitionAwardsInput(request *http.Request) ([]results.Award, error) {
 		}
 		order, err := strconv.Atoi(orders[index])
 		if err != nil || order <= 0 {
-			return nil, results.ErrInvalidInput
+			return nil, formValidationError(
+				"award_display_order_"+strconv.Itoa(index),
+				"must be a positive integer",
+			)
 		}
 		isPromoted, err := strconv.ParseBool(promoted[index])
 		if err != nil {
-			return nil, results.ErrInvalidInput
+			return nil, formValidationError(
+				"award_promoted_"+strconv.Itoa(index),
+				"must be Yes or No",
+			)
 		}
 		recipients, err := awardRecipients(entryIDs[index], displayNames[index])
 		if err != nil {
-			return nil, err
+			return nil, formValidationError(
+				"award_recipient_entry_ids_"+strconv.Itoa(index),
+				"must contain comma-separated positive integers",
+			)
 		}
 		awards = append(awards, results.Award{
 			Key: strings.TrimSpace(keys[index]), Name: strings.TrimSpace(names[index]),
@@ -713,15 +876,24 @@ func resultsStandings(request *http.Request) ([]results.Standing, error) {
 		}
 		placement, err := optionalPositiveInt(placements[index])
 		if err != nil {
-			return nil, err
+			return nil, formValidationError(
+				"placement_"+strconv.Itoa(entryID),
+				"must be a positive integer",
+			)
 		}
 		displayOrder, err := strconv.Atoi(orders[index])
 		if err != nil || displayOrder <= 0 {
-			return nil, results.ErrInvalidInput
+			return nil, formValidationError(
+				"display_order_"+strconv.Itoa(entryID),
+				"must be a positive integer",
+			)
 		}
 		score, err := resultScoreValue(scoreType, scores[index])
 		if err != nil {
-			return nil, err
+			return nil, formValidationError(
+				"score_"+strconv.Itoa(entryID),
+				"must match the selected score type",
+			)
 		}
 		standings = append(standings, results.Standing{
 			EntryID: entryID, Standing: results.ResultStanding(states[index]),
@@ -778,7 +950,7 @@ func (handlers backstageResultsHandlers) renderPage(
 	eventID int,
 	csrfToken string,
 	status int,
-	message string,
+	formErrors frontend.FormErrors,
 ) {
 	event, err := handlers.events.CrewEvent(request.Context(), actor, eventID)
 	if err != nil {
@@ -836,7 +1008,9 @@ func (handlers backstageResultsHandlers) renderPage(
 						request.Context(), actor, eventID, session.ID, mode,
 					)
 					if previewErr != nil {
+						var message string
 						status, message = backstageResultsError(previewErr)
+						formErrors = frontend.FormErrors{{Message: message}}
 					} else {
 						preview = &value
 					}
@@ -880,7 +1054,9 @@ func (handlers backstageResultsHandlers) renderPage(
 			request.Context(), actor, eventID,
 		)
 		if preflightErr != nil {
+			var message string
 			status, message = backstageResultsError(preflightErr)
+			formErrors = frontend.FormErrors{{Message: message}}
 		} else {
 			eventAwardsPreflight = &value
 		}
@@ -897,7 +1073,8 @@ func (handlers backstageResultsHandlers) renderPage(
 		CommandID:      commandID, Event: event,
 		CanManage:    actor.HasCapability(eventID, viewer.ManageResults),
 		Producer:     actor.CanProduceEvent(eventID),
-		Competitions: competitions, Prizegivings: prizegivings, Error: message,
+		Competitions: competitions, Prizegivings: prizegivings,
+		SubmittedAction: request.Form.Get("action"), Form: request.Form, Errors: formErrors,
 		EventAwards: eventAwards, EventAwardsPreflight: eventAwardsPreflight,
 	}))
 }
@@ -985,7 +1162,10 @@ func resultsCompetitionPage(
 }
 
 func backstageResultsError(err error) (int, string) {
+	var validation *rundown.ValidationError
 	switch {
+	case errors.As(err, &validation):
+		return http.StatusUnprocessableEntity, "Check the Results details and try again."
 	case errors.Is(err, results.ErrInvalidInput),
 		errors.Is(err, results.ErrIncomplete),
 		errors.Is(err, results.ErrCompetitionRanking),

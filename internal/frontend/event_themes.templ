@@ -1,6 +1,8 @@
 package frontend
 
+import "net/url"
 import "strconv"
+import "strings"
 import "time"
 
 import "github.com/dotwaffle/beamers/internal/themevalue"
@@ -20,7 +22,21 @@ type EventThemePage struct {
 	Findings            []themevalue.Finding
 	CreateCommandID     string
 	ActivateCommandID   string
-	Error               string
+	Form                url.Values
+	Errors              FormErrors
+}
+
+func EventThemeFieldID(field string) string {
+	return "event-theme-" + strings.ReplaceAll(field, "_", "-")
+}
+
+func (page EventThemePage) value(field, fallback string) string {
+	if page.Form.Get("action") == "create-draft" {
+		if _, ok := page.Form[field]; ok {
+			return page.Form.Get(field)
+		}
+	}
+	return fallback
 }
 
 func eventThemeRevisionLabel(id int) string {
@@ -54,9 +70,7 @@ templ EventThemeAdministration(page EventThemePage) {
 				<main id="main-content" tabindex="-1">
 					<h1>Event #{ strconv.Itoa(page.EventID) } Theme</h1>
 					<p>Active: <strong>{ eventThemeRevisionLabel(page.ActiveRevisionID) }</strong></p>
-					if page.Error != "" {
-						<p class="error" role="alert">{ page.Error }</p>
-					}
+					@ErrorSummary(page.Errors)
 					<section>
 						<h2>Edit a new Draft Event Theme Revision</h2>
 						<p>Empty controls inherit the active Installation Theme. Variants are limited to approved Display surfaces.</p>
@@ -66,31 +80,32 @@ templ EventThemeAdministration(page EventThemePage) {
 							<input type="hidden" name="command_id" value={ page.CreateCommandID }/>
 							<label>
 								Branding asset
-								<select name="brand_asset">
-									<option value="">Inherit</option>
-									<option value="signal" selected?={ page.Config.Overrides.BrandAsset == themevalue.BrandAssetSignal }>Signal mark</option>
-									<option value="wordmark" selected?={ page.Config.Overrides.BrandAsset == themevalue.BrandAssetWordmark }>Wordmark only</option>
+								<select id={ EventThemeFieldID("brand_asset") } name="brand_asset" { page.Errors.Attributes(EventThemeFieldID("brand_asset"))... }>
+									<option value="" selected?={ page.value("brand_asset", page.Config.Overrides.BrandAsset) == "" }>Inherit</option>
+									<option value="signal" selected?={ page.value("brand_asset", page.Config.Overrides.BrandAsset) == themevalue.BrandAssetSignal }>Signal mark</option>
+									<option value="wordmark" selected?={ page.value("brand_asset", page.Config.Overrides.BrandAsset) == themevalue.BrandAssetWordmark }>Wordmark only</option>
 								</select>
 							</label>
-							@EventThemeColor("Background color", "background_color", page.Config.Overrides.BackgroundColor)
-							@EventThemeColor("Surface color", "surface_color", page.Config.Overrides.SurfaceColor)
-							@EventThemeColor("Border color", "border_color", page.Config.Overrides.BorderColor)
-							@EventThemeColor("Text color", "text_color", page.Config.Overrides.TextColor)
-							@EventThemeColor("Muted text color", "muted_color", page.Config.Overrides.MutedColor)
-							@EventThemeColor("Accent color", "accent_color", page.Config.Overrides.AccentColor)
-							@EventThemeColor("Link color", "link_color", page.Config.Overrides.LinkColor)
-							@EventThemeColor("Focus color", "focus_color", page.Config.Overrides.FocusColor)
-							@EventThemeChoice("Background", "background", page.Config.Overrides.Background, []string{"nebula", "solid"})
-							@EventThemeChoice("Bundled type choice", "typeface", page.Config.Overrides.Typeface, []string{"demoscene", "clean"})
-							@EventThemeChoice("Transition", "transition", page.Config.Overrides.Transition, []string{"fade", "none"})
-							@EventThemeChoice("Effect", "effect", page.Config.Overrides.Effect, []string{"starfield", "none"})
-							@EventThemeChoice("Motion level", "motion", page.Config.Overrides.Motion, []string{"still", "subtle", "full"})
+							@FieldError(page.Errors, EventThemeFieldID("brand_asset"))
+							@EventThemeColor(page, "Background color", "background_color", page.Config.Overrides.BackgroundColor)
+							@EventThemeColor(page, "Surface color", "surface_color", page.Config.Overrides.SurfaceColor)
+							@EventThemeColor(page, "Border color", "border_color", page.Config.Overrides.BorderColor)
+							@EventThemeColor(page, "Text color", "text_color", page.Config.Overrides.TextColor)
+							@EventThemeColor(page, "Muted text color", "muted_color", page.Config.Overrides.MutedColor)
+							@EventThemeColor(page, "Accent color", "accent_color", page.Config.Overrides.AccentColor)
+							@EventThemeColor(page, "Link color", "link_color", page.Config.Overrides.LinkColor)
+							@EventThemeColor(page, "Focus color", "focus_color", page.Config.Overrides.FocusColor)
+							@EventThemeChoice(page, "Background", "background", page.Config.Overrides.Background, []string{"nebula", "solid"})
+							@EventThemeChoice(page, "Bundled type choice", "typeface", page.Config.Overrides.Typeface, []string{"demoscene", "clean"})
+							@EventThemeChoice(page, "Transition", "transition", page.Config.Overrides.Transition, []string{"fade", "none"})
+							@EventThemeChoice(page, "Effect", "effect", page.Config.Overrides.Effect, []string{"starfield", "none"})
+							@EventThemeChoice(page, "Motion level", "motion", page.Config.Overrides.Motion, []string{"still", "subtle", "full"})
 							<fieldset>
 								<legend>Approved Display variants</legend>
 								for _, variant := range eventThemeVariants() {
 									<h3>{ variant }</h3>
-									@EventThemeColor("Accent color", variant + "_accent_color", page.Config.Variants[variant].AccentColor)
-									@EventThemeChoice("Motion level", variant + "_motion", page.Config.Variants[variant].Motion, []string{"still", "subtle", "full"})
+									@EventThemeColor(page, "Accent color", variant + "_accent_color", page.Config.Variants[variant].AccentColor)
+									@EventThemeChoice(page, "Motion level", variant + "_motion", page.Config.Variants[variant].Motion, []string{"still", "subtle", "full"})
 								}
 							</fieldset>
 							<button type="submit">Save, preview, and validate Draft</button>
@@ -141,13 +156,19 @@ templ EventThemeAdministration(page EventThemePage) {
 								<input type="hidden" name="command_id" value={ page.ActivateCommandID }/>
 								<input type="hidden" name="revision_id" value={ strconv.Itoa(page.RevisionID) }/>
 								<input type="hidden" name="expected_active_revision_id" value={ strconv.Itoa(page.ActiveRevisionID) }/>
-								<button type="submit" disabled?={ len(page.Findings) != 0 }>
+								<button
+									id={ EventThemeFieldID("activation_confirmation") }
+									type="submit"
+									disabled?={ len(page.Findings) != 0 }
+									{ page.Errors.Attributes(EventThemeFieldID("activation_confirmation"))... }
+								>
 									if page.RevisionID == 0 || page.RevisionID < page.ActiveRevisionID {
 										Roll back to this exact Revision
 									} else {
 										Activate this Revision
 									}
 								</button>
+								@FieldError(page.Errors, EventThemeFieldID("activation_confirmation"))
 							</form>
 						}
 					</section>
@@ -175,18 +196,34 @@ templ EventThemeAdministration(page EventThemePage) {
 	</html>
 }
 
-templ EventThemeColor(label string, name string, value string) {
-	<label>{ label } <input name={ name } value={ value } pattern="#[0-9A-Fa-f]{6}" placeholder="Inherit"/></label>
-}
-
-templ EventThemeChoice(label string, name string, selected string, choices []string) {
+templ EventThemeColor(page EventThemePage, label string, name string, fallback string) {
 	<label>
 		{ label }
-		<select name={ name }>
-			<option value="">Inherit</option>
+		<input
+			id={ EventThemeFieldID(name) }
+			name={ name }
+			value={ page.value(name, fallback) }
+			pattern="#[0-9A-Fa-f]{6}"
+			placeholder="Inherit"
+			{ page.Errors.Attributes(EventThemeFieldID(name))... }
+		/>
+	</label>
+	@FieldError(page.Errors, EventThemeFieldID(name))
+}
+
+templ EventThemeChoice(page EventThemePage, label string, name string, fallback string, choices []string) {
+	<label>
+		{ label }
+		<select
+			id={ EventThemeFieldID(name) }
+			name={ name }
+			{ page.Errors.Attributes(EventThemeFieldID(name))... }
+		>
+			<option value="" selected?={ page.value(name, fallback) == "" }>Inherit</option>
 			for _, choice := range choices {
-				<option value={ choice } selected?={ selected == choice }>{ choice }</option>
+				<option value={ choice } selected?={ page.value(name, fallback) == choice }>{ choice }</option>
 			}
 		</select>
 	</label>
+	@FieldError(page.Errors, EventThemeFieldID(name))
 }

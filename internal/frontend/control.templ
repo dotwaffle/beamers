@@ -2,6 +2,7 @@ package frontend
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/dotwaffle/beamers/internal/events"
 	"github.com/dotwaffle/beamers/internal/overrides"
@@ -24,8 +25,7 @@ type ControlPage struct {
 	Preview         *OverridePreview
 	SubmittedAction string
 	Form            OverrideForm
-	FieldErrors     map[string]string
-	Error           string
+	Errors          FormErrors
 }
 
 type OverridePreview struct {
@@ -42,9 +42,11 @@ type OverrideForm struct {
 	TargetGroupKey  string
 	TargetType      string
 	TargetID        int
+	TargetIDRaw     string
 	TargetKey       string
 	Presentation   string
 	DurationSeconds int
+	DurationRaw     string
 	UntilCleared    bool
 	Emphasis        string
 }
@@ -60,9 +62,7 @@ templ Control(page ControlPage) {
 				<main id="main-content" tabindex="-1">
 					<h1>Program Output and Overrides</h1>
 					<p>{ page.Event.Name }</p>
-					if page.Error != "" {
-						<p class="error" role="alert">{ page.Error }</p>
-					}
+					@ErrorSummary(page.Errors)
 					<section>
 						<h2>Program Output</h2>
 						if len(page.Sessions) == 0 {
@@ -106,7 +106,18 @@ templ Control(page ControlPage) {
 												<input type="hidden" name="override_id" value={ strconv.Itoa(active.ID) }/>
 												<input type="hidden" name="expected_revision" value={ strconv.Itoa(active.Revision) }/>
 												<input type="hidden" name="command_id" value={ page.ClearCommandIDs[active.ID] }/>
-												<label><input type="checkbox" name="confirmed" value="true" required/> Confirm clear</label>
+												<label for={ ControlClearFieldID(active.ID) }>
+													<input
+														id={ ControlClearFieldID(active.ID) }
+														type="checkbox"
+														name="confirmed"
+														value="true"
+														required
+														{ page.Errors.Attributes(ControlClearFieldID(active.ID))... }
+													/>
+													Confirm clear
+												</label>
+												@FieldError(page.Errors, ControlClearFieldID(active.ID))
 												<button type="submit">Clear { string(active.Kind) }</button>
 											</form>
 										}
@@ -132,15 +143,18 @@ templ OverrideForms(page ControlPage) {
 			<input type="hidden" name="build_version" value={ page.BuildVersion }/>
 			<input type="hidden" name="action" value="preview-stage-message"/>
 			@OverrideCommonFields(page, "preview-stage-message")
-			@TextInputField("Display Group", "stage-target-group", "target_group_key", controlValue(page, "preview-stage-message", page.Form.TargetGroupKey), controlErrorValue(page, "preview-stage-message", "target_group_key"), true)
-			<label>
-				Emphasis
-				<select name="emphasis">
+			@TextInputField("Display Group", "stage-target-group", "target_group_key", controlValue(page, "preview-stage-message", page.Form.TargetGroupKey), page.Errors, true)
+			<label for="preview-stage-message-emphasis">Emphasis</label>
+				<select
+					id="preview-stage-message-emphasis"
+					name="emphasis"
+					{ page.Errors.Attributes("preview-stage-message-emphasis")... }
+				>
 					<option selected?={ controlValue(page, "preview-stage-message", page.Form.Emphasis) == "" || page.Form.Emphasis == "Normal" }>Normal</option>
 					<option selected?={ page.SubmittedAction == "preview-stage-message" && page.Form.Emphasis == "Attention" }>Attention</option>
 					<option selected?={ page.SubmittedAction == "preview-stage-message" && page.Form.Emphasis == "Urgent" }>Urgent</option>
 				</select>
-			</label>
+			@FieldError(page.Errors, "preview-stage-message-emphasis")
 			<button type="submit">Preview Stage Message</button>
 		</form>
 	</section>
@@ -152,7 +166,7 @@ templ OverrideForms(page ControlPage) {
 			<input type="hidden" name="build_version" value={ page.BuildVersion }/>
 			<input type="hidden" name="action" value="preview-technical-difficulties"/>
 			@OverrideCommonFields(page, "preview-technical-difficulties")
-			@TextInputField("Display Group", "technical-target-group", "target_group_key", controlValue(page, "preview-technical-difficulties", page.Form.TargetGroupKey), controlErrorValue(page, "preview-technical-difficulties", "target_group_key"), true)
+			@TextInputField("Display Group", "technical-target-group", "target_group_key", controlValue(page, "preview-technical-difficulties", page.Form.TargetGroupKey), page.Errors, true)
 			<button type="submit">Preview Technical Difficulties</button>
 		</form>
 	</section>
@@ -165,13 +179,16 @@ templ OverrideForms(page ControlPage) {
 			<input type="hidden" name="action" value="preview-urgent-notice"/>
 			@OverrideCommonFields(page, "preview-urgent-notice")
 			@OverrideTargetFields(page, "preview-urgent-notice")
-			<label>
-				Presentation
-				<select name="presentation">
+			<label for="preview-urgent-notice-presentation">Presentation</label>
+				<select
+					id="preview-urgent-notice-presentation"
+					name="presentation"
+					{ page.Errors.Attributes("preview-urgent-notice-presentation")... }
+				>
 					<option selected?={ controlValue(page, "preview-urgent-notice", page.Form.Presentation) == "" || page.Form.Presentation == "Overlay" }>Overlay</option>
 					<option selected?={ page.SubmittedAction == "preview-urgent-notice" && page.Form.Presentation == "Replace" }>Replace</option>
 				</select>
-			</label>
+			@FieldError(page.Errors, "preview-urgent-notice-presentation")
 			<button type="submit">Preview Urgent Notice</button>
 		</form>
 	</section>
@@ -180,7 +197,7 @@ templ OverrideForms(page ControlPage) {
 			<h2>Emergency Alert</h2>
 			<p role="alert">Emergency Alert is a persistent fullscreen Replace and supplements the venue emergency system.</p>
 			<form class="stack" method="get" action={ emergencyConfirmationPath(page.Event.ID) }>
-				@TextAreaField("Message", "emergency-text", "text", "", "", true)
+				@TextAreaField("Message", "emergency-text", "text", "", nil, true)
 				@OverrideTargetFields(page, "")
 				<button type="submit">Preview Emergency Alert</button>
 			</form>
@@ -189,52 +206,43 @@ templ OverrideForms(page ControlPage) {
 }
 
 templ OverrideCommonFields(page ControlPage, action string) {
-	@TextAreaField("Message", action+"-text", "text", controlValue(page, action, page.Form.Text), controlErrorValue(page, action, "text"), true)
-	@NumberInputField("Duration in seconds", action+"-duration", "duration_seconds", controlNumberValue(page, action, page.Form.DurationSeconds, 300), controlErrorValue(page, action, "duration_seconds"))
+	@TextAreaField("Message", action+"-text", "text", controlValue(page, action, page.Form.Text), page.Errors, true)
+	@NumberInputField("Duration in seconds", action+"-duration", "duration_seconds", controlNumberValue(page, action, page.Form.DurationRaw, page.Form.DurationSeconds, 300), page.Errors)
 	<label><input type="checkbox" name="until_cleared" value="true" checked?={ page.SubmittedAction == action && page.Form.UntilCleared }/> Until cleared</label>
 }
 
 templ OverrideTargetFields(page ControlPage, action string) {
-	<label>
-		Target
-		<select name="target_type">
+	<label for={ action + "-target-type" }>Target</label>
+		<select
+			id={ action + "-target-type" }
+			name="target_type"
+			{ page.Errors.Attributes(action + "-target-type")... }
+		>
 			for _, target := range []string{"Event", "Public", "Crew", "Location", "Lane", "ProgramChannel", "DisplayGroup", "Display"} {
 				<option selected?={ controlValue(page, action, page.Form.TargetType) == target || target == "Event" && controlValue(page, action, page.Form.TargetType) == "" }>{ target }</option>
 			}
 		</select>
-	</label>
-	@NumberInputField("Target numeric ID, when required", action+"-target-id", "target_id", controlNumberValue(page, action, page.Form.TargetID, 0), controlErrorValue(page, action, "target_id"))
-	@TextInputField("Target key, for a Display Group", action+"-target-key", "target_key", controlValue(page, action, page.Form.TargetKey), controlErrorValue(page, action, "target_key"), false)
+	@FieldError(page.Errors, action+"-target-type")
+	@NumberInputField("Target numeric ID, when required", action+"-target-id", "target_id", controlNumberValue(page, action, page.Form.TargetIDRaw, page.Form.TargetID, 0), page.Errors)
+	@TextInputField("Target key, for a Display Group", action+"-target-key", "target_key", controlValue(page, action, page.Form.TargetKey), page.Errors, false)
 }
 
-templ TextAreaField(label, id, name, value, message string, required bool) {
+templ TextAreaField(label, id, name, value string, errors FormErrors, required bool) {
 	<label for={ id }>{ label }</label>
-	if message == "" {
-		<textarea id={ id } name={ name } required?={ required }>{ value }</textarea>
-	} else {
-		<textarea id={ id } name={ name } required?={ required } aria-invalid="true" aria-describedby={ id + "-error" }>{ value }</textarea>
-		<p id={ id + "-error" } class="error">{ message }</p>
-	}
+	<textarea id={ id } name={ name } required?={ required } { errors.Attributes(id)... }>{ value }</textarea>
+	@FieldError(errors, id)
 }
 
-templ TextInputField(label, id, name, value, message string, required bool) {
+templ TextInputField(label, id, name, value string, errors FormErrors, required bool) {
 	<label for={ id }>{ label }</label>
-	if message == "" {
-		<input id={ id } name={ name } value={ value } required?={ required }/>
-	} else {
-		<input id={ id } name={ name } value={ value } required?={ required } aria-invalid="true" aria-describedby={ id + "-error" }/>
-		<p id={ id + "-error" } class="error">{ message }</p>
-	}
+	<input id={ id } name={ name } value={ value } required?={ required } { errors.Attributes(id)... }/>
+	@FieldError(errors, id)
 }
 
-templ NumberInputField(label, id, name, value, message string) {
+templ NumberInputField(label, id, name, value string, errors FormErrors) {
 	<label for={ id }>{ label }</label>
-	if message == "" {
-		<input id={ id } type="number" name={ name } min="0" value={ value } required/>
-	} else {
-		<input id={ id } type="number" name={ name } min="0" value={ value } required aria-invalid="true" aria-describedby={ id + "-error" }/>
-		<p id={ id + "-error" } class="error">{ message }</p>
-	}
+	<input id={ id } type="number" name={ name } min="0" value={ value } required { errors.Attributes(id)... }/>
+	@FieldError(errors, id)
 }
 
 templ OverrideConfirmation(page ControlPage) {
@@ -258,7 +266,18 @@ templ OverrideConfirmation(page ControlPage) {
 			<input type="hidden" name="until_cleared" value={ strconv.FormatBool(page.Preview.Form.UntilCleared) }/>
 			<input type="hidden" name="emphasis" value={ page.Preview.Form.Emphasis }/>
 			<input type="hidden" name="preview_fingerprint" value={ page.Preview.Fingerprint }/>
-			<label><input type="checkbox" name="confirmed" value="true" required/> Confirm { page.Preview.Label }</label>
+			<label for="override-confirmed">
+				<input
+					id="override-confirmed"
+					type="checkbox"
+					name="confirmed"
+					value="true"
+					required
+					{ page.Errors.Attributes("override-confirmed")... }
+				/>
+				Confirm { page.Preview.Label }
+			</label>
+			@FieldError(page.Errors, "override-confirmed")
 			<button type="submit">Activate { page.Preview.Label }</button>
 		</form>
 	</section>
@@ -298,16 +317,35 @@ func controlValue(page ControlPage, action, value string) string {
 	return value
 }
 
-func controlNumberValue(page ControlPage, action string, value, fallback int) string {
+func controlNumberValue(page ControlPage, action, raw string, value, fallback int) string {
 	if page.SubmittedAction != action {
 		return strconv.Itoa(fallback)
+	}
+	if raw != "" {
+		return raw
 	}
 	return strconv.Itoa(value)
 }
 
-func controlErrorValue(page ControlPage, action, field string) string {
-	if page.SubmittedAction != action {
-		return ""
+func ControlFieldID(action, field string) string {
+	if previewAction, activating := strings.CutPrefix(action, "activate-"); activating {
+		action = "preview-" + previewAction
 	}
-	return page.FieldErrors[field]
+	switch field {
+	case "confirmed":
+		return "override-confirmed"
+	case "target_group_key":
+		if strings.Contains(action, "stage-message") {
+			return "stage-target-group"
+		}
+		return "technical-target-group"
+	case "duration_seconds":
+		return action + "-duration"
+	default:
+		return action + "-" + strings.ReplaceAll(field, "_", "-")
+	}
+}
+
+func ControlClearFieldID(overrideID int) string {
+	return "override-clear-" + strconv.Itoa(overrideID) + "-confirmed"
 }
