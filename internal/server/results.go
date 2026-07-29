@@ -1524,7 +1524,16 @@ func wrapPublicResultsHTML(
 ) (string, error) {
 	bodyStart := strings.Index(document, "<body>")
 	bodyEnd := strings.LastIndex(document, "</body>")
-	mainStart := strings.Index(document, "<main>")
+	const (
+		canonicalMain = `<main id="main-content" tabindex="-1">`
+		legacyMain    = "<main>"
+	)
+	mainStart := strings.Index(document, canonicalMain)
+	mainOpening := canonicalMain
+	if mainStart < 0 {
+		mainStart = strings.Index(document, legacyMain)
+		mainOpening = legacyMain
+	}
 	mainEnd := strings.LastIndex(document, "</main>")
 	if bodyStart < 0 || bodyEnd < bodyStart || mainStart < bodyStart ||
 		mainEnd < mainStart {
@@ -1532,6 +1541,9 @@ func wrapPublicResultsHTML(
 	}
 	mainEnd += len("</main>")
 	main := document[mainStart:mainEnd]
+	if mainOpening == legacyMain {
+		main = canonicalMain + strings.TrimPrefix(main, legacyMain)
+	}
 	// The immutable document came from the fixed public Results renderer.
 	children := templ.ComponentFunc(func(_ context.Context, writer io.Writer) error {
 		_, err := io.WriteString(writer, main)

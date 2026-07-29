@@ -48,7 +48,7 @@ templ Administration(page AdministrationPage) {
 			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, true)
 			<div class="backstage-layout">
 				@BackstageNavigationViews(page.Navigation)
-				<main>
+				<main id="main-content" tabindex="-1">
 					<h1>Accounts, Event Grants, and activation</h1>
 					if page.Error != "" {
 						<p role="alert">{ page.Error }</p>
@@ -268,9 +268,19 @@ templ Administration(page AdministrationPage) {
 					</section>
 					<section>
 						<h2>Audit Entries</h2>
+						<div class="table-scroll">
 						<table>
+							<caption>Installation audit history</caption>
 							<thead>
-								<tr><th>Time</th><th>Actor</th><th>Action</th><th>Target</th><th>Outcome</th><th>Reason</th><th>Note</th></tr>
+								<tr>
+									<th scope="col">Time</th>
+									<th scope="col">Actor</th>
+									<th scope="col">Action</th>
+									<th scope="col">Target</th>
+									<th scope="col">Outcome</th>
+									<th scope="col">Reason</th>
+									<th scope="col">Note</th>
+								</tr>
 							</thead>
 							<tbody>
 								for _, entry := range page.AuditEntries {
@@ -286,6 +296,7 @@ templ Administration(page AdministrationPage) {
 								}
 							</tbody>
 						</table>
+						</div>
 					</section>
 				</main>
 			</div>

@@ -8181,18 +8181,19 @@ func assertFrontendEventShell(
 	if response.status != http.StatusOK {
 		t.Fatalf("Event shell page = %d %q", response.status, response.body)
 	}
+	eventNavigation := `<nav aria-label="` + breadcrumbs[1] + ` Event"`
 	for _, want := range []string{
 		`<details class="event-drawer">`,
 		`<aside class="event-sidebar">`,
 		`<nav aria-label="Breadcrumb"`,
-		`<nav aria-label="Event"`,
+		eventNavigation,
 		"Revision 2099",
 	} {
 		if !strings.Contains(response.body, want) {
 			t.Errorf("Event shell lacks %q: %q", want, response.body)
 		}
 	}
-	if count := strings.Count(response.body, `<nav aria-label="Event"`); count != 2 {
+	if count := strings.Count(response.body, eventNavigation); count != 2 {
 		t.Errorf("Event navigation copies = %d, want 2: %q", count, response.body)
 	}
 	active := regexp.MustCompile(

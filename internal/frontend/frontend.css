@@ -115,6 +115,21 @@ nav form:first-of-type {
   text-transform: uppercase;
 }
 
+.skip-link {
+  background: var(--accent);
+  color: var(--background);
+  inset-block-start: 0.5rem;
+  inset-inline-start: 0.5rem;
+  padding: 0.55rem 0.9rem;
+  position: fixed;
+  transform: translateY(-200%);
+  z-index: 10;
+}
+
+.skip-link:focus {
+  transform: none;
+}
+
 .backstage-layout {
   display: grid;
   gap: 1rem;
@@ -192,7 +207,10 @@ nav form:first-of-type {
   display: grid;
 }
 
-.event-links h2 {
+.navigation-title {
+  color: var(--text);
+  display: block;
+  font-family: var(--heading-font);
   font-size: 1rem;
 }
 
@@ -218,10 +236,6 @@ nav form:first-of-type {
   color: var(--muted);
   content: "/";
   margin-inline-end: 0.75rem;
-}
-
-.backstage-links h2 {
-  font-size: 1rem;
 }
 
 .backstage-links p {
@@ -303,6 +317,13 @@ label {
   gap: 0.35rem;
 }
 
+label:has(> input[type="checkbox"]),
+label:has(> input[type="radio"]) {
+  align-items: center;
+  grid-template-columns: auto 1fr;
+  min-block-size: 2.75rem;
+}
+
 button,
 input,
 select,
@@ -322,6 +343,13 @@ textarea {
   background: var(--background);
   color: var(--text);
   padding: 0.55rem 0.7rem;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  min-block-size: 0;
+  padding: 0;
+  width: auto;
 }
 
 fieldset {
@@ -365,6 +393,29 @@ a {
   border-inline-start: 0.3rem solid var(--danger);
   color: #fff0f2;
   padding: 0.75rem;
+}
+
+.table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+table {
+  border-collapse: collapse;
+  min-width: 100%;
+}
+
+caption,
+th,
+td {
+  padding: 0.55rem 0.7rem;
+  text-align: start;
+  vertical-align: top;
+}
+
+caption {
+  color: var(--muted);
+  font-weight: 600;
 }
 
 body[data-reduced-effects="true"]::before {

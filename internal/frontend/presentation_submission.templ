@@ -30,7 +30,7 @@ templ PresentationSubmission(page PresentationSubmissionPage) {
 			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, true)
 			<div class="backstage-layout">
 				@BackstageNavigationViews(page.Navigation)
-				<main>
+				<main id="main-content" tabindex="-1">
 					<h1>{ page.State.SessionTitle }</h1>
 					<p><a href={ templ.SafeURL("/backstage/events/" + strconv.Itoa(page.Event.ID) + "/planning") }>Back to planning</a></p>
 					if page.Error != "" {

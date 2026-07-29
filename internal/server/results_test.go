@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/dotwaffle/beamers/internal/frontend"
@@ -18,6 +19,38 @@ type publicResultsRead struct {
 
 type publicResultsReaderStub struct {
 	reads []publicResultsRead
+}
+
+func TestWrappedPublicResultsKeepsSharedSkipTarget(t *testing.T) {
+	t.Parallel()
+
+	for name, main := range map[string]string{
+		"current": `<main id="main-content" tabindex="-1">`,
+		"legacy":  "<main>",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			document := `<!doctype html><html><body>` + main +
+				`<h1>Results</h1></main></body></html>`
+			wrapped, err := wrapPublicResultsHTML(t.Context(), document, frontend.Shell{
+				Event: frontend.EventContext{Name: "Revision", Slug: "revision"},
+			})
+			if err != nil {
+				t.Fatalf("wrap public Results: %v", err)
+			}
+			for _, want := range []string{
+				`class="skip-link" href="#main-content"`,
+				`<main id="main-content" tabindex="-1">`,
+			} {
+				if !strings.Contains(wrapped, want) {
+					t.Errorf("wrapped public Results missing %q: %s", want, wrapped)
+				}
+			}
+			if strings.Contains(wrapped, "<main>") {
+				t.Errorf("wrapped public Results retained legacy main: %s", wrapped)
+			}
+		})
+	}
 }
 
 func TestPublicResultsETagIncludesEventShell(t *testing.T) {

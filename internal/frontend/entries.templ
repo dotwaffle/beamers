@@ -152,7 +152,7 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, true)
 			<div class="backstage-layout">
 				@BackstageNavigationViews(page.Navigation)
-				<main>
+				<main id="main-content" tabindex="-1">
 					<h1>Competition Entries and Attachments</h1>
 					<p><a href={ "/backstage/events/" + strconv.Itoa(page.Event.ID) + "/competitions/" + strconv.Itoa(page.State.SessionID) + "/voting" }>Competition Voting</a></p>
 					<p><strong>Submission Deadline:</strong> @EventTime(page.State.SubmissionDeadline, page.Event.Timezone, page.Event.EventLocale)</p>

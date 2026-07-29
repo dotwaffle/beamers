@@ -12,7 +12,8 @@ templ EmergencyAlertConfirmationPage(preview PriorityPreview, commandID, buildVe
 			<title>Confirm Emergency Alert</title>
 		</head>
 		<body>
-			<main>
+			@skipLink()
+			<main id="main-content" tabindex="-1">
 				<h1>Confirm Emergency Alert</h1>
 				<p>This supplements, and does not replace, the venue emergency system.</p>
 				if preview.Nondurable {
@@ -54,7 +55,8 @@ templ EmergencyClearConfirmationPage(active ActiveOverride, buildVersion string)
 			<title>Confirm Emergency Alert clear</title>
 		</head>
 		<body>
-			<main>
+			@skipLink()
+			<main id="main-content" tabindex="-1">
 				<h1>Confirm Emergency Alert clear</h1>
 				if active.Nondurable {
 					<p role="alert"><strong>Severely degraded:</strong> storage is unavailable. This clear is nondurable and may be lost if Beamers restarts.</p>
@@ -69,4 +71,8 @@ templ EmergencyClearConfirmationPage(active ActiveOverride, buildVersion string)
 			</main>
 		</body>
 	</html>
+}
+
+templ skipLink() {
+	<a class="skip-link" href="#main-content">Skip to main content</a>
 }

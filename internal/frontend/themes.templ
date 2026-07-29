@@ -76,7 +76,7 @@ templ ThemeAdministration(page ThemePage) {
 			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, true)
 			<div class="backstage-layout">
 				@BackstageNavigationViews(page.Navigation)
-				<main>
+				<main id="main-content" tabindex="-1">
 					<h1>Installation Theme</h1>
 					<p>Active: <strong>{ themeRevisionLabel(page.ActiveRevisionID) }</strong></p>
 					if page.Error != "" {
