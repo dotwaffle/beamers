@@ -1415,7 +1415,7 @@ func prepareReleasedBrowserResults(
 	client *http.Client,
 	server *runningServer,
 	competitionID int64,
-) {
+) int64 {
 	t.Helper()
 	competitionClient := competitionv1connect.NewCompetitionServiceClient(
 		client,
@@ -1481,6 +1481,7 @@ func prepareReleasedBrowserResults(
 	); err != nil {
 		t.Fatalf("release browser Results: %v", err)
 	}
+	return entry.Msg.GetEntry().GetId()
 }
 
 func prepareBrowserPrizegiving(
