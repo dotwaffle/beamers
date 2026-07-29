@@ -41,6 +41,7 @@ import (
 	"github.com/dotwaffle/beamers/gen/beamers/session/v1/sessionv1connect"
 	"github.com/dotwaffle/beamers/internal/backup"
 	frontendui "github.com/dotwaffle/beamers/internal/frontend"
+	"github.com/dotwaffle/beamers/internal/store/storetest"
 )
 
 var frontendCSRFInput = regexp.MustCompile(`name="csrf_token" value="([^"]+)"`)
@@ -897,7 +898,7 @@ func TestBrowserPublishesEventsUnderCurrentSlugs(t *testing.T) {
 
 func TestBrowserFollowsCanonicalPublicEventJourney(t *testing.T) {
 	administrator, server := startAuthenticatedAdministratorWithPublicListener(t)
-	prepareActiveSchedule(t, administrator, server)
+	presentationID := prepareActiveSchedule(t, administrator, server)
 	administrator.CheckRedirect = func(*http.Request, []*http.Request) error {
 		return http.ErrUseLastResponse
 	}
@@ -985,7 +986,7 @@ func TestBrowserFollowsCanonicalPublicEventJourney(t *testing.T) {
 		t,
 		publicClient,
 		server.publicAddress,
-		"/events/revision-2099/schedule",
+		frontendLinkPath(t, hub, "Event Schedule"),
 	)
 	if schedule.status != http.StatusOK ||
 		!strings.Contains(schedule.body, "Opening Keynote") ||
@@ -998,6 +999,175 @@ func TestBrowserFollowsCanonicalPublicEventJourney(t *testing.T) {
 	}
 	if got := schedule.header.Get("Cache-Control"); got != "public, max-age=15, must-revalidate" {
 		t.Errorf("canonical Event Schedule Cache-Control = %q", got)
+	}
+	sessionPath := frontendLinkPath(t, schedule, "Opening Keynote")
+	sessionPage := getFrontendPage(
+		t,
+		publicClient,
+		server.publicAddress,
+		sessionPath,
+	)
+	for _, want := range []string{
+		"Welcome to Revision 2099",
+		"Original Speaker",
+		"Main Hall",
+		"Status: Scheduled",
+		`lang="en-GB"`,
+		`data-locale="en-GB"`,
+		`href="/assets/events/1/theme.css"`,
+	} {
+		if sessionPage.status != http.StatusOK || !strings.Contains(sessionPage.body, want) {
+			t.Fatalf("canonical Session lacks %q: %d %q", want, sessionPage.status, sessionPage.body)
+		}
+	}
+	if strings.Contains(sessionPage.body, "Call Pat") {
+		t.Fatalf("canonical Session leaked Crew Notes: %q", sessionPage.body)
+	}
+	initialSessionETag := sessionPage.header.Get("ETag")
+	publicPresentationVersion := decodeAttachmentVersion(t, requestMultipart(
+		t.Context(),
+		administrator,
+		server.address,
+		"/crew/events/1/attachments",
+		map[string]string{
+			"target_type": "Presentation",
+			"target_id":   strconv.FormatInt(presentationID, 10),
+			"name":        "Keynote slides",
+			"command_id":  "upload-public-presentation-file",
+		},
+		"slides.txt",
+		"text/plain",
+		[]byte("slides"),
+	))
+	crewPresentationVersion := decodeAttachmentVersion(t, requestMultipart(
+		t.Context(),
+		administrator,
+		server.address,
+		"/crew/events/1/attachments",
+		map[string]string{
+			"target_type": "Presentation",
+			"target_id":   strconv.FormatInt(presentationID, 10),
+			"name":        "Speaker notes",
+			"command_id":  "upload-crew-presentation-file",
+			"crew_only":   "true",
+		},
+		"notes.txt",
+		"text/plain",
+		[]byte("notes"),
+	))
+	sessionPage = getFrontendPage(t, publicClient, server.publicAddress, sessionPath)
+	if strings.Contains(sessionPage.body, "slides.txt") ||
+		strings.Contains(sessionPage.body, "notes.txt") {
+		t.Fatalf("unreleased Session Attachment leaked: %q", sessionPage.body)
+	}
+	for _, versionID := range []int{publicPresentationVersion.ID, crewPresentationVersion.ID} {
+		if err := storetest.MarkAttachmentVersionFinal(
+			t.Context(),
+			filepath.Join(server.dataDir, "beamers.db"),
+			versionID,
+		); err != nil {
+			t.Fatalf("finalize Presentation Attachment %d: %v", versionID, err)
+		}
+	}
+	if configured := requestJSONMethod(
+		t.Context(),
+		http.MethodPatch,
+		administrator,
+		server.address,
+		"/crew/events/1/attachment-release",
+		map[string]any{
+			"policy": "OnLive", "expected_revision": 0,
+			"command_id": "configure-public-page-release",
+		},
+	); configured.status != http.StatusOK {
+		t.Fatalf("configure Event Attachment release = %d %q", configured.status, configured.body)
+	}
+	sessionClient := sessionv1connect.NewSessionControlServiceClient(
+		administrator,
+		"http://"+server.address,
+		connect.WithProtoJSON(),
+	)
+	startedPresentation, err := sessionClient.StartSession(
+		t.Context(),
+		connect.NewRequest(&sessionv1.StartSessionRequest{
+			EventId: 1, SessionId: presentationID,
+			CommandId:                 "start-presentation-page-release",
+			ExpectedLiveStateRevision: proto.Int64(0),
+		}),
+	)
+	if err != nil {
+		t.Fatalf("start Presentation for Attachment release: %v", err)
+	}
+	sessionPage = getFrontendPage(t, publicClient, server.publicAddress, sessionPath)
+	for _, want := range []string{
+		"Keynote slides (slides.txt)",
+		fmt.Sprintf(`href="/public/attachments/%d"`, publicPresentationVersion.ID),
+	} {
+		if sessionPage.status != http.StatusOK || !strings.Contains(sessionPage.body, want) {
+			t.Fatalf("released Session lacks %q: %d %q", want, sessionPage.status, sessionPage.body)
+		}
+	}
+	if got := sessionPage.header.Get("ETag"); got == "" || got == initialSessionETag {
+		t.Fatalf("released Session ETag = %q, initial %q", got, initialSessionETag)
+	}
+	if strings.Contains(sessionPage.body, "Speaker notes") ||
+		strings.Contains(sessionPage.body, "notes.txt") {
+		t.Fatalf("Crew Only Session Attachment leaked: %q", sessionPage.body)
+	}
+	if held := requestJSONMethod(
+		t.Context(),
+		http.MethodPatch,
+		administrator,
+		server.address,
+		fmt.Sprintf(
+			"/crew/events/1/attachment-versions/%d/release",
+			publicPresentationVersion.ID,
+		),
+		map[string]any{
+			"hold": true, "expected_revision": 0,
+			"command_id": "hold-presentation-page-file",
+		},
+	); held.status != http.StatusOK {
+		t.Fatalf("hold Session Attachment = %d %q", held.status, held.body)
+	}
+	sessionPage = getFrontendPage(t, publicClient, server.publicAddress, sessionPath)
+	if strings.Contains(sessionPage.body, "slides.txt") {
+		t.Fatalf("held Session Attachment leaked: %q", sessionPage.body)
+	}
+	crewOnly := getFrontendPage(
+		t,
+		publicClient,
+		server.publicAddress,
+		"/events/revision-2099/schedule/sessions/2",
+	)
+	unknown := getFrontendPage(
+		t,
+		publicClient,
+		server.publicAddress,
+		"/events/revision-2099/schedule/sessions/999999",
+	)
+	if crewOnly.status != http.StatusNotFound ||
+		unknown.status != http.StatusNotFound ||
+		crewOnly.body != unknown.body {
+		t.Fatalf(
+			"safe Session not-found mismatch: Crew Only %d %q, unknown %d %q",
+			crewOnly.status,
+			crewOnly.body,
+			unknown.status,
+			unknown.body,
+		)
+	}
+	if _, err = sessionClient.EndSession(
+		t.Context(),
+		connect.NewRequest(&sessionv1.EndSessionRequest{
+			EventId: 1, SessionId: presentationID,
+			CommandId: "end-presentation-page-release",
+			ExpectedLiveStateRevision: new(
+				startedPresentation.Msg.GetState().GetLiveStateRevision(),
+			),
+		}),
+	); err != nil {
+		t.Fatalf("end Presentation after Attachment release: %v", err)
 	}
 
 	competitions := getFrontendPage(
@@ -1097,24 +1267,6 @@ func TestBrowserFollowsCanonicalPublicEventJourney(t *testing.T) {
 			t.Fatalf("finalize Competition Attachment %d: %v", version.ID, err)
 		}
 	}
-	if configured := requestJSONMethod(
-		t.Context(),
-		http.MethodPatch,
-		administrator,
-		server.address,
-		"/crew/events/1/attachment-release",
-		map[string]any{
-			"policy": "OnLive", "expected_revision": 0,
-			"command_id": "configure-competition-page-release",
-		},
-	); configured.status != http.StatusOK {
-		t.Fatalf("configure Competition Attachment release = %d %q", configured.status, configured.body)
-	}
-	sessionClient := sessionv1connect.NewSessionControlServiceClient(
-		administrator,
-		"http://"+server.address,
-		connect.WithProtoJSON(),
-	)
 	if _, err := sessionClient.StartSession(
 		t.Context(),
 		connect.NewRequest(&sessionv1.StartSessionRequest{

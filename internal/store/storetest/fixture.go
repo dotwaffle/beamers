@@ -262,6 +262,32 @@ INSERT INTO attachment_versions (
 	})
 }
 
+// MarkAttachmentVersionFinal prepares one uploaded test Version for release.
+func MarkAttachmentVersionFinal(ctx context.Context, path string, versionID int) error {
+	if versionID <= 0 {
+		return errors.New("attachment Version ID must be positive")
+	}
+	return mutateSchema(path, func(database *sql.DB) error {
+		result, err := database.ExecContext(
+			ctx,
+			"UPDATE attachment_versions "+
+				"SET final = true, readiness_revision = readiness_revision + 1 WHERE id = ?",
+			versionID,
+		)
+		if err != nil {
+			return fmt.Errorf("mark Attachment Version Final: %w", err)
+		}
+		updated, err := result.RowsAffected()
+		if err != nil {
+			return fmt.Errorf("read Attachment Version update count: %w", err)
+		}
+		if updated != 1 {
+			return fmt.Errorf("mark Attachment Version Final: updated %d rows", updated)
+		}
+		return nil
+	})
+}
+
 // CountUpgradeAudits reports durable guarded-upgrade evidence.
 func CountUpgradeAudits(ctx context.Context, path string) (count int, returnErr error) {
 	location := &url.URL{Scheme: "file", Path: path}

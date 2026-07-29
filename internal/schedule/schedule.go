@@ -106,6 +106,7 @@ type Session struct {
 	Locations            []string           `json:"locations,omitempty"`
 	Lanes                []string           `json:"lanes,omitempty"`
 	Tracks               []string           `json:"tracks,omitempty"`
+	Attachments          []Attachment       `json:"attachments,omitempty"`
 	CompetitionEntries   []CompetitionEntry `json:"competition_entries,omitempty"`
 	ResultsPath          string             `json:"-"`
 	Favorite             bool               `json:"favorite,omitempty"`
@@ -113,16 +114,16 @@ type Session struct {
 
 // CompetitionEntry is one attendee-visible Included submission.
 type CompetitionEntry struct {
-	ID                            int                     `json:"id"`
-	Name                          string                  `json:"name"`
-	PublicDetails                 string                  `json:"public_details,omitempty"`
-	ResultDisposition             string                  `json:"result_disposition"`
-	PublicDisqualificationMessage string                  `json:"public_disqualification_message,omitempty"`
-	Attachments                   []CompetitionAttachment `json:"attachments,omitempty"`
+	ID                            int          `json:"id"`
+	Name                          string       `json:"name"`
+	PublicDetails                 string       `json:"public_details,omitempty"`
+	ResultDisposition             string       `json:"result_disposition"`
+	PublicDisqualificationMessage string       `json:"public_disqualification_message,omitempty"`
+	Attachments                   []Attachment `json:"attachments,omitempty"`
 }
 
-// CompetitionAttachment is one released immutable Entry file.
-type CompetitionAttachment struct {
+// Attachment is one released immutable attendee file.
+type Attachment struct {
 	ID               int    `json:"id"`
 	Name             string `json:"name"`
 	OriginalFilename string `json:"original_filename"`
@@ -430,7 +431,8 @@ func (service *Service) Find(
 		return Snapshot{}, Session{}, false, err
 	}
 	if session, found := findSession(snapshot.Sessions, sessionID); found {
-		return snapshot, session, true, nil
+		snapshot, session, err = service.attachReleasedSessionFiles(ctx, snapshot, session)
+		return snapshot, session, true, err
 	}
 	return snapshot, Session{}, false, nil
 }
@@ -504,7 +506,7 @@ func attachReleasedCompetitionFiles(
 		if version.OwnerType != store.UploadTargetEntry || entry == nil {
 			continue
 		}
-		entry.Attachments = append(entry.Attachments, CompetitionAttachment{
+		entry.Attachments = append(entry.Attachments, Attachment{
 			ID: version.ID, Name: version.Name, OriginalFilename: version.OriginalFilename,
 		})
 	}
@@ -547,9 +549,41 @@ func (service *Service) FindPersonalized(
 		return Snapshot{}, Session{}, false, err
 	}
 	if session, found := findSession(snapshot.Sessions, sessionID); found {
-		return snapshot, session, true, nil
+		snapshot, session, err = service.attachReleasedSessionFiles(ctx, snapshot, session)
+		return snapshot, session, true, err
 	}
 	return snapshot, Session{}, false, nil
+}
+
+func (service *Service) attachReleasedSessionFiles(
+	ctx context.Context,
+	snapshot Snapshot,
+	session Session,
+) (Snapshot, Session, error) {
+	if session.Type == "Presentation" {
+		released, err := service.storage.LoadReleasedAttachmentVersions(ctx)
+		if err != nil {
+			return Snapshot{}, Session{}, err
+		}
+		for _, version := range released {
+			if version.OwnerType != store.UploadTargetPresentation ||
+				version.OwnerID != session.ID {
+				continue
+			}
+			session.Attachments = append(session.Attachments, Attachment{
+				ID: version.ID, Name: version.Name, OriginalFilename: version.OriginalFilename,
+			})
+		}
+	}
+	validator, err := json.Marshal(struct {
+		ScheduleETag string  `json:"schedule_etag"`
+		Session      Session `json:"session"`
+	}{ScheduleETag: snapshot.ETag, Session: session})
+	if err != nil {
+		return Snapshot{}, Session{}, fmt.Errorf("encode public Session validator: %w", err)
+	}
+	snapshot.ETag = fmt.Sprintf(`"session-%x"`, sha256.Sum256(validator))
+	return snapshot, session, nil
 }
 
 func findSession(sessions []Session, sessionID int) (Session, bool) {
@@ -595,7 +629,7 @@ func (session Session) CompetitionPath() string {
 }
 
 // Path returns the public immutable Attachment download route.
-func (attachment CompetitionAttachment) Path() string {
+func (attachment Attachment) Path() string {
 	return "/public/attachments/" + strconv.Itoa(attachment.ID)
 }
 
