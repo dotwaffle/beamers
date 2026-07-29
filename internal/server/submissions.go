@@ -32,7 +32,7 @@ func (handlers entryHandlers) submissions(response http.ResponseWriter, request 
 		err = handlers.submitSubmission(request, actor)
 		if err == nil {
 			handlers.notifySchedule()
-			http.Redirect(response, request, "/submissions", http.StatusSeeOther)
+			http.Redirect(response, request, "/my-participation", http.StatusSeeOther)
 			return
 		}
 		status, message := submissionError(err)
@@ -174,7 +174,7 @@ func (handlers entryHandlers) submissionUpload(
 		http.Error(response, message, status)
 		return
 	}
-	http.Redirect(response, request, "/submissions", http.StatusSeeOther)
+	http.Redirect(response, request, "/my-participation", http.StatusSeeOther)
 }
 
 func (handlers entryHandlers) renderSubmissions(
@@ -195,6 +195,20 @@ func (handlers entryHandlers) renderSubmissions(
 		handlers.browser.frontendError(response, request, "read Account Presentations", err)
 		return
 	}
+	ballots, err := handlers.voting.OpenBallots(request.Context(), actor)
+	if err != nil {
+		handlers.browser.frontendError(response, request, "read Account Ballots", err)
+		return
+	}
+	publicEvents, err := handlers.events.PublicListing(request.Context())
+	if err != nil {
+		handlers.browser.frontendError(response, request, "read public Events", err)
+		return
+	}
+	eventSlugs := make(map[int]string, len(publicEvents))
+	for _, event := range publicEvents {
+		eventSlugs[event.ID] = event.Slug
+	}
 	attachmentState, err := handlers.attachments.SubmittedState(request.Context(), actor)
 	if err != nil {
 		handlers.browser.frontendError(response, request, "read Account submission files", err)
@@ -212,6 +226,8 @@ func (handlers entryHandlers) renderSubmissions(
 			Backstage:      backstageAvailable(backstageNavigation(actor)),
 			CommandID:      commandID, Competitions: competitions,
 			Presentations: presentations,
+			Ballots:       ballots,
+			EventSlugs:    eventSlugs,
 			Attachments:   attachmentState, Error: message,
 		},
 	))

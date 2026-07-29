@@ -18,12 +18,14 @@ import (
 	"github.com/dotwaffle/beamers/internal/presentation"
 	"github.com/dotwaffle/beamers/internal/programcontrol"
 	"github.com/dotwaffle/beamers/internal/rundown"
+	"github.com/dotwaffle/beamers/internal/voting"
 )
 
 type entryHandlers struct {
 	browser        frontendHandlers
 	competition    *competition.Service
 	presentation   *presentation.Service
+	voting         *voting.Service
 	attachments    *attachments.Service
 	program        *programcontrol.Service
 	events         *events.Service
@@ -37,6 +39,7 @@ func registerEntryRoutes(
 	authentication *auth.Service,
 	competitionService *competition.Service,
 	presentationService *presentation.Service,
+	votingService *voting.Service,
 	attachmentService *attachments.Service,
 	programService *programcontrol.Service,
 	eventService *events.Service,
@@ -55,6 +58,7 @@ func registerEntryRoutes(
 		},
 		competition:    competitionService,
 		presentation:   presentationService,
+		voting:         votingService,
 		attachments:    attachmentService,
 		program:        programService,
 		events:         eventService,
@@ -79,6 +83,7 @@ func registerEntryRoutes(
 	)
 	submissionRoute := browserPageRoute()
 	submissionRoute.maxBodyBytes = defaultRequestBytes
+	mux.HandleFunc("/my-participation", submissionRoute, handlers.submissions)
 	mux.HandleFunc("/submissions", submissionRoute, handlers.submissions)
 	submissionUploadRoute := browserPageRoute()
 	submissionUploadRoute.timeout = uploadRequestTimeout

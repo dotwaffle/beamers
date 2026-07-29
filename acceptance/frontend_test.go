@@ -3013,6 +3013,30 @@ func TestLiveCompetitionBallotUpdatesAndSurvivesRestart(t *testing.T) {
 	}
 	prepareActiveSchedule(t, administrator, server)
 	competitionID, _ := addCompetitionSession(t, administrator, server)
+	settingsPath := "/backstage/events/1/settings"
+	settings := getFrontendPage(t, administrator, server.address, settingsPath)
+	configuredEvent := postFrontendForm(t, administrator, server.address, settingsPath, url.Values{
+		"csrf_token":                        {requireFrontendCSRF(t, settings)},
+		"command_id":                        {"publish-live-ballot-event"},
+		"expected_event_revision":           {"1"},
+		"event_name":                        {"Revision 2099"},
+		"public":                            {"true"},
+		"public_slug":                       {"revision-2099"},
+		"planned_start_date":                {"2099-08-21"},
+		"planned_end_date":                  {"2099-08-23"},
+		"timezone":                          {"Europe/Berlin"},
+		"event_locale":                      {"en-GB"},
+		"content_language":                  {"en-GB"},
+		"event_day_boundary":                {"06:00"},
+		"entry_default_disposition":         {"Pending"},
+		"submission_eligibility":            {"AllAccounts"},
+		"voting_method":                     {"Range1To5"},
+		"self_vote_policy":                  {"Allowed"},
+		"target_adjustment_presets_seconds": {"-300,300,600"},
+	})
+	if configuredEvent.status != http.StatusSeeOther {
+		t.Fatalf("publish live Ballot Event = %d %q", configuredEvent.status, configuredEvent.body)
+	}
 	entriesPath := "/backstage/events/1/competitions/" +
 		strconv.FormatInt(competitionID, 10) + "/entries"
 	page := getFrontendPage(t, administrator, server.address, entriesPath)
@@ -3103,6 +3127,22 @@ func TestLiveCompetitionBallotUpdatesAndSurvivesRestart(t *testing.T) {
 	if opened.status != http.StatusSeeOther {
 		t.Fatalf("open live Voting Window = %d %q", opened.status, opened.body)
 	}
+	ineligibleCompetition := getFrontendPage(
+		t,
+		administrator,
+		server.address,
+		"/events/revision-2099/competitions/"+strconv.FormatInt(competitionID, 10),
+	)
+	if !strings.Contains(
+		ineligibleCompetition.body,
+		"Voting is unavailable to this Account.",
+	) {
+		t.Fatalf(
+			"ineligible Competition Voting state = %d %q",
+			ineligibleCompetition.status,
+			ineligibleCompetition.body,
+		)
+	}
 
 	page = getFrontendPage(t, administrator, server.address, entriesPath)
 	claimed := postFrontendForm(t, administrator, server.address, entriesPath, url.Values{
@@ -3138,7 +3178,28 @@ func TestLiveCompetitionBallotUpdatesAndSurvivesRestart(t *testing.T) {
 		}
 		channel = taken.Msg.GetChannel()
 	}
-	ballotPath := "/voting/" + strconv.FormatInt(competitionID, 10) + "?event_id=1"
+	competitionPath := "/events/revision-2099/competitions/" +
+		strconv.FormatInt(competitionID, 10)
+	competitionPage := getFrontendPage(t, voter, server.address, competitionPath)
+	ballotPath := frontendLinkPath(t, competitionPage, "Vote")
+	if want := "/voting/" + strconv.FormatInt(competitionID, 10) +
+		"?event_id=1"; ballotPath != want {
+		t.Fatalf("Competition Vote path = %q, want %q", ballotPath, want)
+	}
+	if !strings.Contains(
+		competitionPage.body,
+		"Voting is open. 0 of 0 presented Entries scored.",
+	) {
+		t.Fatalf("Competition Voting state = %d %q", competitionPage.status, competitionPage.body)
+	}
+	participationPage := getFrontendPage(t, voter, server.address, "/my-participation")
+	if participationPath := frontendLinkPath(
+		t,
+		participationPage,
+		"Vote",
+	); participationPath != ballotPath {
+		t.Fatalf("My Participation Vote path = %q, want %q", participationPath, ballotPath)
+	}
 	beforePresentation := getFrontendPage(t, voter, server.address, ballotPath)
 	if beforePresentation.status != http.StatusOK ||
 		!strings.Contains(beforePresentation.body, "No Entries have been presented yet.") {
@@ -3207,6 +3268,13 @@ func TestLiveCompetitionBallotUpdatesAndSurvivesRestart(t *testing.T) {
 	if ballot.status != http.StatusOK || !strings.Contains(ballot.body, "Live Ballot Entry") {
 		t.Fatalf("presented Entry Ballot = %d %q", ballot.status, ballot.body)
 	}
+	competitionPage = getFrontendPage(t, voter, server.address, competitionPath)
+	if !strings.Contains(
+		competitionPage.body,
+		"Voting is open. 0 of 1 presented Entries scored.",
+	) {
+		t.Fatalf("presented Competition Voting state = %d %q", competitionPage.status, competitionPage.body)
+	}
 	values := frontendNamedValues(ballot.body, "expected_revision")
 	voted := postFrontendForm(t, voter, server.address, ballotPath, url.Values{
 		"csrf_token":        {requireFrontendCSRF(t, ballot)},
@@ -3230,6 +3298,13 @@ func TestLiveCompetitionBallotUpdatesAndSurvivesRestart(t *testing.T) {
 	})
 	if editedVote.status != http.StatusSeeOther {
 		t.Fatalf("edit live Vote = %d %q", editedVote.status, editedVote.body)
+	}
+	competitionPage = getFrontendPage(t, voter, server.address, competitionPath)
+	if !strings.Contains(
+		competitionPage.body,
+		"Voting is open. 1 of 1 presented Entries scored.",
+	) {
+		t.Fatalf("scored Competition Voting state = %d %q", competitionPage.status, competitionPage.body)
 	}
 	controlPage = getFrontendPage(t, administrator, server.address, votingControlPath)
 	if !strings.Contains(controlPage.body, "Participating: 1.") ||
@@ -3395,6 +3470,16 @@ func TestLiveCompetitionBallotUpdatesAndSurvivesRestart(t *testing.T) {
 			"save Tally override = %d %q",
 			savedOverride.status,
 			savedOverride.body,
+		)
+	}
+	competitionPage = getFrontendPage(t, voter, server.address, competitionPath)
+	if got := frontendLinkPath(t, competitionPage, "View Ballot"); got != ballotPath ||
+		!strings.Contains(competitionPage.body, "Voting is closed.") {
+		t.Fatalf(
+			"closed Competition Ballot = %d path %q %q",
+			competitionPage.status,
+			got,
+			competitionPage.body,
 		)
 	}
 	readOnly := getFrontendPage(t, voter, server.address, ballotPath)
@@ -5913,9 +5998,36 @@ func exercisePresentationSubmissionFlow(
 		t.Fatalf("assign Presentation Submitter = %d %q", assigned.status, assigned.body)
 	}
 
+	presentationPath := "/events/revision-2099/schedule/sessions/" +
+		strconv.FormatInt(presentationID, 10)
+	presentationPage := getFrontendPage(
+		t,
+		alex,
+		server.address,
+		presentationPath,
+	)
+	submissionsPath = frontendLinkPath(t, presentationPage, "Manage Presentation")
+	if want := "/my-participation#presentation-" +
+		strconv.FormatInt(presentationID, 10) + "-manage"; submissionsPath != want {
+		t.Fatalf("Presentation maintenance path = %q, want %q", submissionsPath, want)
+	}
+	uploadParticipationPath := frontendLinkPath(
+		t,
+		presentationPage,
+		"Upload Presentation File",
+	)
+	if want := "/my-participation#presentation-" +
+		strconv.FormatInt(presentationID, 10) +
+		"-upload"; uploadParticipationPath != want {
+		t.Fatalf("Presentation upload path = %q, want %q", uploadParticipationPath, want)
+	}
 	alexPage = getFrontendPage(t, alex, server.address, submissionsPath)
-	if !strings.Contains(alexPage.body, "Opening Keynote") {
+	if !strings.Contains(alexPage.body, "<h2>Presentations</h2>") ||
+		!strings.Contains(alexPage.body, "Opening Keynote") {
 		t.Fatalf("assigned Presentation listing = %d %q", alexPage.status, alexPage.body)
+	}
+	if got := frontendLinkPath(t, alexPage, "View Presentation"); got != presentationPath {
+		t.Fatalf("Presentation context path = %q, want %q", got, presentationPath)
 	}
 	updated := postFrontendForm(t, alex, server.address, submissionsPath, url.Values{
 		"csrf_token":        {requireFrontendCSRF(t, alexPage)},
@@ -5959,7 +6071,13 @@ func exercisePresentationSubmissionFlow(
 		}
 	}
 	alexPage = getFrontendPage(t, alex, server.address, submissionsPath)
-	for _, want := range []string{"slides-v1.pdf", "Version 1", "slides-v2.pdf", "Version 2"} {
+	for _, want := range []string{
+		"2 immutable Attachment Versions",
+		"slides-v1.pdf",
+		"Version 1",
+		"slides-v2.pdf",
+		"Version 2",
+	} {
 		if !strings.Contains(alexPage.body, want) {
 			t.Fatalf("Presentation version history lacks %q: %q", want, alexPage.body)
 		}
@@ -5980,6 +6098,15 @@ func exercisePresentationSubmissionFlow(
 	if strings.Contains(alexPage.body, "Opening Keynote") ||
 		strings.Contains(alexPage.body, "slides-v2.pdf") {
 		t.Fatalf("former Presentation Submitter retained access: %q", alexPage.body)
+	}
+	presentationPage = getFrontendPage(t, alex, server.address, presentationPath)
+	if !strings.Contains(presentationPage.body, "Presentation maintenance is unavailable.") ||
+		strings.Contains(presentationPage.body, "Blair Submitter") {
+		t.Fatalf(
+			"neutral unavailable Presentation state = %d %q",
+			presentationPage.status,
+			presentationPage.body,
+		)
 	}
 	formerUpload := requestMultipart(
 		t.Context(),
@@ -6284,11 +6411,27 @@ func TestAccountSubmissionsHonorPolicyOwnershipAndReopenWindows(t *testing.T) {
 		presentationID,
 	)
 
-	submissionsPath := "/submissions"
+	competitionPath := "/events/revision-2099/competitions/" +
+		strconv.FormatInt(competitionID, 10)
+	competitionPage := getFrontendPage(t, alex, server.address, competitionPath)
+	submissionsPath := frontendLinkPath(t, competitionPage, "Submit")
+	if want := "/my-participation#competition-" +
+		strconv.FormatInt(competitionID, 10); submissionsPath != want {
+		t.Fatalf("Competition submission path = %q, want %q", submissionsPath, want)
+	}
 	alexPage := getFrontendPage(t, alex, server.address, submissionsPath)
 	if alexPage.status != http.StatusOK ||
+		!strings.Contains(alexPage.body, "<h1>My Participation</h1>") ||
+		!strings.Contains(alexPage.body, `href="/my-participation">My Participation</a>`) ||
+		strings.Contains(alexPage.body, `>Submissions</a>`) ||
+		strings.Contains(alexPage.body, `>Voting</a>`) ||
+		!strings.Contains(alexPage.body, `href="/voting">Redeem a Voting Key</a>`) ||
+		!strings.Contains(alexPage.body, "<h2>Entries</h2>") ||
 		!strings.Contains(alexPage.body, "Demo Competition") {
 		t.Fatalf("Account submission listing = %d %q", alexPage.status, alexPage.body)
+	}
+	if got := frontendLinkPath(t, alexPage, "View Competition"); got != competitionPath {
+		t.Fatalf("Competition context path = %q, want %q", got, competitionPath)
 	}
 	created := postFrontendForm(t, alex, server.address, submissionsPath, url.Values{
 		"csrf_token":     {requireFrontendCSRF(t, alexPage)},
@@ -6301,6 +6444,14 @@ func TestAccountSubmissionsHonorPolicyOwnershipAndReopenWindows(t *testing.T) {
 	})
 	if created.status != http.StatusSeeOther {
 		t.Fatalf("All Accounts submission = %d %q", created.status, created.body)
+	}
+	competitionPage = getFrontendPage(t, alex, server.address, competitionPath)
+	if got := frontendLinkPath(
+		t,
+		competitionPage,
+		"Manage My Entry",
+	); got != submissionsPath {
+		t.Fatalf("managed Entry path = %q, want %q", got, submissionsPath)
 	}
 
 	entriesPage := getFrontendPage(t, administrator, server.address, entriesPath)
@@ -6319,8 +6470,17 @@ func TestAccountSubmissionsHonorPolicyOwnershipAndReopenWindows(t *testing.T) {
 	if tightened.status != http.StatusSeeOther {
 		t.Fatalf("tighten Submission Eligibility = %d %q", tightened.status, tightened.body)
 	}
+	unavailable := getFrontendPage(t, blair, server.address, competitionPath)
+	if !strings.Contains(unavailable.body, "Entry submission is unavailable.") ||
+		!strings.Contains(unavailable.body, "Voting has not opened.") ||
+		strings.Contains(unavailable.body, "VotingEligibleAccounts") {
+		t.Fatalf("neutral unavailable submission state = %d %q", unavailable.status, unavailable.body)
+	}
 
 	alexPage = getFrontendPage(t, alex, server.address, submissionsPath)
+	if strings.Contains(alexPage.body, "VotingEligibleAccounts") {
+		t.Fatalf("My Participation exposed Submission policy: %q", alexPage.body)
+	}
 	updated := postFrontendForm(t, alex, server.address, submissionsPath, url.Values{
 		"csrf_token":        {requireFrontendCSRF(t, alexPage)},
 		"action":            {"update"},
