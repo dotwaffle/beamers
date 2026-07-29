@@ -6,6 +6,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/attachments"
 	"github.com/dotwaffle/beamers/internal/competition"
 	"github.com/dotwaffle/beamers/internal/presentation"
+	"github.com/dotwaffle/beamers/internal/voting"
 )
 
 type SubmissionsPage struct {
@@ -16,6 +17,8 @@ type SubmissionsPage struct {
 	CommandID      string
 	Competitions   []competition.SubmissionCompetition
 	Presentations  []presentation.Submission
+	Ballots        []voting.Window
+	EventSlugs     map[int]string
 	Attachments    attachments.AccountState
 	Error          string
 }
@@ -51,17 +54,42 @@ func submittedReopenWindows(
 templ Submissions(page SubmissionsPage) {
 	<!doctype html>
 	<html lang="en">
-		@Head("My submissions · Beamers")
+		@Head("My Participation · Beamers")
 		<body data-reduced-effects={ strconv.FormatBool(page.ReducedEffects) }>
 			@Navigation(page.AccountName, page.CSRFToken, page.ReducedEffects, page.Backstage)
 			<main>
-				<h1>My submissions</h1>
+				<h1>My Participation</h1>
 				if page.Error != "" {
 					<p class="error" role="alert">{ page.Error }</p>
 				}
+				<section aria-labelledby="participation-uploads">
+					<h2 id="participation-uploads">Uploads</h2>
+					<p>{ strconv.Itoa(len(page.Attachments.Versions)) } immutable Attachment Versions across your Entries and Presentations.</p>
+				</section>
+				<section aria-labelledby="participation-voting">
+					<h2 id="participation-voting">Voting</h2>
+					if len(page.Ballots) == 0 {
+						<p>No open Ballots.</p>
+					} else {
+						for _, ballot := range page.Ballots {
+							<p>
+								{ ballot.EventName } — { ballot.Title }:
+								<a href={ templ.SafeURL("/voting/" + strconv.Itoa(ballot.SessionID) + "?event_id=" + strconv.Itoa(ballot.EventID)) }>Vote</a>
+							</p>
+						}
+					}
+					<p><a href="/voting">Redeem a Voting Key</a></p>
+				</section>
+				<h2>Presentations</h2>
+				if len(page.Presentations) == 0 {
+					<p>No assigned Presentations.</p>
+				}
 				for _, found := range page.Presentations {
-					<section>
-						<h2>{ found.EventName } — { found.SessionTitle }</h2>
+					<section id={ "presentation-" + strconv.Itoa(found.SessionID) }>
+						<h3>{ found.EventName } — { found.SessionTitle }</h3>
+						if slug := page.EventSlugs[found.EventID]; slug != "" {
+							<p><a href={ templ.SafeURL("/events/" + slug + "/schedule/sessions/" + strconv.Itoa(found.SessionID)) }>View Presentation</a></p>
+						}
 						if found.UploadDeadline.IsZero() {
 							<p>Submission access closes at Actual Start.</p>
 						} else {
@@ -70,7 +98,7 @@ templ Submissions(page SubmissionsPage) {
 								@EventTime(found.UploadDeadline, found.Timezone, found.EventLocale)
 							</p>
 						}
-						<form class="stack" method="post">
+						<form id={ "presentation-" + strconv.Itoa(found.SessionID) + "-manage" } class="stack" method="post">
 							<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
 							<input type="hidden" name="action" value="update-presentation"/>
 							<input type="hidden" name="command_id" value={ page.CommandID }/>
@@ -81,7 +109,7 @@ templ Submissions(page SubmissionsPage) {
 							<label>Public details <textarea name="public_details">{ found.PublicDetails }</textarea></label>
 							<button type="submit">Update Presentation details</button>
 						</form>
-						<form class="stack" method="post" enctype="multipart/form-data" action={ templ.SafeURL("/submissions/" + strconv.Itoa(found.EventID) + "/presentations/" + strconv.Itoa(found.SessionID) + "/upload") }>
+						<form id={ "presentation-" + strconv.Itoa(found.SessionID) + "-upload" } class="stack" method="post" enctype="multipart/form-data" action={ templ.SafeURL("/submissions/" + strconv.Itoa(found.EventID) + "/presentations/" + strconv.Itoa(found.SessionID) + "/upload") }>
 							<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
 							<input type="hidden" name="command_id" value={ page.CommandID }/>
 							<label>Attachment name <input name="name" required/></label>
@@ -92,7 +120,7 @@ templ Submissions(page SubmissionsPage) {
 							</label>
 							<button type="submit">Upload immutable Version</button>
 						</form>
-						<h3>Attachment Versions</h3>
+						<h4>Attachment Versions</h4>
 						if len(submittedVersions(page.Attachments.Versions, attachments.TargetPresentation, found.SessionID)) == 0 {
 							<p>No Attachment Versions.</p>
 						}
@@ -112,17 +140,20 @@ templ Submissions(page SubmissionsPage) {
 						}
 					</section>
 				}
+				<h2>Entries</h2>
 				if len(page.Competitions) == 0 {
 					<p>No published Competitions are accepting submissions.</p>
 				}
 				for _, found := range page.Competitions {
-					<section>
-						<h2>{ found.EventName } — { found.SessionTitle }</h2>
+					<section id={ "competition-" + strconv.Itoa(found.SessionID) }>
+						<h3>{ found.EventName } — { found.SessionTitle }</h3>
+						if slug := page.EventSlugs[found.EventID]; slug != "" {
+							<p><a href={ templ.SafeURL("/events/" + slug + "/competitions/" + strconv.Itoa(found.SessionID)) }>View Competition</a></p>
+						}
 						<p>
 							Submission Deadline:
 							@EventTime(found.SubmissionDeadline, found.Timezone, found.EventLocale)
 						</p>
-						<p>Submission Eligibility: { string(found.EffectiveSubmissionEligibility) }</p>
 						if found.CanCreate {
 							<form class="stack" method="post">
 								<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
@@ -137,7 +168,7 @@ templ Submissions(page SubmissionsPage) {
 						}
 						for _, entry := range found.Entries {
 							<article>
-								<h3>{ entry.Name }</h3>
+								<h4>{ entry.Name }</h4>
 								<p>{ entry.PublicDetails }</p>
 								<form class="stack" method="post">
 									<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
@@ -162,7 +193,7 @@ templ Submissions(page SubmissionsPage) {
 									</label>
 									<button type="submit">Upload immutable Version</button>
 								</form>
-								<h4>Attachment Versions</h4>
+								<h5>Attachment Versions</h5>
 								if len(submittedVersions(page.Attachments.Versions, attachments.TargetEntry, entry.ID)) == 0 {
 									<p>No Attachment Versions.</p>
 								}

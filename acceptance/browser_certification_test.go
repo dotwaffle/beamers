@@ -2170,7 +2170,7 @@ func certifyDemoBrowserJourneys(
 		backstage             bool
 	}{
 		{"attendee", "/my-schedule", "demo-attendee", false},
-		{"attendee", "/submissions", "demo-submission", false},
+		{"attendee", "/my-participation", "demo-submission", false},
 		{"voter", "/voting/3?event_id=1", "demo-voter", false},
 		{"producer", "/backstage/events/1/results", "demo-producer", true},
 		{"administrator", "/backstage/themes", "demo-administrator", true},

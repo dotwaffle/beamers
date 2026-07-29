@@ -95,7 +95,7 @@ templ Page(snapshot Snapshot) {
 	</html>
 }
 
-templ SessionPage(snapshot Snapshot, session Session) {
+templ SessionPage(snapshot Snapshot, session Session, presentationPath string) {
 	<!doctype html>
 	<html lang={ snapshot.Language } data-locale={ snapshot.Locale }>
 		<head>
@@ -116,6 +116,18 @@ templ SessionPage(snapshot Snapshot, session Session) {
 				<h1>{ session.Title }</h1>
 				@SessionDetails(session)
 				@SessionAttachments(session)
+				if presentationPath != "" {
+					<section aria-labelledby="presentation-participation">
+						<h2 id="presentation-participation">Participation</h2>
+						<p><a href={ templ.SafeURL(presentationPath + "-manage") }>Manage Presentation</a></p>
+						<p><a href={ templ.SafeURL(presentationPath + "-upload") }>Upload Presentation File</a></p>
+					</section>
+				} else if snapshot.AccountName != "" && session.Type == "Presentation" {
+					<section aria-labelledby="presentation-participation">
+						<h2 id="presentation-participation">Participation</h2>
+						<p>Presentation maintenance is unavailable.</p>
+					</section>
+				}
 				@FavoriteControl(snapshot, session, session.PathWithTimezone(snapshot.ViewerTimezone))
 			</main>
 		</body>
@@ -285,7 +297,15 @@ templ OperationalTime(presentation TimePresentation) {
 	}
 }
 
-templ CompetitionPage(snapshot Snapshot, session Session) {
+templ CompetitionPage(
+	snapshot Snapshot,
+	session Session,
+	entryAction string,
+	entryPath string,
+	votingAction string,
+	votingPath string,
+	votingStatus string,
+) {
 	<!doctype html>
 	<html lang={ snapshot.Language } data-locale={ snapshot.Locale }>
 		<head>
@@ -303,6 +323,22 @@ templ CompetitionPage(snapshot Snapshot, session Session) {
 				<h1>{ session.Title }</h1>
 				if session.PublicDetails != "" {
 					<p>{ session.PublicDetails }</p>
+				}
+				if snapshot.AccountName != "" {
+					<section aria-labelledby="competition-participation">
+						<h2 id="competition-participation">Participation</h2>
+						if entryAction != "" {
+							<p><a href={ templ.SafeURL(entryPath) }>{ entryAction }</a></p>
+						} else {
+							<p>Entry submission is unavailable.</p>
+						}
+						if votingAction != "" {
+							<p><a href={ templ.SafeURL(votingPath) }>{ votingAction }</a></p>
+						}
+						if votingStatus != "" {
+							<p>{ votingStatus }</p>
+						}
+					</section>
 				}
 				<h2>Entries</h2>
 				if len(session.CompetitionEntries) == 0 {

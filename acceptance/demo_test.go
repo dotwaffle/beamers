@@ -112,7 +112,7 @@ func assertDemoSignIn(t *testing.T, address string, expectWarning bool) {
 		if !strings.Contains(signedIn.body, displayName) {
 			t.Fatalf("%s signed-in root = %q", handle, signedIn.body)
 		}
-		for _, href := range []string{"/profile", "/submissions", "/voting"} {
+		for _, href := range []string{"/profile", "/my-participation"} {
 			if !strings.Contains(signedIn.body, `href="`+href+`"`) {
 				t.Fatalf("%s signed-in root lacks %s navigation", handle, href)
 			}
@@ -147,7 +147,7 @@ func assertDemoAccountJourney(t *testing.T, client *http.Client, address, handle
 	case "attendee":
 		pages = []pageExpectation{
 			{"/my-schedule", []string{"My Schedule", "Opening"}},
-			{"/submissions", []string{"Attendee Shader", "attendee-shader.zip", "Create Entry"}},
+			{"/my-participation", []string{"Attendee Shader", "attendee-shader.zip", "Create Entry"}},
 		}
 	case "operator":
 		pages = []pageExpectation{

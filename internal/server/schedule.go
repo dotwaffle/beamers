@@ -17,15 +17,21 @@ import (
 	"github.com/a-h/templ"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/competition"
 	"github.com/dotwaffle/beamers/internal/displaystream"
 	"github.com/dotwaffle/beamers/internal/events"
+	"github.com/dotwaffle/beamers/internal/presentation"
 	"github.com/dotwaffle/beamers/internal/schedule"
+	"github.com/dotwaffle/beamers/internal/voting"
 )
 
 type scheduleHandlers struct {
 	frontend     frontendHandlers
 	eventService *events.Service
 	schedule     *schedule.Service
+	competition  *competition.Service
+	presentation *presentation.Service
+	voting       *voting.Service
 	stream       *displaystream.Hub
 	metrics      *scheduleStreamMetrics
 	logger       *slog.Logger
@@ -65,6 +71,9 @@ func registerScheduleRoutes(
 	authentication *auth.Service,
 	eventService *events.Service,
 	service *schedule.Service,
+	competitionService *competition.Service,
+	presentationService *presentation.Service,
+	votingService *voting.Service,
 	stream *displaystream.Hub,
 	metrics *scheduleStreamMetrics,
 	logger *slog.Logger,
@@ -75,6 +84,9 @@ func registerScheduleRoutes(
 		},
 		eventService: eventService,
 		schedule:     service,
+		competition:  competitionService,
+		presentation: presentationService,
+		voting:       votingService,
 		stream:       stream,
 		metrics:      metrics,
 		logger:       logger,
@@ -185,13 +197,94 @@ func (handlers scheduleHandlers) eventCompetition(
 	if signedIn {
 		snapshot.AccountName = account.Name
 	}
+	entryAction, entryPath := "", ""
+	votingAction, votingPath, votingStatus := "", "", ""
+	if signedIn {
+		submissions, submissionsErr := handlers.competition.Submissions(request.Context(), account)
+		if submissionsErr != nil {
+			handlers.logger.ErrorContext(
+				request.Context(),
+				"read Competition participation",
+				"error",
+				submissionsErr,
+			)
+			http.Error(response, "Competitions unavailable", http.StatusInternalServerError)
+			return
+		}
+		for _, submission := range submissions {
+			if submission.EventID != snapshot.EventID || submission.SessionID != session.ID {
+				continue
+			}
+			if len(submission.Entries) > 0 {
+				entryAction = "Manage My Entry"
+			} else if submission.CanCreate {
+				entryAction = "Submit"
+			}
+			if entryAction != "" {
+				entryPath = "/my-participation#competition-" + strconv.Itoa(session.ID)
+			}
+			break
+		}
+		ballot, ballotErr := handlers.voting.Ballot(
+			request.Context(),
+			account,
+			snapshot.EventID,
+			session.ID,
+		)
+		switch {
+		case ballotErr == nil:
+			scored := 0
+			for _, entry := range ballot.Entries {
+				if entry.Value > 0 {
+					scored++
+				}
+			}
+			switch ballot.Window.State {
+			case "Open":
+				votingAction = "Vote"
+				votingPath = "/voting/" + strconv.Itoa(session.ID) +
+					"?event_id=" + strconv.Itoa(snapshot.EventID)
+				votingStatus = fmt.Sprintf(
+					"Voting is open. %d of %d presented Entries scored.",
+					scored,
+					len(ballot.Entries),
+				)
+			case "Closed":
+				votingAction = "View Ballot"
+				votingPath = "/voting/" + strconv.Itoa(session.ID) +
+					"?event_id=" + strconv.Itoa(snapshot.EventID)
+				votingStatus = "Voting is closed. Your Ballot is read-only."
+			}
+		case errors.Is(ballotErr, voting.ErrVotingIneligible):
+			votingStatus = "Voting is unavailable to this Account."
+		case errors.Is(ballotErr, voting.ErrWindowUnavailable):
+			votingStatus = "Voting has not opened."
+		default:
+			handlers.logger.ErrorContext(
+				request.Context(),
+				"read Competition Ballot",
+				"error",
+				ballotErr,
+			)
+			http.Error(response, "Competitions unavailable", http.StatusInternalServerError)
+			return
+		}
+	}
 	snapshot.ReducedEffects = reducedEffectsCookie(request)
 	handlers.render(
 		response,
 		request,
 		snapshot.ETag,
 		signedIn || reducedEffectsPreferenceCookie(request),
-		schedule.CompetitionPage(snapshot, session), //nolint:contextcheck // Generated templ closures receive context when rendered.
+		schedule.CompetitionPage( //nolint:contextcheck // Generated templ closures receive context when rendered.
+			snapshot,
+			session,
+			entryAction,
+			entryPath,
+			votingAction,
+			votingPath,
+			votingStatus,
+		),
 		"public Competition",
 	)
 }
@@ -497,13 +590,33 @@ func (handlers scheduleHandlers) sessionPage(
 			return
 		}
 	}
+	presentationPath := ""
+	if signedIn && session.Type == "Presentation" {
+		submissions, submissionsErr := handlers.presentation.Submissions(request.Context(), account)
+		if submissionsErr != nil {
+			handlers.logger.ErrorContext(
+				request.Context(),
+				"read Presentation participation",
+				"error",
+				submissionsErr,
+			)
+			http.Error(response, "Schedule unavailable", http.StatusInternalServerError)
+			return
+		}
+		for _, submission := range submissions {
+			if submission.EventID == snapshot.EventID && submission.SessionID == session.ID {
+				presentationPath = "/my-participation#presentation-" + strconv.Itoa(session.ID)
+				break
+			}
+		}
+	}
 	snapshot.ReducedEffects = reducedEffectsCookie(request)
 	handlers.render(
 		response,
 		request,
 		snapshot.ETag,
 		signedIn || reducedEffectsPreferenceCookie(request),
-		schedule.SessionPage(snapshot, session), //nolint:contextcheck // Generated templ closures receive context when rendered.
+		schedule.SessionPage(snapshot, session, presentationPath), //nolint:contextcheck // Generated templ closures receive context when rendered.
 		"public Session",
 	)
 }
