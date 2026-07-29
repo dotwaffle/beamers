@@ -115,6 +115,7 @@ templ SessionPage(snapshot Snapshot, session Session) {
 				<a href={ snapshot.SchedulePath() }>Schedule</a>
 				<h1>{ session.Title }</h1>
 				@SessionDetails(session)
+				@SessionAttachments(session)
 				@FavoriteControl(snapshot, session, session.PathWithTimezone(snapshot.ViewerTimezone))
 			</main>
 		</body>
@@ -333,4 +334,17 @@ templ CompetitionPage(snapshot Snapshot, session Session) {
 			</main>
 		</body>
 	</html>
+}
+
+templ SessionAttachments(session Session) {
+	if len(session.Attachments) > 0 {
+		<h2>Attachments</h2>
+		<ul>
+			for _, attachment := range session.Attachments {
+				<li>
+					<a href={ attachment.Path() }>{ attachment.Name } ({ attachment.OriginalFilename })</a>
+				</li>
+			}
+		</ul>
+	}
 }
