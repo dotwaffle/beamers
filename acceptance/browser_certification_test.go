@@ -2569,7 +2569,7 @@ func certifyFrontendTheme(
 			`const pause = [...document.querySelectorAll("button")].find(`+
 			`(button) => button.textContent.trim() === "Pause effects");`+
 			`return body.fontFamily.includes("Open Sans") && `+
-			`heading.fontFamily.includes("Chakra Petch") && `+
+			`heading.fontFamily.includes("Open Sans") && `+
 			`matchMedia("(prefers-reduced-motion: reduce)").matches && `+
 			`Number.isFinite(durationMS) && durationMS <= 0.01 && `+
 			`Boolean(pause) && pause.getAttribute("aria-pressed") === "false";`,

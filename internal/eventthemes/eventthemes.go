@@ -170,15 +170,9 @@ func (service *Service) Preview(
 	if err != nil {
 		return Preview{}, err
 	}
-	variants := make(map[string]themevalue.Config, 4)
-	for _, variant := range []string{
-		themevalue.VariantCompetitionOutput,
-		themevalue.VariantEventOverview,
-		themevalue.VariantLocationSignage,
-		themevalue.VariantStandby,
-		themevalue.VariantTimeline,
-		themevalue.VariantCrewOverview,
-	} {
+	eventVariants := themevalue.EventVariants()
+	variants := make(map[string]themevalue.Config, len(eventVariants))
+	for _, variant := range eventVariants {
 		variants[variant], err = themevalue.ResolveEvent(base.Config, found.Config, variant)
 		if err != nil {
 			return Preview{}, err

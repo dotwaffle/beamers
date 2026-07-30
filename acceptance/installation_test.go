@@ -188,6 +188,46 @@ func TestAdministratorRevisesPreviewsActivatesAndRestoresInstallationTheme(t *te
 		},
 	)
 
+	// Selecting a bundled Preset populates the Draft form and stores nothing, so
+	// the Producer can edit any value before saving. See ADR 0057.
+	presetStatus, presetBody := postBrowserForm(
+		t,
+		administrator,
+		server.address,
+		"/backstage/themes",
+		url.Values{
+			"csrf_token": {csrf},
+			"action":     {"load-preset"},
+			"preset":     {"Demoscene"},
+		},
+	)
+	if presetStatus != http.StatusOK {
+		t.Fatalf("load Theme Preset = %d %q", presetStatus, presetBody)
+	}
+	for _, want := range []string{
+		`value="#080b15"`,
+		`value="#62ebcb"`,
+		`value="starfield" selected`,
+	} {
+		if !strings.Contains(presetBody, want) {
+			t.Errorf("loaded Demoscene Preset missing %q: %s", want, presetBody)
+		}
+	}
+	unknownStatus, _ := postBrowserForm(
+		t,
+		administrator,
+		server.address,
+		"/backstage/themes",
+		url.Values{
+			"csrf_token": {csrf},
+			"action":     {"load-preset"},
+			"preset":     {"Bespoke"},
+		},
+	)
+	if unknownStatus != http.StatusBadRequest {
+		t.Errorf("unknown Theme Preset = %d, want %d", unknownStatus, http.StatusBadRequest)
+	}
+
 	invalid := installationThemeForm(csrf, "create-draft", "create-invalid-theme")
 	invalid.Set("background_color", "retain-invalid")
 	status, body := postBrowserForm(
@@ -227,7 +267,7 @@ func TestAdministratorRevisesPreviewsActivatesAndRestoresInstallationTheme(t *te
 			t.Errorf("inaccessible Theme preview missing %q: %s", want, body)
 		}
 	}
-	assertGETContains(t, administrator, server.address, "/assets/installation-theme.css", "#080b15")
+	assertGETContains(t, administrator, server.address, "/assets/installation-theme.css", "#0d1117")
 
 	blocked := installationThemeForm(csrf, "activate", "activate-inaccessible-theme")
 	blocked.Set("revision_id", "1")
@@ -274,7 +314,7 @@ func TestAdministratorRevisesPreviewsActivatesAndRestoresInstallationTheme(t *te
 		!strings.Contains(body, "passes known activation checks") {
 		t.Fatalf("accessible Theme preview = %d %q", status, body)
 	}
-	assertGETContains(t, administrator, server.address, "/assets/installation-theme.css", "#080b15")
+	assertGETContains(t, administrator, server.address, "/assets/installation-theme.css", "#0d1117")
 
 	activate := installationThemeForm(csrf, "activate", "activate-accessible-theme")
 	activate.Set("revision_id", "2")
@@ -363,7 +403,7 @@ func TestAdministratorRevisesPreviewsActivatesAndRestoresInstallationTheme(t *te
 	if status != http.StatusOK {
 		t.Fatalf("corrected Theme rollback = %d %q", status, body)
 	}
-	assertGETContains(t, administrator, server.address, "/assets/installation-theme.css", "#080b15")
+	assertGETContains(t, administrator, server.address, "/assets/installation-theme.css", "#0d1117")
 
 	reactivate := installationThemeForm(csrf, "activate", "reactivate-accessible-theme")
 	reactivate.Set("revision_id", "2")
@@ -431,6 +471,30 @@ func TestProducerActivatesInheritedEventThemeAcrossPublicSchedule(t *testing.T) 
 		"Fully inherited Installation Theme",
 	)
 
+	presetStatus, presetBody := postBrowserForm(
+		t,
+		producer,
+		server.address,
+		"/backstage/events/1/theme",
+		url.Values{
+			"csrf_token": {csrf},
+			"action":     {"load-preset"},
+			"preset":     {"Conference"},
+		},
+	)
+	if presetStatus != http.StatusOK {
+		t.Fatalf("load Event Theme Preset = %d %q", presetStatus, presetBody)
+	}
+	for _, want := range []string{
+		`value="#11131a"`,
+		`value="#9ab8ff"`,
+		`value="fade" selected`,
+	} {
+		if !strings.Contains(presetBody, want) {
+			t.Errorf("loaded Conference Event Preset missing %q: %s", want, presetBody)
+		}
+	}
+
 	draft := eventThemeForm(csrf, "create-draft", "create-event-theme")
 	draft.Set("background_color", "#112233")
 	draft.Set("location-signage_accent_color", "#ffdf6e")
@@ -458,7 +522,7 @@ func TestProducerActivatesInheritedEventThemeAcrossPublicSchedule(t *testing.T) 
 		producer,
 		server.address,
 		"/assets/events/1/theme.css",
-		"#080b15",
+		"#0d1117",
 	)
 	beforeActivation := readDisplaySnapshot(t, displayClient, server.address)
 	beforePosition, err := strconv.ParseUint(beforeActivation.StreamPosition, 10, 64)
@@ -696,7 +760,7 @@ func TestProducerActivatesInheritedEventThemeAcrossPublicSchedule(t *testing.T) 
 		producer,
 		server.address,
 		"/assets/events/1/theme.css",
-		"#080b15",
+		"#0d1117",
 	)
 	emergencyPreview := requestJSON(
 		t.Context(),
@@ -1796,10 +1860,10 @@ func TestProducerConfiguresAccessibleBuiltInDisplayViews(t *testing.T) {
 	for _, want := range []string{
 		`class="display-view display-layout-event-overview`,
 		`display-transition-none`,
-		`--display-foreground:#f1f5ff`,
-		`--display-background:#080b15`,
-		`--display-accent:#141a2c`,
-		`--display-signal:#62ebcb`,
+		`--display-foreground:#f0f6fc`,
+		`--display-background:#0d1117`,
+		`--display-accent:#171c23`,
+		`--display-signal:#6cb6ff`,
 		`data-region="header"`,
 		`data-region="schedule"`,
 		`data-region="clock"`,

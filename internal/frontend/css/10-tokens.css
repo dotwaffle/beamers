@@ -15,20 +15,22 @@
 :root {
   color-scheme: dark;
 
-  /* Theme-controlled. Keep in sync with themevalue.DefaultConfig. */
-  --background: #080b15;
-  --surface: #141a2c;
-  --border: #7180aa;
-  --text: #f1f5ff;
-  --muted: #c2cbe0;
-  --accent: #62ebcb;
-  --link: #79d7ff;
-  --focus: #ffdf6e;
-  --live: #ff6b5e;
+  /* Theme-controlled. Keep in sync with themevalue.DefaultConfig, which is the
+   * Base Preset: neutral and venue-agnostic, so a conference ships it
+   * unchanged and a demoparty selects the Demoscene Preset. See ADR 0057. */
+  --background: #0d1117;
+  --surface: #171c23;
+  --border: #8b949e;
+  --text: #f0f6fc;
+  --muted: #c9d1d9;
+  --accent: #6cb6ff;
+  --link: #79c0ff;
+  --focus: #ffd33d;
+  --live: #ff7b72;
   --warning: #f5b544;
-  --danger: #ff86a2;
-  --success: #5ee38b;
-  --heading-font: "Chakra Petch", sans-serif;
+  --danger: #ff8fa3;
+  --success: #56d364;
+  --heading-font: "Open Sans", system-ui, sans-serif;
   --body-font: "Open Sans", system-ui, sans-serif;
 
   /* Fixed ink colors. Each state color is used as a filled surface behind its

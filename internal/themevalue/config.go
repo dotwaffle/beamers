@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -71,6 +72,18 @@ const (
 	SuccessInk = "#04210f"
 )
 
+// EventVariants returns the complete closed set of Event Theme variant names.
+func EventVariants() []string {
+	return []string{
+		VariantCompetitionOutput,
+		VariantEventOverview,
+		VariantLocationSignage,
+		VariantStandby,
+		VariantTimeline,
+		VariantCrewOverview,
+	}
+}
+
 // contrastPair is one foreground and background combination that activation
 // checks against a minimum ratio.
 type contrastPair struct {
@@ -128,26 +141,11 @@ func (err *ValidationError) Error() string {
 
 // DefaultConfig returns the accessible built-in Installation Theme.
 func DefaultConfig() Config {
-	return Config{
-		BrandAsset:      BrandAssetSignal,
-		BackgroundColor: "#080b15",
-		SurfaceColor:    "#141a2c",
-		BorderColor:     "#7180aa",
-		TextColor:       "#f1f5ff",
-		MutedColor:      "#c2cbe0",
-		AccentColor:     "#62ebcb",
-		LinkColor:       "#79d7ff",
-		FocusColor:      "#ffdf6e",
-		LiveColor:       "#ff6b5e",
-		WarningColor:    "#f5b544",
-		DangerColor:     "#ff86a2",
-		SuccessColor:    "#5ee38b",
-		Background:      BackgroundNebula,
-		Typeface:        TypefaceDemoscene,
-		Transition:      TransitionFade,
-		Effect:          EffectStarfield,
-		Motion:          MotionSubtle,
+	config, ok := PresetConfig(PresetBase)
+	if !ok {
+		panic("themevalue: the Base Preset is missing from the bundled set")
 	}
+	return config
 }
 
 // ValidateDraft rejects values outside the documented Theme controls.
@@ -220,15 +218,7 @@ func ResolveEvent(base Config, config EventConfig, variant string) (Config, erro
 // EventActivationFindings returns failures across the base and configured variants.
 func EventActivationFindings(base Config, config EventConfig) []Finding {
 	var findings []Finding
-	for _, variant := range []string{
-		"",
-		VariantCompetitionOutput,
-		VariantEventOverview,
-		VariantLocationSignage,
-		VariantStandby,
-		VariantTimeline,
-		VariantCrewOverview,
-	} {
+	for _, variant := range append([]string{""}, EventVariants()...) {
 		if variant != "" {
 			if _, configured := config.Variants[variant]; !configured {
 				continue
@@ -307,17 +297,7 @@ func applyOverrides(base, overrides Config) Config {
 }
 
 func validVariant(value string) bool {
-	switch value {
-	case VariantCompetitionOutput,
-		VariantEventOverview,
-		VariantLocationSignage,
-		VariantStandby,
-		VariantTimeline,
-		VariantCrewOverview:
-		return true
-	default:
-		return false
-	}
+	return slices.Contains(EventVariants(), value)
 }
 
 // ActivationFindings returns known contrast and legibility failures.
