@@ -369,7 +369,7 @@ func publishedSourceEvent(t *testing.T) (*store.SQLite, auth.Account, int) {
 
 	// 01:30 UTC is the later 02:30 occurrence after Berlin's fall-back.
 	plannedStart := time.Date(2026, time.October, 25, 1, 30, 0, 0, time.UTC)
-	commands, err := rundown.NewCommands(storage, func() time.Time { return now })
+	commands, err := rundown.NewCommands(storage, func() time.Time { return now }, nil, nil)
 	if err != nil {
 		t.Fatalf("create Rundown Commands: %v", err)
 	}
@@ -423,7 +423,7 @@ func publishImported(
 	imported eventinterchange.ImportResult,
 ) {
 	t.Helper()
-	commands, err := rundown.NewCommands(storage, time.Now)
+	commands, err := rundown.NewCommands(storage, time.Now, nil, nil)
 	if err != nil {
 		t.Fatalf("create imported Rundown Commands: %v", err)
 	}

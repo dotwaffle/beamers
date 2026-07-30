@@ -21,7 +21,13 @@ func TestPresentationCommandsAuditAssignmentReplacementAndOwnerUpdates(t *testin
 	second := createPresentationTestAccount(t, storage, producer, "blair", "Blair")
 	sessionID := publishPresentationTestSession(t, storage, producer, eventID)
 	now := time.Date(2026, 8, 21, 10, 0, 0, 0, time.UTC)
-	service, err := New(storage, func() time.Time { return now })
+	var displayNotifications, scheduleNotifications int
+	service, err := New(
+		storage,
+		func() time.Time { return now },
+		func() { displayNotifications++ },
+		func() { scheduleNotifications++ },
+	)
 	if err != nil {
 		t.Fatalf("create Presentation service: %v", err)
 	}
@@ -65,13 +71,46 @@ func TestPresentationCommandsAuditAssignmentReplacementAndOwnerUpdates(t *testin
 	}); !errors.Is(err, ErrSubmitterRequired) {
 		t.Fatalf("replaced Submitter update error = %v", err)
 	}
-	updated, err := service.UpdateSubmission(t.Context(), second, UpdateSubmissionInput{
+	update := UpdateSubmissionInput{
 		EventID: eventID, SessionID: sessionID, ExpectedRevision: replaced.Revision,
 		Speaker: "Blair Credit", PublicDetails: "Approved details",
 		CommandID: "update-presentation-details",
-	})
+	}
+	updated, err := service.UpdateSubmission(t.Context(), second, update)
 	if err != nil || updated.Revision != 3 || updated.Speaker != "Blair Credit" {
 		t.Fatalf("update Presentation submission = %+v, %v", updated, err)
+	}
+	if displayNotifications != 1 || scheduleNotifications != 1 {
+		t.Fatalf(
+			"successful public update notifications = display %d, schedule %d",
+			displayNotifications,
+			scheduleNotifications,
+		)
+	}
+	if _, err = service.UpdateSubmission(t.Context(), second, update); err != nil {
+		t.Fatalf("replay Presentation submission update: %v", err)
+	}
+	if displayNotifications != 2 || scheduleNotifications != 2 {
+		t.Fatalf(
+			"replayed public update notifications = display %d, schedule %d",
+			displayNotifications,
+			scheduleNotifications,
+		)
+	}
+	update.PublicDetails = "Conflicting details"
+	if _, err = service.UpdateSubmission(
+		t.Context(),
+		second,
+		update,
+	); !errors.Is(err, ErrCommandConflict) {
+		t.Fatalf("conflicting Presentation submission update error = %v", err)
+	}
+	if displayNotifications != 2 || scheduleNotifications != 2 {
+		t.Fatalf(
+			"rejected update notifications = display %d, schedule %d",
+			displayNotifications,
+			scheduleNotifications,
+		)
 	}
 	submissions, err := service.Submissions(t.Context(), second)
 	if err != nil || len(submissions) != 1 ||
@@ -202,7 +241,7 @@ func publishPresentationTestSession(
 	eventID int,
 ) int {
 	t.Helper()
-	commands, err := rundown.NewCommands(storage, time.Now)
+	commands, err := rundown.NewCommands(storage, time.Now, nil, nil)
 	if err != nil {
 		t.Fatalf("create Rundown commands: %v", err)
 	}

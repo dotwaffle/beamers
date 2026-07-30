@@ -32,8 +32,6 @@ func TestLegacyBrowserRoutesAreNotRegistered(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil,
-		nil,
 		logger,
 		nil,
 	)
@@ -76,8 +74,6 @@ func TestCanonicalBrowserAndMachineRoutesRemainRegistered(t *testing.T) {
 	)
 	registerEntryRoutes(
 		routes,
-		nil,
-		nil,
 		nil,
 		nil,
 		nil,

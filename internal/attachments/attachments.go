@@ -239,10 +239,11 @@ type ReleasedVersion struct {
 
 // Service owns Attachment commands.
 type Service struct {
-	storage *store.SQLite
-	root    string
-	now     func() time.Time
-	uploads sync.Mutex
+	storage        *store.SQLite
+	root           string
+	now            func() time.Time
+	notifySchedule func()
+	uploads        sync.Mutex
 }
 
 // New creates an Attachment Service with explicit dependencies.
@@ -251,6 +252,7 @@ func New(
 	storage *store.SQLite,
 	root string,
 	now func() time.Time,
+	notifySchedule func(),
 ) (*Service, error) {
 	if storage == nil {
 		return nil, errors.New("attachment storage is required")
@@ -261,7 +263,10 @@ func New(
 	if now == nil {
 		return nil, errors.New("attachment clock is required")
 	}
-	service := &Service{storage: storage, root: root, now: now}
+	service := &Service{
+		storage: storage, root: root, now: now,
+		notifySchedule: notifySchedule,
+	}
 	if err := service.reconcileFiles(ctx); err != nil {
 		return nil, err
 	}
@@ -772,6 +777,7 @@ func (service *Service) ConfigureEventRelease(
 	return command.Execute(actor.Context(ctx), command.Plan[store.AttachmentReleaseConfiguration]{
 		Storage: service.storage, Identity: identity,
 		Replay: decodeReleaseReceipt[store.AttachmentReleaseConfiguration],
+		Notify: service.notifySchedule,
 		Apply: auditReleaseRejections(func(transaction *store.CommandTx) (
 			command.Execution[store.AttachmentReleaseConfiguration], error,
 		) {
@@ -817,6 +823,7 @@ func (service *Service) ConfigureCompetitionRelease(
 		command.Plan[store.CompetitionAttachmentReleaseConfiguration]{
 			Storage: service.storage, Identity: identity,
 			Replay: decodeReleaseReceipt[store.CompetitionAttachmentReleaseConfiguration],
+			Notify: service.notifySchedule,
 			Apply: auditReleaseRejections(func(transaction *store.CommandTx) (
 				command.Execution[store.CompetitionAttachmentReleaseConfiguration], error,
 			) {
@@ -862,6 +869,7 @@ func (service *Service) SetVersionRelease(
 	return command.Execute(actor.Context(ctx), command.Plan[Version]{
 		Storage: service.storage, Identity: identity,
 		Replay: decodeReleaseReceipt[Version],
+		Notify: service.notifySchedule,
 		Apply: auditReleaseRejections(func(
 			transaction *store.CommandTx,
 		) (command.Execution[Version], error) {
@@ -929,6 +937,7 @@ func (service *Service) FireReleaseCue(
 	return command.Execute(actor.Context(ctx), command.Plan[store.AttachmentReleaseConfiguration]{
 		Storage: service.storage, Identity: identity,
 		Replay: decodeReleaseReceipt[store.AttachmentReleaseConfiguration],
+		Notify: service.notifySchedule,
 		Apply: auditReleaseRejections(func(transaction *store.CommandTx) (
 			command.Execution[store.AttachmentReleaseConfiguration], error,
 		) {

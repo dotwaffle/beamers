@@ -19,19 +19,15 @@ import (
 // Handler translates Competition Connect requests.
 type Handler struct {
 	competitionv1connect.UnimplementedCompetitionServiceHandler
-	service        *competition.Service
-	notifySchedule func()
+	service *competition.Service
 }
 
 // NewHandler creates a Competition Connect adapter.
-func NewHandler(service *competition.Service, notifySchedule func()) (*Handler, error) {
+func NewHandler(service *competition.Service) (*Handler, error) {
 	if service == nil {
 		return nil, errors.New("competition service is required")
 	}
-	if notifySchedule == nil {
-		return nil, errors.New("schedule notifier is required")
-	}
-	return &Handler{service: service, notifySchedule: notifySchedule}, nil
+	return &Handler{service: service}, nil
 }
 
 // ErrorInterceptor translates Competition failures into stable Connect codes.
@@ -238,7 +234,6 @@ func (handler *Handler) CreateEntry(
 	if err != nil {
 		return nil, err
 	}
-	handler.notifySchedule()
 	return connect.NewResponse(&competitionv1.CreateEntryResponse{Entry: entry(created)}), nil
 }
 
@@ -260,7 +255,6 @@ func (handler *Handler) UpdateEntry(
 	if err != nil {
 		return nil, err
 	}
-	handler.notifySchedule()
 	return connect.NewResponse(&competitionv1.UpdateEntryResponse{Entry: entry(updated)}), nil
 }
 
@@ -283,7 +277,6 @@ func (handler *Handler) ChangeEntryDisposition(
 	if err != nil {
 		return nil, err
 	}
-	handler.notifySchedule()
 	return connect.NewResponse(&competitionv1.ChangeEntryDispositionResponse{Entry: entry(updated)}), nil
 }
 
@@ -353,7 +346,6 @@ func (handler *Handler) ResolveEntry(
 	if err != nil {
 		return nil, err
 	}
-	handler.notifySchedule()
 	return connect.NewResponse(&competitionv1.ResolveEntryResponse{Entry: entry(updated)}), nil
 }
 

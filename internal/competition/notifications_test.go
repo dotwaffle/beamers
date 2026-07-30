@@ -1,0 +1,220 @@
+package competition
+
+import (
+	"errors"
+	"strings"
+	"testing"
+	"time"
+
+	_ "github.com/dotwaffle/beamers/ent/runtime"
+	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/events"
+	"github.com/dotwaffle/beamers/internal/rundown"
+	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/viewer"
+)
+
+func TestEntryCommandsSelectCombinedAndScheduleOnlyNotifications(t *testing.T) {
+	storage, producer, eventID := openNotificationTest(t)
+	sessionID := publishNotificationCompetition(t, storage, producer, eventID)
+	var displayNotifications, scheduleNotifications int
+	service, err := New(
+		storage,
+		func() time.Time { return time.Date(2026, 8, 20, 12, 0, 0, 0, time.UTC) },
+		func() { displayNotifications++ },
+		func() { scheduleNotifications++ },
+	)
+	if err != nil {
+		t.Fatalf("create Competition service: %v", err)
+	}
+	input := CreateEntryInput{
+		EventID: eventID, SessionID: sessionID, CommandID: "create-notified-entry",
+		Name: "Aurora", PublicDetails: "Public entry",
+	}
+	created, err := service.CreateEntry(t.Context(), producer, input)
+	if err != nil {
+		t.Fatalf("create Competition Entry: %v", err)
+	}
+	if displayNotifications != 1 || scheduleNotifications != 1 {
+		t.Fatalf(
+			"successful Entry notifications = display %d, schedule %d",
+			displayNotifications,
+			scheduleNotifications,
+		)
+	}
+	if _, err = service.CreateEntry(t.Context(), producer, input); err != nil {
+		t.Fatalf("replay Competition Entry creation: %v", err)
+	}
+	if displayNotifications != 2 || scheduleNotifications != 2 {
+		t.Fatalf(
+			"replayed Entry notifications = display %d, schedule %d",
+			displayNotifications,
+			scheduleNotifications,
+		)
+	}
+	input.Name = "Conflict"
+	if _, err = service.CreateEntry(
+		t.Context(),
+		producer,
+		input,
+	); !errors.Is(err, ErrCommandConflict) {
+		t.Fatalf("conflicting Entry creation error = %v", err)
+	}
+	if _, err = service.CreateEntry(
+		t.Context(),
+		auth.Account{ID: producer.ID},
+		CreateEntryInput{
+			EventID: eventID, SessionID: sessionID, CommandID: "reject-entry",
+			Name: "Rejected",
+		},
+	); !errors.Is(err, ErrProducerRequired) {
+		t.Fatalf("unauthorized Entry creation error = %v", err)
+	}
+	if displayNotifications != 2 || scheduleNotifications != 2 {
+		t.Fatalf(
+			"rejected Entry notifications = display %d, schedule %d",
+			displayNotifications,
+			scheduleNotifications,
+		)
+	}
+	hold := SetEntryReleaseHoldInput{
+		EventID: eventID, SessionID: sessionID, EntryID: created.ID,
+		ExpectedRevision: created.Revision, Hold: true,
+		CrewReason: "Awaiting corrected file", CommandID: "hold-entry-release",
+	}
+	if _, err = service.SetEntryReleaseHold(t.Context(), producer, hold); err != nil {
+		t.Fatalf("set Entry release hold: %v", err)
+	}
+	if displayNotifications != 2 || scheduleNotifications != 3 {
+		t.Fatalf(
+			"release-hold notifications = display %d, schedule %d",
+			displayNotifications,
+			scheduleNotifications,
+		)
+	}
+	if _, err = service.SetEntryReleaseHold(t.Context(), producer, hold); err != nil {
+		t.Fatalf("replay Entry release hold: %v", err)
+	}
+	if displayNotifications != 2 || scheduleNotifications != 4 {
+		t.Fatalf(
+			"replayed release-hold notifications = display %d, schedule %d",
+			displayNotifications,
+			scheduleNotifications,
+		)
+	}
+}
+
+func openNotificationTest(t *testing.T) (*store.SQLite, auth.Account, int) {
+	t.Helper()
+	dataDir := t.TempDir()
+	if err := store.Initialize(t.Context(), dataDir); err != nil {
+		t.Fatalf("initialize Competition storage: %v", err)
+	}
+	storage, err := store.Open(t.Context(), dataDir)
+	if err != nil {
+		t.Fatalf("open Competition storage: %v", err)
+	}
+	t.Cleanup(func() {
+		if closeErr := storage.Close(); closeErr != nil {
+			t.Errorf("close Competition storage: %v", closeErr)
+		}
+	})
+	now := time.Date(2026, 8, 20, 9, 0, 0, 0, time.UTC)
+	bootstrapHash := strings.Repeat("b", 64)
+	if err = storage.IssueBootstrap(t.Context(), bootstrapHash, now, now.Add(time.Hour)); err != nil {
+		t.Fatalf("issue Competition bootstrap: %v", err)
+	}
+	created, err := storage.BootstrapAdministrator(
+		t.Context(),
+		store.BootstrapAdministratorParams{
+			BootstrapHash: bootstrapHash, Name: "Administrator",
+			NormalizedName: "administrator", PasswordHash: "password-hash",
+			SessionHash: strings.Repeat("s", 64), Now: now, SessionExpiry: now.Add(time.Hour),
+		},
+	)
+	if err != nil {
+		t.Fatalf("bootstrap Competition Administrator: %v", err)
+	}
+	producer := auth.Account{ID: created.ID, Name: created.Name, Administrator: true}
+	eventService, err := events.New(storage, time.Now, nil, nil)
+	if err != nil {
+		t.Fatalf("create Event service: %v", err)
+	}
+	event, err := eventService.Create(t.Context(), producer, events.CreateInput{
+		Name: "Competition Event", PlannedStartDate: "2026-08-21",
+		PlannedEndDate: "2026-08-21", Timezone: "UTC", EventLocale: "en-US",
+		EntryDefaultDisposition: "Included", CommandID: "create-competition-event",
+	})
+	if err != nil {
+		t.Fatalf("create Competition Event: %v", err)
+	}
+	if _, err = eventService.GrantEventAccess(
+		t.Context(), producer, event.ID, producer.ID, "Producer", "grant-competition-producer",
+	); err != nil {
+		t.Fatalf("grant Competition Producer: %v", err)
+	}
+	producer.EventRoles = map[int]viewer.Role{event.ID: viewer.Producer}
+	return storage, producer, event.ID
+}
+
+func publishNotificationCompetition(
+	t *testing.T,
+	storage *store.SQLite,
+	producer auth.Account,
+	eventID int,
+) int {
+	t.Helper()
+	commands, err := rundown.NewCommands(storage, time.Now, nil, nil)
+	if err != nil {
+		t.Fatalf("create Rundown commands: %v", err)
+	}
+	queries, err := rundown.NewQueries(storage)
+	if err != nil {
+		t.Fatalf("create Rundown queries: %v", err)
+	}
+	start := time.Date(2026, 8, 21, 12, 0, 0, 0, time.UTC)
+	edited, err := commands.EditDraft(t.Context(), producer, rundown.EditDraftInput{
+		EventID: eventID, CommandID: "create-competition-draft",
+		Locations: []rundown.LocationDraftInput{{Ref: "hall", Name: "Hall"}},
+		Lanes: []rundown.LaneDraftInput{{
+			Ref: "lane", Name: "Lane", Location: rundown.TargetRef{Ref: "hall"},
+		}},
+		Sessions: []rundown.SessionDraftInput{{
+			Ref: "competition", Title: "Competition", Type: rundown.SessionCompetition,
+			AudienceVisibility: rundown.AudiencePublic,
+			PlannedStart:       start, PlannedEnd: start.Add(time.Hour),
+			TimingPolicy: rundown.TimingFixedEnd, MinimumDuration: 30 * time.Minute,
+			StartBoundary: rundown.BoundaryHard, EndBoundary: rundown.BoundaryHard,
+			SubmissionDeadline: start.Add(-time.Hour),
+			Lanes:              []rundown.TargetRef{{Ref: "lane"}},
+			Locations:          []rundown.TargetRef{{Ref: "hall"}},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("create Competition Draft: %v", err)
+	}
+	changeIDs := make([]int, 0, len(edited.Changes))
+	for _, change := range edited.Changes {
+		changeIDs = append(changeIDs, change.ID)
+	}
+	preview, err := queries.PublishPreview(t.Context(), producer, rundown.PublishPreviewInput{
+		EventID: eventID, ChangeIDs: changeIDs,
+	})
+	if err != nil {
+		t.Fatalf("preview Competition Publish: %v", err)
+	}
+	if _, err = commands.Publish(t.Context(), producer, rundown.PublishInput{
+		EventID: eventID, CommandID: "publish-competition",
+		Confirmation: rundown.PublishConfirmation{
+			DraftRevision: preview.DraftRevision, PublishedRevision: preview.PublishedRevision,
+			ChangeIDs: preview.ChangeIDs, Fingerprint: preview.Fingerprint,
+		},
+	}); err != nil {
+		t.Fatalf("publish Competition: %v", err)
+	}
+	crew, err := queries.CrewRundown(t.Context(), producer, eventID)
+	if err != nil || len(crew.Sessions) != 1 {
+		t.Fatalf("load Competition Session = %+v, %v", crew, err)
+	}
+	return crew.Sessions[0].ID
+}

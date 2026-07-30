@@ -211,19 +211,38 @@ type EditDraftResult struct {
 
 // Commands owns Rundown state transitions and their durable evidence.
 type Commands struct {
-	storage *store.SQLite
-	now     func() time.Time
+	storage        *store.SQLite
+	now            func() time.Time
+	notifyDisplays func()
+	notifySchedule func()
 }
 
 // NewCommands creates Rundown Commands with explicit persistence and clock dependencies.
-func NewCommands(storage *store.SQLite, now func() time.Time) (*Commands, error) {
+func NewCommands(
+	storage *store.SQLite,
+	now func() time.Time,
+	notifyDisplays func(),
+	notifySchedule func(),
+) (*Commands, error) {
 	if storage == nil {
 		return nil, errors.New("rundown storage is required")
 	}
 	if now == nil {
 		return nil, errors.New("rundown clock is required")
 	}
-	return &Commands{storage: storage, now: now}, nil
+	return &Commands{
+		storage: storage, now: now,
+		notifyDisplays: notifyDisplays, notifySchedule: notifySchedule,
+	}, nil
+}
+
+func (commands *Commands) notifyPublishedRundown() {
+	if commands.notifyDisplays != nil {
+		commands.notifyDisplays()
+	}
+	if commands.notifySchedule != nil {
+		commands.notifySchedule()
+	}
 }
 
 type editDraftOutcome struct {

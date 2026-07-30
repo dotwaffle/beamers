@@ -34,7 +34,6 @@ func (handlers entryHandlers) submissions(response http.ResponseWriter, request 
 		}
 		err = handlers.submitSubmission(request, actor)
 		if err == nil {
-			handlers.notifySchedule()
 			http.Redirect(response, request, "/my-participation", http.StatusSeeOther)
 			return
 		}

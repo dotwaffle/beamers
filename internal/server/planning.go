@@ -25,12 +25,11 @@ import (
 )
 
 type planningHandlers struct {
-	browser        frontendHandlers
-	events         *events.Service
-	attachments    *attachments.Service
-	commands       *rundown.Commands
-	queries        *rundown.Queries
-	notifyDisplays func()
+	browser     frontendHandlers
+	events      *events.Service
+	attachments *attachments.Service
+	commands    *rundown.Commands
+	queries     *rundown.Queries
 }
 
 func registerPlanningRoutes(
@@ -40,7 +39,6 @@ func registerPlanningRoutes(
 	attachmentService *attachments.Service,
 	commands *rundown.Commands,
 	queries *rundown.Queries,
-	notifyDisplays func(),
 	logger *slog.Logger,
 ) {
 	handlers := planningHandlers{
@@ -49,11 +47,10 @@ func registerPlanningRoutes(
 			logger:         logger,
 			random:         rand.Reader,
 		},
-		events:         eventService,
-		attachments:    attachmentService,
-		commands:       commands,
-		queries:        queries,
-		notifyDisplays: notifyDisplays,
+		events:      eventService,
+		attachments: attachmentService,
+		commands:    commands,
+		queries:     queries,
 	}
 	route := backstagePageRoute()
 	route.maxBodyBytes = maxRundownRPCBodyBytes
@@ -198,10 +195,8 @@ func (handlers planningHandlers) settings(response http.ResponseWriter, request 
 		}
 		var inputErr error
 		action := request.Form.Get("action")
-		notifyDisplays := false
 		switch action {
 		case "configure-attachment-release":
-			notifyDisplays = true
 			var revision, cueSessionID int
 			revision, inputErr = nonnegativeFormInt(request, "expected_release_revision")
 			if inputErr == nil {
@@ -219,7 +214,6 @@ func (handlers planningHandlers) settings(response http.ResponseWriter, request 
 				)
 			}
 		case "fire-attachment-release-cue":
-			notifyDisplays = true
 			var revision int
 			revision, inputErr = nonnegativeFormInt(request, "expected_release_revision")
 			if inputErr == nil {
@@ -245,9 +239,6 @@ func (handlers planningHandlers) settings(response http.ResponseWriter, request 
 			status, formErrors := eventSettingsErrors(inputErr, request.Form.Get("action"))
 			handlers.renderSettings(response, request, actor, eventID, csrfToken, status, formErrors)
 			return
-		}
-		if notifyDisplays {
-			handlers.notifyDisplays()
 		}
 		http.Redirect(
 			response,
@@ -968,9 +959,7 @@ func (handlers planningHandlers) submit(
 		if err == nil {
 			_, err = handlers.commands.Publish(request.Context(), actor, input)
 			mutated = err == nil
-			if mutated {
-				handlers.notifyDisplays()
-			} else if errors.Is(err, rundown.ErrStalePreview) {
+			if !mutated && errors.Is(err, rundown.ErrStalePreview) {
 				var preview rundown.PublishPreview
 				preview, previewErr := handlers.queries.PublishPreview(
 					request.Context(),

@@ -681,7 +681,6 @@ func (application *application) buildHandler(
 		installation.Attachments(),
 		installation.RundownCommands(),
 		installation.RundownQueries(),
-		notifyScheduleAndDisplays,
 		application.config.Logger,
 	)
 	registerAdministrationRoutes(
@@ -733,8 +732,6 @@ func (application *application) buildHandler(
 		installation.ProgramControl(),
 		installation.Events(),
 		installation.RundownQueries(),
-		application.config.DisplayStream.Notify,
-		application.config.ScheduleStream.Notify,
 		application.config.Logger,
 		authenticationLimiter,
 	)
@@ -824,7 +821,6 @@ func (application *application) buildHandler(
 		installation.Authentication(),
 		installation.RundownCommands(),
 		installation.RundownQueries(),
-		notifyScheduleAndDisplays,
 		application.config.ListenerAddress,
 		application.config.TracerProvider,
 		application.config.MeterProvider,
@@ -836,7 +832,6 @@ func (application *application) buildHandler(
 		mux,
 		installation.Authentication(),
 		installation.Competition(),
-		notifyScheduleAndDisplays,
 		application.config.ListenerAddress,
 		application.config.TracerProvider,
 		application.config.MeterProvider,
