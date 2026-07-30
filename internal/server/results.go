@@ -943,44 +943,29 @@ func (handlers backstageResultsHandlers) renderPage(
 	status int,
 	formErrors frontend.FormErrors,
 ) {
-	workspace, err := handlers.results.Workspace(request.Context(), actor, eventID)
+	workspaceRequest, err := resultsWorkspaceRequest(request, eventID)
 	if err != nil {
-		handlers.browser.frontendError(response, request, "read Results Workspace", err)
+		handlers.writeResultsWorkspaceError(response, request, err)
+		return
+	}
+	workspace, err := handlers.results.Workspace(
+		request.Context(),
+		actor,
+		workspaceRequest,
+	)
+	if err != nil {
+		handlers.writeResultsWorkspaceError(response, request, err)
 		return
 	}
 	competitions, prizegivings := resultsWorkspacePage(workspace)
-	for index := range prizegivings {
-		if request.URL.Query().Get("ceremony_id") !=
-			strconv.Itoa(prizegivings[index].Session.ID) {
-			continue
-		}
-		mode := results.PrizegivingPreviewMode(request.URL.Query().Get("preview"))
-		if mode == "" {
-			continue
-		}
-		value, previewErr := handlers.results.PreviewPrizegiving(
-			request.Context(), actor, eventID, prizegivings[index].Session.ID, mode,
-		)
-		if previewErr != nil {
-			var message string
-			status, message = backstageResultsError(previewErr)
-			formErrors = frontend.FormErrors{{Message: message}}
-		} else {
-			prizegivings[index].Preview = &value
-		}
-	}
-	var eventAwardsPreflight *results.StandaloneEventAwardsPreflight
-	if actor.CanProduceEvent(eventID) &&
-		request.URL.Query().Get("event_awards_preflight") == "true" {
-		value, preflightErr := handlers.results.PreflightStandaloneEventAwards(
-			request.Context(), actor, eventID,
-		)
-		if preflightErr != nil {
-			var message string
-			status, message = backstageResultsError(preflightErr)
-			formErrors = frontend.FormErrors{{Message: message}}
-		} else {
-			eventAwardsPreflight = &value
+	for _, prizegiving := range workspace.Prizegivings {
+		if len(prizegiving.PreviewFindings) != 0 {
+			status = http.StatusUnprocessableEntity
+			formErrors = append(formErrors, frontend.FormError{
+				Message: prizegivingPreflightFindings(
+					prizegiving.PreviewFindings,
+				),
+			})
 		}
 	}
 	commandID, err := planningCommandID(handlers.browser.random)
@@ -1001,8 +986,53 @@ func (handlers backstageResultsHandlers) renderPage(
 		Producer:     actor.CanProduceEvent(eventID),
 		Competitions: competitions, Prizegivings: prizegivings,
 		SubmittedAction: request.Form.Get("action"), Form: request.Form, Errors: formErrors,
-		EventAwards: workspace.EventAwards, EventAwardsPreflight: eventAwardsPreflight,
+		EventAwards:          workspace.EventAwards,
+		EventAwardsPreflight: workspace.EventAwardsPreflight,
 	}))
+}
+
+func resultsWorkspaceRequest(
+	request *http.Request,
+	eventID int,
+) (results.WorkspaceRequest, error) {
+	workspaceRequest := results.WorkspaceRequest{
+		EventID: eventID,
+		EventAwardsPreflight: request.URL.Query().Get(
+			"event_awards_preflight",
+		) == "true",
+	}
+	mode := results.PrizegivingPreviewMode(request.URL.Query().Get("preview"))
+	if mode == "" {
+		return workspaceRequest, nil
+	}
+	ceremonyID, err := strconv.Atoi(request.URL.Query().Get("ceremony_id"))
+	if err != nil || ceremonyID <= 0 {
+		return results.WorkspaceRequest{}, results.ErrInvalidInput
+	}
+	workspaceRequest.PrizegivingPreview =
+		&results.WorkspacePrizegivingPreviewRequest{
+			CeremonySessionID: ceremonyID,
+			Mode:              mode,
+		}
+	return workspaceRequest, nil
+}
+
+func (handlers backstageResultsHandlers) writeResultsWorkspaceError(
+	response http.ResponseWriter,
+	request *http.Request,
+	err error,
+) {
+	status, message := backstageResultsError(err)
+	if status == http.StatusInternalServerError {
+		handlers.browser.frontendError(
+			response,
+			request,
+			"read Results Workspace",
+			err,
+		)
+		return
+	}
+	http.Error(response, message, status)
 }
 
 func resultsWorkspacePage(
@@ -1054,6 +1084,7 @@ func resultsWorkspacePage(
 				ID: found.Session.ID, Title: found.Session.Title,
 			},
 			Designated: found.Designated, Plan: found.Plan,
+			Preview: found.Preview,
 		})
 	}
 	return competitions, prizegivings

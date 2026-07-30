@@ -13,6 +13,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/results"
 	"github.com/dotwaffle/beamers/internal/rundown"
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
 func TestWorkspaceLoadsOrdinaryResultsState(t *testing.T) {
@@ -170,14 +171,20 @@ func TestWorkspaceLoadsOrdinaryResultsState(t *testing.T) {
 		t.Fatalf("save Results Correction: %v", err)
 	}
 
-	workspace, err := service.Workspace(t.Context(), actor, eventID)
+	workspace, err := service.Workspace(
+		t.Context(),
+		actor,
+		results.WorkspaceRequest{EventID: eventID},
+	)
 	if err != nil {
 		t.Fatalf("load Results Workspace: %v", err)
 	}
 	if workspace.Event.ID != eventID ||
 		workspace.EventAwards.Revision != eventAwards.Revision ||
 		len(workspace.Competitions) != 2 ||
-		len(workspace.Prizegivings) != 1 {
+		len(workspace.Prizegivings) != 1 ||
+		workspace.Prizegivings[0].Preview != nil ||
+		workspace.EventAwardsPreflight != nil {
 		t.Fatalf("Results Workspace = %+v", workspace)
 	}
 	assigned := workspaceCompetition(t, workspace, assignedID)
@@ -207,18 +214,155 @@ func TestWorkspaceLoadsOrdinaryResultsState(t *testing.T) {
 		t.Fatalf("Prizegiving = %+v", prizegiving)
 	}
 
+	blockedPreview, err := service.Workspace(
+		t.Context(),
+		actor,
+		results.WorkspaceRequest{
+			EventID: eventID,
+			PrizegivingPreview: &results.WorkspacePrizegivingPreviewRequest{
+				CeremonySessionID: ceremonyID,
+				Mode:              results.PrizegivingPreviewModePreview,
+			},
+		},
+	)
+	if err != nil ||
+		len(blockedPreview.Prizegivings[0].PreviewFindings) != 1 ||
+		blockedPreview.Prizegivings[0].PreviewFindings[0].Code !=
+			"prizegiving_preflight_required" {
+		t.Fatalf("blocked Workspace Preview = %+v, %v", blockedPreview, err)
+	}
+	blockedAwards, err := service.Workspace(
+		t.Context(),
+		actor,
+		results.WorkspaceRequest{EventID: eventID, EventAwardsPreflight: true},
+	)
+	if err != nil ||
+		blockedAwards.EventAwardsPreflight == nil ||
+		len(blockedAwards.EventAwardsPreflight.Findings) != 1 ||
+		blockedAwards.EventAwardsPreflight.Findings[0].Code !=
+			"event_awards_not_ready" {
+		t.Fatalf("blocked Event Awards Workspace = %+v, %v", blockedAwards, err)
+	}
+
+	if _, err = service.MarkEventAwardsReady(
+		t.Context(),
+		actor,
+		results.MarkEventAwardsReadyInput{
+			EventID: eventID, CommandID: "ready-workspace-event-awards",
+			ExpectedRevision:     eventAwards.Revision,
+			ReleasePath:          results.AwardReleasePath{Kind: results.StandaloneRelease},
+			ExpectedPathRevision: 1,
+		},
+	); err != nil {
+		t.Fatalf("mark Workspace Event Awards Ready: %v", err)
+	}
+	readyAwards, err := service.Workspace(
+		t.Context(),
+		actor,
+		results.WorkspaceRequest{EventID: eventID, EventAwardsPreflight: true},
+	)
+	if err != nil ||
+		readyAwards.EventAwardsPreflight == nil ||
+		len(readyAwards.EventAwardsPreflight.Findings) != 0 {
+		t.Fatalf("ready Event Awards Workspace = %+v, %v", readyAwards, err)
+	}
+
+	_, err = service.Save(
+		t.Context(),
+		actor,
+		results.SaveInput{
+			EventID: eventID, SessionID: assignedID,
+			CommandID:      "save-workspace-prizegiving-results",
+			Disposition:    results.NoPublicResults,
+			NoPublicReason: "Organizer decision",
+			Score:          results.ScorePolicy{Type: results.None},
+		},
+	)
+	if err != nil {
+		t.Fatalf("save Workspace Prizegiving Results: %v", err)
+	}
+	item.Kind = results.ResultItemNoPublicResults
+	plan, err = service.SavePrizegivingPlan(
+		t.Context(),
+		actor,
+		results.SavePrizegivingPlanInput{
+			EventID: eventID, CeremonySessionID: ceremonyID,
+			CommandID:             "update-workspace-prizegiving-plan",
+			ExpectedRevision:      plan.Revision,
+			CompetitionSessionIDs: []int{assignedID},
+			Sequence:              []results.ResultItem{item},
+			PublicationOrder:      []results.ResultItemRef{item.Ref(1)},
+			ReleasePolicy:         results.ResultsProgressiveOnReveal,
+			Template:              results.DefaultResultsTextTemplate(),
+		},
+	)
+	if err != nil {
+		t.Fatalf("update Workspace Prizegiving plan: %v", err)
+	}
+	if _, err = service.RunPrizegivingPreflight(
+		t.Context(),
+		actor,
+		results.RunPrizegivingPreflightInput{
+			EventID: eventID, CeremonySessionID: ceremonyID,
+			CommandID:        "preflight-workspace-prizegiving",
+			ExpectedRevision: plan.Revision,
+		},
+	); err != nil {
+		t.Fatalf("preflight Workspace Prizegiving: %v", err)
+	}
+	previewed, err := service.Workspace(
+		t.Context(),
+		actor,
+		results.WorkspaceRequest{
+			EventID: eventID,
+			PrizegivingPreview: &results.WorkspacePrizegivingPreviewRequest{
+				CeremonySessionID: ceremonyID,
+				Mode:              results.PrizegivingPreviewModePreview,
+			},
+		},
+	)
+	if err != nil ||
+		previewed.Prizegivings[0].Preview == nil ||
+		previewed.Prizegivings[0].Preview.Watermark == "" ||
+		len(previewed.Prizegivings[0].PreviewFindings) != 0 {
+		t.Fatalf("Workspace Preview = %+v, %v", previewed, err)
+	}
+
 	unauthorized := actor
 	unauthorized.Administrator = false
 	unauthorized.EventRoles = nil
 	if _, err = service.Workspace(
-		t.Context(), unauthorized, eventID,
+		t.Context(),
+		unauthorized,
+		results.WorkspaceRequest{EventID: eventID},
 	); !errors.Is(err, results.ErrViewRequired) {
 		t.Fatalf("unauthorized Workspace error = %v", err)
+	}
+	viewerOnly := actor
+	viewerOnly.Administrator = false
+	viewerOnly.EventRoles = map[int]viewer.Role{eventID: viewer.Observer}
+	viewerOnly.EventScopes = map[int]viewer.EventScope{
+		eventID: {
+			Capabilities: map[viewer.Capability]struct{}{
+				viewer.ViewResults: {},
+			},
+		},
+	}
+	if _, err = service.Workspace(
+		t.Context(),
+		viewerOnly,
+		results.WorkspaceRequest{
+			EventID: eventID, EventAwardsPreflight: true,
+		},
+	); !errors.Is(err, results.ErrProducerRequired) {
+		t.Fatalf("unauthorized Workspace Preflight error = %v", err)
 	}
 	canceled, cancel := context.WithCancel(t.Context())
 	cancel()
 	if _, err = service.Workspace(
-		canceled, actor, eventID,
+		canceled,
+		actor,
+		results.WorkspaceRequest{EventID: eventID},
 	); err == nil {
 		t.Fatal("Workspace succeeded after a required read was canceled")
 	}

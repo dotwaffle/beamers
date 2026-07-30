@@ -11,10 +11,24 @@ import (
 
 // Workspace is the ordinary event-scoped Results preparation and release view.
 type Workspace struct {
-	Event        WorkspaceEvent
-	Competitions []WorkspaceCompetition
-	Prizegivings []WorkspacePrizegiving
-	EventAwards  EventAwardsDraft
+	Event                WorkspaceEvent
+	Competitions         []WorkspaceCompetition
+	Prizegivings         []WorkspacePrizegiving
+	EventAwards          EventAwardsDraft
+	EventAwardsPreflight *StandaloneEventAwardsPreflight
+}
+
+// WorkspaceRequest selects ordinary state and optional preview or preflight work.
+type WorkspaceRequest struct {
+	EventID              int
+	PrizegivingPreview   *WorkspacePrizegivingPreviewRequest
+	EventAwardsPreflight bool
+}
+
+// WorkspacePrizegivingPreviewRequest selects one side-effect-free preview.
+type WorkspacePrizegivingPreviewRequest struct {
+	CeremonySessionID int
+	Mode              PrizegivingPreviewMode
 }
 
 // WorkspaceEvent is the Event identity and locale needed for Results work.
@@ -48,9 +62,11 @@ type WorkspaceEntry struct {
 
 // WorkspacePrizegiving combines one Ceremony with its optional designation.
 type WorkspacePrizegiving struct {
-	Session    WorkspaceSession
-	Designated bool
-	Plan       PrizegivingPlan
+	Session         WorkspaceSession
+	Designated      bool
+	Plan            PrizegivingPlan
+	Preview         *PrizegivingPreview
+	PreviewFindings []PrizegivingPreflightFinding
 }
 
 // WorkspaceCorrection contains current correction and immutable publication state.
@@ -68,22 +84,22 @@ type WorkspaceCorrection struct {
 func (service *Service) Workspace(
 	ctx context.Context,
 	actor auth.Account,
-	eventID int,
+	request WorkspaceRequest,
 ) (Workspace, error) {
-	if eventID <= 0 {
+	if request.EventID <= 0 {
 		return Workspace{}, ErrInvalidInput
 	}
-	if !actor.HasCapability(eventID, viewer.ViewResults) {
+	if !actor.HasCapability(request.EventID, viewer.ViewResults) {
 		return Workspace{}, ErrViewRequired
 	}
 	event, err := service.storage.FindCrewEvent(
-		actor.Context(ctx), actor.ID, eventID,
+		actor.Context(ctx), actor.ID, request.EventID,
 	)
 	if err != nil {
 		return Workspace{}, err
 	}
 	crewRundown, err := service.storage.LoadCrewRundown(
-		actor.Context(ctx), eventID,
+		actor.Context(ctx), request.EventID,
 	)
 	if err != nil {
 		return Workspace{}, err
@@ -101,7 +117,7 @@ func (service *Service) Workspace(
 		switch session.Type {
 		case "Competition":
 			found, loadErr := service.workspaceCompetition(
-				ctx, actor, eventID, workspaceSession,
+				ctx, actor, request.EventID, workspaceSession,
 			)
 			if loadErr != nil {
 				return Workspace{}, loadErr
@@ -109,7 +125,7 @@ func (service *Service) Workspace(
 			workspace.Competitions = append(workspace.Competitions, found)
 		case "Ceremony":
 			plan, loadErr := service.GetPrizegivingPlan(
-				ctx, actor, eventID, session.ID,
+				ctx, actor, request.EventID, session.ID,
 			)
 			if errors.Is(loadErr, ErrPrizegivingSession) {
 				workspace.Prizegivings = append(
@@ -141,11 +157,89 @@ func (service *Service) Workspace(
 		workspace.Competitions[index].AssignedPrizegivingID =
 			assignments[workspace.Competitions[index].Session.ID]
 	}
-	workspace.EventAwards, err = service.GetEventAwards(ctx, actor, eventID)
+	workspace.EventAwards, err = service.GetEventAwards(
+		ctx,
+		actor,
+		request.EventID,
+	)
 	if err != nil {
 		return Workspace{}, err
 	}
+	if request.EventAwardsPreflight {
+		preflight, preflightErr := service.PreflightStandaloneEventAwards(
+			ctx,
+			actor,
+			request.EventID,
+		)
+		if preflightErr != nil {
+			return Workspace{}, preflightErr
+		}
+		workspace.EventAwardsPreflight = &preflight
+	}
+	if request.PrizegivingPreview != nil {
+		if err := service.loadWorkspacePrizegivingPreview(
+			ctx,
+			actor,
+			request.EventID,
+			request.PrizegivingPreview,
+			&workspace,
+		); err != nil {
+			return Workspace{}, err
+		}
+	}
 	return workspace, nil
+}
+
+func (service *Service) loadWorkspacePrizegivingPreview(
+	ctx context.Context,
+	actor auth.Account,
+	eventID int,
+	request *WorkspacePrizegivingPreviewRequest,
+	workspace *Workspace,
+) error {
+	if request.CeremonySessionID <= 0 ||
+		request.Mode != PrizegivingPreviewModePreview &&
+			request.Mode != PrizegivingPreviewModeRehearsal {
+		return ErrInvalidInput
+	}
+	index := -1
+	for candidate := range workspace.Prizegivings {
+		if workspace.Prizegivings[candidate].Session.ID == request.CeremonySessionID {
+			index = candidate
+			break
+		}
+	}
+	if index < 0 {
+		return ErrInvalidInput
+	}
+	preview, err := service.PreviewPrizegiving(
+		ctx,
+		actor,
+		eventID,
+		request.CeremonySessionID,
+		request.Mode,
+	)
+	switch {
+	case err == nil:
+		workspace.Prizegivings[index].Preview = &preview
+		return nil
+	case errors.Is(err, ErrPrizegivingPreflightRequired):
+		workspace.Prizegivings[index].PreviewFindings =
+			[]PrizegivingPreflightFinding{prizegivingFinding(
+				"prizegiving_preflight_required",
+				err.Error(),
+			)}
+		return nil
+	case errors.Is(err, ErrPrizegivingSession):
+		workspace.Prizegivings[index].PreviewFindings =
+			[]PrizegivingPreflightFinding{prizegivingFinding(
+				"prizegiving_session_not_found",
+				err.Error(),
+			)}
+		return nil
+	default:
+		return err
+	}
 }
 
 func (service *Service) workspaceCompetition(
