@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/dotwaffle/beamers/internal/displayviews"
+	"github.com/dotwaffle/beamers/internal/publictime"
 	"github.com/dotwaffle/beamers/internal/stagetimer"
 	"github.com/dotwaffle/beamers/internal/themevalue"
 )
@@ -184,7 +185,9 @@ func TestDisplayPageServerRendersStageTimerState(t *testing.T) {
 		"Closing Keynote",
 		"Remaining",
 		"00:30",
-		`data-timer-emphasis="urgent"`,
+		// The emphasis marks the Region, the same element client.js marks. On the
+		// inner block it framed a different box before and after a reconnect.
+		`data-widget="stage-timer" data-persistent="true" data-timer-emphasis="urgent"`,
 		"Urgent",
 		"Time adjusted: +5:00",
 		"data-timer-adjustment-notice",
@@ -193,4 +196,121 @@ func TestDisplayPageServerRendersStageTimerState(t *testing.T) {
 			t.Errorf("Stage Timer page missing %q: %s", want, rendered.String())
 		}
 	}
+}
+
+// TestDisplayPageMatchesTheClientRendererForRotationAndRanking pins the entry
+// document to the markup internal/displays/client.js produces. The two
+// renderers draw the same Display: the server paints it first and the client
+// repaints it after every reconnect, so any disagreement shows up as content
+// that shifts once a kiosk reconnects.
+func TestDisplayPageMatchesTheClientRendererForRotationAndRanking(t *testing.T) {
+	t.Parallel()
+
+	sessions := []Session{
+		{
+			Title:                 "Opening Keynote",
+			Lifecycle:             "Live",
+			PresentedStartLabel:   publictime.LabelActualStart,
+			PresentedEndLabel:     publictime.LabelForecastEnd,
+			PresentedStart:        time.Date(2099, 8, 21, 8, 0, 0, 0, time.UTC),
+			PresentedEnd:          time.Date(2099, 8, 21, 9, 0, 0, 0, time.UTC),
+			DisplayPresentedStart: "08:00",
+			DisplayPresentedEnd:   "09:00",
+		},
+		{
+			Title:                 "Second Session",
+			Lifecycle:             "Scheduled",
+			PresentedStartLabel:   publictime.LabelForecastStart,
+			PresentedEndLabel:     publictime.LabelForecastEnd,
+			PresentedStart:        time.Date(2099, 8, 21, 9, 30, 0, 0, time.UTC),
+			PresentedEnd:          time.Date(2099, 8, 21, 10, 0, 0, 0, time.UTC),
+			DisplayPresentedStart: "09:30",
+			DisplayPresentedEnd:   "10:00",
+		},
+	}
+	rendered := renderLocationSignage(t, sessions)
+
+	// The client shows one rotation page and hides the rest. A server document
+	// that showed every page at once would stack the whole Event on first paint
+	// and then collapse when the client booted.
+	if visible := strings.Count(rendered, `data-rotation-page data-slot="rotation"`); visible != 1 {
+		t.Errorf("visible rotation pages = %d, want 1: %s", visible, rendered)
+	}
+	if collapsed := strings.Count(rendered, `data-rotation-page hidden data-slot="rotation"`); collapsed != 1 {
+		t.Errorf("hidden rotation pages = %d, want 1: %s", collapsed, rendered)
+	}
+	for _, want := range []string{`data-slot="now"`, `data-slot="next"`} {
+		if !strings.Contains(rendered, want) {
+			t.Errorf("Now / Next Region missing %q: %s", want, rendered)
+		}
+	}
+
+	// An empty rotation explains itself rather than leaving the Region blank.
+	empty := renderLocationSignage(t, nil)
+	if !strings.Contains(empty, "No public Event information is currently scheduled.") {
+		t.Errorf("empty rotation Region has no explanation: %s", empty)
+	}
+}
+
+// TestStageTimerBrandingOmitsTheLocationLine keeps the branding Region aligned
+// with the client renderer, which reports the Location only on Event Overview.
+// Location Signage carries its own Location Region, and a Stage Timer serves a
+// presenter who is standing in the room already.
+func TestStageTimerBrandingOmitsTheLocationLine(t *testing.T) {
+	t.Parallel()
+
+	composition, err := displayviews.Compose(
+		displayviews.StageTimer,
+		false,
+		displayviews.DefaultConfiguration(),
+	)
+	if err != nil {
+		t.Fatalf("compose Stage Timer Display: %v", err)
+	}
+	var rendered strings.Builder
+	err = DisplayPage(Snapshot{
+		ProtocolVersion: "beamers.display.v1",
+		AssetVersion:    "test-asset",
+		ServerTime:      time.Date(2099, 8, 21, 8, 0, 0, 0, time.UTC),
+		Display:         Display{Name: "Test Display"},
+		EventName:       "Test Event",
+		LocationName:    "Main Hall",
+		ViewKey:         displayviews.StageTimer,
+		Composition:     composition,
+	}).Render(context.Background(), &rendered)
+	if err != nil {
+		t.Fatalf("render Stage Timer Display: %v", err)
+	}
+	if strings.Contains(rendered.String(), "Location: Main Hall") {
+		t.Errorf("Stage Timer branding reported the Location: %s", rendered.String())
+	}
+}
+
+func renderLocationSignage(t *testing.T, sessions []Session) string {
+	t.Helper()
+
+	composition, err := displayviews.Compose(
+		displayviews.LocationSignage,
+		false,
+		displayviews.DefaultConfiguration(),
+	)
+	if err != nil {
+		t.Fatalf("compose Location Signage Display: %v", err)
+	}
+	var rendered strings.Builder
+	err = DisplayPage(Snapshot{
+		ProtocolVersion: "beamers.display.v1",
+		AssetVersion:    "test-asset",
+		ServerTime:      time.Date(2099, 8, 21, 8, 0, 0, 0, time.UTC),
+		Display:         Display{Name: "Test Display"},
+		EventName:       "Test Event",
+		LocationName:    "Main Hall",
+		ViewKey:         displayviews.LocationSignage,
+		Composition:     composition,
+		Sessions:        sessions,
+	}).Render(context.Background(), &rendered)
+	if err != nil {
+		t.Fatalf("render Location Signage Display: %v", err)
+	}
+	return rendered.String()
 }

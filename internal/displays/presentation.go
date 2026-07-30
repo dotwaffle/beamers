@@ -66,6 +66,37 @@ func stageMessageLabel(emphasis string) string {
 	}
 }
 
+// displayRegionAttributes marks a Region with the Stage Timer's emphasis.
+//
+// internal/displays/client.js sets these on the Region, but the entry document
+// used to set them on a wrapper inside it. The emphasis rules match either
+// element, so the outline framed the timer block on first paint and the whole
+// Region after a reconnect. The wrapper is gone and both renderers now mark the
+// Region.
+func displayRegionAttributes(snapshot Snapshot, widget string) templ.Attributes {
+	if widget != displayviews.WidgetStageTimer {
+		return nil
+	}
+	timer, ok := displayStageTimer(snapshot)
+	if !ok {
+		return nil
+	}
+	return templ.Attributes{
+		"data-timer-emphasis": timer.Emphasis,
+		"data-timer-overtime": displayPersistent(timer.Overtime),
+	}
+}
+
+// displayNowNextSlot ranks the two Sessions a Now / Next Region shows. The rank
+// drives presentation only: read from across a room, two equally weighted
+// Sessions leave the viewer working out which one is actually running.
+func displayNowNextSlot(index int) string {
+	if index == 0 {
+		return "now"
+	}
+	return "next"
+}
+
 func displayNowNext(sessions []Session) []Session {
 	result := make([]Session, 0, len(sessions))
 	for _, session := range sessions {

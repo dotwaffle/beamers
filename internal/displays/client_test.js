@@ -151,6 +151,10 @@ test("rotation advances configured pages without replacing persistent regions", 
   const clock = committedFrame.children[2];
   assert.equal(rotation.children[0].hidden, false);
   assert.equal(rotation.children[1].hidden, true);
+  // The server document marks rotation pages the same way, so a reconnect
+  // repaints the Region without shifting its presentation.
+  assert.equal(rotation.children[0].dataset.slot, "rotation");
+  assert.equal(rotation.children[1].dataset.slot, "rotation");
 
   await browser.runTimer((delay) => delay === 30000);
   assert.equal(browser.document.main, committedFrame);
@@ -674,6 +678,10 @@ test("display styles preserve content changes while reducing motion", () => {
   assert.match(stylesheet, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(stylesheet, /transition-duration: 0\.01ms/);
   assert.match(stylesheet, /@media \(min-aspect-ratio: 8\/5\)/);
+  // The ranking the client applies to Now / Next has to be styled, or the
+  // dataset marker is inert and both Sessions read as equally current.
+  assert.match(stylesheet, /\[data-slot="now"\]/);
+  assert.match(stylesheet, /\[data-slot="next"\]/);
 });
 
 test("Event Theme variants survive Display snapshot rendering", async () => {

@@ -496,20 +496,24 @@ function renderWidget(region, widget, snapshot, theme, candidateClockReference) 
     appendHeading(region, snapshot.locationName);
     appendParagraph(region, "Location Signage");
     return;
-  case "now-next":
+  case "now-next": {
     appendHeading(region, "Now / Next", 2);
-    for (const session of (snapshot.sessions ?? [])
+    const upcoming = (snapshot.sessions ?? [])
       .filter((candidate) => candidate.lifecycle !== "Canceled")
-      .slice(0, 2)) {
+      .slice(0, 2);
+    for (const [index, session] of upcoming.entries()) {
       const article = document.createElement("article");
+      article.dataset.slot = index === 0 ? "now" : "next";
       renderSession(article, snapshot, session);
       region.append(article);
     }
     return;
+  }
   case "rotation":
     for (const session of snapshot.sessions ?? []) {
       const article = document.createElement("article");
       article.dataset.rotationPage = "true";
+      article.dataset.slot = "rotation";
       article.hidden = region.children.length > 0;
       renderSession(article, snapshot, session);
       region.append(article);

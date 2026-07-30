@@ -178,16 +178,22 @@ templ DisplayPage(snapshot Snapshot) {
 }
 
 templ displayRegion(snapshot Snapshot, name string, widget string, persistent bool) {
-	<section class="display-region" data-region={ name } data-widget={ widget } data-persistent={ displayPersistent(persistent) }>
+	<section
+		class="display-region"
+		data-region={ name }
+		data-widget={ widget }
+		data-persistent={ displayPersistent(persistent) }
+		{ displayRegionAttributes(snapshot, widget)... }
+	>
 		if widget == "branding" {
 			if snapshot.Standby {
 				<p>{ displayBranding(snapshot) }</p>
 			} else {
-					<h1>{ displayBranding(snapshot) }</h1>
+				<h1>{ displayBranding(snapshot) }</h1>
+				if snapshot.ViewKey == "event-overview" {
+					<p>Event Overview</p>
 					<p>Location: { snapshot.LocationName }</p>
-					if snapshot.ViewKey == "event-overview" {
-						<p>Event Overview</p>
-					}
+				}
 			}
 		} else if widget == "standby" {
 			<h1>Standby</h1>
@@ -203,29 +209,30 @@ templ displayRegion(snapshot Snapshot, name string, widget string, persistent bo
 			<h2>Now / Next</h2>
 			for index, session := range displayNowNext(snapshot.Sessions) {
 				if index < 2 {
-					@displaySessionRegion(snapshot, session, false)
+					@displaySessionRegion(snapshot, session, false, false, displayNowNextSlot(index))
 				}
 			}
 		} else if widget == "rotation" {
-			for _, session := range snapshot.Sessions {
-				@displaySessionRegion(snapshot, session, true)
+			for index, session := range snapshot.Sessions {
+				@displaySessionRegion(snapshot, session, true, index > 0, "rotation")
+			}
+			if len(snapshot.Sessions) == 0 {
+				<p>No public Event information is currently scheduled.</p>
 			}
 		} else if widget == "clock" {
 			<time data-display-clock datetime={ snapshot.ServerTime.Format("2006-01-02T15:04:05Z07:00") }>{ snapshot.ServerTime.Format("15:04") }</time>
 		} else if widget == "stage-timer" {
 			if timer, ok := displayStageTimer(snapshot); ok {
-				<div data-timer-emphasis={ timer.Emphasis } data-timer-overtime={ displayPersistent(timer.Overtime) }>
-					<h2>{ timer.Title }</h2>
-					<p>{ timer.Direction }</p>
-					<time data-stage-timer-clock datetime={ timer.Anchor.Format("2006-01-02T15:04:05Z07:00") }>{ timer.Text }</time>
-					<p data-timer-emphasis-label>{ timer.EmphasisLabel }</p>
-					if timer.AdjustmentNotice != "" && snapshot.ServerTime.Before(timer.AdjustmentNoticeExpiresAt) {
-						<p data-timer-adjustment-notice data-expires-at={ timer.AdjustmentNoticeExpiresAt.Format("2006-01-02T15:04:05Z07:00") }>{ timer.AdjustmentNotice }</p>
-					}
-					if !timer.ForecastEnd.IsZero() {
-						<p>Forecast End: <time datetime={ timer.ForecastEnd.Format("2006-01-02T15:04:05Z07:00") }>{ timer.DisplayForecastEnd }</time></p>
-					}
-				</div>
+				<h2>{ timer.Title }</h2>
+				<p>{ timer.Direction }</p>
+				<time data-stage-timer-clock datetime={ timer.Anchor.Format("2006-01-02T15:04:05Z07:00") }>{ timer.Text }</time>
+				<p data-timer-emphasis-label>{ timer.EmphasisLabel }</p>
+				if timer.AdjustmentNotice != "" && snapshot.ServerTime.Before(timer.AdjustmentNoticeExpiresAt) {
+					<p data-timer-adjustment-notice data-expires-at={ timer.AdjustmentNoticeExpiresAt.Format("2006-01-02T15:04:05Z07:00") }>{ timer.AdjustmentNotice }</p>
+				}
+				if !timer.ForecastEnd.IsZero() {
+					<p>Forecast End: <time datetime={ timer.ForecastEnd.Format("2006-01-02T15:04:05Z07:00") }>{ timer.DisplayForecastEnd }</time></p>
+				}
 			} else {
 				<h2>Stage Timer</h2>
 				<p>No Session is live at this Location.</p>
@@ -241,8 +248,14 @@ templ displayRegion(snapshot Snapshot, name string, widget string, persistent bo
 	</section>
 }
 
-templ displaySessionRegion(snapshot Snapshot, session Session, rotationPage bool) {
-	<article data-rotation-page?={ rotationPage }>
+templ displaySessionRegion(
+	snapshot Snapshot,
+	session Session,
+	rotationPage bool,
+	collapsed bool,
+	slot string,
+) {
+	<article data-rotation-page?={ rotationPage } hidden?={ collapsed } data-slot={ slot }>
 		if session.Unavailable {
 			<p>{ session.AvailabilityMessage }</p>
 		} else {

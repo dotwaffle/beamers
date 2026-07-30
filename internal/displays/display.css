@@ -234,6 +234,22 @@ body {
 	text-transform: uppercase;
 }
 
+/* Now outranks Next. A Location Signage panel is read from across a room, where
+ * two equally weighted Sessions leave the viewer working out which one is
+ * actually running. Rotation pages keep the base size: each is shown alone, so
+ * there is nothing for them to outrank. */
+.display-region [data-slot="now"] h3 {
+	font-size: var(--display-text-h2);
+}
+
+.display-region [data-slot="next"] {
+	opacity: 0.85;
+}
+
+.display-region [data-slot="next"] h3 {
+	font-size: var(--display-text-lead);
+}
+
 /* A clock or a Session boundary is read as digits, so it must not reflow as the
  * numerals change. */
 .display-region time {
