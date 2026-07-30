@@ -1,0 +1,125 @@
+package frontend
+
+import (
+	"strconv"
+
+	"github.com/dotwaffle/beamers/internal/rundown"
+)
+
+// Badge renders one status pill. The tone selects the visual treatment, and the
+// label always states the condition in words: color is never the only cue, so a
+// badge stays readable in greyscale and under forced colors. See ADR 0032.
+templ Badge(tone, label string) {
+	<span class="badge" data-tone={ tone }>{ label }</span>
+}
+
+// StateAxes renders a Session's publication, lifecycle, and Audience Visibility
+// as three separate badges. ADR 0022 keeps the axes independent, so a Published,
+// Crew Only soundcheck that has gone Live reports all three facts rather than
+// collapsing them into one indicator that could only describe some of them.
+templ StateAxes(
+	published bool,
+	lifecycle rundown.SessionLifecycle,
+	visibility rundown.AudienceVisibility,
+) {
+	<span class="state-axes">
+		@Badge(publicationTone(published), publicationLabel(published))
+		@Badge(lifecycleTone(lifecycle), string(lifecycle))
+		@Badge(visibilityTone(visibility), visibilityLabel(visibility))
+	</span>
+}
+
+// Metric renders one labeled figure. The description list keeps the label bound
+// to its value for a screen reader, which a pair of styled spans would not.
+templ Metric(label, value string) {
+	<dl class="metric">
+		<dt>{ label }</dt>
+		<dd>{ value }</dd>
+	</dl>
+}
+
+// EmptyState explains an absence in place of the content that would otherwise
+// appear. An unstyled sentence reads as an error next to populated Regions.
+templ EmptyState(message string) {
+	<p class="empty">{ message }</p>
+}
+
+// publicationLabel names the publication axis. Published is stated explicitly
+// rather than implied by the absence of a Draft badge.
+func publicationLabel(published bool) string {
+	if published {
+		return "Published"
+	}
+	return "Draft"
+}
+
+func publicationTone(published bool) string {
+	if published {
+		return "neutral"
+	}
+	return "draft"
+}
+
+// lifecycleTone maps runtime lifecycle onto a tone. Scheduled is deliberately
+// neutral: it is the ordinary condition, and toning it would leave Live with no
+// remaining emphasis to claim.
+func lifecycleTone(lifecycle rundown.SessionLifecycle) string {
+	switch lifecycle {
+	case rundown.SessionLive:
+		return "live"
+	case rundown.SessionEnded:
+		return "ended"
+	case rundown.SessionCanceled:
+		return "canceled"
+	default:
+		return "neutral"
+	}
+}
+
+// sessionAnchorID names a rundown row so it can be linked to directly.
+func sessionAnchorID(sessionID int) string {
+	return "session-" + strconv.Itoa(sessionID)
+}
+
+// liveSessionAnchor locates the Live Session, or returns an empty string when no
+// Session is running. Ontime's lesson is that automatic following has to be
+// recoverable, and a plain in-page anchor recovers it without any JavaScript.
+func liveSessionAnchor(sessions []rundown.CrewSession) templ.SafeURL {
+	for _, session := range sessions {
+		if session.Lifecycle == rundown.SessionLive {
+			return templ.SafeURL("#" + sessionAnchorID(session.ID))
+		}
+	}
+	return ""
+}
+
+// rundownRowState drives the inline-start signal bar on a rundown row, so the
+// Live Session stays findable while scrolling a long list. It reports lifecycle
+// only: due and late are derived timing labels rather than lifecycle states, and
+// conflating them here would make a Scheduled Session claim to be running.
+func rundownRowState(lifecycle rundown.SessionLifecycle) string {
+	switch lifecycle {
+	case rundown.SessionLive:
+		return "live"
+	case rundown.SessionEnded:
+		return "ended"
+	case rundown.SessionCanceled:
+		return "canceled"
+	default:
+		return "scheduled"
+	}
+}
+
+func visibilityLabel(visibility rundown.AudienceVisibility) string {
+	if visibility == rundown.AudienceCrewOnly {
+		return "Crew Only"
+	}
+	return "Public"
+}
+
+func visibilityTone(visibility rundown.AudienceVisibility) string {
+	if visibility == rundown.AudienceCrewOnly {
+		return "crew"
+	}
+	return "neutral"
+}

@@ -88,9 +88,19 @@ templ Operations(page OperationsPage) {
 					@ErrorSummary(page.Errors)
 					<section>
 						<h2>Sessions</h2>
+						if liveSessionAnchor(page.Rundown.Sessions) != "" {
+							<a class="follow-live" href={ liveSessionAnchor(page.Rundown.Sessions) }>Jump to the Live Session</a>
+						}
 						for _, session := range page.Rundown.Sessions {
-							<article>
-								<h3>{ session.Title }</h3>
+							<article
+								id={ sessionAnchorID(session.ID) }
+								class="rundown-row stack"
+								data-row-state={ rundownRowState(session.Lifecycle) }
+							>
+								<div class="split">
+									<h3>{ session.Title }</h3>
+									@StateAxes(page.Rundown.PublishedRevision > 0, session.Lifecycle, session.AudienceVisibility)
+								</div>
 								<p>{ session.Lifecycle } · revision { strconv.Itoa(session.LiveStateRevision) }</p>
 								if session.Lifecycle == rundown.SessionScheduled && page.OperableSessionIDs[session.ID] {
 									@sessionOperationForm(page, session, "start-session", "Start Session")
@@ -471,7 +481,7 @@ templ cancelSessionForm(page OperationsPage, session rundown.CrewSession) {
 			Confirm cancellation
 		</label>
 		@FieldError(page.Errors, OperationFieldID("cancel-session", session.ID, "confirmed"))
-		<button type="submit">Cancel Session</button>
+		<button class="btn-destructive" type="submit">Cancel Session</button>
 	</form>
 }
 

@@ -66,7 +66,7 @@ templ Control(page ControlPage) {
 					<section>
 						<h2>Program Output</h2>
 						if len(page.Sessions) == 0 {
-							<p>No Program Channels are available in your Lane scope.</p>
+							@EmptyState("No Program Channels are available in your Lane scope.")
 						} else {
 							<ul>
 								for _, session := range page.Sessions {
@@ -88,11 +88,14 @@ templ Control(page ControlPage) {
 						<section>
 							<h2>Active Overrides</h2>
 							if len(page.Active) == 0 {
-								<p>No active Overrides.</p>
+								@EmptyState("No active Overrides.")
 							} else {
 								for _, active := range page.Active {
-									<article>
-										<h3>{ string(active.Kind) }</h3>
+									<article class="stack">
+										<div class="split">
+											<h3>{ string(active.Kind) }</h3>
+											@Badge(overrideTone(active.Kind), string(active.Presentation))
+										</div>
 										<p>{ active.Text }</p>
 										<p>{ string(active.Presentation) } · { string(active.Target.Type) }</p>
 										@ResolvedDisplays(active.Displays)
@@ -308,6 +311,20 @@ func emergencyConfirmationPath(eventID int) templ.SafeURL {
 func emergencyClearConfirmationPath(eventID, overrideID int) templ.SafeURL {
 	return templ.SafeURL("/crew/events/" + strconv.Itoa(eventID) +
 		"/overrides/" + strconv.Itoa(overrideID) + "/clear-confirmation")
+}
+
+// overrideTone grades an active Override by how much of the Display it claims.
+// Emergency Alert is a persistent fullscreen Replace supplementing the venue
+// emergency system, so it is the only kind that earns the danger tone.
+func overrideTone(kind store.DisplayOverrideKind) string {
+	switch kind {
+	case store.DisplayOverrideEmergencyAlert:
+		return "danger"
+	case store.DisplayOverrideTechnicalDifficulties, store.DisplayOverrideUrgentNotice:
+		return "warning"
+	default:
+		return "neutral"
+	}
 }
 
 func controlValue(page ControlPage, action, value string) string {
