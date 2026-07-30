@@ -103,6 +103,17 @@ func (handlers eventThemeHandlers) submit(
 			eventThemeAdministrationPath(eventID, created.ID),
 			http.StatusSeeOther,
 		)
+	case "load-preset":
+		config, ok := themevalue.PresetConfig(request.Form.Get("preset"))
+		if !ok {
+			handlers.render(
+				response, request, actor, eventID, csrfToken, 0,
+				http.StatusBadRequest, "Select a bundled Theme Preset and try again.",
+			)
+			return
+		}
+		applyThemeConfig(request.Form, config)
+		handlers.render(response, request, actor, eventID, csrfToken, 0, http.StatusOK, "")
 	case "activate":
 		revisionID, revisionErr := nonnegativeThemeID(request.Form.Get("revision_id"))
 		expectedID, expectedErr := nonnegativeThemeID(
@@ -224,14 +235,16 @@ func (handlers eventThemeHandlers) render(
 func validateEventThemeForm(form url.Values) error {
 	allowed := map[string]bool{
 		"csrf_token": true, "action": true, "command_id": true,
-		"revision_id": true, "expected_active_revision_id": true,
+		"revision_id": true, "expected_active_revision_id": true, "preset": true,
 		"brand_asset": true, "background_color": true, "surface_color": true,
 		"border_color": true, "text_color": true, "muted_color": true,
 		"accent_color": true, "link_color": true, "focus_color": true,
+		"live_color": true, "warning_color": true,
+		"danger_color": true, "success_color": true,
 		"background": true, "typeface": true, "transition": true,
 		"effect": true, "motion": true,
 	}
-	for _, variant := range eventThemeVariantNames() {
+	for _, variant := range themevalue.EventVariants() {
 		allowed[variant+"_accent_color"] = true
 		allowed[variant+"_motion"] = true
 	}
@@ -245,7 +258,7 @@ func validateEventThemeForm(form url.Values) error {
 
 func eventThemeConfig(form url.Values) themevalue.EventConfig {
 	config := themevalue.EventConfig{Overrides: themeConfig(form)}
-	for _, variant := range eventThemeVariantNames() {
+	for _, variant := range themevalue.EventVariants() {
 		overrides := themevalue.Config{
 			AccentColor: form.Get(variant + "_accent_color"),
 			Motion:      form.Get(variant + "_motion"),
@@ -260,15 +273,6 @@ func eventThemeConfig(form url.Values) themevalue.EventConfig {
 	return config
 }
 
-func eventThemeVariantNames() []string {
-	return []string{
-		themevalue.VariantCompetitionOutput,
-		themevalue.VariantEventOverview,
-		themevalue.VariantLocationSignage,
-		themevalue.VariantStandby,
-	}
-}
-
 func eventThemeValidation(form url.Values) (string, *themevalue.ValidationError) {
 	config := eventThemeConfig(form)
 	if _, err := themevalue.ResolveEvent(themevalue.DefaultConfig(), config, ""); err != nil {
@@ -277,7 +281,7 @@ func eventThemeValidation(form url.Values) (string, *themevalue.ValidationError)
 			return validation.Field, validation
 		}
 	}
-	for _, variant := range eventThemeVariantNames() {
+	for _, variant := range themevalue.EventVariants() {
 		if _, configured := config.Variants[variant]; !configured {
 			continue
 		}

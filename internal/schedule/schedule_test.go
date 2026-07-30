@@ -72,18 +72,19 @@ func TestGroupScheduleDaysMarksFirstVisibleRollover(t *testing.T) {
 	}
 }
 
-func TestFormatEventTimeUsesEventLocale(t *testing.T) {
+func TestFormatEventTimeIsLocaleIndependent(t *testing.T) {
 	zone, err := time.LoadLocation("Europe/Berlin")
 	if err != nil {
 		t.Fatalf("load timezone: %v", err)
 	}
 	value := time.Date(2026, 8, 22, 13, 5, 0, 0, zone)
 
-	if got := formatEventTime(value, "en-US"); got != "Aug 22, 2026 1:05 PM CEST" {
-		t.Errorf("en-US Event time = %q", got)
-	}
-	if got := formatEventTime(value, "de-DE"); got != "22 Aug 2026 13:05 CEST" {
-		t.Errorf("de-DE Event time = %q", got)
+	// The format no longer follows the locale. A 12-hour clock and a month-first
+	// date are exactly what an attendee reading a Schedule for another country
+	// misreads, so every Event renders the same unambiguous instant.
+	const want = "2026-08-22 13:05 CEST"
+	if got := formatEventTime(value); got != want {
+		t.Errorf("Event time = %q, want %q", got, want)
 	}
 }
 

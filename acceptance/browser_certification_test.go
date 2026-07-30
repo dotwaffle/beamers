@@ -2249,8 +2249,8 @@ func certifyDemoBrowserJourneys(
 	evidence := []browserPageEvidence{
 		certifyInteractivePage(t, driver, origin+"/", "demo-anonymous"),
 	}
-	clickBrowserLink(t, driver, "BeamParty 2099", "/events/beamparty-2099")
-	clickBrowserLink(t, driver, "Event Results", "/events/beamparty-2099/results")
+	clickBrowserLink(t, driver, "BeamParty Demo", "/events/beamparty-demo")
+	clickBrowserLink(t, driver, "Event Results", "/events/beamparty-demo/results")
 	focusKeyboardControl(t, driver, "demo-results")
 	resultsEvidence, err := driver.auditPage(t.Context(), "demo-results")
 	if err != nil {
@@ -2287,7 +2287,7 @@ func certifyDemoBrowserJourneys(
 			"attendee", "/my-participation", "demo-submission", false,
 			[]journeyLink{
 				{"My Participation", "/my-participation"},
-				{"View Competition", "/events/beamparty-2099/competitions/2"},
+				{"View Competition", "/events/beamparty-demo/competitions/2"},
 				{"Manage My Entry", "/my-participation"},
 			},
 		},
@@ -2493,7 +2493,8 @@ func certifyDemoBrowserJourneys(
 		case "demo-submission":
 			if err = driver.execute(
 				t.Context(),
-				`const form = document.querySelector('form input[name="entry_name"]').form;`+
+				`const form = document.querySelector(`+
+					`'form input[name="action"][value="create"]').form;`+
 					`form.elements.entry_name.value = "Browser Certified Entry";`+
 					`form.requestSubmit();`,
 			); err != nil {
@@ -2540,11 +2541,20 @@ func certifyFrontendTheme(
 ) browserPageEvidence {
 	t.Helper()
 	evidence := certifyInteractivePage(t, driver, origin+"/", "frontend")
+	if err := driver.execute(
+		t.Context(),
+		`document.fonts.load('16px "Open Sans"');`+
+			`document.fonts.load('400 16px "Chakra Petch"');`+
+			`document.fonts.load('700 16px "Chakra Petch"');`,
+	); err != nil {
+		t.Fatalf("request bundled Frontend fonts: %v", err)
+	}
 	if err := driver.waitFor(
 		t.Context(),
 		10*time.Second,
 		`return document.fonts.status === "loaded" && `+
 			`document.fonts.check('16px "Open Sans"') && `+
+			`document.fonts.check('400 16px "Chakra Petch"') && `+
 			`document.fonts.check('700 16px "Chakra Petch"');`,
 	); err != nil {
 		t.Fatalf("load bundled Frontend fonts: %v", err)
@@ -2554,12 +2564,15 @@ func certifyFrontendTheme(
 		`const body = getComputedStyle(document.body);`+
 			`const heading = getComputedStyle(document.querySelector("h1"));`+
 			`const stars = getComputedStyle(document.body, "::before");`+
+			`const duration = stars.animationDuration.split(",")[0].trim();`+
+			`const durationMS = duration.endsWith("ms") ? `+
+			`Number.parseFloat(duration) : Number.parseFloat(duration) * 1000;`+
 			`const pause = [...document.querySelectorAll("button")].find(`+
 			`(button) => button.textContent.trim() === "Pause effects");`+
 			`return body.fontFamily.includes("Open Sans") && `+
-			`heading.fontFamily.includes("Chakra Petch") && `+
+			`heading.fontFamily.includes("Open Sans") && `+
 			`matchMedia("(prefers-reduced-motion: reduce)").matches && `+
-			`Number.parseFloat(stars.animationDuration) === 0 && `+
+			`Number.isFinite(durationMS) && durationMS <= 0.01 && `+
 			`Boolean(pause) && pause.getAttribute("aria-pressed") === "false";`,
 	)
 	if err != nil || !themeReady {

@@ -151,6 +151,10 @@ test("rotation advances configured pages without replacing persistent regions", 
   const clock = committedFrame.children[2];
   assert.equal(rotation.children[0].hidden, false);
   assert.equal(rotation.children[1].hidden, true);
+  // The server document marks rotation pages the same way, so a reconnect
+  // repaints the Region without shifting its presentation.
+  assert.equal(rotation.children[0].dataset.slot, "rotation");
+  assert.equal(rotation.children[1].dataset.slot, "rotation");
 
   await browser.runTimer((delay) => delay === 30000);
   assert.equal(browser.document.main, committedFrame);
@@ -158,6 +162,56 @@ test("rotation advances configured pages without replacing persistent regions", 
   assert.equal(committedFrame.children[2], clock);
   assert.equal(rotation.children[0].hidden, true);
   assert.equal(rotation.children[1].hidden, false);
+});
+
+test("timeline renderer uses the projected Event-day geometry", async () => {
+  const suppressed = {
+    unavailable: true,
+    availabilityMessage: "Location unavailable until Aug 21, 2099 10:15 UTC",
+    forecastStart: "2099-08-21T09:45:00Z",
+    forecastEnd: "2099-08-21T10:15:00Z",
+    timelineDay: "2099-08-21",
+    timelineOffset: 7292,
+    timelineWidth: 2083,
+    timelineLane: 0,
+    timelineLaneCount: 1,
+  };
+  const browser = await startBrowser({
+    snapshot: displaySnapshot({
+      standby: false,
+      viewKey: "timeline",
+      composition: displayComposition({
+        key: "timeline",
+        regions: [
+          {name: "timeline", widget: "timeline", persistent: true},
+        ],
+      }),
+      sessions: [
+        {
+          ...displaySession("Opening Keynote"),
+          timelineDay: "2099-08-21",
+          timelineOffset: 1042,
+          timelineWidth: 6250,
+          timelineLane: 0,
+          timelineLaneCount: 1,
+        },
+        suppressed,
+      ],
+    }),
+  });
+
+  const day = browser.document.main.children[0].children[0].children[0];
+  assert.match(nodeText(day), /2099-08-21/);
+  const timeline = day.children[1];
+  assert.equal(timeline.className, "display-timeline");
+  assert.equal(timeline.children[0].style.properties.get("--display-offset"), "1042");
+  assert.equal(timeline.children[0].style.properties.get("--display-width"), "6250");
+  assert.equal(timeline.children[1].style.properties.get("--display-offset"), "7292");
+  assert.equal(timeline.children[1].style.properties.get("--display-width"), "2083");
+  // A suppressed span reports that it is taken, never the Session in it.
+  assert.equal(timeline.children[1].dataset.unavailable, "true");
+  assert.match(nodeText(timeline.children[1]), /Location unavailable until/);
+  assert.doesNotMatch(nodeText(timeline), /Private/);
 });
 
 test("live renderer uses server-selected public time labels", async () => {
@@ -324,6 +378,11 @@ test("Stage Timer advances from the synchronized monotonic clock into overtime",
   }
   assert.match(nodeText(region), /\+00:01/);
   assert.equal(browser.document.main.children[1], region);
+  assert.equal(
+    vm.runInContext("updateTimers.size", browser.context),
+    1,
+    "completed timer handles are not retained",
+  );
 });
 
 test("Stage Timer shows manual elapsed time and accessible threshold emphasis", async () => {
@@ -512,9 +571,10 @@ test("clock synchronization retains a good sample after a noisy refresh", async 
   );
 });
 
-test("Location Now Next excludes canceled Sessions without removing rotation content", async () => {
+test("Location Now Next excludes inactive Sessions without removing rotation content", async () => {
   const browser = await startBrowser({
     snapshot: displaySnapshot({
+      serverTime: "2099-08-21T09:00:00Z",
       standby: false,
       viewKey: "location-signage",
       composition: displayComposition({
@@ -526,17 +586,34 @@ test("Location Now Next excludes canceled Sessions without removing rotation con
       }),
       sessions: [
         {...displaySession("Canceled Session"), lifecycle: "Canceled"},
-        displaySession("Current Session"),
-        displaySession("Next Session"),
+        {
+          ...displaySession("Ended Session"),
+          lifecycle: "Ended",
+          forecastEnd: "2099-08-21T08:00:00Z",
+        },
+        {
+          ...displaySession("Past Session"),
+          forecastEnd: "2099-08-21T08:59:00Z",
+        },
+        {...displaySession("Current Session"), lifecycle: "Live"},
+        {
+          ...displaySession("Next Session"),
+          forecastStart: "2099-08-21T10:00:00Z",
+          forecastEnd: "2099-08-21T11:00:00Z",
+        },
       ],
     }),
   });
   const nowNext = browser.document.main.children[0];
   const rotation = browser.document.main.children[1];
   assert.doesNotMatch(nodeText(nowNext), /Canceled Session/);
+  assert.doesNotMatch(nodeText(nowNext), /Ended Session/);
+  assert.doesNotMatch(nodeText(nowNext), /Past Session/);
   assert.match(nodeText(nowNext), /Current Session/);
   assert.match(nodeText(nowNext), /Next Session/);
   assert.match(nodeText(rotation), /Canceled Session/);
+  assert.match(nodeText(rotation), /Ended Session/);
+  assert.match(nodeText(rotation), /Past Session/);
 });
 
 test("Display Overrides replace content, overlay Stage Messages, and acknowledge identities", async () => {
@@ -667,13 +744,17 @@ test("Emergency and Urgent priority compose above lower Overrides", async () => 
 });
 
 test("display styles preserve content changes while reducing motion", () => {
-  const template = fs.readFileSync(
-    new URL("./page.templ", `file://${__filename}`),
+  const stylesheet = fs.readFileSync(
+    new URL("./display.css", `file://${__filename}`),
     "utf8",
   );
-  assert.match(template, /@media \(prefers-reduced-motion: reduce\)/);
-  assert.match(template, /transition-duration: 0\.01ms/);
-  assert.match(template, /@media \(min-aspect-ratio: 8\/5\)/);
+  assert.match(stylesheet, /@media \(prefers-reduced-motion: reduce\)/);
+  assert.match(stylesheet, /transition-duration: 0\.01ms/);
+  assert.match(stylesheet, /@media \(min-aspect-ratio: 8\/5\)/);
+  // The ranking the client applies to Now / Next has to be styled, or the
+  // dataset marker is inert and both Sessions read as equally current.
+  assert.match(stylesheet, /\[data-slot="now"\]/);
+  assert.match(stylesheet, /\[data-slot="next"\]/);
 });
 
 test("Event Theme variants survive Display snapshot rendering", async () => {

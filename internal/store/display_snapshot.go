@@ -30,6 +30,7 @@ type DisplaySnapshotState struct {
 	ActiveEventID         int
 	EventName             string
 	EventTimezone         string
+	EventDayBoundary      string
 	DisplayConfiguration  string
 	ActivationGeneration  int
 	PublishedRevision     int
@@ -136,6 +137,7 @@ func (installationStore *SQLite) LoadDisplaySnapshot(
 	}
 	result.EventName = activeEvent.Name
 	result.EventTimezone = activeEvent.Timezone
+	result.EventDayBoundary = activeEvent.EventDayBoundary
 	result.DisplayConfiguration = activeEvent.DisplayConfiguration
 	published, err := installationStore.loadDisplayRundown(
 		internalContext,

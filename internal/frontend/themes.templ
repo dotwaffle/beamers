@@ -42,7 +42,8 @@ func ThemeFieldID(field string) string {
 }
 
 func (page ThemePage) value(field, fallback string) string {
-	if page.Form.Get("action") == "create-draft" {
+	switch page.Form.Get("action") {
+	case "create-draft", "load-preset":
 		if _, ok := page.Form[field]; ok {
 			return page.Form.Get(field)
 		}
@@ -69,7 +70,9 @@ func themePreviewStyle(config themevalue.Config) templ.SafeCSS {
 	return templ.SafeCSS(fmt.Sprintf(
 		"--preview-background:%s;--preview-surface:%s;--preview-border:%s;"+
 			"--preview-text:%s;--preview-muted:%s;--preview-accent:%s;"+
-			"--preview-link:%s;--preview-focus:%s;--preview-background-image:%s;"+
+			"--preview-link:%s;--preview-focus:%s;--preview-live:%s;"+
+			"--preview-warning:%s;--preview-danger:%s;--preview-success:%s;"+
+			"--preview-background-image:%s;"+
 			"--preview-heading-font:%s;--preview-body-font:\"Open Sans\",system-ui,sans-serif",
 		config.BackgroundColor,
 		config.SurfaceColor,
@@ -79,6 +82,10 @@ func themePreviewStyle(config themevalue.Config) templ.SafeCSS {
 		config.AccentColor,
 		config.LinkColor,
 		config.FocusColor,
+		config.LiveColor,
+		config.WarningColor,
+		config.DangerColor,
+		config.SuccessColor,
 		backgroundImage,
 		heading,
 	))
@@ -97,7 +104,22 @@ templ ThemeAdministration(page ThemePage) {
 					<p>Active: <strong>{ themeRevisionLabel(page.ActiveRevisionID) }</strong></p>
 					@ErrorSummary(page.Errors)
 					<section>
-						<h2>Edit a new Draft Theme Revision</h2>
+						<h2>Start from a bundled Theme Preset</h2>
+			<p>Selecting a Preset fills the Draft below with its values. Nothing is saved until you save the Draft, and every value stays editable first.</p>
+			<form class="stack" method="post" action="/backstage/themes">
+				<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+				<input type="hidden" name="action" value="load-preset"/>
+				<label>
+					Preset
+					<select id={ ThemeFieldID("preset") } name="preset">
+					for _, preset := range themevalue.Presets() {
+						<option value={ preset.Name } selected?={ page.Form.Get("preset") == preset.Name }>{ preset.Name } — { preset.Description }</option>
+					}
+					</select>
+				</label>
+				<button type="submit">Load Preset values</button>
+			</form>
+			<h2>Edit a new Draft Theme Revision</h2>
 						<p>Only these documented controls are accepted. Saving always creates a new immutable Revision.</p>
 						<form class="stack" method="post" action="/backstage/themes">
 							<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
@@ -119,6 +141,10 @@ templ ThemeAdministration(page ThemePage) {
 							@ThemeColor(page, "Accent color", "accent_color", page.Preview.Config.AccentColor)
 							@ThemeColor(page, "Link color", "link_color", page.Preview.Config.LinkColor)
 							@ThemeColor(page, "Focus color", "focus_color", page.Preview.Config.FocusColor)
+							@ThemeColor(page, "Live state color", "live_color", page.Preview.Config.LiveColor)
+							@ThemeColor(page, "Warning state color", "warning_color", page.Preview.Config.WarningColor)
+							@ThemeColor(page, "Danger state color", "danger_color", page.Preview.Config.DangerColor)
+							@ThemeColor(page, "Success state color", "success_color", page.Preview.Config.SuccessColor)
 							<label>
 								Background
 								<select id={ ThemeFieldID("background") } name="background" { page.Errors.Attributes(ThemeFieldID("background"))... }>

@@ -221,6 +221,25 @@ func (handlers themeHandlers) submit(
 			"/backstage/themes?revision="+strconv.Itoa(created.ID),
 			http.StatusSeeOther,
 		)
+	case "load-preset":
+		config, ok := themevalue.PresetConfig(request.Form.Get("preset"))
+		if !ok {
+			handlers.render(
+				response,
+				request,
+				actor,
+				csrfToken,
+				0,
+				http.StatusBadRequest,
+				"Select a bundled Theme Preset and try again.",
+			)
+			return
+		}
+		// Selection is an authoring convenience, not a separate presentation
+		// mode: the values land in the Draft form, every one stays editable, and
+		// nothing is stored until the Producer saves. See ADR 0057.
+		applyThemeConfig(request.Form, config)
+		handlers.render(response, request, actor, csrfToken, 0, http.StatusOK, "")
 	case "activate":
 		revisionID, revisionErr := nonnegativeThemeID(request.Form.Get("revision_id"))
 		expectedID, expectedErr := nonnegativeThemeID(
@@ -397,10 +416,12 @@ func themeFormErrors(
 func validateThemeForm(form url.Values) error {
 	allowed := map[string]bool{
 		"csrf_token": true, "action": true, "command_id": true,
-		"revision_id": true, "expected_active_revision_id": true,
+		"revision_id": true, "expected_active_revision_id": true, "preset": true,
 		"brand_asset": true, "background_color": true, "surface_color": true,
 		"border_color": true, "text_color": true, "muted_color": true,
 		"accent_color": true, "link_color": true, "focus_color": true,
+		"live_color": true, "warning_color": true,
+		"danger_color": true, "success_color": true,
 		"background": true, "typeface": true, "transition": true,
 		"effect": true, "motion": true,
 	}
@@ -410,6 +431,33 @@ func validateThemeForm(form url.Values) error {
 		}
 	}
 	return nil
+}
+
+// applyThemeConfig writes a Config into the Draft form fields. It is the inverse
+// of themeConfig, so a populated form round-trips to the same Config.
+func applyThemeConfig(form url.Values, config themevalue.Config) {
+	for field, value := range map[string]string{
+		"brand_asset":      config.BrandAsset,
+		"background_color": config.BackgroundColor,
+		"surface_color":    config.SurfaceColor,
+		"border_color":     config.BorderColor,
+		"text_color":       config.TextColor,
+		"muted_color":      config.MutedColor,
+		"accent_color":     config.AccentColor,
+		"link_color":       config.LinkColor,
+		"focus_color":      config.FocusColor,
+		"live_color":       config.LiveColor,
+		"warning_color":    config.WarningColor,
+		"danger_color":     config.DangerColor,
+		"success_color":    config.SuccessColor,
+		"background":       config.Background,
+		"typeface":         config.Typeface,
+		"transition":       config.Transition,
+		"effect":           config.Effect,
+		"motion":           config.Motion,
+	} {
+		form.Set(field, value)
+	}
 }
 
 func themeConfig(form url.Values) themevalue.Config {
@@ -423,6 +471,10 @@ func themeConfig(form url.Values) themevalue.Config {
 		AccentColor:     form.Get("accent_color"),
 		LinkColor:       form.Get("link_color"),
 		FocusColor:      form.Get("focus_color"),
+		LiveColor:       form.Get("live_color"),
+		WarningColor:    form.Get("warning_color"),
+		DangerColor:     form.Get("danger_color"),
+		SuccessColor:    form.Get("success_color"),
 		Background:      form.Get("background"),
 		Typeface:        form.Get("typeface"),
 		Transition:      form.Get("transition"),

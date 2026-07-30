@@ -32,16 +32,10 @@ func TestPublicEventLoadsItsResolvedTheme(t *testing.T) {
 	}
 }
 
-func TestPublicEventDateUsesEventLocale(t *testing.T) {
+func TestPublicEventDateUsesISOCalendarOrder(t *testing.T) {
 	t.Parallel()
 
-	for locale, want := range map[string]string{
-		"de-DE": "21.08.2099",
-		"en-GB": "21 Aug 2099",
-		"en-US": "Aug 21, 2099",
-	} {
-		if got := publicEventDate("2099-08-21", locale); got != want {
-			t.Errorf("public Event date for %s = %q; want %q", locale, got, want)
-		}
+	if got := publicEventDate("2099-08-21"); got != "2099-08-21" {
+		t.Errorf("public Event date = %q; want ISO calendar order", got)
 	}
 }

@@ -8,6 +8,8 @@ import (
 	"strings"
 	texttemplate "text/template"
 	"time"
+
+	"github.com/dotwaffle/beamers/internal/publictime"
 )
 
 var (
@@ -207,11 +209,8 @@ func resultsTemplateFunctions() texttemplate.FuncMap {
 		},
 		"join":  strings.Join,
 		"lower": strings.ToLower,
-		"publishedAt": func(value time.Time, locale string) string {
-			if strings.HasPrefix(strings.ToLower(locale), "en-us") {
-				return value.Format("Jan 2, 2006, 3:04 PM MST")
-			}
-			return value.Format("02 Jan 2006, 15:04 MST")
+		"publishedAt": func(value time.Time, _ string) string {
+			return value.Format(publictime.DateTimeLayout)
 		},
 		"upper": strings.ToUpper,
 	}

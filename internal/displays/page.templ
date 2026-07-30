@@ -1,5 +1,7 @@
 package displays
 
+import "time"
+
 templ EnrollmentPage(code string, qrCodeDataURL string) {
 	<!doctype html>
 	<html lang="en">
@@ -128,6 +130,7 @@ templ DisplayPage(snapshot Snapshot) {
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<link rel="stylesheet" href={ StylesheetPath() }/>
 			<title>{ displayPageTitle(snapshot) }</title>
 		</head>
 		<body>
@@ -177,16 +180,22 @@ templ DisplayPage(snapshot Snapshot) {
 }
 
 templ displayRegion(snapshot Snapshot, name string, widget string, persistent bool) {
-	<section class="display-region" data-region={ name } data-widget={ widget } data-persistent={ displayPersistent(persistent) }>
+	<section
+		class="display-region"
+		data-region={ name }
+		data-widget={ widget }
+		data-persistent={ displayPersistent(persistent) }
+		{ displayRegionAttributes(snapshot, widget)... }
+	>
 		if widget == "branding" {
 			if snapshot.Standby {
 				<p>{ displayBranding(snapshot) }</p>
 			} else {
-					<h1>{ displayBranding(snapshot) }</h1>
+				<h1>{ displayBranding(snapshot) }</h1>
+				if snapshot.ViewKey == "event-overview" {
+					<p>Event Overview</p>
 					<p>Location: { snapshot.LocationName }</p>
-					if snapshot.ViewKey == "event-overview" {
-						<p>Event Overview</p>
-					}
+				}
 			}
 		} else if widget == "standby" {
 			<h1>Standby</h1>
@@ -200,31 +209,49 @@ templ displayRegion(snapshot Snapshot, name string, widget string, persistent bo
 			<p>Location Signage</p>
 		} else if widget == "now-next" {
 			<h2>Now / Next</h2>
-			for index, session := range displayNowNext(snapshot.Sessions) {
+			for index, session := range displayNowNext(snapshot.Sessions, snapshot.ServerTime) {
 				if index < 2 {
-					@displaySessionRegion(snapshot, session, false)
+					@displaySessionRegion(snapshot, session, false, false, displayNowNextSlot(index))
 				}
 			}
 		} else if widget == "rotation" {
-			for _, session := range snapshot.Sessions {
-				@displaySessionRegion(snapshot, session, true)
+			for index, session := range snapshot.Sessions {
+				@displaySessionRegion(snapshot, session, true, index > 0, "rotation")
+			}
+			if len(snapshot.Sessions) == 0 {
+				<p>No public Event information is currently scheduled.</p>
+			}
+		} else if widget == "timeline" {
+			<div class="display-timeline-days">
+				for _, day := range displayTimelineDays(snapshot.Sessions) {
+					<section class="display-timeline-day">
+						<h3>{ day.Label }</h3>
+						<ol class="display-timeline" style={ displayTimelineDayStyle(day) }>
+							for _, session := range day.Sessions {
+								@displayTimelineBlock(snapshot, session)
+							}
+						</ol>
+					</section>
+				}
+			</div>
+			if len(snapshot.Sessions) == 0 {
+				<p>No public Event information is currently scheduled.</p>
 			}
 		} else if widget == "clock" {
-			<time data-display-clock datetime={ snapshot.ServerTime.Format("2006-01-02T15:04:05Z07:00") }>{ snapshot.ServerTime.Format("15:04") }</time>
+			<time data-display-clock datetime={ snapshot.ServerTime.Format("2006-01-02T15:04:05Z07:00") }>{ displayClockTime(snapshot) }</time>
 		} else if widget == "stage-timer" {
 			if timer, ok := displayStageTimer(snapshot); ok {
-				<div data-timer-emphasis={ timer.Emphasis } data-timer-overtime={ displayPersistent(timer.Overtime) }>
-					<h2>{ timer.Title }</h2>
-					<p>{ timer.Direction }</p>
-					<time data-stage-timer-clock datetime={ timer.Anchor.Format("2006-01-02T15:04:05Z07:00") }>{ timer.Text }</time>
-					<p data-timer-emphasis-label>{ timer.EmphasisLabel }</p>
-					if timer.AdjustmentNotice != "" && snapshot.ServerTime.Before(timer.AdjustmentNoticeExpiresAt) {
-						<p data-timer-adjustment-notice data-expires-at={ timer.AdjustmentNoticeExpiresAt.Format("2006-01-02T15:04:05Z07:00") }>{ timer.AdjustmentNotice }</p>
-					}
-					if !timer.ForecastEnd.IsZero() {
-						<p>Forecast End: <time datetime={ timer.ForecastEnd.Format("2006-01-02T15:04:05Z07:00") }>{ timer.DisplayForecastEnd }</time></p>
-					}
-				</div>
+				<h2>{ timer.Title }</h2>
+				<p>{ timer.Direction }</p>
+				<time data-stage-timer-clock datetime={ timer.Anchor.Format("2006-01-02T15:04:05Z07:00") }>{ timer.Text }</time>
+				<p data-timer-emphasis-label>{ timer.EmphasisLabel }</p>
+				if timer.AdjustmentNotice != "" && snapshot.ServerTime.Before(timer.AdjustmentNoticeExpiresAt) {
+					<p data-timer-adjustment-notice data-expires-at={ timer.AdjustmentNoticeExpiresAt.Format("2006-01-02T15:04:05Z07:00") }>{ timer.AdjustmentNotice }</p>
+				}
+				if !timer.ForecastEnd.IsZero() {
+					<p>Forecast End: <time datetime={ timer.ForecastEnd.Format("2006-01-02T15:04:05Z07:00") }>{ timer.DisplayForecastEnd }</time></p>
+				}
+				@displayProgressBar(timer.SpanStart, timer.SpanEnd, snapshot.ServerTime)
 			} else {
 				<h2>Stage Timer</h2>
 				<p>No Session is live at this Location.</p>
@@ -240,262 +267,68 @@ templ displayRegion(snapshot Snapshot, name string, widget string, persistent bo
 	</section>
 }
 
-templ displaySessionRegion(snapshot Snapshot, session Session, rotationPage bool) {
-	<article data-rotation-page?={ rotationPage }>
+templ displayTimelineBlock(snapshot Snapshot, session Session) {
+	<li class="display-timeline-block" style={ displayTimelineStyle(session) } data-unavailable?={ session.Unavailable }>
+		if session.Unavailable {
+			<p>{ session.AvailabilityMessage }</p>
+		} else {
+			<h3>{ session.Title }</h3>
+			<p>
+				<time datetime={ session.PresentedStart.Format("2006-01-02T15:04:05Z07:00") }>{ session.DisplayPresentedStart }</time>
+			</p>
+		}
+	</li>
+}
+
+templ displayProgressBar(start, end, now time.Time) {
+	if displayProgressMeasurable(start, end) {
+		<div
+			class="display-progress"
+			style={ displayProgressStyle(start, end, now) }
+			data-progress-start={ start.Format("2006-01-02T15:04:05Z07:00") }
+			data-progress-end={ end.Format("2006-01-02T15:04:05Z07:00") }
+			role="progressbar"
+			aria-label="Elapsed"
+			aria-valuemin="0"
+			aria-valuemax="100"
+			aria-valuenow={ displayProgressPercent(start, end, now) }
+		></div>
+	}
+}
+
+templ displaySessionRegion(
+	snapshot Snapshot,
+	session Session,
+	rotationPage bool,
+	collapsed bool,
+	slot string,
+) {
+	<article data-rotation-page?={ rotationPage } hidden?={ collapsed } data-slot={ slot }>
 		if session.Unavailable {
 			<p>{ session.AvailabilityMessage }</p>
 		} else {
 			<h3>{ session.Title }</h3>
 			<p>Status: { session.Lifecycle }</p>
-			<p>{ string(session.PresentedStartLabel) }: <time datetime={ session.PresentedStart.Format("2006-01-02T15:04:05Z07:00") }>{ session.DisplayPresentedStart }</time> – { string(session.PresentedEndLabel) }: <time datetime={ session.PresentedEnd.Format("2006-01-02T15:04:05Z07:00") }>{ session.DisplayPresentedEnd }</time></p>
+			<dl class="display-times">
+				<dt>{ string(session.PresentedStartLabel) }:</dt>
+				<dd><time datetime={ session.PresentedStart.Format("2006-01-02T15:04:05Z07:00") }>{ session.DisplayPresentedStart }</time></dd>
+				<dt>{ string(session.PresentedEndLabel) }:</dt>
+				<dd><time datetime={ session.PresentedEnd.Format("2006-01-02T15:04:05Z07:00") }>{ session.DisplayPresentedEnd }</time></dd>
+			</dl>
 			if session.Speaker != "" {
 				<p>{ session.Speaker }</p>
 			}
 			if session.PublicDetails != "" {
 				<p>{ session.PublicDetails }</p>
 			}
+			if slot == "now" && session.Lifecycle == "Live" {
+				@displayProgressBar(session.PresentedStart, session.PresentedEnd, snapshot.ServerTime)
+			}
 		}
 	</article>
 }
 
 templ displayClient() {
-	<style>
-		@font-face {
-			font-family: "Chakra Petch";
-			src: url("/display/assets/chakra-petch-regular.ttf") format("truetype");
-			font-display: swap;
-		}
-		@font-face {
-			font-family: "Open Sans";
-			src: url("/display/assets/open-sans.ttf") format("truetype");
-			font-display: swap;
-		}
-		html,
-		body {
-			min-height: 100%;
-			margin: 0;
-		}
-		body {
-			background: #101828;
-		}
-		.display-view {
-			box-sizing: border-box;
-			display: grid;
-			min-height: 100vh;
-			min-height: 100dvh;
-			gap: clamp(1rem, 2vw, 3rem);
-			padding: clamp(1rem, 3vw, 4rem);
-			overflow: hidden;
-			color: var(--display-foreground, #fff);
-			background: var(--display-background, #101828);
-			font-family: system-ui, sans-serif;
-			font-size: clamp(1rem, 1.45vw, 2.25rem);
-			line-height: 1.35;
-		}
-		.display-override-replace {
-			place-items: center;
-			text-align: center;
-		}
-		.display-override-text {
-			white-space: pre-line;
-		}
-		.emergency-alert {
-			color: #fff;
-			background: #8b0000;
-			font-family: system-ui, sans-serif;
-			font-size: clamp(1.5rem, 3vw, 4rem);
-			border: clamp(0.5rem, 1vw, 1.25rem) double #fff;
-		}
-		.urgent-notice-replace {
-			border: clamp(0.4rem, 0.8vw, 1rem) solid var(--display-accent, #ffd400);
-		}
-		.urgent-notice-overlay {
-			position: fixed;
-			z-index: 40;
-			inset: 0 0 auto;
-			padding: clamp(1rem, 2vw, 2rem);
-			color: #111;
-			background: #ffd400;
-			border-block-start: clamp(0.35rem, 0.7vw, 0.75rem) double #111;
-			font: 700 clamp(1rem, 2vw, 2.5rem)/1.3 system-ui, sans-serif;
-		}
-		.stage-message {
-			position: fixed;
-			inset: auto clamp(1rem, 3vw, 4rem) clamp(1rem, 3vw, 4rem);
-			z-index: 30;
-			padding: 1rem 1.5rem;
-			border: .35rem solid currentcolor;
-			border-radius: .5rem;
-			color: #101828;
-			background: #fff;
-			box-shadow: 0 .5rem 2rem rgb(0 0 0 / 50%);
-		}
-		.stage-message[data-emphasis="Attention"] {
-			border-style: double;
-			border-width: .6rem;
-		}
-		.stage-message[data-emphasis="Urgent"] {
-			border-style: dashed;
-			border-width: .6rem;
-			font-size: 1.2em;
-			text-transform: uppercase;
-		}
-		.display-font-serif {
-			font-family: Georgia, "Times New Roman", serif;
-		}
-		.display-font-sans {
-			font-family: "Open Sans", system-ui, sans-serif;
-		}
-		.display-font-mono {
-			font-family: ui-monospace, "Cascadia Mono", monospace;
-		}
-		.display-font-demoscene {
-			font-family: "Chakra Petch", system-ui, sans-serif;
-		}
-		.display-region {
-			box-sizing: border-box;
-			min-width: 0;
-			min-height: 0;
-			padding: clamp(0.75rem, 1.5vw, 2rem);
-			border-block-start: 0.25rem solid var(--display-signal, #62ebcb);
-			border-radius: clamp(0.5rem, 1vw, 1.5rem);
-			background: var(--display-accent, #1d4ed8);
-			overflow: hidden;
-		}
-		.display-background-variable-media .display-region {
-			background:
-				linear-gradient(
-					var(--display-scrim-layer, #000000d9),
-					var(--display-scrim-layer, #000000d9)
-				),
-				var(--display-accent, #1d4ed8);
-		}
-		.display-background-nebula {
-			background-image: radial-gradient(circle at 15% 10%, #172755 0, transparent 32rem);
-		}
-		.display-layout-standby {
-			grid-template-rows: auto 1fr;
-		}
-		.display-layout-event-overview {
-			grid-template:
-				"header clock" auto
-				"schedule schedule" 1fr
-				/ minmax(0, 1fr) auto;
-		}
-		.display-layout-event-overview [data-region="header"] {
-			grid-area: header;
-		}
-		.display-layout-event-overview [data-region="schedule"] {
-			grid-area: schedule;
-		}
-		.display-layout-event-overview [data-region="clock"] {
-			grid-area: clock;
-		}
-		.display-layout-location-signage {
-			grid-template:
-				"event location" minmax(0, 1fr)
-				"event now-next" minmax(0, 2fr)
-				"event clock" auto
-				/ minmax(0, 7fr) minmax(18rem, 3fr);
-		}
-		.display-layout-location-signage [data-region="event-content"] {
-			grid-area: event;
-		}
-		.display-layout-location-signage [data-region="location"] {
-			grid-area: location;
-		}
-		.display-layout-location-signage [data-region="now-next"] {
-			grid-area: now-next;
-		}
-		.display-layout-location-signage [data-region="clock"] {
-			grid-area: clock;
-		}
-		.display-layout-stage-timer {
-			grid-template-rows: auto minmax(0, 1fr);
-		}
-		.display-layout-stage-timer [data-widget="stage-timer"] {
-			display: grid;
-			place-items: center;
-			text-align: center;
-		}
-		[data-stage-timer-clock] {
-			display: block;
-			font-family: ui-monospace, "Cascadia Mono", monospace;
-			font-size: clamp(5rem, 25vw, 28rem);
-			font-variant-numeric: tabular-nums;
-			font-weight: 700;
-			line-height: 1;
-		}
-		[data-timer-emphasis="attention"] {
-			outline: 0.4rem solid currentcolor;
-			outline-offset: 0.5rem;
-		}
-		[data-timer-emphasis="urgent"] {
-			border: 0.6rem double currentcolor;
-			padding: clamp(0.5rem, 2vw, 2rem);
-		}
-		[data-timer-overtime="true"] [data-stage-timer-clock] {
-			text-decoration: underline;
-			text-decoration-thickness: 0.08em;
-		}
-		.display-transition-fade [data-rotation-page]:not([hidden]) {
-			animation: display-fade 250ms ease-out;
-		}
-		@keyframes display-fade {
-			from { opacity: 0; }
-			to { opacity: 1; }
-		}
-		@media (min-aspect-ratio: 8/5) {
-			.display-view {
-				padding-inline: clamp(1.5rem, 4vw, 6rem);
-			}
-		}
-		@media (max-aspect-ratio: 8/5) {
-			.display-layout-location-signage {
-				grid-template:
-					"location clock" auto
-					"now-next now-next" minmax(0, 2fr)
-					"event event" minmax(0, 5fr)
-					/ minmax(0, 1fr) auto;
-			}
-		}
-		#display-connection {
-			position: fixed;
-			right: 1rem;
-			bottom: 1rem;
-			z-index: 1000;
-			margin: 0;
-			padding: 0.5rem 0.75rem;
-			border-radius: 0.25rem;
-			background: #111;
-			color: #fff;
-		}
-		html[data-connection="disconnected"] #display-connection {
-			animation: display-connection-pulse 4s ease-in-out infinite;
-		}
-		@keyframes display-connection-pulse {
-			50% { opacity: 0.55; }
-		}
-		html[data-connection="connected"] #display-connection {
-			width: 1px;
-			height: 1px;
-			padding: 0;
-			margin: -1px;
-			overflow: hidden;
-			clip-path: inset(50%);
-			white-space: nowrap;
-		}
-		@media (prefers-reduced-motion: reduce) {
-			*,
-			*::before,
-			*::after {
-				animation-duration: 0.01ms !important;
-				animation-iteration-count: 1 !important;
-				transition-duration: 0.01ms !important;
-				scroll-behavior: auto !important;
-			}
-		}
-	</style>
 	<p id="display-connection" role="status" aria-live="polite" data-connection="connecting">Connecting…</p>
 	<script src={ ClientJavaScriptPath() } defer></script>
 }

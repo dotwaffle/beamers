@@ -20,6 +20,11 @@ func TestSessionMessageCarriesPublicTimePresentation(t *testing.T) {
 		PresentedStart: start, PresentedEnd: end,
 		PresentedStartLabel: publictime.LabelActualStart,
 		PresentedEndLabel:   publictime.LabelForecastEnd,
+		TimelineDay:         "2026-02-07",
+		TimelineOffset:      1250,
+		TimelineWidth:       2500,
+		TimelineLane:        1,
+		TimelineLaneCount:   2,
 	})
 
 	if got := message.GetPresentedStart().AsTime(); !got.Equal(start) {
@@ -31,6 +36,13 @@ func TestSessionMessageCarriesPublicTimePresentation(t *testing.T) {
 	if message.GetPresentedStartLabel() != "Actual Start" ||
 		message.GetPresentedEndLabel() != "Forecast End" {
 		t.Errorf("presented labels = %q, %q", message.GetPresentedStartLabel(), message.GetPresentedEndLabel())
+	}
+	if message.GetTimelineDay() != "2026-02-07" ||
+		message.GetTimelineOffset() != 1250 ||
+		message.GetTimelineWidth() != 2500 ||
+		message.GetTimelineLane() != 1 ||
+		message.GetTimelineLaneCount() != 2 {
+		t.Errorf("Timeline geometry = %+v", message)
 	}
 }
 

@@ -7,6 +7,44 @@ import (
 	"time"
 )
 
+// Time layouts. Every attendee-facing and Display surface renders instants
+// through these, so a 12-hour clock and a month-name date cannot creep back in
+// one surface at a time.
+//
+// An ISO 8601 calendar date with a 24-hour clock reads the same to an
+// international audience: "2026-07-30 14:00" is unambiguous where
+// "Jul 30, 2026, 2:00 PM" invites a reading error in both halves.
+const (
+	// DateLayout renders a calendar date in ISO 8601 order.
+	DateLayout = "2006-01-02"
+
+	// DateTimeLayout renders an instant with its zone abbreviation, for surfaces
+	// an attendee may read from another timezone.
+	DateTimeLayout = "2006-01-02 15:04 MST"
+
+	// DisplayDateTimeLayout renders an instant without a zone abbreviation.
+	//
+	// Displays render twice -- server-side for the entry document and again in
+	// the client after every reconnect -- and Go and Intl disagree on zone
+	// abbreviations for many zones, so including one would make the two
+	// renderers print different text for the same instant. A Display stands in
+	// the venue, where the Event timezone is not in question.
+	DisplayDateTimeLayout = "2006-01-02 15:04"
+
+	// TimeLayout renders a 24-hour clock time alone.
+	TimeLayout = "15:04"
+)
+
+// FormatDateTime renders an instant in zone for an attendee-facing surface.
+func FormatDateTime(value time.Time, zone *time.Location) string {
+	return value.In(zone).Format(DateTimeLayout)
+}
+
+// FormatDisplayDateTime renders an instant in zone for a Display surface.
+func FormatDisplayDateTime(value time.Time, zone *time.Location) string {
+	return value.In(zone).Format(DisplayDateTimeLayout)
+}
+
 // ErrImpossibleState means lifecycle and time facts cannot form a valid presentation.
 var ErrImpossibleState = errors.New("impossible public time state")
 

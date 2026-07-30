@@ -49,7 +49,7 @@ templ Page(snapshot Snapshot) {
 				if snapshot.ViewerLocal {
 					<p>Attendee-local conversion: { snapshot.ViewerTimezone }. Program days remain grouped in Event time.</p>
 				}
-				<form method="get" action={ snapshot.ViewPath() }>
+				<form class="toolbar" method="get" action={ snapshot.ViewPath() }>
 					<label>
 						Program day
 						<select id="schedule-day" name="day">

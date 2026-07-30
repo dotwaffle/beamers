@@ -15,7 +15,7 @@ let clockReference = {
 let clockOffsetMilliseconds = 0;
 let clockSynchronized = false;
 let clockUncertaintyMilliseconds = 0;
-let clockTimer;
+let updateTimers = new Set();
 let eventSource;
 let healthTimer;
 let recoveryAttempt = 0;
@@ -331,7 +331,7 @@ function renderSnapshot(snapshot, offset) {
     return;
   }
   const main = document.createElement("main");
-  let startClockUpdates;
+  const startRegionUpdates = [];
   main.dataset.renderKey = renderKey;
   main.dataset.layout = composition.layout.key;
   main.dataset.displayId = String(snapshot.displayId);
@@ -342,8 +342,12 @@ function renderSnapshot(snapshot, offset) {
   main.dataset.streamPosition = String(snapshot.streamPosition);
   main.className = [
     "display-view",
+    // Every built-in Layout key in internal/displayviews must appear here, or
+    // the client rejects a Composition the server happily served and the Display
+    // stops repainting. TestClientAcceptsEveryBuiltInLayoutKey pins the pairing.
     `display-layout-${controlledToken(composition.layout.key, [
       "standby", "event-overview", "location-signage", "stage-timer", "competition-output",
+      "timeline", "crew-overview",
     ])}`,
     `display-font-${controlledToken(composition.theme.font, ["sans", "serif", "mono", "demoscene"])}`,
     `display-background-${controlledToken(composition.theme.background, ["solid", "variable-media", "nebula"])}`,
@@ -406,7 +410,7 @@ function renderSnapshot(snapshot, offset) {
         candidateClockReference,
       );
       if (startWidgetUpdates) {
-        startClockUpdates = startWidgetUpdates;
+        startRegionUpdates.push(startWidgetUpdates);
       }
       main.append(region);
     }
@@ -417,9 +421,81 @@ function renderSnapshot(snapshot, offset) {
   renderStageMessage(suppressLower ? undefined : snapshot.stageMessage);
   renderUrgentNotice(snapshot.emergencyAlert ? undefined : snapshot.urgentNotice);
   clockReference = candidateClockReference;
-  clearTimeout(clockTimer);
-  startClockUpdates?.();
+  clearTrackedTimers();
+  for (const startUpdates of startRegionUpdates) {
+    startUpdates();
+  }
+  startProgressUpdates(main);
   startRotation(main, composition.layout.rotationSeconds);
+}
+
+function scheduleTrackedUpdate(callback, delay) {
+  let handle;
+  handle = setTimeout(() => {
+    updateTimers.delete(handle);
+    callback();
+  }, delay);
+  updateTimers.add(handle);
+  return handle;
+}
+
+function clearTrackedTimers() {
+  for (const handle of updateTimers) {
+    clearTimeout(handle);
+  }
+  updateTimers.clear();
+}
+
+// startProgressUpdates drives every elapsed bar in the frame.
+//
+// Each bar carries its own span, so this needs to know nothing about which
+// Region drew it and works identically on a bar the server rendered into the
+// entry document.
+function startProgressUpdates(main) {
+  const bars = collectProgressBars(main, []);
+  if (bars.length === 0) {
+    return;
+  }
+  const paint = () => {
+    for (const bar of bars) {
+      const fraction = elapsedFraction(
+        Date.parse(bar.dataset.progressStart),
+        Date.parse(bar.dataset.progressEnd),
+        estimatedServerNow(),
+      );
+      if (fraction === null) {
+        bar.hidden = true;
+        continue;
+      }
+      bar.hidden = false;
+      bar.style.setProperty("--display-progress", String(fraction));
+      bar.setAttribute("aria-valuenow", String(Math.round(fraction * 100)));
+    }
+    scheduleTrackedUpdate(paint, 1000);
+  };
+  paint();
+}
+
+// collectProgressBars walks the frame rather than running a selector, because a
+// bar may sit at any depth inside a Region.
+function collectProgressBars(node, found) {
+  for (const child of node.children ?? []) {
+    if (child.dataset?.progressStart && child.dataset?.progressEnd) {
+      found.push(child);
+    }
+    collectProgressBars(child, found);
+  }
+  return found;
+}
+
+// elapsedFraction is how far now sits between two instants, clamped to the span.
+// It returns null for a span that cannot be measured, so a bar with unusable
+// edges hides rather than sitting empty and implying no progress.
+function elapsedFraction(start, end, now) {
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+    return null;
+  }
+  return Math.min(1, Math.max(0, (now - start) / (end - start)));
 }
 
 function renderUrgentNotice(message) {
@@ -496,20 +572,40 @@ function renderWidget(region, widget, snapshot, theme, candidateClockReference) 
     appendHeading(region, snapshot.locationName);
     appendParagraph(region, "Location Signage");
     return;
-  case "now-next":
+  case "now-next": {
     appendHeading(region, "Now / Next", 2);
-    for (const session of (snapshot.sessions ?? [])
-      .filter((candidate) => candidate.lifecycle !== "Canceled")
-      .slice(0, 2)) {
+    const snapshotTime = Date.parse(snapshot.serverTime);
+    if (!Number.isFinite(snapshotTime)) {
+      throw new Error("snapshot server time is invalid");
+    }
+    const upcoming = (snapshot.sessions ?? [])
+      .filter((candidate) => {
+        if (candidate.lifecycle === "Canceled" || candidate.lifecycle === "Ended") {
+          return false;
+        }
+        if (candidate.lifecycle === "Live" || !candidate.forecastEnd) {
+          return true;
+        }
+        const forecastEnd = Date.parse(candidate.forecastEnd);
+        return Number.isFinite(forecastEnd) && forecastEnd > snapshotTime;
+      })
+      .slice(0, 2);
+    for (const [index, session] of upcoming.entries()) {
       const article = document.createElement("article");
+      article.dataset.slot = index === 0 ? "now" : "next";
       renderSession(article, snapshot, session);
+      if (index === 0 && session.lifecycle === "Live") {
+        appendProgressBar(article, session.presentedStart, session.presentedEnd);
+      }
       region.append(article);
     }
     return;
+  }
   case "rotation":
     for (const session of snapshot.sessions ?? []) {
       const article = document.createElement("article");
       article.dataset.rotationPage = "true";
+      article.dataset.slot = "rotation";
       article.hidden = region.children.length > 0;
       renderSession(article, snapshot, session);
       region.append(article);
@@ -518,6 +614,31 @@ function renderWidget(region, widget, snapshot, theme, candidateClockReference) 
       appendParagraph(region, "No public Event information is currently scheduled.");
     }
     return;
+  case "timeline": {
+    const days = document.createElement("div");
+    days.className = "display-timeline-days";
+    const timelines = new Map();
+    for (const session of snapshot.sessions ?? []) {
+      let timeline = timelines.get(session.timelineDay);
+      if (!timeline) {
+        const day = document.createElement("section");
+        day.className = "display-timeline-day";
+        appendHeading(day, session.timelineDay, 3);
+        timeline = document.createElement("ol");
+        timeline.className = "display-timeline";
+        timeline.style.setProperty("--display-lanes", String(session.timelineLaneCount));
+        day.append(timeline);
+        days.append(day);
+        timelines.set(session.timelineDay, timeline);
+      }
+      timeline.append(renderTimelineBlock(snapshot, session));
+    }
+    region.append(days);
+    if ((snapshot.sessions ?? []).length === 0) {
+      appendParagraph(region, "No public Event information is currently scheduled.");
+    }
+    return;
+  }
   case "clock": {
     const clock = document.createElement("time");
     clock.dataset.displayClock = "true";
@@ -547,18 +668,14 @@ function prepareClock(clock, snapshot, reference) {
   const update = () => {
     const current = new Date(estimatedServerNow());
     clock.dateTime = current.toISOString();
-    clock.textContent = new Intl.DateTimeFormat("en", {
-      hour: "2-digit", minute: "2-digit", timeZone: snapshot.eventTimezone || "UTC",
-    }).format(current);
-    clockTimer = setTimeout(update, 60000);
+    clock.textContent = formatClockTime(snapshot, current);
+    scheduleTrackedUpdate(update, 60000);
   };
   const current = new Date(estimatedServerNow(reference));
   clock.dateTime = current.toISOString();
-  clock.textContent = new Intl.DateTimeFormat("en", {
-    hour: "2-digit", minute: "2-digit", timeZone: snapshot.eventTimezone || "UTC",
-  }).format(current);
+  clock.textContent = formatClockTime(snapshot, current);
   return () => {
-    clockTimer = setTimeout(update, 60000);
+    scheduleTrackedUpdate(update, 60000);
   };
 }
 
@@ -585,11 +702,22 @@ function prepareStageTimer(region, snapshot, reference) {
     if (!Number.isFinite(forecastEnd.getTime())) {
       throw new Error("Stage Timer Forecast End is invalid");
     }
-    appendParagraph(region, `Forecast End: ${new Intl.DateTimeFormat("en", {
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: snapshot.eventTimezone || "UTC",
-    }).format(forecastEnd)}`);
+    appendParagraph(region, `Forecast End: ${formatClockTime(snapshot, forecastEnd)}`);
+  }
+
+  // The timer's own span: a countdown anchors on the end, elapsed on the start,
+  // so the missing edge comes from the Session the timer is counting.
+  const counted = (snapshot.sessions ?? []).find(
+    (candidate) => String(candidate.id) === String(timer.sessionId),
+  );
+  const spanStart = timer.mode === "STAGE_TIMER_MODE_ELAPSED"
+    ? timer.anchor
+    : counted?.presentedStart ?? counted?.forecastStart;
+  const spanEnd = timer.mode === "STAGE_TIMER_MODE_ELAPSED"
+    ? timer.forecastEnd ?? counted?.presentedEnd
+    : timer.anchor;
+  if (spanStart && spanEnd) {
+    appendProgressBar(region, spanStart, spanEnd);
   }
 
   const update = (currentReference) => {
@@ -623,9 +751,9 @@ function prepareStageTimer(region, snapshot, reference) {
   return () => {
     const tick = () => {
       update();
-      clockTimer = setTimeout(tick, 250);
+      scheduleTrackedUpdate(tick, 250);
     };
-    clockTimer = setTimeout(tick, 250);
+    scheduleTrackedUpdate(tick, 250);
   };
 }
 
@@ -690,6 +818,30 @@ function timerEmphasis(thresholds, remainingMilliseconds) {
   return result;
 }
 
+// renderTimelineBlock consumes server-projected Event-day geometry so the entry
+// document and browser renderer cannot disagree.
+function renderTimelineBlock(snapshot, session) {
+  const block = document.createElement("li");
+  block.className = "display-timeline-block";
+  block.style.setProperty("--display-offset", String(session.timelineOffset));
+  block.style.setProperty("--display-width", String(session.timelineWidth));
+  block.style.setProperty("--display-lane", String(session.timelineLane));
+  block.style.setProperty("--display-lanes", String(session.timelineLaneCount));
+  if (session.unavailable) {
+    block.dataset.unavailable = "true";
+    appendParagraph(block, session.availabilityMessage);
+    return block;
+  }
+  appendHeading(block, session.title, 3);
+  const start = document.createElement("time");
+  start.dateTime = String(session.presentedStart ?? "");
+  start.textContent = formatScheduleTime(snapshot, session.presentedStart);
+  const line = document.createElement("p");
+  line.append(start);
+  block.append(line);
+  return block;
+}
+
 function renderSession(parent, snapshot, session) {
   if (session.unavailable) {
     appendParagraph(parent, session.availabilityMessage);
@@ -733,24 +885,92 @@ function findRotationPages(main) {
 
 function appendSessionSchedule(parent, snapshot, session) {
   appendParagraph(parent, `Status: ${session.lifecycle}`);
-  appendParagraph(
-    parent,
-    `${requiredText(session.presentedStartLabel, "presented start label")}: ` +
-      `${formatScheduleTime(snapshot, session.presentedStart)} – ` +
-      `${requiredText(session.presentedEndLabel, "presented end label")}: ` +
-      formatScheduleTime(snapshot, session.presentedEnd),
+  // Start and end each take their own row so the two instants line up in a
+  // column. Run together on one line they wrapped mid-timestamp.
+  const times = document.createElement("dl");
+  times.className = "display-times";
+  appendTimeRow(
+    times,
+    `${requiredText(session.presentedStartLabel, "presented start label")}:`,
+    session.presentedStart,
+    formatScheduleTime(snapshot, session.presentedStart),
   );
+  appendTimeRow(
+    times,
+    `${requiredText(session.presentedEndLabel, "presented end label")}:`,
+    session.presentedEnd,
+    formatScheduleTime(snapshot, session.presentedEnd),
+  );
+  parent.append(times);
 }
 
+function appendTimeRow(parent, label, instant, text) {
+  const term = document.createElement("dt");
+  term.textContent = label;
+  const value = document.createElement("dd");
+  const stamp = document.createElement("time");
+  stamp.dateTime = String(instant ?? "");
+  stamp.textContent = text;
+  value.append(stamp);
+  parent.append(term, value);
+}
+
+// appendProgressBar draws the elapsed bar for a span. startProgressUpdates fills
+// it from the span carried on the element itself.
+function appendProgressBar(parent, start, end) {
+  if (elapsedFraction(Date.parse(start), Date.parse(end), estimatedServerNow()) === null) {
+    return;
+  }
+  const bar = document.createElement("div");
+  bar.className = "display-progress";
+  bar.dataset.progressStart = String(start);
+  bar.dataset.progressEnd = String(end);
+  bar.setAttribute("role", "progressbar");
+  bar.setAttribute("aria-label", "Elapsed");
+  bar.setAttribute("aria-valuemin", "0");
+  bar.setAttribute("aria-valuemax", "100");
+  parent.append(bar);
+  return bar;
+}
+
+// formatScheduleTime renders an instant the way publictime.DisplayDateTimeLayout
+// does on the server: an ISO 8601 date and a 24-hour clock, no zone
+// abbreviation. The parts are assembled explicitly rather than trusting a locale
+// to order them, because the server document and this renderer draw the same
+// Display and any difference shows up as text that shifts on reconnect.
 function formatScheduleTime(snapshot, value) {
-  if (!value || !Number.isFinite(new Date(value).getTime())) {
+  const parts = eventTimeParts(snapshot, value, {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}`;
+}
+
+// formatClockTime renders a 24-hour wall clock, matching publictime.TimeLayout.
+function formatClockTime(snapshot, value) {
+  const parts = eventTimeParts(snapshot, value, {hour: "2-digit", minute: "2-digit"});
+  return `${parts.hour}:${parts.minute}`;
+}
+
+function eventTimeParts(snapshot, value, options) {
+  const instant = new Date(value);
+  if (!Number.isFinite(instant.getTime())) {
     throw new Error("Presented Session time is invalid");
   }
-  return new Intl.DateTimeFormat("en", {
-    dateStyle: "medium",
-    timeStyle: "short",
+  const formatter = new Intl.DateTimeFormat("en", {
+    ...options,
+    // h23 keeps midnight at 00 and noon at 12 without an AM or PM suffix.
+    hourCycle: "h23",
     timeZone: snapshot.eventTimezone || "UTC",
-  }).format(new Date(value));
+  });
+  const parts = {};
+  for (const part of formatter.formatToParts(instant)) {
+    parts[part.type] = part.value;
+  }
+  return parts;
 }
 
 function requiredText(value, name) {

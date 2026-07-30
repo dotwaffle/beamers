@@ -1,0 +1,157 @@
+* {
+  box-sizing: border-box;
+}
+
+/* themevalue.Stylesheet replaces background-image to switch the bundled
+ * decorative background on and off, so the gradient here is only the default. */
+body {
+  background:
+    radial-gradient(circle at 15% 10%, #172755 0, transparent 32rem),
+    var(--background);
+  color: var(--text);
+  margin: 0;
+  min-block-size: 100vh;
+}
+
+/* Typography.
+ *
+ * h1 is deliberately modest. The landing page and public Event hub opt into the
+ * hero size with .hero; a dense Crew form must not inherit it.
+ */
+h1,
+h2,
+h3 {
+  font-family: var(--heading-font);
+  line-height: var(--leading-tight);
+  text-wrap: balance;
+}
+
+h1 {
+  color: var(--accent);
+  font-size: var(--text-h1);
+  margin-block-start: 0;
+}
+
+h2 {
+  font-size: var(--text-h2);
+}
+
+h3 {
+  font-size: var(--text-h3);
+}
+
+h1.hero {
+  font-size: var(--text-hero);
+}
+
+p {
+  max-width: var(--measure);
+}
+
+.eyebrow {
+  color: var(--link);
+  font-family: var(--heading-font);
+  font-size: var(--text-caption);
+  font-weight: 700;
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+}
+
+label {
+  color: var(--muted);
+  display: grid;
+  font-weight: 600;
+  gap: var(--space-1);
+}
+
+label:has(> input[type="checkbox"]),
+label:has(> input[type="radio"]) {
+  align-items: center;
+  grid-template-columns: auto 1fr;
+  min-block-size: 2.75rem;
+}
+
+button,
+input,
+select,
+textarea {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-1);
+  box-sizing: border-box;
+  font: inherit;
+  min-block-size: 2.75rem;
+  min-width: 0;
+  width: 100%;
+}
+
+input,
+select,
+textarea {
+  background: var(--background);
+  color: var(--text);
+  padding: var(--control-pad-block) var(--cell-pad-inline);
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  min-block-size: 0;
+  padding: 0;
+  width: auto;
+}
+
+fieldset {
+  min-width: 0;
+}
+
+textarea {
+  min-block-size: 8rem;
+}
+
+button {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  cursor: pointer;
+  font-weight: 700;
+  padding: var(--control-pad-block) var(--control-pad-inline);
+  width: auto;
+}
+
+/* Links.
+ *
+ * A link inside prose stays inline so it does not break the line rhythm; block
+ * padding still gives it a target box comfortably over 24 pixels, which
+ * acceptance/browser_audit.js measures. Links that act as controls opt into the
+ * full 2.75rem target through the navigation and action selectors below.
+ */
+a {
+  color: var(--link);
+  padding-block: 0.4rem;
+  text-underline-offset: 0.2em;
+}
+
+nav a,
+td a,
+th a,
+.actions a,
+.toolbar a,
+/* The current breadcrumb is a span rather than a link, so without this it had
+ * neither the links' height nor their centring: in a stretch flex row its text
+ * sat at the top while every link's text sat centered, leaving the last item
+ * floating above the trail. */
+.breadcrumbs [aria-current="page"],
+.breadcrumbs a,
+.event-links a,
+.backstage-links a,
+.button-link,
+.follow-live {
+  align-items: center;
+  display: inline-flex;
+  min-block-size: var(--control-min);
+  padding-inline: var(--space-2);
+}
+
+:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}

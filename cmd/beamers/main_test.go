@@ -19,6 +19,26 @@ import (
 	"github.com/dotwaffle/beamers/internal/operations"
 )
 
+func TestDemoTimelineUsesAnExplicitAnchor(t *testing.T) {
+	anchor := time.Date(2026, 7, 30, 14, 37, 0, 0, time.FixedZone("test", 2*60*60))
+	timeline := newDemoTimeline(anchor)
+
+	eventNow := time.Date(2026, 7, 30, 12, 0, 0, 0, time.UTC)
+	if !timeline.eventNow.Equal(eventNow) {
+		t.Fatalf("demo Event now = %s, want %s", timeline.eventNow, eventNow)
+	}
+	if want := eventNow.Add(-4 * time.Hour); !timeline.dayOne().Equal(want) {
+		t.Fatalf("demo day one = %s, want %s", timeline.dayOne(), want)
+	}
+	if want := eventNow.Add(-5 * time.Hour); !timeline.now().Equal(want) {
+		t.Fatalf("initial demo seed clock = %s, want %s", timeline.now(), want)
+	}
+	timeline.advanceToEvent()
+	if !timeline.now().Equal(eventNow) {
+		t.Fatalf("advanced demo seed clock = %s, want %s", timeline.now(), eventNow)
+	}
+}
+
 func TestServeCommandExportsItsTerminalError(t *testing.T) {
 	exported := make(chan struct{}, 1)
 	collector := httptest.NewServer(http.HandlerFunc(func(

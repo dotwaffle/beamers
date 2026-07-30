@@ -857,6 +857,11 @@ type DisplaySession struct {
 	PresentedEnd        *timestamppb.Timestamp `protobuf:"bytes,17,opt,name=presented_end,json=presentedEnd,proto3" json:"presented_end,omitempty"`
 	PresentedStartLabel string                 `protobuf:"bytes,18,opt,name=presented_start_label,json=presentedStartLabel,proto3" json:"presented_start_label,omitempty"`
 	PresentedEndLabel   string                 `protobuf:"bytes,19,opt,name=presented_end_label,json=presentedEndLabel,proto3" json:"presented_end_label,omitempty"`
+	TimelineDay         string                 `protobuf:"bytes,20,opt,name=timeline_day,json=timelineDay,proto3" json:"timeline_day,omitempty"`
+	TimelineOffset      uint32                 `protobuf:"varint,21,opt,name=timeline_offset,json=timelineOffset,proto3" json:"timeline_offset,omitempty"`
+	TimelineWidth       uint32                 `protobuf:"varint,22,opt,name=timeline_width,json=timelineWidth,proto3" json:"timeline_width,omitempty"`
+	TimelineLane        uint32                 `protobuf:"varint,23,opt,name=timeline_lane,json=timelineLane,proto3" json:"timeline_lane,omitempty"`
+	TimelineLaneCount   uint32                 `protobuf:"varint,24,opt,name=timeline_lane_count,json=timelineLaneCount,proto3" json:"timeline_lane_count,omitempty"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
 }
@@ -1022,6 +1027,41 @@ func (x *DisplaySession) GetPresentedEndLabel() string {
 		return x.PresentedEndLabel
 	}
 	return ""
+}
+
+func (x *DisplaySession) GetTimelineDay() string {
+	if x != nil {
+		return x.TimelineDay
+	}
+	return ""
+}
+
+func (x *DisplaySession) GetTimelineOffset() uint32 {
+	if x != nil {
+		return x.TimelineOffset
+	}
+	return 0
+}
+
+func (x *DisplaySession) GetTimelineWidth() uint32 {
+	if x != nil {
+		return x.TimelineWidth
+	}
+	return 0
+}
+
+func (x *DisplaySession) GetTimelineLane() uint32 {
+	if x != nil {
+		return x.TimelineLane
+	}
+	return 0
+}
+
+func (x *DisplaySession) GetTimelineLaneCount() uint32 {
+	if x != nil {
+		return x.TimelineLaneCount
+	}
+	return 0
 }
 
 type TimerThreshold struct {
@@ -1701,7 +1741,7 @@ const file_beamers_display_v1_display_proto_rawDesc = "" +
 	"\x04font\x18\b \x01(\tR\x04font\x12\x1e\n" +
 	"\n" +
 	"transition\x18\t \x01(\tR\n" +
-	"transition\"\xdb\x06\n" +
+	"transition\"\xa3\b\n" +
 	"\x0eDisplaySession\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x18\n" +
@@ -1723,7 +1763,12 @@ const file_beamers_display_v1_display_proto_rawDesc = "" +
 	"\x0fpresented_start\x18\x10 \x01(\v2\x1a.google.protobuf.TimestampR\x0epresentedStart\x12?\n" +
 	"\rpresented_end\x18\x11 \x01(\v2\x1a.google.protobuf.TimestampR\fpresentedEnd\x122\n" +
 	"\x15presented_start_label\x18\x12 \x01(\tR\x13presentedStartLabel\x12.\n" +
-	"\x13presented_end_label\x18\x13 \x01(\tR\x11presentedEndLabel\"|\n" +
+	"\x13presented_end_label\x18\x13 \x01(\tR\x11presentedEndLabel\x12!\n" +
+	"\ftimeline_day\x18\x14 \x01(\tR\vtimelineDay\x12'\n" +
+	"\x0ftimeline_offset\x18\x15 \x01(\rR\x0etimelineOffset\x12%\n" +
+	"\x0etimeline_width\x18\x16 \x01(\rR\rtimelineWidth\x12#\n" +
+	"\rtimeline_lane\x18\x17 \x01(\rR\ftimelineLane\x12.\n" +
+	"\x13timeline_lane_count\x18\x18 \x01(\rR\x11timelineLaneCount\"|\n" +
 	"\x0eTimerThreshold\x12+\n" +
 	"\x11remaining_seconds\x18\x01 \x01(\x03R\x10remainingSeconds\x12=\n" +
 	"\bemphasis\x18\x02 \x01(\x0e2!.beamers.display.v1.TimerEmphasisR\bemphasis\"\xbc\x03\n" +

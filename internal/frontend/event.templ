@@ -138,22 +138,24 @@ templ EventOverview(page EventOverviewPage) {
 					</section>
 					<section>
 						<h2>Readiness</h2>
-						<dl>
-							if page.Producer {
-								<dt><a href={ templ.SafeURL("/backstage/events/" + strconv.Itoa(page.Event.ID) + "/planning") }>Rundown readiness</a></dt>
-							} else {
-								<dt>Rundown readiness</dt>
-							}
-							if page.Rundown.PublishedRevision == 0 {
-								<dd>No Rundown published.</dd>
-							} else if len(page.Rundown.ValidationFailures) != 0 {
-								<dd>Draft changes are blocked from publishing.</dd>
-							} else if len(page.Rundown.ChangeIDs) != 0 {
-								<dd>Draft changes await publishing.</dd>
-							} else {
-								<dd>Published Rundown is current.</dd>
-							}
-						</dl>
+						<div class="tiles">
+							<dl class="metric">
+								if page.Producer {
+									<dt><a href={ templ.SafeURL("/backstage/events/" + strconv.Itoa(page.Event.ID) + "/planning") }>Rundown readiness</a></dt>
+								} else {
+									<dt>Rundown readiness</dt>
+								}
+								if page.Rundown.PublishedRevision == 0 {
+									<dd>No Rundown published.</dd>
+								} else if len(page.Rundown.ValidationFailures) != 0 {
+									<dd>Draft changes are blocked from publishing.</dd>
+								} else if len(page.Rundown.ChangeIDs) != 0 {
+									<dd>Draft changes await publishing.</dd>
+								} else {
+									<dd>Published Rundown is current.</dd>
+								}
+							</dl>
+						</div>
 					</section>
 					<section>
 						<h2>Next actions</h2>

@@ -1151,8 +1151,8 @@ func TestBrowserFollowsCanonicalPublicEventJourney(t *testing.T) {
 	)
 	for _, want := range []string{
 		"Ada Admin",
-		"21 Aug 2099",
-		"23 Aug 2099",
+		"2099-08-21",
+		"2099-08-23",
 		`href="/events/beamconf-2099/schedule"`,
 		`href="/events/beamconf-2099/competitions"`,
 		`href="/events/beamconf-2099/results"`,

@@ -31,7 +31,8 @@ func EventThemeFieldID(field string) string {
 }
 
 func (page EventThemePage) value(field, fallback string) string {
-	if page.Form.Get("action") == "create-draft" {
+	switch page.Form.Get("action") {
+	case "create-draft", "load-preset":
 		if _, ok := page.Form[field]; ok {
 			return page.Form.Get(field)
 		}
@@ -50,15 +51,6 @@ func eventThemePath(eventID int) string {
 	return "/backstage/events/" + strconv.Itoa(eventID) + "/theme"
 }
 
-func eventThemeVariants() []string {
-	return []string{
-		themevalue.VariantCompetitionOutput,
-		themevalue.VariantEventOverview,
-		themevalue.VariantLocationSignage,
-		themevalue.VariantStandby,
-	}
-}
-
 templ EventThemeAdministration(page EventThemePage) {
 	<!doctype html>
 	<html lang="en">
@@ -72,6 +64,21 @@ templ EventThemeAdministration(page EventThemePage) {
 					<p>Active: <strong>{ eventThemeRevisionLabel(page.ActiveRevisionID) }</strong></p>
 					@ErrorSummary(page.Errors)
 					<section>
+						<h2>Start from a bundled Theme Preset</h2>
+						<p>Selecting a Preset fills the Event Draft below with its values. Nothing is saved until you save the Draft, and every value stays editable first.</p>
+						<form class="stack" method="post" action={ eventThemePath(page.EventID) }>
+							<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+							<input type="hidden" name="action" value="load-preset"/>
+							<label>
+								Preset
+								<select id={ EventThemeFieldID("preset") } name="preset">
+									for _, preset := range themevalue.Presets() {
+										<option value={ preset.Name } selected?={ page.Form.Get("preset") == preset.Name }>{ preset.Name } — { preset.Description }</option>
+									}
+								</select>
+							</label>
+							<button type="submit">Load Preset values</button>
+						</form>
 						<h2>Edit a new Draft Event Theme Revision</h2>
 						<p>Empty controls inherit the active Installation Theme. Variants are limited to approved Display surfaces.</p>
 						<form class="stack" method="post" action={ eventThemePath(page.EventID) }>
@@ -95,6 +102,10 @@ templ EventThemeAdministration(page EventThemePage) {
 							@EventThemeColor(page, "Accent color", "accent_color", page.Config.Overrides.AccentColor)
 							@EventThemeColor(page, "Link color", "link_color", page.Config.Overrides.LinkColor)
 							@EventThemeColor(page, "Focus color", "focus_color", page.Config.Overrides.FocusColor)
+							@EventThemeColor(page, "Live state color", "live_color", page.Config.Overrides.LiveColor)
+							@EventThemeColor(page, "Warning state color", "warning_color", page.Config.Overrides.WarningColor)
+							@EventThemeColor(page, "Danger state color", "danger_color", page.Config.Overrides.DangerColor)
+							@EventThemeColor(page, "Success state color", "success_color", page.Config.Overrides.SuccessColor)
 							@EventThemeChoice(page, "Background", "background", page.Config.Overrides.Background, []string{"nebula", "solid"})
 							@EventThemeChoice(page, "Bundled type choice", "typeface", page.Config.Overrides.Typeface, []string{"demoscene", "clean"})
 							@EventThemeChoice(page, "Transition", "transition", page.Config.Overrides.Transition, []string{"fade", "none"})
@@ -102,7 +113,7 @@ templ EventThemeAdministration(page EventThemePage) {
 							@EventThemeChoice(page, "Motion level", "motion", page.Config.Overrides.Motion, []string{"still", "subtle", "full"})
 							<fieldset>
 								<legend>Approved Display variants</legend>
-								for _, variant := range eventThemeVariants() {
+								for _, variant := range themevalue.EventVariants() {
 									<h3>{ variant }</h3>
 									@EventThemeColor(page, "Accent color", variant + "_accent_color", page.Config.Variants[variant].AccentColor)
 									@EventThemeChoice(page, "Motion level", variant + "_motion", page.Config.Variants[variant].Motion, []string{"still", "subtle", "full"})
@@ -135,7 +146,7 @@ templ EventThemeAdministration(page EventThemePage) {
 							</article>
 						</div>
 						<div class="theme-preview-grid">
-							for _, variant := range eventThemeVariants() {
+							for _, variant := range themevalue.EventVariants() {
 								<article
 									class="theme-preview"
 									style={ themePreviewStyle(page.Variants[variant]) }

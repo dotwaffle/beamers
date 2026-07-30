@@ -15,7 +15,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/displays"
 	"github.com/dotwaffle/beamers/internal/displaystream"
-	"github.com/dotwaffle/beamers/internal/frontend"
+	"github.com/dotwaffle/beamers/internal/fontassets"
 )
 
 const (
@@ -60,12 +60,9 @@ func registerDisplayRoutes(
 		handlers.display,
 	)
 	mux.HandleFunc("/display/client.js", displayRoute(), handlers.clientJavaScript)
-	mux.HandleFunc(
-		"/display/assets/chakra-petch-regular.ttf",
-		displayRoute(),
-		handlers.font,
-	)
-	mux.HandleFunc("/display/assets/open-sans.ttf", displayRoute(), handlers.font)
+	mux.HandleFunc(displays.ChakraPetchRegularPath(), displayRoute(), handlers.font)
+	mux.HandleFunc(displays.OpenSansPath(), displayRoute(), handlers.font)
+	mux.HandleFunc(displays.StylesheetPath(), displayRoute(), handlers.stylesheet)
 	mux.HandleFunc("/display/assets/", displayRoute(), handlers.clientJavaScript)
 	mux.HandleFunc(
 		"/display/events",
@@ -85,14 +82,14 @@ func (handlers displayHandlers) font(response http.ResponseWriter, request *http
 	if !requestAllowed(response, request, http.MethodGet, handlers.allowPlaintextDisplay) {
 		return
 	}
-	path := frontend.OpenSansPath
-	if request.URL.Path == "/display/assets/chakra-petch-regular.ttf" {
-		path = frontend.ChakraRegularPath
-	} else if request.URL.Path != "/display/assets/open-sans.ttf" {
+	name := fontassets.OpenSans
+	if request.URL.Path == displays.ChakraPetchRegularPath() {
+		name = fontassets.ChakraPetchRegular
+	} else if request.URL.Path != displays.OpenSansPath() {
 		http.NotFound(response, request)
 		return
 	}
-	asset, err := frontend.Asset(path)
+	asset, err := fontassets.Asset(name)
 	if err != nil {
 		http.NotFound(response, request)
 		return
@@ -184,6 +181,24 @@ func (handlers displayHandlers) clientJavaScript(response http.ResponseWriter, r
 	response.Header().Set("Content-Type", "text/javascript; charset=utf-8")
 	if _, err := response.Write(displays.ClientJavaScript); err != nil {
 		handlers.logger.ErrorContext(request.Context(), "write Display client", "error", err)
+	}
+}
+
+// stylesheet serves the content-addressed Display stylesheet. Only the digest
+// URL is routed here, so the response is safe to cache indefinitely: a
+// presentation change produces a different URL rather than a stale hit.
+func (handlers displayHandlers) stylesheet(response http.ResponseWriter, request *http.Request) {
+	if !requestAllowed(response, request, http.MethodGet, handlers.allowPlaintextDisplay) {
+		return
+	}
+	if request.URL.Path != displays.StylesheetPath() {
+		http.NotFound(response, request)
+		return
+	}
+	response.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	response.Header().Set("Content-Type", "text/css; charset=utf-8")
+	if _, err := response.Write(displays.Stylesheet); err != nil {
+		handlers.logger.ErrorContext(request.Context(), "write Display stylesheet", "error", err)
 	}
 }
 

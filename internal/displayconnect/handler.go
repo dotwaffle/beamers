@@ -326,6 +326,11 @@ func sessionMessage(found displays.Session) *displayv1.DisplaySession {
 		AvailabilityMessage: found.AvailabilityMessage,
 		PresentedStartLabel: string(found.PresentedStartLabel),
 		PresentedEndLabel:   string(found.PresentedEndLabel),
+		TimelineDay:         found.TimelineDay,
+		TimelineOffset:      uint32(found.TimelineOffset),    //nolint:gosec // Projection is bounded to 0..10000.
+		TimelineWidth:       uint32(found.TimelineWidth),     //nolint:gosec // Projection is bounded to 1..10000.
+		TimelineLane:        uint32(found.TimelineLane),      //nolint:gosec // Slice index.
+		TimelineLaneCount:   uint32(found.TimelineLaneCount), //nolint:gosec // Slice length.
 	}
 	if !found.ForecastStart.IsZero() {
 		result.ForecastStart = timestamppb.New(found.ForecastStart)

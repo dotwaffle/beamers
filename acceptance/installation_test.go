@@ -45,6 +45,7 @@ import (
 	"github.com/dotwaffle/beamers/gen/beamers/rundown/v1/rundownv1connect"
 	sessionv1 "github.com/dotwaffle/beamers/gen/beamers/session/v1"
 	"github.com/dotwaffle/beamers/gen/beamers/session/v1/sessionv1connect"
+	"github.com/dotwaffle/beamers/internal/publictime"
 	"github.com/dotwaffle/beamers/internal/store/storetest"
 )
 
@@ -188,6 +189,46 @@ func TestAdministratorRevisesPreviewsActivatesAndRestoresInstallationTheme(t *te
 		},
 	)
 
+	// Selecting a bundled Preset populates the Draft form and stores nothing, so
+	// the Producer can edit any value before saving. See ADR 0057.
+	presetStatus, presetBody := postBrowserForm(
+		t,
+		administrator,
+		server.address,
+		"/backstage/themes",
+		url.Values{
+			"csrf_token": {csrf},
+			"action":     {"load-preset"},
+			"preset":     {"Demoscene"},
+		},
+	)
+	if presetStatus != http.StatusOK {
+		t.Fatalf("load Theme Preset = %d %q", presetStatus, presetBody)
+	}
+	for _, want := range []string{
+		`value="#080b15"`,
+		`value="#62ebcb"`,
+		`value="starfield" selected`,
+	} {
+		if !strings.Contains(presetBody, want) {
+			t.Errorf("loaded Demoscene Preset missing %q: %s", want, presetBody)
+		}
+	}
+	unknownStatus, _ := postBrowserForm(
+		t,
+		administrator,
+		server.address,
+		"/backstage/themes",
+		url.Values{
+			"csrf_token": {csrf},
+			"action":     {"load-preset"},
+			"preset":     {"Bespoke"},
+		},
+	)
+	if unknownStatus != http.StatusBadRequest {
+		t.Errorf("unknown Theme Preset = %d, want %d", unknownStatus, http.StatusBadRequest)
+	}
+
 	invalid := installationThemeForm(csrf, "create-draft", "create-invalid-theme")
 	invalid.Set("background_color", "retain-invalid")
 	status, body := postBrowserForm(
@@ -227,7 +268,7 @@ func TestAdministratorRevisesPreviewsActivatesAndRestoresInstallationTheme(t *te
 			t.Errorf("inaccessible Theme preview missing %q: %s", want, body)
 		}
 	}
-	assertGETContains(t, administrator, server.address, "/assets/installation-theme.css", "#080b15")
+	assertGETContains(t, administrator, server.address, "/assets/installation-theme.css", "#0d1117")
 
 	blocked := installationThemeForm(csrf, "activate", "activate-inaccessible-theme")
 	blocked.Set("revision_id", "1")
@@ -274,7 +315,7 @@ func TestAdministratorRevisesPreviewsActivatesAndRestoresInstallationTheme(t *te
 		!strings.Contains(body, "passes known activation checks") {
 		t.Fatalf("accessible Theme preview = %d %q", status, body)
 	}
-	assertGETContains(t, administrator, server.address, "/assets/installation-theme.css", "#080b15")
+	assertGETContains(t, administrator, server.address, "/assets/installation-theme.css", "#0d1117")
 
 	activate := installationThemeForm(csrf, "activate", "activate-accessible-theme")
 	activate.Set("revision_id", "2")
@@ -363,7 +404,7 @@ func TestAdministratorRevisesPreviewsActivatesAndRestoresInstallationTheme(t *te
 	if status != http.StatusOK {
 		t.Fatalf("corrected Theme rollback = %d %q", status, body)
 	}
-	assertGETContains(t, administrator, server.address, "/assets/installation-theme.css", "#080b15")
+	assertGETContains(t, administrator, server.address, "/assets/installation-theme.css", "#0d1117")
 
 	reactivate := installationThemeForm(csrf, "activate", "reactivate-accessible-theme")
 	reactivate.Set("revision_id", "2")
@@ -431,10 +472,36 @@ func TestProducerActivatesInheritedEventThemeAcrossPublicSchedule(t *testing.T) 
 		"Fully inherited Installation Theme",
 	)
 
+	presetStatus, presetBody := postBrowserForm(
+		t,
+		producer,
+		server.address,
+		"/backstage/events/1/theme",
+		url.Values{
+			"csrf_token": {csrf},
+			"action":     {"load-preset"},
+			"preset":     {"Conference"},
+		},
+	)
+	if presetStatus != http.StatusOK {
+		t.Fatalf("load Event Theme Preset = %d %q", presetStatus, presetBody)
+	}
+	for _, want := range []string{
+		`value="#11131a"`,
+		`value="#9ab8ff"`,
+		`value="fade" selected`,
+	} {
+		if !strings.Contains(presetBody, want) {
+			t.Errorf("loaded Conference Event Preset missing %q: %s", want, presetBody)
+		}
+	}
+
 	draft := eventThemeForm(csrf, "create-draft", "create-event-theme")
 	draft.Set("background_color", "#112233")
 	draft.Set("location-signage_accent_color", "#ffdf6e")
 	draft.Set("location-signage_motion", "still")
+	draft.Set("timeline_accent_color", "#f5b544")
+	draft.Set("crew-overview_motion", "still")
 	status, body := postBrowserForm(
 		t,
 		producer,
@@ -446,7 +513,9 @@ func TestProducerActivatesInheritedEventThemeAcrossPublicSchedule(t *testing.T) 
 		!strings.Contains(body, "Event Theme Revision #1") ||
 		!strings.Contains(body, "passes known inherited activation checks") ||
 		!strings.Contains(body, `data-theme-variant="location-signage"`) ||
-		!strings.Contains(body, "#ffdf6e") {
+		!strings.Contains(body, "#ffdf6e") ||
+		!strings.Contains(body, `data-theme-variant="timeline"`) ||
+		!strings.Contains(body, `data-theme-variant="crew-overview"`) {
 		t.Fatalf("Event Theme preview = %d %q", status, body)
 	}
 	assertGETContains(
@@ -454,7 +523,7 @@ func TestProducerActivatesInheritedEventThemeAcrossPublicSchedule(t *testing.T) 
 		producer,
 		server.address,
 		"/assets/events/1/theme.css",
-		"#080b15",
+		"#0d1117",
 	)
 	beforeActivation := readDisplaySnapshot(t, displayClient, server.address)
 	beforePosition, err := strconv.ParseUint(beforeActivation.StreamPosition, 10, 64)
@@ -692,7 +761,7 @@ func TestProducerActivatesInheritedEventThemeAcrossPublicSchedule(t *testing.T) 
 		producer,
 		server.address,
 		"/assets/events/1/theme.css",
-		"#080b15",
+		"#0d1117",
 	)
 	emergencyPreview := requestJSON(
 		t.Context(),
@@ -1792,10 +1861,10 @@ func TestProducerConfiguresAccessibleBuiltInDisplayViews(t *testing.T) {
 	for _, want := range []string{
 		`class="display-view display-layout-event-overview`,
 		`display-transition-none`,
-		`--display-foreground:#f1f5ff`,
-		`--display-background:#080b15`,
-		`--display-accent:#141a2c`,
-		`--display-signal:#62ebcb`,
+		`--display-foreground:#f0f6fc`,
+		`--display-background:#0d1117`,
+		`--display-accent:#171c23`,
+		`--display-signal:#6cb6ff`,
 		`data-region="header"`,
 		`data-region="schedule"`,
 		`data-region="clock"`,
@@ -2063,8 +2132,93 @@ func TestDisplayEntryUsesRecoverableContentAddressedAssets(t *testing.T) {
 	if stale.StatusCode != http.StatusNotFound {
 		t.Errorf("stale Display client asset = %d, want %d", stale.StatusCode, http.StatusNotFound)
 	}
-	if closeErr := stale.Body.Close(); closeErr != nil {
-		t.Errorf("close stale Display client response: %v", closeErr)
+	if staleCloseErr := stale.Body.Close(); staleCloseErr != nil {
+		t.Errorf("close stale Display client response: %v", staleCloseErr)
+	}
+
+	// ADR 0048 puts every Display asset behind one version, so the stylesheet
+	// must be content-addressed under the same digest as the client. A
+	// stylesheet served off a separate version could let a cached kiosk pair
+	// new markup with old styles.
+	styleMatch := regexp.MustCompile(
+		`href="(/display/assets/([0-9a-f]{64})/display\.css)"`,
+	).FindStringSubmatch(page)
+	if len(styleMatch) != 3 {
+		t.Fatalf("Display entry document has no content-addressed stylesheet: %s", page)
+	}
+	if styleMatch[2] != assetMatch[2] {
+		t.Errorf(
+			"Display stylesheet asset version = %q, client = %q; want one version",
+			styleMatch[2],
+			assetMatch[2],
+		)
+	}
+	stylesheet := get(t, displayClient, server.address, styleMatch[1])
+	stylesheetBody, readErr := io.ReadAll(stylesheet.Body)
+	closeErr = stylesheet.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read content-addressed Display stylesheet: %v", err)
+	}
+	if stylesheet.StatusCode != http.StatusOK || !strings.Contains(string(stylesheetBody), ".display-view") {
+		t.Errorf(
+			"content-addressed Display stylesheet = %d %q, want %d carrying .display-view",
+			stylesheet.StatusCode,
+			stylesheetBody,
+			http.StatusOK,
+		)
+	}
+	if got := stylesheet.Header.Get("Content-Type"); got != "text/css; charset=utf-8" {
+		t.Errorf("Display stylesheet Content-Type = %q", got)
+	}
+	if got := stylesheet.Header.Get("Cache-Control"); got != "public, max-age=31536000, immutable" {
+		t.Errorf("Display stylesheet Cache-Control = %q", got)
+	}
+	for _, name := range []string{"chakra-petch-regular.ttf", "open-sans.ttf"} {
+		fontPath := "/display/assets/" + styleMatch[2] + "/" + name
+		if !strings.Contains(string(stylesheetBody), `url("`+name+`")`) {
+			t.Errorf("Display stylesheet does not reference versioned font %q", name)
+		}
+		font := get(t, displayClient, server.address, fontPath)
+		fontBody, fontReadErr := io.ReadAll(font.Body)
+		fontCloseErr := font.Body.Close()
+		if err := errors.Join(fontReadErr, fontCloseErr); err != nil {
+			t.Fatalf("read content-addressed Display font %q: %v", name, err)
+		}
+		if font.StatusCode != http.StatusOK || len(fontBody) == 0 {
+			t.Errorf(
+				"content-addressed Display font %q = %d with %d bytes",
+				name,
+				font.StatusCode,
+				len(fontBody),
+			)
+		}
+		if got := font.Header.Get("Cache-Control"); got != "public, max-age=31536000, immutable" {
+			t.Errorf("Display font %q Cache-Control = %q", name, got)
+		}
+	}
+	staleStyle := get(
+		t,
+		displayClient,
+		server.address,
+		"/display/assets/"+strings.Repeat("0", 64)+"/display.css",
+	)
+	if staleStyle.StatusCode != http.StatusNotFound {
+		t.Errorf("stale Display stylesheet = %d, want %d", staleStyle.StatusCode, http.StatusNotFound)
+	}
+	if staleStyleCloseErr := staleStyle.Body.Close(); staleStyleCloseErr != nil {
+		t.Errorf("close stale Display stylesheet response: %v", staleStyleCloseErr)
+	}
+	staleFont := get(
+		t,
+		displayClient,
+		server.address,
+		"/display/assets/"+strings.Repeat("0", 64)+"/open-sans.ttf",
+	)
+	if staleFont.StatusCode != http.StatusNotFound {
+		t.Errorf("stale Display font = %d, want %d", staleFont.StatusCode, http.StatusNotFound)
+	}
+	if staleFontCloseErr := staleFont.Body.Close(); staleFontCloseErr != nil {
+		t.Errorf("close stale Display font response: %v", staleFontCloseErr)
 	}
 	server.stop(t)
 }
@@ -3727,9 +3881,9 @@ func TestPublicScheduleEncodesFiltersAndLocalTimeInURL(t *testing.T) {
 		`<option value="1" selected>General</option>`,
 		`value="America/New_York"`,
 		"Attendee-local conversion: America/New_York. Program days remain grouped in Event time.",
-		"Event Time (CEST +02:00): Forecast Start 21 Aug 2099 10:00 CEST",
+		"Event Time (CEST +02:00): Forecast Start 2099-08-21 10:00 CEST",
 		"Attendee-local time (EDT -04:00): Forecast Start",
-		`datetime="2099-08-21T04:00:00-04:00">21 Aug 2099 04:00 EDT`,
+		`datetime="2099-08-21T04:00:00-04:00">2099-08-21 04:00 EDT`,
 		fmt.Sprintf(`/events/beamconf-2099/schedule/sessions/%d?time_zone=America%%2FNew_York`, publicSessionID),
 		`hx-get="/events/beamconf-2099/schedule?day=2099-08-21&amp;lane=1&amp;location=1&amp;time_zone=America%2FNew_York&amp;track=1"`,
 	} {
@@ -7342,7 +7496,7 @@ func TestProducerReinstatesCanceledLiveSessionFromPlacementPreview(t *testing.T)
 			string(body),
 			proposedStart.
 				In(time.FixedZone("CEST", 2*60*60)).
-				Format("02 Jan 2006 15:04 MST"),
+				Format(publictime.DateTimeLayout),
 		) {
 		t.Fatalf("reinstated public Session = %d %q", public.StatusCode, body)
 	}
@@ -9620,6 +9774,10 @@ func installationThemeForm(csrf, action, commandID string) url.Values {
 		"accent_color":     {"#62ebcb"},
 		"link_color":       {"#79d7ff"},
 		"focus_color":      {"#ffdf6e"},
+		"live_color":       {"#ff6b5e"},
+		"warning_color":    {"#f5b544"},
+		"danger_color":     {"#ff86a2"},
+		"success_color":    {"#5ee38b"},
 		"background":       {"nebula"},
 		"typeface":         {"demoscene"},
 		"transition":       {"fade"},
