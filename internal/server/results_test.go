@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +10,92 @@ import (
 
 	"github.com/dotwaffle/beamers/internal/results"
 )
+
+func TestResultsWorkspaceRequestMapsOptionalSelections(t *testing.T) {
+	t.Parallel()
+
+	ordinary, err := resultsWorkspaceRequest(
+		httptest.NewRequestWithContext(
+			t.Context(),
+			http.MethodGet,
+			"/results",
+			http.NoBody,
+		),
+		41,
+	)
+	if err != nil ||
+		ordinary.EventID != 41 ||
+		ordinary.PrizegivingPreview != nil ||
+		ordinary.EventAwardsPreflight {
+		t.Fatalf("ordinary Workspace request = %+v, %v", ordinary, err)
+	}
+
+	selected, err := resultsWorkspaceRequest(
+		httptest.NewRequestWithContext(
+			t.Context(),
+			http.MethodGet,
+			"/results?ceremony_id=7&preview=Preview&event_awards_preflight=true",
+			http.NoBody,
+		),
+		41,
+	)
+	if err != nil ||
+		selected.PrizegivingPreview == nil ||
+		selected.PrizegivingPreview.CeremonySessionID != 7 ||
+		selected.PrizegivingPreview.Mode != results.PrizegivingPreviewModePreview ||
+		!selected.EventAwardsPreflight {
+		t.Fatalf("selected Workspace request = %+v, %v", selected, err)
+	}
+
+	_, err = resultsWorkspaceRequest(
+		httptest.NewRequestWithContext(
+			t.Context(),
+			http.MethodGet,
+			"/results?ceremony_id=invalid&preview=Preview",
+			http.NoBody,
+		),
+		41,
+	)
+	if !errors.Is(err, results.ErrInvalidInput) {
+		t.Fatalf("invalid Workspace request error = %v", err)
+	}
+}
+
+func TestResultsWorkspaceErrorsPreserveBrowserStatus(t *testing.T) {
+	t.Parallel()
+
+	handlers := backstageResultsHandlers{browser: frontendHandlers{
+		logger: slog.New(slog.DiscardHandler),
+	}}
+	for _, test := range []struct {
+		name string
+		err  error
+		want int
+	}{
+		{name: "invalid selection", err: results.ErrInvalidInput, want: http.StatusUnprocessableEntity},
+		{name: "unauthorized preflight", err: results.ErrProducerRequired, want: http.StatusNotFound},
+		{name: "infrastructure failure", err: errors.New("storage unavailable"), want: http.StatusInternalServerError},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			request := httptest.NewRequestWithContext(
+				t.Context(),
+				http.MethodGet,
+				"/results",
+				http.NoBody,
+			)
+			response := httptest.NewRecorder()
+			handlers.writeResultsWorkspaceError(response, request, test.err)
+			if response.Code != test.want {
+				t.Fatalf(
+					"Workspace error status = %d, want %d",
+					response.Code,
+					test.want,
+				)
+			}
+		})
+	}
+}
 
 type publicResultsRead struct {
 	eventID, scopeSessionID, revision int
