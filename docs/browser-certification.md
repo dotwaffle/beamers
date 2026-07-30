@@ -1,6 +1,6 @@
 # Browser and Accessibility Certification
 
-The `Browsers` workflow runs the current and previous major Chromium and Firefox releases against real served Beamers pages.
+The `Browsers` workflow runs the newest two major Chromium and Firefox releases available as official Selenium standalone images against real served Beamers pages.
 It records the exact browser, driver, runner, and commit versions in downloadable JSON evidence.
 
 The hosted check renders anonymous, attendee, voter, Producer, Operator, Administrator, Display, Theme, submission, and released Results surfaces against a representative demo installation.
@@ -74,11 +74,13 @@ This keeps CSRF, session, route-interface, credential, federation, Ballot, publi
 With Docker or Podman:
 
 ```sh
-scripts/check-browser-chromium.sh
+scripts/check-browser.sh
 ```
 
 Set `CONTAINER_RUNTIME=podman` to use Podman.
-Set `BEAMERS_SELENIUM_IMAGE` to test a specific Selenium Chromium image.
+Set `BEAMERS_SELENIUM_IMAGE` to test a specific Selenium image.
+Set `BEAMERS_BROWSER_ENGINE=firefox` to use Firefox; Chromium is the default.
+Set `BEAMERS_BROWSER_ROLE` and `BEAMERS_BROWSER_MAJOR` to reproduce one hosted matrix entry exactly.
 Set `BEAMERS_BROWSER_RUNS` to repeat the certification against one container.
 
 Install a supported browser and its W3C WebDriver, then run:

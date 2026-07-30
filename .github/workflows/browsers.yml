@@ -23,52 +23,64 @@ jobs:
       matrix: ${{ steps.versions.outputs.matrix }}
 
     steps:
-      - name: Resolve current and previous majors
+      - name: Resolve current and previous container images
         id: versions
         shell: bash
         run: |
-          chrome_current="$(
-            curl --fail --silent --show-error --location \
-              https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions.json |
-              jq --raw-output '.channels.Stable.version'
-          )"
-          chrome_major="${chrome_current%%.*}"
-          chrome_previous="$((chrome_major - 1))"
+          latest_majors() {
+            image="$1"
+            url="https://hub.docker.com/v2/repositories/selenium/standalone-${image}/tags?page_size=100"
+            majors='[]'
+            while [ -n "$url" ]; do
+              response="$(
+                curl --fail --silent --show-error --location "$url"
+              )"
+              majors="$(
+                jq --compact-output --argjson known "$majors" \
+                  '$known + [.results[].name |
+                    select(test("^[0-9]+[.]0$")) |
+                    split(".")[0] | tonumber] |
+                    unique | sort' \
+                  <<<"$response"
+              )"
+              if [ "$(jq 'length' <<<"$majors")" -ge 2 ]; then
+                break
+              fi
+              url="$(jq --raw-output '.next // empty' <<<"$response")"
+            done
+            if [ "$(jq 'length' <<<"$majors")" -lt 2 ]; then
+              echo "fewer than two major tags found for $image" >&2
+              return 1
+            fi
+            jq --compact-output '.[-2:]' <<<"$majors"
+          }
 
-          firefox_current="$(
-            curl --fail --silent --show-error --location \
-              https://product-details.mozilla.org/1.0/firefox_versions.json |
-              jq --raw-output '.LATEST_FIREFOX_VERSION'
-          )"
-          firefox_major="${firefox_current%%.*}"
-          firefox_previous_major="$((firefox_major - 1))"
-          firefox_previous="$(
-            curl --fail --silent --show-error --location \
-              https://product-details.mozilla.org/1.0/firefox.json |
-              jq --raw-output --arg major "$firefox_previous_major" \
-                '[.releases | to_entries[] |
-                  select(.key | startswith("firefox-" + $major + "."))] |
-                  sort_by(.value.date) | last | .key | sub("^firefox-"; "")'
-          )"
+          chrome_majors="$(latest_majors chrome)"
+          firefox_majors="$(latest_majors firefox)"
+          chrome_previous_major="$(jq --raw-output '.[0]' <<<"$chrome_majors")"
+          chrome_major="$(jq --raw-output '.[1]' <<<"$chrome_majors")"
+          firefox_previous_major="$(jq --raw-output '.[0]' <<<"$firefox_majors")"
+          firefox_major="$(jq --raw-output '.[1]' <<<"$firefox_majors")"
 
           matrix="$(
             jq --compact-output --null-input \
-              --arg chrome_current "$chrome_current" \
               --argjson chrome_major "$chrome_major" \
-              --arg chrome_previous "$chrome_previous" \
-              --arg firefox_current "$firefox_current" \
+              --argjson chrome_previous_major "$chrome_previous_major" \
               --argjson firefox_major "$firefox_major" \
-              --arg firefox_previous "$firefox_previous" \
               --argjson firefox_previous_major "$firefox_previous_major" \
               '{include: [
                 {engine: "chromium", role: "current",
-                  version: $chrome_current, major: $chrome_major},
+                  image: ("selenium/standalone-chrome:" + ($chrome_major | tostring) + ".0"),
+                  major: $chrome_major},
                 {engine: "chromium", role: "previous",
-                  version: $chrome_previous, major: ($chrome_major - 1)},
+                  image: ("selenium/standalone-chrome:" + ($chrome_previous_major | tostring) + ".0"),
+                  major: $chrome_previous_major},
                 {engine: "firefox", role: "current",
-                  version: $firefox_current, major: $firefox_major},
+                  image: ("selenium/standalone-firefox:" + ($firefox_major | tostring) + ".0"),
+                  major: $firefox_major},
                 {engine: "firefox", role: "previous",
-                  version: $firefox_previous, major: $firefox_previous_major}
+                  image: ("selenium/standalone-firefox:" + ($firefox_previous_major | tostring) + ".0"),
+                  major: $firefox_previous_major}
               ]}'
           )"
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
@@ -101,58 +113,18 @@ jobs:
         with:
           cache: true
 
-      - name: Install Chromium
-        if: matrix.engine == 'chromium'
-        id: chrome
-        uses: browser-actions/setup-chrome@v2
-        with:
-          chrome-version: ${{ matrix.version }}
-          install-chromedriver: true
-
-      - name: Install Firefox
-        if: matrix.engine == 'firefox'
-        id: firefox
-        uses: browser-actions/setup-firefox@v1
-        with:
-          firefox-version: ${{ matrix.version }}
-
-      - name: Certify Chromium
-        if: matrix.engine == 'chromium'
+      - name: Certify browser
         env:
           BEAMERS_BROWSER_CERTIFICATION: "1"
-          BEAMERS_BROWSER_ENGINE: chromium
+          BEAMERS_BROWSER_ENGINE: ${{ matrix.engine }}
           BEAMERS_BROWSER_ROLE: ${{ matrix.role }}
           BEAMERS_BROWSER_MAJOR: ${{ matrix.major }}
-          BEAMERS_BROWSER_BINARY: ${{ steps.chrome.outputs.chrome-path }}
-          BEAMERS_WEBDRIVER_BINARY: ${{ steps.chrome.outputs.chromedriver-path }}
+          BEAMERS_SELENIUM_IMAGE: ${{ matrix.image }}
           BEAMERS_BROWSER_REPORT: ${{ github.workspace }}/artifacts/browser.json
         run: |
           set -o pipefail
           mkdir -p artifacts
-          go test ./acceptance \
-            -run '^TestBrowserCertification$' \
-            -count=1 \
-            -timeout 25m \
-            -v 2>&1 | tee artifacts/browser.log
-
-      - name: Certify Firefox
-        if: matrix.engine == 'firefox'
-        env:
-          BEAMERS_BROWSER_CERTIFICATION: "1"
-          BEAMERS_BROWSER_ENGINE: firefox
-          BEAMERS_BROWSER_ROLE: ${{ matrix.role }}
-          BEAMERS_BROWSER_MAJOR: ${{ matrix.major }}
-          BEAMERS_BROWSER_BINARY: ${{ steps.firefox.outputs.firefox-path }}
-          BEAMERS_WEBDRIVER_BINARY: geckodriver
-          BEAMERS_BROWSER_REPORT: ${{ github.workspace }}/artifacts/browser.json
-        run: |
-          set -o pipefail
-          mkdir -p artifacts
-          go test ./acceptance \
-            -run '^TestBrowserCertification$' \
-            -count=1 \
-            -timeout 25m \
-            -v 2>&1 | tee artifacts/browser.log
+          scripts/check-browser.sh 2>&1 | tee artifacts/browser.log
 
       - name: Report browser evidence
         if: always()
