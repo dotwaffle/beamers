@@ -1850,7 +1850,7 @@ func publishPrizegivingSessions(
 	now func() time.Time,
 ) (int, int) {
 	t.Helper()
-	commands, err := rundown.NewCommands(storage, now)
+	commands, err := rundown.NewCommands(storage, now, nil, nil)
 	if err != nil {
 		t.Fatalf("create Rundown commands: %v", err)
 	}

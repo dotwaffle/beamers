@@ -92,7 +92,7 @@ func TestNewReconcilesUnreferencedAttachmentFiles(t *testing.T) {
 			t.Errorf("close storage: %v", closeErr)
 		}
 	})
-	if _, err = New(t.Context(), storage, root, time.Now); err != nil {
+	if _, err = New(t.Context(), storage, root, time.Now, nil); err != nil {
 		t.Fatalf("create Attachment Service: %v", err)
 	}
 	if content, readErr := os.ReadFile(filepath.Join(root, referencedKey)); readErr != nil ||
@@ -124,7 +124,9 @@ func newAttachmentTestService(t *testing.T) *Service {
 			t.Errorf("close storage: %v", closeErr)
 		}
 	})
-	service, err := New(t.Context(), storage, filepath.Join(t.TempDir(), "attachments"), time.Now)
+	service, err := New(
+		t.Context(), storage, filepath.Join(t.TempDir(), "attachments"), time.Now, nil,
+	)
 	if err != nil {
 		t.Fatalf("create Attachment Service: %v", err)
 	}

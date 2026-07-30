@@ -354,19 +354,29 @@ type AttachmentReadiness struct {
 
 // Service owns Competition queries and Entry commands.
 type Service struct {
-	storage *store.SQLite
-	now     func() time.Time
+	storage        *store.SQLite
+	now            func() time.Time
+	notifyDisplays func()
+	notifySchedule func()
 }
 
 // New creates a Competition Service with explicit dependencies.
-func New(storage *store.SQLite, now func() time.Time) (*Service, error) {
+func New(
+	storage *store.SQLite,
+	now func() time.Time,
+	notifyDisplays func(),
+	notifySchedule func(),
+) (*Service, error) {
 	if storage == nil {
 		return nil, errors.New("competition storage is required")
 	}
 	if now == nil {
 		return nil, errors.New("competition clock is required")
 	}
-	return &Service{storage: storage, now: now}, nil
+	return &Service{
+		storage: storage, now: now,
+		notifyDisplays: notifyDisplays, notifySchedule: notifySchedule,
+	}, nil
 }
 
 // Get returns one Competition to granted Event crew.
@@ -572,7 +582,7 @@ func (service *Service) executeEntryOrderCommand(
 		Now: service.now().UTC(),
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[EntryOrder]{
-		Storage: service.storage, Identity: identity,
+		Storage: service.storage, Identity: identity, Notify: service.notifyEntries,
 		Replay: func(outcome string) (EntryOrder, error) {
 			var stored store.EntryOrderState
 			if err := store.DecodeCommandReceipt(outcome, &stored); err != nil {
@@ -733,6 +743,7 @@ func (service *Service) CreateEntry(ctx context.Context, actor auth.Account, inp
 		return Entry{}, err
 	}
 	return service.execute(ctx, actor, input.EventID, input.CommandID, "CreateCompetitionEntry", "unidentified", input,
+		service.notifyEntries,
 		func(transaction *store.CommandTx, now time.Time) (store.CompetitionEntry, error) {
 			return transaction.CreateCompetitionEntry(actor.Context(ctx), store.CreateCompetitionEntryParams{
 				EventID: input.EventID, SessionID: input.SessionID, Name: input.Name,
@@ -771,6 +782,7 @@ func (service *Service) CreateSubmission(
 		input,
 		func(int) bool { return actor.ID > 0 },
 		ErrSubmitterRequired,
+		service.notifyEntries,
 		func(transaction *store.CommandTx, now time.Time) (store.CompetitionEntry, error) {
 			return transaction.CreateSubmittedCompetitionEntry(
 				actor.Context(ctx),
@@ -793,6 +805,7 @@ func (service *Service) UpdateEntry(ctx context.Context, actor auth.Account, inp
 		return Entry{}, err
 	}
 	return service.execute(ctx, actor, input.EventID, input.CommandID, "UpdateCompetitionEntry", strconv.Itoa(input.EntryID), input,
+		service.notifyEntries,
 		func(transaction *store.CommandTx, now time.Time) (store.CompetitionEntry, error) {
 			return transaction.UpdateCompetitionEntry(actor.Context(ctx), store.UpdateCompetitionEntryParams{
 				EventID: input.EventID, SessionID: input.SessionID, EntryID: input.EntryID,
@@ -832,6 +845,7 @@ func (service *Service) UpdateSubmission(
 		input,
 		func(int) bool { return actor.ID > 0 },
 		ErrSubmitterRequired,
+		service.notifyEntries,
 		func(transaction *store.CommandTx, now time.Time) (store.CompetitionEntry, error) {
 			return transaction.UpdateSubmittedCompetitionEntry(
 				actor.Context(ctx),
@@ -872,6 +886,7 @@ func (service *Service) AssignSubmitter(
 		"AssignCompetitionEntrySubmitter",
 		strconv.Itoa(input.EntryID),
 		input,
+		nil,
 		func(transaction *store.CommandTx, _ time.Time) (store.CompetitionEntry, error) {
 			return transaction.AssignCompetitionEntrySubmitter(
 				actor.Context(ctx),
@@ -902,6 +917,7 @@ func (service *Service) ChangeDisposition(
 		return Entry{}, fmt.Errorf("%w: disposition must be Pending, Included, or Rejected", ErrInvalidInput)
 	}
 	return service.execute(ctx, actor, input.EventID, input.CommandID, "ChangeCompetitionEntryDisposition", strconv.Itoa(input.EntryID), input,
+		service.notifyEntries,
 		func(transaction *store.CommandTx, now time.Time) (store.CompetitionEntry, error) {
 			return transaction.ChangeCompetitionEntryDisposition(actor.Context(ctx), store.ChangeCompetitionEntryDispositionParams{
 				EventID: input.EventID, SessionID: input.SessionID, EntryID: input.EntryID,
@@ -928,6 +944,7 @@ func (service *Service) ReviewEntry(
 	return service.execute(
 		ctx, actor, input.EventID, input.CommandID, "ReviewCompetitionEntry",
 		strconv.Itoa(input.EntryID), input,
+		nil,
 		func(transaction *store.CommandTx, now time.Time) (store.CompetitionEntry, error) {
 			return transaction.ReviewCompetitionEntry(
 				actor.Context(ctx), store.ReviewCompetitionEntryParams{
@@ -966,6 +983,7 @@ func (service *Service) RecordTechnicalFailure(
 		"RecordCompetitionTechnicalFailure",
 		strconv.Itoa(input.EntryID),
 		input,
+		nil,
 		func(transaction *store.CommandTx, _ time.Time) (store.CompetitionEntry, error) {
 			return transaction.RecordCompetitionTechnicalFailure(
 				actor.Context(ctx),
@@ -1008,6 +1026,7 @@ func (service *Service) ResolveEntry(
 		"ResolveCompetitionEntry",
 		strconv.Itoa(input.EntryID),
 		input,
+		service.notifySchedule,
 		func(transaction *store.CommandTx, now time.Time) (store.CompetitionEntry, error) {
 			return transaction.ResolveCompetitionEntry(
 				actor.Context(ctx),
@@ -1043,6 +1062,7 @@ func (service *Service) SetEntryReleaseHold(
 	return service.execute(
 		ctx, actor, input.EventID, input.CommandID, "SetCompetitionEntryReleaseHold",
 		strconv.Itoa(input.EntryID), input,
+		service.notifySchedule,
 		func(transaction *store.CommandTx, _ time.Time) (store.CompetitionEntry, error) {
 			return transaction.SetCompetitionEntryReleaseHold(
 				actor.Context(ctx), store.SetCompetitionEntryReleaseHoldParams{
@@ -1079,7 +1099,7 @@ func (service *Service) SetEntryAttachmentReadiness(
 		TargetID: strconv.Itoa(input.AttachmentVersionID), Now: service.now().UTC(),
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[AttachmentReadiness]{
-		Storage: service.storage, Identity: identity,
+		Storage: service.storage, Identity: identity, Notify: service.notifySchedule,
 		Replay: func(outcome string) (AttachmentReadiness, error) {
 			var stored store.AttachmentReadiness
 			if err := store.DecodeCommandReceipt(outcome, &stored); err != nil {
@@ -1111,17 +1131,27 @@ func (service *Service) SetEntryAttachmentReadiness(
 	})
 }
 
+func (service *Service) notifyEntries() {
+	if service.notifyDisplays != nil {
+		service.notifyDisplays()
+	}
+	if service.notifySchedule != nil {
+		service.notifySchedule()
+	}
+}
+
 func (service *Service) execute(
 	ctx context.Context,
 	actor auth.Account,
 	eventID int,
 	commandID, action, targetID string,
 	payload any,
+	notify func(),
 	apply func(*store.CommandTx, time.Time) (store.CompetitionEntry, error),
 ) (Entry, error) {
 	return service.executeEntryCommand(
 		ctx, actor, eventID, commandID, action, targetID, payload,
-		actor.CanProduceEvent, ErrProducerRequired, apply,
+		actor.CanProduceEvent, ErrProducerRequired, notify, apply,
 	)
 }
 
@@ -1131,11 +1161,12 @@ func (service *Service) executeOperator(
 	eventID int,
 	commandID, action, targetID string,
 	payload any,
+	notify func(),
 	apply func(*store.CommandTx, time.Time) (store.CompetitionEntry, error),
 ) (Entry, error) {
 	return service.executeEntryCommand(
 		ctx, actor, eventID, commandID, action, targetID, payload,
-		actor.CanOperateEvent, ErrOperatorRequired, apply,
+		actor.CanOperateEvent, ErrOperatorRequired, notify, apply,
 	)
 }
 
@@ -1147,6 +1178,7 @@ func (service *Service) executeEntryCommand(
 	payload any,
 	authorized func(int) bool,
 	authorizationError error,
+	notify func(),
 	apply func(*store.CommandTx, time.Time) (store.CompetitionEntry, error),
 ) (Entry, error) {
 	encodedPayload, err := json.Marshal(payload)
@@ -1158,7 +1190,7 @@ func (service *Service) executeEntryCommand(
 		Action: action, TargetType: "CompetitionEntry", TargetID: targetID, Now: service.now().UTC(),
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[Entry]{
-		Storage: service.storage, Identity: identity,
+		Storage: service.storage, Identity: identity, Notify: notify,
 		Replay: func(outcome string) (Entry, error) {
 			var stored store.CompetitionEntry
 			if err := decodeCompetitionReceipt(outcome, &stored); err != nil {

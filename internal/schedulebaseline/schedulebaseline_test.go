@@ -118,7 +118,7 @@ func TestFirstPublicPublicationEnrollsImmutableBaseline(t *testing.T) {
 	}
 
 	sessionID, published := publishBaselineTestRundown(t, storage, producer, eventID)
-	rundownCommands, err := rundown.NewCommands(storage, time.Now)
+	rundownCommands, err := rundown.NewCommands(storage, time.Now, nil, nil)
 	if err != nil {
 		t.Fatalf("create Rundown Commands: %v", err)
 	}
@@ -281,7 +281,7 @@ func publishBaselineTestRundown(
 	now := func() time.Time {
 		return time.Date(2026, 7, 23, 18, 0, 0, 0, time.UTC)
 	}
-	commands, err := rundown.NewCommands(storage, now)
+	commands, err := rundown.NewCommands(storage, now, nil, nil)
 	if err != nil {
 		t.Fatalf("create Rundown Commands: %v", err)
 	}
@@ -342,7 +342,7 @@ func newBaselineCommands(t *testing.T, storage *store.SQLite) *schedulebaseline.
 	t.Helper()
 	commands, err := schedulebaseline.NewCommands(storage, func() time.Time {
 		return time.Date(2026, 7, 23, 19, 0, 0, 0, time.UTC)
-	})
+	}, nil, nil)
 	if err != nil {
 		t.Fatalf("create baseline Commands: %v", err)
 	}

@@ -111,19 +111,29 @@ func (queries *Queries) Preview(
 
 // Commands owns immutable baseline capture and its durable evidence.
 type Commands struct {
-	storage *store.SQLite
-	now     func() time.Time
+	storage        *store.SQLite
+	now            func() time.Time
+	notifyDisplays func()
+	notifySchedule func()
 }
 
 // NewCommands creates baseline commands with explicit persistence and clock dependencies.
-func NewCommands(storage *store.SQLite, now func() time.Time) (*Commands, error) {
+func NewCommands(
+	storage *store.SQLite,
+	now func() time.Time,
+	notifyDisplays func(),
+	notifySchedule func(),
+) (*Commands, error) {
 	if storage == nil {
 		return nil, errors.New("public schedule baseline storage is required")
 	}
 	if now == nil {
 		return nil, errors.New("public schedule baseline clock is required")
 	}
-	return &Commands{storage: storage, now: now}, nil
+	return &Commands{
+		storage: storage, now: now,
+		notifyDisplays: notifyDisplays, notifySchedule: notifySchedule,
+	}, nil
 }
 
 // Capture atomically records the exact confirmed Public Schedule Baseline.
@@ -146,10 +156,20 @@ func (commands *Commands) Capture(
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[CaptureResult]{
 		Storage: commands.storage, Identity: identity, Replay: decodeCaptureResult,
+		Notify: commands.notifyBaseline,
 		Apply: func(transaction *store.CommandTx) (command.Execution[CaptureResult], error) {
 			return commands.applyCapture(ctx, actor, input, identity, transaction)
 		},
 	})
+}
+
+func (commands *Commands) notifyBaseline() {
+	if commands.notifyDisplays != nil {
+		commands.notifyDisplays()
+	}
+	if commands.notifySchedule != nil {
+		commands.notifySchedule()
+	}
 }
 
 func (commands *Commands) applyCapture(

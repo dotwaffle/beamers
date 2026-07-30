@@ -142,6 +142,7 @@ func (commands *Commands) Publish(
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[PublishResult]{
 		Storage: commands.storage, Identity: identity, Replay: decodePublishOutcome,
+		Notify: commands.notifyPublishedRundown,
 		Apply: func(transaction *store.CommandTx) (command.Execution[PublishResult], error) {
 			if !actor.CanProduceEvent(input.EventID) {
 				return publishRejection(rejection{Code: "event_access_denied", Message: ErrEventAccessDenied.Error()})

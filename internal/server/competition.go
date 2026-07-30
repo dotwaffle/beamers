@@ -21,13 +21,12 @@ func registerCompetitionRoutes(
 	mux *routeMux,
 	authentication *auth.Service,
 	service *competition.Service,
-	notifySchedule func(),
 	listenerAddress net.Addr,
 	tracerProvider trace.TracerProvider,
 	meterProvider metric.MeterProvider,
 	propagator propagation.TextMapPropagator,
 ) error {
-	adapter, err := competitionconnect.NewHandler(service, notifySchedule)
+	adapter, err := competitionconnect.NewHandler(service)
 	if err != nil {
 		return err
 	}

@@ -253,7 +253,9 @@ func OpenInstallationWithConfig(
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.activation = activationService
-	attachmentService, err := attachments.New(ctx, storage, config.AttachmentsDir, now)
+	attachmentService, err := attachments.New(
+		ctx, storage, config.AttachmentsDir, now, config.NotifySchedule,
+	)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
 	}
@@ -272,12 +274,16 @@ func OpenInstallationWithConfig(
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.displays = displayService
-	competitionService, err := competition.New(storage, now)
+	competitionService, err := competition.New(
+		storage, now, config.NotifyDisplays, config.NotifySchedule,
+	)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.competition = competitionService
-	presentationService, err := presentation.New(storage, now)
+	presentationService, err := presentation.New(
+		storage, now, config.NotifyDisplays, config.NotifySchedule,
+	)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
 	}
@@ -292,7 +298,9 @@ func OpenInstallationWithConfig(
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.programControl = programControlService
-	rundownCommands, err := rundown.NewCommands(storage, now)
+	rundownCommands, err := rundown.NewCommands(
+		storage, now, config.NotifyDisplays, config.NotifySchedule,
+	)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
 	}
@@ -307,7 +315,9 @@ func OpenInstallationWithConfig(
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.schedule = scheduleService
-	baselineCommands, err := schedulebaseline.NewCommands(storage, now)
+	baselineCommands, err := schedulebaseline.NewCommands(
+		storage, now, config.NotifyDisplays, config.NotifySchedule,
+	)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
 	}

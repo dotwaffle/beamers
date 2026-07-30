@@ -19,7 +19,7 @@ func TestEditDraftCreatesMinimalRundownAtomically(t *testing.T) {
 	storage, actor, eventID := openRundownTest(t)
 	commands, err := rundown.NewCommands(storage, func() time.Time {
 		return time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
-	})
+	}, nil, nil)
 	if err != nil {
 		t.Fatalf("create Rundown Commands: %v", err)
 	}
@@ -71,7 +71,7 @@ func TestEditDraftCreatesMinimalRundownAtomically(t *testing.T) {
 
 func TestEditDraftRejectionIsAtomicAndReplayable(t *testing.T) {
 	storage, actor, eventID := openRundownTest(t)
-	commands, err := rundown.NewCommands(storage, time.Now)
+	commands, err := rundown.NewCommands(storage, time.Now, nil, nil)
 	if err != nil {
 		t.Fatalf("create Rundown Commands: %v", err)
 	}
@@ -136,7 +136,7 @@ func TestEditDraftRejectionIsAtomicAndReplayable(t *testing.T) {
 func TestPublishClosesDependenciesAndExposesCrewRundown(t *testing.T) {
 	storage, actor, eventID := openRundownTest(t)
 	now := func() time.Time { return time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC) }
-	commands, err := rundown.NewCommands(storage, now)
+	commands, err := rundown.NewCommands(storage, now, nil, nil)
 	if err != nil {
 		t.Fatalf("create Rundown Commands: %v", err)
 	}
@@ -205,7 +205,7 @@ func TestPublishClosesDependenciesAndExposesCrewRundown(t *testing.T) {
 
 func TestPublishRejectsStalePreviewAndLeavesSelectionEffective(t *testing.T) {
 	storage, actor, eventID := openRundownTest(t)
-	commands, err := rundown.NewCommands(storage, time.Now)
+	commands, err := rundown.NewCommands(storage, time.Now, nil, nil)
 	if err != nil {
 		t.Fatalf("create Rundown Commands: %v", err)
 	}
@@ -253,7 +253,7 @@ func TestPublishRejectsStalePreviewAndLeavesSelectionEffective(t *testing.T) {
 
 func TestPublishLeavesUnselectedChangesInDraft(t *testing.T) {
 	storage, actor, eventID := openRundownTest(t)
-	commands, err := rundown.NewCommands(storage, time.Now)
+	commands, err := rundown.NewCommands(storage, time.Now, nil, nil)
 	if err != nil {
 		t.Fatalf("create Rundown Commands: %v", err)
 	}
@@ -315,7 +315,7 @@ func TestPublishLeavesUnselectedChangesInDraft(t *testing.T) {
 
 func TestPublishCreationUsesOnlySelectedLaterFacts(t *testing.T) {
 	storage, actor, eventID := openRundownTest(t)
-	commands, err := rundown.NewCommands(storage, time.Now)
+	commands, err := rundown.NewCommands(storage, time.Now, nil, nil)
 	if err != nil {
 		t.Fatalf("create Rundown Commands: %v", err)
 	}
@@ -372,7 +372,7 @@ func TestPublishCreationUsesOnlySelectedLaterFacts(t *testing.T) {
 
 func TestDiscardReactivatesRemainingFactAndBaselineRevertIsNotSelectable(t *testing.T) {
 	storage, actor, eventID := openRundownTest(t)
-	commands, err := rundown.NewCommands(storage, time.Now)
+	commands, err := rundown.NewCommands(storage, time.Now, nil, nil)
 	if err != nil {
 		t.Fatalf("create Rundown Commands: %v", err)
 	}
@@ -463,7 +463,7 @@ func TestDiscardReactivatesRemainingFactAndBaselineRevertIsNotSelectable(t *test
 
 func TestEditDraftAcceptsEverySessionTypeAndDefaultsLocations(t *testing.T) {
 	storage, actor, eventID := openRundownTest(t)
-	commands, err := rundown.NewCommands(storage, time.Now)
+	commands, err := rundown.NewCommands(storage, time.Now, nil, nil)
 	if err != nil {
 		t.Fatalf("create Rundown Commands: %v", err)
 	}
@@ -505,7 +505,7 @@ func TestEditDraftAcceptsEverySessionTypeAndDefaultsLocations(t *testing.T) {
 
 func TestEditDraftRequiresCompetitionDeadlineDuringTypeChange(t *testing.T) {
 	storage, actor, eventID := openRundownTest(t)
-	commands, err := rundown.NewCommands(storage, time.Now)
+	commands, err := rundown.NewCommands(storage, time.Now, nil, nil)
 	if err != nil {
 		t.Fatalf("create Rundown Commands: %v", err)
 	}

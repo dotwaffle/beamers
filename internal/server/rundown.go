@@ -22,13 +22,12 @@ func registerRundownRoutes(
 	authentication *auth.Service,
 	commands *rundown.Commands,
 	queries *rundown.Queries,
-	notifyDisplays func(),
 	listenerAddress net.Addr,
 	tracerProvider trace.TracerProvider,
 	meterProvider metric.MeterProvider,
 	propagator propagation.TextMapPropagator,
 ) error {
-	adapter, err := rundownconnect.NewHandler(commands, queries, notifyDisplays)
+	adapter, err := rundownconnect.NewHandler(commands, queries)
 	if err != nil {
 		return err
 	}

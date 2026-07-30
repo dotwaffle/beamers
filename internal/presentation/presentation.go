@@ -73,19 +73,29 @@ type UpdateSubmissionInput struct {
 
 // Service owns Presentation submission commands and projections.
 type Service struct {
-	storage *store.SQLite
-	now     func() time.Time
+	storage        *store.SQLite
+	now            func() time.Time
+	notifyDisplays func()
+	notifySchedule func()
 }
 
 // New creates a Presentation submission Service with explicit dependencies.
-func New(storage *store.SQLite, now func() time.Time) (*Service, error) {
+func New(
+	storage *store.SQLite,
+	now func() time.Time,
+	notifyDisplays func(),
+	notifySchedule func(),
+) (*Service, error) {
 	if storage == nil {
 		return nil, errors.New("presentation storage is required")
 	}
 	if now == nil {
 		return nil, errors.New("presentation clock is required")
 	}
-	return &Service{storage: storage, now: now}, nil
+	return &Service{
+		storage: storage, now: now,
+		notifyDisplays: notifyDisplays, notifySchedule: notifySchedule,
+	}, nil
 }
 
 // Get returns one Presentation to its Event Producer.
@@ -175,6 +185,7 @@ func (service *Service) AssignSubmitter(
 		actor.CanProduceEvent(input.EventID),
 		ErrProducerRequired,
 		"Submitter Account #"+strconv.Itoa(input.AccountID),
+		nil,
 		func(transaction *store.CommandTx, _ time.Time) (store.PresentationSubmission, error) {
 			return transaction.AssignPresentationSubmitter(
 				actor.Context(ctx),
@@ -225,6 +236,7 @@ func (service *Service) UpdateSubmission(
 		true,
 		nil,
 		"",
+		service.notifyPublicDetails,
 		func(transaction *store.CommandTx, now time.Time) (store.PresentationSubmission, error) {
 			return transaction.UpdatePresentationSubmission(
 				actor.Context(ctx),
@@ -247,6 +259,7 @@ func (service *Service) execute(
 	authorized bool,
 	authorizationError error,
 	auditNote string,
+	notify func(),
 	apply func(*store.CommandTx, time.Time) (store.PresentationSubmission, error),
 ) (State, error) {
 	encodedPayload, err := json.Marshal(payload)
@@ -262,6 +275,7 @@ func (service *Service) execute(
 	return command.Execute(actor.Context(ctx), command.Plan[State]{
 		Storage:  service.storage,
 		Identity: identity,
+		Notify:   notify,
 		Replay: func(outcome string) (State, error) {
 			var stored store.PresentationSubmission
 			if decodeErr := decodeReceipt(outcome, &stored); decodeErr != nil {
@@ -288,6 +302,15 @@ func (service *Service) execute(
 			return execution, nil
 		},
 	})
+}
+
+func (service *Service) notifyPublicDetails() {
+	if service.notifyDisplays != nil {
+		service.notifyDisplays()
+	}
+	if service.notifySchedule != nil {
+		service.notifySchedule()
+	}
 }
 
 func reject(

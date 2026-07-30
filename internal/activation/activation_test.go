@@ -346,7 +346,7 @@ func publishRundown(
 		actor.EventRoles = make(map[int]viewer.Role)
 	}
 	actor.EventRoles[eventID] = viewer.Producer
-	commands, err := rundown.NewCommands(storage, time.Now)
+	commands, err := rundown.NewCommands(storage, time.Now, nil, nil)
 	if err != nil {
 		t.Fatalf("create Rundown commands: %v", err)
 	}

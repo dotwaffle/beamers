@@ -20,26 +20,16 @@ import (
 // Handler translates Connect requests without owning Rundown transitions.
 type Handler struct {
 	rundownv1connect.UnimplementedRundownServiceHandler
-	commands       *rundown.Commands
-	queries        *rundown.Queries
-	notifyDisplays func()
+	commands *rundown.Commands
+	queries  *rundown.Queries
 }
 
 // NewHandler creates a Rundown Connect adapter.
-func NewHandler(
-	commands *rundown.Commands,
-	queries *rundown.Queries,
-	notifyDisplays func(),
-) (*Handler, error) {
+func NewHandler(commands *rundown.Commands, queries *rundown.Queries) (*Handler, error) {
 	if commands == nil || queries == nil {
 		return nil, errors.New("rundown commands and queries are required")
 	}
-	if notifyDisplays == nil {
-		return nil, errors.New("display notifier is required")
-	}
-	return &Handler{
-		commands: commands, queries: queries, notifyDisplays: notifyDisplays,
-	}, nil
+	return &Handler{commands: commands, queries: queries}, nil
 }
 
 // ErrorInterceptor translates domain classifications into stable Connect codes.
@@ -530,7 +520,6 @@ func (handler *Handler) Publish(
 	if err != nil {
 		return nil, err
 	}
-	handler.notifyDisplays()
 	return connect.NewResponse(&rundownv1.PublishResponse{
 		DraftRevision: int64(result.DraftRevision), PublishedRevision: int64(result.PublishedRevision),
 		ChangeIds: ints(result.ChangeIDs),

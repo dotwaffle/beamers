@@ -19,7 +19,6 @@ import (
 	"github.com/dotwaffle/beamers/gen/beamers/rundown/v1/rundownv1connect"
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/connectapi"
-	"github.com/dotwaffle/beamers/internal/displaystream"
 	"github.com/dotwaffle/beamers/internal/events"
 	"github.com/dotwaffle/beamers/internal/rundown"
 	"github.com/dotwaffle/beamers/internal/rundownconnect"
@@ -28,7 +27,7 @@ import (
 
 func TestRundownHandlerTracer(t *testing.T) {
 	storage, authentication, session, eventID := openHandlerTest(t)
-	commands, err := rundown.NewCommands(storage, time.Now)
+	commands, err := rundown.NewCommands(storage, time.Now, nil, nil)
 	if err != nil {
 		t.Fatalf("create Rundown Commands: %v", err)
 	}
@@ -36,11 +35,7 @@ func TestRundownHandlerTracer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create Rundown Queries: %v", err)
 	}
-	stream, err := displaystream.New("test-stream", 1)
-	if err != nil {
-		t.Fatalf("create Display stream: %v", err)
-	}
-	adapter, err := rundownconnect.NewHandler(commands, queries, stream.Notify)
+	adapter, err := rundownconnect.NewHandler(commands, queries)
 	if err != nil {
 		t.Fatalf("create Rundown Connect handler: %v", err)
 	}
