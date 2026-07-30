@@ -39,4 +39,45 @@
     border-color: CanvasText;
     color: CanvasText;
   }
+
+  main:has(> section) > section,
+  main:has(> section) > section section,
+  .toolbar,
+  .metric,
+  .empty {
+    background: Canvas;
+    border-color: CanvasText;
+    box-shadow: none;
+  }
+
+  /* Every badge tone collapses to the same system colors, which is why each tone
+   * also carries its state as text and as a differently shaped mark. */
+  .badge,
+  .badge[data-tone] {
+    background: Canvas;
+    border-color: CanvasText;
+    color: CanvasText;
+    forced-color-adjust: none;
+  }
+
+  .rundown-row,
+  .rundown-row[data-row-state] {
+    background: Canvas;
+    border-inline-start-color: CanvasText;
+    opacity: 1;
+  }
+
+  .btn-destructive,
+  .btn-take,
+  .take,
+  button[aria-pressed="true"] {
+    background: ButtonFace;
+    border-color: ButtonText;
+    color: ButtonText;
+  }
+
+  tbody tr:nth-child(even) :is(th, td),
+  th[scope="col"] {
+    background: Canvas;
+  }
 }

@@ -45,6 +45,7 @@
   --surface-raised: color-mix(in srgb, var(--surface) 88%, var(--text));
   --surface-sunken: color-mix(in srgb, var(--surface) 88%, var(--background));
   --border-subtle: color-mix(in srgb, var(--border) 45%, var(--surface));
+  --surface-zebra: color-mix(in srgb, var(--surface) 94%, var(--text));
 
   /* Fixed: system monospace for digests, identifiers, and codes. Themes select
    * only bundled families, and Beamers bundles no monospace face. */
@@ -109,6 +110,7 @@
     --surface-raised: #1c2440;
     --surface-sunken: #0d1220;
     --border-subtle: #3b466b;
+    --surface-zebra: #191f33;
   }
 }
 

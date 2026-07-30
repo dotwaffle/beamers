@@ -9,10 +9,288 @@
   max-width: 32rem;
 }
 
+/* Action weight.
+ *
+ * A bare button stays primary because every form in the application relies on
+ * it. An explicit type="button" with no class is a secondary control -- claim,
+ * hand over, preview, reveal a panel -- so those recede without touching a
+ * single template. Destructive and Take actions opt in by class.
+ */
+button[type="button"]:not([class]) {
+  background: var(--surface-raised);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.btn-secondary {
+  background: var(--surface-raised);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.btn-quiet {
+  background: none;
+  border-color: transparent;
+  color: var(--link);
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.btn-destructive {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--danger-ink);
+}
+
+/* Take commits Preview to Program Output. It is the loudest control Beamers
+ * has, and it is deliberately the only one that uses the live color. */
+.btn-take,
+.take {
+  background: var(--live);
+  border-color: var(--live);
+  color: var(--live-ink);
+  font-size: var(--text-lead);
+  min-block-size: 3.25rem;
+}
+
+/* An inset ring rather than a fill, so a pressed toggle is never mistaken for
+ * the Take control. */
 button[aria-pressed="true"] {
   background: var(--surface-sunken);
   box-shadow: inset 0 0 0 2px var(--accent);
   color: var(--text);
+}
+
+button[disabled] {
+  cursor: not-allowed;
+  filter: saturate(0.4);
+  opacity: 0.6;
+}
+
+/* A grid stretches its children, which is why single actions inside a form
+ * stack rendered as full-width bars. */
+.stack > button,
+.stack > .actions {
+  justify-self: start;
+}
+
+/* Layout primitives. */
+.cluster {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+}
+
+.actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.split {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  justify-content: space-between;
+}
+
+.tiles {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+}
+
+.toolbar {
+  align-items: end;
+  background: var(--surface-sunken);
+  border: var(--hairline);
+  border-radius: var(--radius-2);
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  margin-block: var(--space-4);
+  padding: var(--space-3);
+}
+
+/* Status badges.
+ *
+ * Color is never the only cue: each tone carries its state as text, and the
+ * leading mark differs in shape as well, so the tones stay distinguishable in
+ * greyscale and under forced colors. See ADR 0032.
+ */
+.badge {
+  align-items: center;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  color: var(--text);
+  display: inline-flex;
+  font-family: var(--heading-font);
+  font-size: var(--text-caption);
+  font-weight: 700;
+  gap: var(--space-1);
+  letter-spacing: 0.04em;
+  padding: 0.15em 0.6em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.badge::before {
+  background: currentcolor;
+  block-size: 0.5em;
+  border-radius: 50%;
+  content: "";
+  inline-size: 0.5em;
+}
+
+.badge[data-tone="live"] {
+  background: var(--live);
+  border-color: var(--live);
+  color: var(--live-ink);
+}
+
+.badge[data-tone="due"],
+.badge[data-tone="warning"] {
+  background: var(--warning);
+  border-color: var(--warning);
+  color: var(--warning-ink);
+}
+
+.badge[data-tone="success"] {
+  background: var(--success);
+  border-color: var(--success);
+  color: var(--success-ink);
+}
+
+.badge[data-tone="danger"] {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--danger-ink);
+}
+
+/* Ended: a square mark, so it reads as finished rather than merely quieter. */
+.badge[data-tone="ended"] {
+  border-style: dashed;
+  color: var(--muted);
+}
+
+.badge[data-tone="ended"]::before {
+  border-radius: 0;
+}
+
+/* Canceled: struck through, with no mark at all. */
+.badge[data-tone="canceled"] {
+  border-style: dotted;
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.badge[data-tone="canceled"]::before {
+  display: none;
+}
+
+/* Draft: a dashed edge and a hollow mark, matching the staged-edit metaphor. */
+.badge[data-tone="draft"] {
+  border-style: dashed;
+}
+
+.badge[data-tone="draft"]::before {
+  background: none;
+  box-shadow: inset 0 0 0 1px currentcolor;
+}
+
+/* Crew Only: a heavier edge and a triangular mark. */
+.badge[data-tone="crew"] {
+  border-width: 2px;
+}
+
+.badge[data-tone="crew"]::before {
+  background: none;
+  block-size: 0;
+  border-block-end: 0.5em solid currentcolor;
+  border-inline: 0.29em solid transparent;
+  border-radius: 0;
+}
+
+/* The three independent Session state axes, never collapsed into one
+ * indicator. See ADR 0022. */
+.state-axes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* A rundown row carries its operational state as an inline-start bar as well as
+ * a badge, so the live item is findable at a glance while scrolling. */
+.rundown-row {
+  border-inline-start: var(--signal-bar) solid var(--border-subtle);
+  padding: var(--space-3) var(--space-4);
+}
+
+.rundown-row[data-row-state="live"] {
+  background: var(--surface-raised);
+  border-inline-start-color: var(--live);
+}
+
+.rundown-row[data-row-state="due"] {
+  border-inline-start-color: var(--warning);
+}
+
+.rundown-row[data-row-state="ended"] {
+  border-inline-start-color: var(--muted);
+  opacity: 0.75;
+}
+
+.rundown-row[data-row-state="canceled"] {
+  border-inline-start-style: dotted;
+  opacity: 0.75;
+}
+
+/* Ontime's insight: automatic following must be recoverable. This is a plain
+ * in-page anchor, so it works with no JavaScript at all. */
+.follow-live {
+  background: var(--surface-raised);
+  border: var(--hairline);
+  border-radius: var(--radius-pill);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+/* Metric tiles for offsets, counts, and readiness. */
+.metric {
+  background: var(--surface-sunken);
+  border: var(--hairline);
+  border-radius: var(--radius-2);
+  padding: var(--space-3) var(--space-4);
+}
+
+.metric dt,
+.metric-label {
+  color: var(--muted);
+  font-family: var(--heading-font);
+  font-size: var(--text-caption);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+}
+
+.metric dd,
+.metric-value {
+  font-family: var(--heading-font);
+  font-size: var(--text-h2);
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+}
+
+.empty {
+  background: var(--surface-sunken);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-2);
+  color: var(--muted);
+  padding: var(--space-5);
+  text-align: center;
 }
 
 .error,
@@ -61,13 +339,23 @@ button[aria-pressed="true"] {
   padding-block: var(--space-4);
 }
 
+/* Data tables.
+ *
+ * internal/frontend/accessibility_test.go pins the exact markup
+ * <div class="table-scroll"><table><caption>, so none of these three elements
+ * may gain a class or attribute. Density and the bounded height that makes a
+ * sticky header engage are opted into on an ancestor instead.
+ */
 .table-scroll {
+  border: var(--hairline);
+  border-radius: var(--radius-2);
   max-width: 100%;
   overflow-x: auto;
 }
 
 table {
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   min-width: 100%;
 }
 
@@ -80,8 +368,45 @@ td {
 }
 
 caption {
+  border-block-end: var(--hairline);
   color: var(--muted);
   font-weight: 600;
+}
+
+th[scope="col"] {
+  background: var(--surface-sunken);
+  font-family: var(--heading-font);
+  font-size: var(--text-caption);
+  inset-block-start: 0;
+  letter-spacing: var(--tracking-eyebrow);
+  position: sticky;
+  text-transform: uppercase;
+  z-index: 1;
+}
+
+th,
+td {
+  border-block-end: var(--hairline);
+}
+
+tbody tr:last-child :is(th, td) {
+  border-block-end: 0;
+}
+
+tbody tr:nth-child(even) :is(th, td) {
+  background: var(--surface-zebra);
+}
+
+/* A time or an explicitly numeric cell aligns on its digits. */
+td:has(time),
+td[data-numeric] {
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+[data-density="compact"] .table-scroll {
+  max-block-size: 70vh;
+  overflow: auto;
 }
 
 .theme-preview-grid {

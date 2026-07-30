@@ -1,58 +1,154 @@
-.eyebrow {
-  color: var(--link);
-  font-weight: 700;
-  letter-spacing: 0.08em;
+/* Program control console.
+ *
+ * Layered over the base stylesheet. Every rule here keys off markup that already
+ * exists -- the .item panels and their [data-item] roles -- so the console gains
+ * broadcast hierarchy without a template change. .eyebrow, .actions, and the
+ * button variants now come from the base stylesheet.
+ */
+
+/* Three context panels across the top, then Preview and Program Output beneath.
+ * Those two are the facts an operator reads under pressure, so they get the
+ * space and the color. */
+.sequence {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-areas:
+    "previous current next"
+    "preview preview preview"
+    "program program program";
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.item {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2);
+  min-width: 0;
+  padding: var(--space-4);
+}
+
+.item h2 {
+  color: var(--muted);
+  font-size: var(--text-caption);
+  letter-spacing: var(--tracking-eyebrow);
+  margin-block: 0 var(--space-2);
   text-transform: uppercase;
 }
 
-.sequence {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+.item p {
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 
-.item,
-section {
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  border-radius: 0.5rem;
-  padding: 1rem;
+.sequence > .item:has([data-item="previous"]) {
+  grid-area: previous;
 }
 
-.item:last-child {
-  border-color: var(--focus);
+.sequence > .item:has([data-item="current"]) {
+  grid-area: current;
+}
+
+.sequence > .item:has([data-item="next"]) {
+  grid-area: next;
+}
+
+.sequence > .item:has([data-item="preview"]) {
+  grid-area: preview;
+}
+
+.sequence > .item:has([data-item="programOutput"]) {
+  grid-area: program;
+}
+
+/* Preview is staged but not live; Program Output is on air. State colors are
+ * filled surfaces behind their fixed ink, matching ADR 0057's contrast model. */
+.sequence > .item:has([data-item="preview"]),
+.sequence > .item:has([data-item="programOutput"]) {
+  padding: var(--space-5);
+}
+
+.sequence > .item:has([data-item="preview"]) {
+  background: var(--success);
+  border-color: var(--success);
+  color: var(--success-ink);
+}
+
+.sequence > .item:has([data-item="programOutput"]) {
+  background: var(--live);
+  border-color: var(--live);
+  color: var(--live-ink);
+}
+
+.sequence > .item:has([data-item="preview"]) h2,
+.sequence > .item:has([data-item="programOutput"]) h2 {
+  color: inherit;
+}
+
+.sequence > .item:has([data-item="preview"]) p,
+.sequence > .item:has([data-item="programOutput"]) p {
+  font-family: var(--heading-font);
+  font-size: var(--text-h2);
+}
+
+/* The on-air state is stated in words as well as color, so a glance across the
+ * room does not depend on hue. */
+.sequence > .item:has([data-item="programOutput"]) h2::after {
+  content: " · ON AIR";
 }
 
 main {
   display: grid;
-  gap: 1rem;
+  gap: var(--space-4);
 }
 
-.actions {
+/* Per-Display delivery. The state is already in the row text and in the
+ * data-delivery attribute, so the color only reinforces it. */
+#displays {
+  display: grid;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+#displays li {
+  align-items: center;
+  background: var(--surface-sunken);
+  border: var(--hairline);
+  border-inline-start: var(--signal-bar) solid var(--border);
+  border-radius: var(--radius-1);
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
 }
 
-button {
-  min-height: 3rem;
+#displays li[data-delivery="applied"] {
+  border-inline-start-color: var(--success);
 }
 
-button[aria-pressed="true"],
-.take {
-  background: #8b4b00;
-  border-color: var(--focus);
-  color: #ffffff;
+#displays li[data-delivery="lagging"] {
+  border-inline-start-color: var(--warning);
 }
 
-[data-delivery="applied"]::marker {
-  color: #5ee38b;
+#displays li[data-delivery="offline"] {
+  border-inline-start-color: var(--danger);
 }
 
-[data-delivery="lagging"]::marker {
-  color: #f4bd50;
+@media (min-width: 60rem) {
+  .sequence {
+    grid-template-areas:
+      "previous current next"
+      "preview preview program";
+  }
 }
 
-[data-delivery="offline"]::marker {
-  color: #ff7373;
+@media (forced-colors: active) {
+  .item,
+  #displays li {
+    background: Canvas;
+    border-color: CanvasText;
+    color: CanvasText;
+    box-shadow: none;
+  }
 }

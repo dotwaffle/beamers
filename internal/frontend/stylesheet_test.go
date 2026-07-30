@@ -112,6 +112,37 @@ func TestTemplatesOnlyUseDefinedClasses(t *testing.T) {
 	}
 }
 
+// TestProgramControlUsesFilledStateSurfaces pins ADR 0057's state-color
+// contract. The Theme-controlled colors are validated against fixed ink for
+// filled surfaces, not for small colored text over another Theme surface.
+func TestProgramControlUsesFilledStateSurfaces(t *testing.T) {
+	t.Parallel()
+
+	content, err := os.ReadFile("../programview/control.css")
+	if err != nil {
+		t.Fatalf("load Program control stylesheet: %v", err)
+	}
+	stylesheet := string(content)
+	for _, want := range []string{
+		"background: var(--success);",
+		"color: var(--success-ink);",
+		"background: var(--live);",
+		"color: var(--live-ink);",
+	} {
+		if !strings.Contains(stylesheet, want) {
+			t.Errorf("Program control stylesheet lacks %q", want)
+		}
+	}
+	for _, avoid := range []string{
+		"\n  color: var(--success);",
+		"\n  color: var(--live);",
+	} {
+		if strings.Contains(stylesheet, avoid) {
+			t.Errorf("Program control stylesheet uses state color as text: %q", avoid)
+		}
+	}
+}
+
 func rootProperties(t *testing.T, stylesheet, description string) map[string]string {
 	t.Helper()
 	block := rootBlock.FindStringSubmatch(stylesheet)
