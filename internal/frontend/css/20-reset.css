@@ -135,6 +135,11 @@ td a,
 th a,
 .actions a,
 .toolbar a,
+/* The current breadcrumb is a span rather than a link, so without this it had
+ * neither the links' height nor their centring: in a stretch flex row its text
+ * sat at the top while every link's text sat centered, leaving the last item
+ * floating above the trail. */
+.breadcrumbs [aria-current="page"],
 .breadcrumbs a,
 .event-links a,
 .backstage-links a,

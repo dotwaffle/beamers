@@ -188,33 +188,37 @@ templ ShellNavigation(shell Shell) {
 				if shell.Backstage {
 					<a href="/backstage">Backstage</a>
 				}
-				<form method="post" action="/sign-out">
-					<input type="hidden" name="csrf_token" value={ shell.CSRFToken }/>
-					<button type="submit">Sign out</button>
-				</form>
 			}
-			if shell.CSRFToken == "" {
-				@EffectsLink(shell.ReturnTo, shell.ReducedEffects)
-			} else {
-				<form method="post" action="/effects">
-					<input type="hidden" name="csrf_token" value={ shell.CSRFToken }/>
-					if shell.ReturnTo != "" {
-						<input type="hidden" name="return_to" value={ shell.ReturnTo }/>
-					}
-					<button
-						type="submit"
-						name="reduce_effects"
-						value={ strconv.FormatBool(!shell.ReducedEffects) }
-						aria-pressed={ strconv.FormatBool(shell.ReducedEffects) }
-					>
-						if shell.ReducedEffects {
-							Resume effects
-						} else {
-							Pause effects
+			<div class="nav-actions cluster">
+				if shell.AccountName != "" {
+					<form method="post" action="/sign-out">
+						<input type="hidden" name="csrf_token" value={ shell.CSRFToken }/>
+						<button type="submit">Sign out</button>
+					</form>
+				}
+				if shell.CSRFToken == "" {
+					@EffectsLink(shell.ReturnTo, shell.ReducedEffects)
+				} else {
+					<form method="post" action="/effects">
+						<input type="hidden" name="csrf_token" value={ shell.CSRFToken }/>
+						if shell.ReturnTo != "" {
+							<input type="hidden" name="return_to" value={ shell.ReturnTo }/>
 						}
-					</button>
-				</form>
-			}
+						<button
+							type="submit"
+							name="reduce_effects"
+							value={ strconv.FormatBool(!shell.ReducedEffects) }
+							aria-pressed={ strconv.FormatBool(shell.ReducedEffects) }
+						>
+							if shell.ReducedEffects {
+								Resume effects
+							} else {
+								Pause effects
+							}
+						</button>
+					</form>
+				}
+			</div>
 		</nav>
 	</header>
 }
