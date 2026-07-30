@@ -2249,8 +2249,8 @@ func certifyDemoBrowserJourneys(
 	evidence := []browserPageEvidence{
 		certifyInteractivePage(t, driver, origin+"/", "demo-anonymous"),
 	}
-	clickBrowserLink(t, driver, "BeamParty 2099", "/events/beamparty-2099")
-	clickBrowserLink(t, driver, "Event Results", "/events/beamparty-2099/results")
+	clickBrowserLink(t, driver, "BeamParty Demo", "/events/beamparty-demo")
+	clickBrowserLink(t, driver, "Event Results", "/events/beamparty-demo/results")
 	focusKeyboardControl(t, driver, "demo-results")
 	resultsEvidence, err := driver.auditPage(t.Context(), "demo-results")
 	if err != nil {
@@ -2287,7 +2287,7 @@ func certifyDemoBrowserJourneys(
 			"attendee", "/my-participation", "demo-submission", false,
 			[]journeyLink{
 				{"My Participation", "/my-participation"},
-				{"View Competition", "/events/beamparty-2099/competitions/2"},
+				{"View Competition", "/events/beamparty-demo/competitions/2"},
 				{"Manage My Entry", "/my-participation"},
 			},
 		},
@@ -2493,7 +2493,8 @@ func certifyDemoBrowserJourneys(
 		case "demo-submission":
 			if err = driver.execute(
 				t.Context(),
-				`const form = document.querySelector('form input[name="entry_name"]').form;`+
+				`const form = document.querySelector(`+
+					`'form input[name="action"][value="create"]').form;`+
 					`form.elements.entry_name.value = "Browser Certified Entry";`+
 					`form.requestSubmit();`,
 			); err != nil {

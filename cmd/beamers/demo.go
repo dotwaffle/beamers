@@ -34,8 +34,50 @@ import (
 
 const demoPassword = "demo"
 
-func demoSeedNow() time.Time {
-	return time.Date(2099, 8, 1, 12, 0, 0, 0, time.UTC)
+// demoTimeline owns the two clock positions used while seeding one demo
+// installation. It is local to that invocation so tests and concurrent callers
+// cannot share mutable package state.
+type demoTimeline struct {
+	eventNow time.Time
+	current  time.Time
+}
+
+func newDemoTimeline(now time.Time) *demoTimeline {
+	eventNow := now.UTC().Truncate(time.Hour)
+	timeline := &demoTimeline{eventNow: eventNow}
+	timeline.current = timeline.dayOne().Add(-time.Hour)
+	return timeline
+}
+
+func (timeline *demoTimeline) now() time.Time {
+	return timeline.current
+}
+
+// advanceToEvent moves the seeding clock to the Event's current instant, once
+// every submission deadline the earlier clock had to precede has been used.
+func (timeline *demoTimeline) advanceToEvent() {
+	timeline.current = timeline.eventNow
+}
+
+// dayOne is the Event's first Program day, placed so that the Competition
+// seeded as live starts exactly at the real instant.
+//
+// Anchoring to the real clock keeps a freshly seeded demo inside its own Event; a
+// fixed far-future date left every Session decades away, so Now / Next, the
+// Timeline, and the Stage Timer all rendered as though the Event had not started.
+//
+// The live Competition is the third Session of day one, so day one opens four
+// hours back. That makes the Event genuinely mid-flight: two Sessions have run,
+// one is running now within its planned window, and two remain tomorrow. Aligning
+// the live Session with its planned start matters because its timing policy fixes
+// the planned end -- starting it early instead would stretch it across the
+// Sessions that follow.
+func (timeline *demoTimeline) dayOne() time.Time {
+	return timeline.eventNow.Add(-4 * time.Hour)
+}
+
+func (timeline *demoTimeline) dayTwo() time.Time {
+	return timeline.dayOne().Add(24 * time.Hour)
 }
 
 func runDemo(ctx context.Context, args []string, stderr io.Writer) int {
@@ -65,7 +107,7 @@ func runDemo(ctx context.Context, args []string, stderr io.Writer) int {
 			return fail(err)
 		}
 	}
-	if err := seedDemoInstallation(ctx, *dataDir); err != nil {
+	if err := seedDemoInstallation(ctx, *dataDir, time.Now()); err != nil {
 		if disposable {
 			if removeErr := os.RemoveAll(*dataDir); removeErr != nil {
 				err = errors.Join(err, fmt.Errorf("remove disposable demo installation: %w", removeErr))
@@ -94,13 +136,18 @@ func runDemo(ctx context.Context, args []string, stderr io.Writer) int {
 	return code
 }
 
-func seedDemoInstallation(ctx context.Context, dataDir string) (returnErr error) {
+func seedDemoInstallation(
+	ctx context.Context,
+	dataDir string,
+	now time.Time,
+) (returnErr error) {
+	timeline := newDemoTimeline(now)
 	if err := operations.Initialize(ctx, dataDir); err != nil {
 		return err
 	}
 	installation, err := operations.OpenInstallationWithConfig(ctx, operations.OpenConfig{
 		DataDir: dataDir, AllowDemoPassword: true,
-		Now: demoSeedNow,
+		Now: timeline.now,
 	})
 	if err != nil {
 		return err
@@ -153,9 +200,9 @@ func seedDemoInstallation(ctx context.Context, dataDir string) (returnErr error)
 	}
 
 	event, err := installation.Events().Create(ctx, administrator, events.CreateInput{
-		Name:             "BeamParty 2099",
-		PlannedStartDate: "2099-08-21",
-		PlannedEndDate:   "2099-08-22",
+		Name:             "BeamParty Demo",
+		PlannedStartDate: timeline.dayOne().Format(time.DateOnly),
+		PlannedEndDate:   timeline.dayTwo().Format(time.DateOnly),
 		Timezone:         "Europe/Berlin",
 		EventLocale:      "en-GB",
 		ContentLanguage:  "en-GB",
@@ -190,7 +237,7 @@ func seedDemoInstallation(ctx context.Context, dataDir string) (returnErr error)
 	event, err = installation.Events().Update(ctx, producer, event.ID, events.CreateInput{
 		Name:             event.Name,
 		Public:           true,
-		PublicSlug:       "beamparty-2099",
+		PublicSlug:       "beamparty-demo",
 		PlannedStartDate: event.PlannedStartDate,
 		PlannedEndDate:   event.PlannedEndDate,
 		Timezone:         event.Timezone,
@@ -206,7 +253,14 @@ func seedDemoInstallation(ctx context.Context, dataDir string) (returnErr error)
 	if seedErr := seedDemoThemes(ctx, installation, administrator, producer, event.ID); seedErr != nil {
 		return seedErr
 	}
-	demo, err := seedDemoRundown(ctx, installation, administrator, producer, event.ID)
+	demo, err := seedDemoRundown(
+		ctx,
+		installation,
+		administrator,
+		producer,
+		event.ID,
+		timeline,
+	)
 	if err != nil {
 		return err
 	}
@@ -218,6 +272,7 @@ func seedDemoInstallation(ctx context.Context, dataDir string) (returnErr error)
 		accounts,
 		event.ID,
 		demo,
+		timeline,
 	)
 }
 
@@ -233,9 +288,10 @@ func seedDemoRundown(
 	installation *operations.Installation,
 	administrator, producer auth.Account,
 	eventID int,
+	timeline *demoTimeline,
 ) (demoRundown, error) {
-	dayOne := time.Date(2099, 8, 21, 8, 0, 0, 0, time.UTC)
-	dayTwo := dayOne.Add(24 * time.Hour)
+	dayOne := timeline.dayOne()
+	dayTwo := timeline.dayTwo()
 	location := rundown.TargetRef{Ref: "main-hall"}
 	lane := rundown.TargetRef{Ref: "main-stage"}
 	track := rundown.TargetRef{Ref: "general"}
@@ -404,6 +460,7 @@ func seedDemoJourneys(
 	accounts map[string]auth.Account,
 	eventID int,
 	demo demoRundown,
+	timeline *demoTimeline,
 ) error {
 	if _, err := installation.Events().GrantEventAccess(
 		ctx,
@@ -432,7 +489,7 @@ func seedDemoJourneys(
 	if err := installation.Schedule().SetFavorite(
 		ctx,
 		accounts["attendee"].ID,
-		demo.sessions["Opening"].ID,
+		demo.sessions["Closing"].ID,
 		true,
 	); err != nil {
 		return err
@@ -468,6 +525,7 @@ func seedDemoJourneys(
 		producer,
 		accounts["voter"],
 		eventID,
+		timeline.now().Add(7*24*time.Hour),
 	); seedErr != nil {
 		return seedErr
 	}
@@ -480,6 +538,9 @@ func seedDemoJourneys(
 	); seedErr != nil {
 		return seedErr
 	}
+	// Every submission deadline the early clock had to precede has now been used,
+	// so the Session lifecycle below is seeded against the real instant.
+	timeline.advanceToEvent()
 	if seedErr := seedCompletedDemoCompetition(
 		ctx,
 		installation,
@@ -504,10 +565,11 @@ func seedDemoVotingEligibility(
 	installation *operations.Installation,
 	producer, voter auth.Account,
 	eventID int,
+	expiresAt time.Time,
 ) error {
 	keys, err := installation.Voting().Issue(ctx, producer, voting.IssueInput{
 		EventID: eventID, Count: 2,
-		ExpiresAt: time.Date(2099, 8, 30, 0, 0, 0, 0, time.UTC),
+		ExpiresAt: expiresAt,
 		CommandID: "demo-issue-voting-keys",
 	})
 	if err != nil {

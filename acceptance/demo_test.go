@@ -60,29 +60,30 @@ func assertDemoSignIn(t *testing.T, address string, expectWarning bool) {
 	root := getFrontendPage(t, client, address, "/")
 	if root.status != http.StatusOK ||
 		strings.Contains(root.body, "Security warning") != expectWarning ||
-		!strings.Contains(root.body, "BeamParty 2099") ||
-		!strings.Contains(root.body, `href="/events/beamparty-2099"`) {
+		!strings.Contains(root.body, "BeamParty Demo") ||
+		!strings.Contains(root.body, `href="/events/beamparty-demo"`) {
 		t.Fatalf("demo root = %d %q", root.status, root.body)
 	}
-	schedule := getFrontendPage(t, client, address, "/events/beamparty-2099/schedule")
+	schedule := getFrontendPage(t, client, address, "/events/beamparty-demo/schedule")
+	// The demo Event is mid-flight: its opening Sessions have run, one Competition
+	// is live inside its planned window, and the rest are still to come. A Session
+	// leaves the public projection once its forecast end has passed, so the
+	// Schedule carries the live Session and what follows it.
 	for _, want := range []string{
-		"BeamParty 2099",
-		"Opening",
-		"Shader Showdown",
+		"BeamParty Demo",
 		"Tracked Music",
+		"Status: Live",
 		"Closing",
-		"2099-08-21",
-		"2099-08-22",
 		"Main Hall",
 		"Main Stage",
 		"General",
-		`href="/events/beamparty-2099/schedule/sessions/1"`,
+		`href="/events/beamparty-demo/schedule/sessions/3"`,
 	} {
 		if schedule.status != http.StatusOK || !strings.Contains(schedule.body, want) {
 			t.Fatalf("demo Schedule lacks %q: %d %q", want, schedule.status, schedule.body)
 		}
 	}
-	released := getFrontendPage(t, client, address, "/events/beamparty-2099/results")
+	released := getFrontendPage(t, client, address, "/events/beamparty-demo/results")
 	for _, want := range []string{"Oldschool Demo", "Oldschool Demo Entry"} {
 		if released.status != http.StatusOK || !strings.Contains(released.body, want) {
 			t.Fatalf("demo Results lack %q: %d %q", want, released.status, released.body)
@@ -148,7 +149,7 @@ func assertDemoAccountJourney(t *testing.T, client *http.Client, address, handle
 		}
 	case "attendee":
 		pages = []pageExpectation{
-			{"/my-schedule", []string{"My Schedule", "Opening"}},
+			{"/my-schedule", []string{"My Schedule", "Closing"}},
 			{"/my-participation", []string{"Attendee Shader", "attendee-shader.zip", "Create Entry"}},
 		}
 	case "operator":
@@ -160,7 +161,14 @@ func assertDemoAccountJourney(t *testing.T, client *http.Client, address, handle
 			{"/backstage/events/1/competitions/2/entries", []string{"Attendee Shader", "attendee-shader.zip"}},
 			{"/backstage/events/1/results", []string{"Oldschool Demo", "Final"}},
 			{"/backstage/events/1/theme", []string{"Active:", "Event Theme Revision #1", "— active"}},
-			{"/backstage/events/1/voting-keys", []string{"Key inventory", "2099", "Redeemed", "Available"}},
+			{
+				"/backstage/events/1/voting-keys",
+				[]string{
+					"Key inventory",
+					"Redeemed",
+					"Available",
+				},
+			},
 		}
 	case "voter":
 		pages = []pageExpectation{
