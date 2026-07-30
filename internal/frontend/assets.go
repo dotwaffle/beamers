@@ -2,9 +2,11 @@
 package frontend
 
 import (
+	"bytes"
 	"embed"
 	"errors"
 	"strconv"
+	"sync"
 )
 
 // EventThemePath returns one Event's resolved controlled stylesheet route.
@@ -25,15 +27,44 @@ const (
 	WebAuthnPath          = "/assets/webauthn-v1.js"
 )
 
-//go:embed frontend.css vendor/*.js vendor/fonts/*
+//go:embed css/*.css vendor/*.js vendor/fonts/*
 var assets embed.FS
+
+// stylesheetParts is the cascade order of the base stylesheet. It is listed
+// explicitly rather than globbed so the order stays reviewable.
+var stylesheetParts = []string{
+	"css/00-fonts.css",
+	"css/10-tokens.css",
+	"css/20-reset.css",
+	"css/30-layout.css",
+	"css/40-components.css",
+	"css/60-effects.css",
+	"css/99-forced.css",
+}
+
+// stylesheet concatenates the base stylesheet once. Handlers read it at route
+// registration, so the cost is paid before the first request.
+var stylesheet = sync.OnceValues(func() ([]byte, error) {
+	var combined bytes.Buffer
+	for _, part := range stylesheetParts {
+		content, err := assets.ReadFile(part)
+		if err != nil {
+			return nil, err
+		}
+		if combined.Len() > 0 {
+			combined.WriteString("\n")
+		}
+		combined.Write(content)
+	}
+	return combined.Bytes(), nil
+})
 
 // Asset returns one embedded Frontend asset.
 func Asset(path string) ([]byte, error) {
 	var name string
 	switch path {
 	case StylesheetPath:
-		name = "frontend.css"
+		return stylesheet()
 	case ChakraRegularPath:
 		name = "vendor/fonts/ChakraPetch-Regular.ttf"
 	case ChakraBoldPath:

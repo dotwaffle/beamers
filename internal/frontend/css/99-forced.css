@@ -1,0 +1,42 @@
+/* Forced colors replace the palette entirely, so decoration is removed and
+ * every boundary falls back to a system color. themevalue.Stylesheet repeats the
+ * body, body::before, and main rules for themed pages. */
+@media (forced-colors: active) {
+  body {
+    background: Canvas;
+  }
+
+  body::before {
+    display: none;
+  }
+
+  main {
+    background: Canvas;
+    border-color: CanvasText;
+    box-shadow: none;
+  }
+
+  button,
+  input,
+  select {
+    border-color: ButtonText;
+  }
+
+  .backstage-drawer,
+  .event-drawer,
+  .backstage-sidebar,
+  .event-sidebar,
+  .theme-preview,
+  .theme-preview-grid {
+    background: Canvas;
+    border-color: CanvasText;
+  }
+
+  .error,
+  .field-error,
+  .warning {
+    background: Canvas;
+    border-color: CanvasText;
+    color: CanvasText;
+  }
+}

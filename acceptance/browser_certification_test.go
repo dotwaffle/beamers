@@ -2540,11 +2540,20 @@ func certifyFrontendTheme(
 ) browserPageEvidence {
 	t.Helper()
 	evidence := certifyInteractivePage(t, driver, origin+"/", "frontend")
+	if err := driver.execute(
+		t.Context(),
+		`document.fonts.load('16px "Open Sans"');`+
+			`document.fonts.load('400 16px "Chakra Petch"');`+
+			`document.fonts.load('700 16px "Chakra Petch"');`,
+	); err != nil {
+		t.Fatalf("request bundled Frontend fonts: %v", err)
+	}
 	if err := driver.waitFor(
 		t.Context(),
 		10*time.Second,
 		`return document.fonts.status === "loaded" && `+
 			`document.fonts.check('16px "Open Sans"') && `+
+			`document.fonts.check('400 16px "Chakra Petch"') && `+
 			`document.fonts.check('700 16px "Chakra Petch"');`,
 	); err != nil {
 		t.Fatalf("load bundled Frontend fonts: %v", err)
@@ -2554,12 +2563,15 @@ func certifyFrontendTheme(
 		`const body = getComputedStyle(document.body);`+
 			`const heading = getComputedStyle(document.querySelector("h1"));`+
 			`const stars = getComputedStyle(document.body, "::before");`+
+			`const duration = stars.animationDuration.split(",")[0].trim();`+
+			`const durationMS = duration.endsWith("ms") ? `+
+			`Number.parseFloat(duration) : Number.parseFloat(duration) * 1000;`+
 			`const pause = [...document.querySelectorAll("button")].find(`+
 			`(button) => button.textContent.trim() === "Pause effects");`+
 			`return body.fontFamily.includes("Open Sans") && `+
 			`heading.fontFamily.includes("Chakra Petch") && `+
 			`matchMedia("(prefers-reduced-motion: reduce)").matches && `+
-			`Number.parseFloat(stars.animationDuration) === 0 && `+
+			`Number.isFinite(durationMS) && durationMS <= 0.01 && `+
 			`Boolean(pause) && pause.getAttribute("aria-pressed") === "false";`,
 	)
 	if err != nil || !themeReady {

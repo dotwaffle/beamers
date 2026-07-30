@@ -228,6 +228,8 @@ func validateEventThemeForm(form url.Values) error {
 		"brand_asset": true, "background_color": true, "surface_color": true,
 		"border_color": true, "text_color": true, "muted_color": true,
 		"accent_color": true, "link_color": true, "focus_color": true,
+		"live_color": true, "warning_color": true,
+		"danger_color": true, "success_color": true,
 		"background": true, "typeface": true, "transition": true,
 		"effect": true, "motion": true,
 	}

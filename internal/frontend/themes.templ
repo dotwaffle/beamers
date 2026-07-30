@@ -69,7 +69,9 @@ func themePreviewStyle(config themevalue.Config) templ.SafeCSS {
 	return templ.SafeCSS(fmt.Sprintf(
 		"--preview-background:%s;--preview-surface:%s;--preview-border:%s;"+
 			"--preview-text:%s;--preview-muted:%s;--preview-accent:%s;"+
-			"--preview-link:%s;--preview-focus:%s;--preview-background-image:%s;"+
+			"--preview-link:%s;--preview-focus:%s;--preview-live:%s;"+
+			"--preview-warning:%s;--preview-danger:%s;--preview-success:%s;"+
+			"--preview-background-image:%s;"+
 			"--preview-heading-font:%s;--preview-body-font:\"Open Sans\",system-ui,sans-serif",
 		config.BackgroundColor,
 		config.SurfaceColor,
@@ -79,6 +81,10 @@ func themePreviewStyle(config themevalue.Config) templ.SafeCSS {
 		config.AccentColor,
 		config.LinkColor,
 		config.FocusColor,
+		config.LiveColor,
+		config.WarningColor,
+		config.DangerColor,
+		config.SuccessColor,
 		backgroundImage,
 		heading,
 	))
@@ -119,6 +125,10 @@ templ ThemeAdministration(page ThemePage) {
 							@ThemeColor(page, "Accent color", "accent_color", page.Preview.Config.AccentColor)
 							@ThemeColor(page, "Link color", "link_color", page.Preview.Config.LinkColor)
 							@ThemeColor(page, "Focus color", "focus_color", page.Preview.Config.FocusColor)
+							@ThemeColor(page, "Live state color", "live_color", page.Preview.Config.LiveColor)
+							@ThemeColor(page, "Warning state color", "warning_color", page.Preview.Config.WarningColor)
+							@ThemeColor(page, "Danger state color", "danger_color", page.Preview.Config.DangerColor)
+							@ThemeColor(page, "Success state color", "success_color", page.Preview.Config.SuccessColor)
 							<label>
 								Background
 								<select id={ ThemeFieldID("background") } name="background" { page.Errors.Attributes(ThemeFieldID("background"))... }>

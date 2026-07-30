@@ -1,0 +1,68 @@
+/* Decorative starfield.
+ *
+ * Three layers at coprime tile sizes with small, sparse points. The previous
+ * two-layer field used 5rem and 7rem tiles with large dots, which read as a
+ * regular halftone grid rather than stars and produced visible moire against
+ * text. themevalue.Stylesheet owns the display and animation of this element:
+ * it switches the effect off, sets the animation duration from the Theme motion
+ * level, and stops it entirely for the still level.
+ */
+body::before {
+  animation: none;
+  background-image:
+    radial-gradient(circle at 17% 31%, #ffffff 0 0.9px, transparent 1.7px),
+    radial-gradient(circle at 73% 11%, #ffffff 0 0.6px, transparent 1.3px),
+    radial-gradient(circle at 41% 83%, #cfe3ff 0 0.7px, transparent 1.4px),
+    radial-gradient(circle at 89% 59%, var(--accent) 0 0.6px, transparent 1.2px);
+  background-position: 0 0, 2.5rem 6.5rem, 3.5rem 5.5rem, 7rem 2.5rem;
+  background-size: 11rem 13rem, 19rem 17rem, 23rem 29rem, 31rem 37rem;
+  content: "";
+  inset: 0;
+  opacity: 0.55;
+  pointer-events: none;
+  position: fixed;
+}
+
+/* Four layers at coprime tile sizes, each with its point at a different
+ * position inside its own tile, so no two layers align into visible rows or
+ * columns. Each travels a whole number of its own tile heights so the loop is
+ * seamless, and the nearer layers travel further so the field has depth. */
+@keyframes starfield {
+  to {
+    background-position: 0 13rem, 2.5rem 23.5rem, 3.5rem 63.5rem, 7rem 113.5rem;
+  }
+}
+
+@keyframes arrive {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+
+/* The persistent visitor preference. It works without JavaScript through a
+ * server-side POST to /effects, so it composes with the media query below
+ * rather than depending on it. */
+body[data-reduced-effects="true"]::before {
+  animation: none;
+  opacity: 0.14;
+}
+
+body[data-reduced-effects="true"] main {
+  animation: none;
+}
+
+/* A browser preference overrides every Theme motion choice. This is deliberately
+ * global: acceptance/browser_audit.js requires every animation and transition on
+ * the page to be effectively instant under this preference, so a component added
+ * later cannot reintroduce motion by accident. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

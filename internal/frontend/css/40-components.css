@@ -1,0 +1,132 @@
+.stack {
+  display: grid;
+  gap: var(--stack-gap);
+}
+
+/* The narrow measure is opt-in. Applying it to every Backstage form turned
+ * producer surfaces into one long 32rem column. */
+.stack-narrow {
+  max-width: 32rem;
+}
+
+button[aria-pressed="true"] {
+  background: var(--surface-sunken);
+  box-shadow: inset 0 0 0 2px var(--accent);
+  color: var(--text);
+}
+
+.error,
+.field-error {
+  background: #4c1320;
+  border-inline-start: var(--signal-bar) solid var(--danger);
+  color: #fff0f2;
+  padding: var(--space-3);
+}
+
+.error-summary h2 {
+  font-size: var(--text-h2);
+  margin-block: 0 var(--space-2);
+}
+
+.error-summary ul {
+  margin: 0;
+  padding-inline-start: var(--space-5);
+}
+
+.warning {
+  background: #3d2f05;
+  border-inline-start: var(--signal-bar) solid var(--warning);
+  color: #fff8e2;
+  padding: var(--space-3);
+}
+
+.visually-hidden {
+  block-size: 1px;
+  clip-path: inset(50%);
+  inline-size: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+}
+
+.calendar-date-rollover {
+  color: var(--muted);
+  font-size: var(--text-small);
+}
+
+.competition-entry {
+  border-block-start: var(--hairline);
+  padding-block: var(--space-4);
+}
+
+.table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+table {
+  border-collapse: collapse;
+  min-width: 100%;
+}
+
+caption,
+th,
+td {
+  padding: var(--cell-pad-block) var(--cell-pad-inline);
+  text-align: start;
+  vertical-align: top;
+}
+
+caption {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.theme-preview-grid {
+  background: var(--preview-background);
+  background-image: var(--preview-background-image);
+  border: 2px solid var(--preview-focus);
+  border-radius: var(--radius-3);
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  padding: var(--space-4);
+}
+
+.theme-preview {
+  background: var(--preview-surface);
+  border: 1px solid var(--preview-border);
+  border-radius: var(--radius-3);
+  color: var(--preview-text);
+  font-family: var(--preview-body-font);
+  padding: var(--space-4);
+}
+
+.theme-preview h3 {
+  color: var(--preview-accent);
+  font-family: var(--preview-heading-font);
+}
+
+.theme-preview a {
+  color: var(--preview-link);
+  outline: 2px solid var(--preview-focus);
+  outline-offset: var(--focus-offset);
+}
+
+.theme-preview-muted {
+  color: var(--preview-muted);
+}
+
+.theme-preview-controls {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.theme-preview button {
+  background: var(--preview-accent);
+  color: var(--accent-ink);
+}

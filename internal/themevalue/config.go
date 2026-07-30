@@ -50,7 +50,32 @@ const (
 	VariantLocationSignage = "location-signage"
 	// VariantStandby specializes the built-in Standby View.
 	VariantStandby = "standby"
+
+	// Ink colors are fixed rather than Theme-controlled. Each is the text color
+	// printed on its own filled state surface, so activation validates the
+	// Theme's color against these values. See ADR 0057.
+
+	// AccentInk is the text color on an accent-filled control.
+	AccentInk = "#07130f"
+	// LiveInk is the text color on a live state surface.
+	LiveInk = "#2a0403"
+	// WarningInk is the text color on a warning state surface.
+	WarningInk = "#241a00"
+	// DangerInk is the text color on a danger state surface.
+	DangerInk = "#2a0710"
+	// SuccessInk is the text color on a success state surface.
+	SuccessInk = "#04210f"
 )
+
+// contrastPair is one foreground and background combination that activation
+// checks against a minimum ratio.
+type contrastPair struct {
+	field      string
+	foreground string
+	background string
+	minimum    float64
+	message    string
+}
 
 // Config is one controlled browser presentation.
 type Config struct {
@@ -63,6 +88,10 @@ type Config struct {
 	AccentColor     string `json:"accent_color"`
 	LinkColor       string `json:"link_color"`
 	FocusColor      string `json:"focus_color"`
+	LiveColor       string `json:"live_color"`
+	WarningColor    string `json:"warning_color"`
+	DangerColor     string `json:"danger_color"`
+	SuccessColor    string `json:"success_color"`
 	Background      string `json:"background"`
 	Typeface        string `json:"typeface"`
 	Transition      string `json:"transition"`
@@ -105,6 +134,10 @@ func DefaultConfig() Config {
 		AccentColor:     "#62ebcb",
 		LinkColor:       "#79d7ff",
 		FocusColor:      "#ffdf6e",
+		LiveColor:       "#ff6b5e",
+		WarningColor:    "#f5b544",
+		DangerColor:     "#ff86a2",
+		SuccessColor:    "#5ee38b",
 		Background:      BackgroundNebula,
 		Typeface:        TypefaceDemoscene,
 		Transition:      TransitionFade,
@@ -124,6 +157,10 @@ func ValidateDraft(config Config) error {
 		"accent_color":     config.AccentColor,
 		"link_color":       config.LinkColor,
 		"focus_color":      config.FocusColor,
+		"live_color":       config.LiveColor,
+		"warning_color":    config.WarningColor,
+		"danger_color":     config.DangerColor,
+		"success_color":    config.SuccessColor,
 	} {
 		if !validColor(value) {
 			return invalid(field, "must be a six-digit hexadecimal color")
@@ -225,6 +262,10 @@ func applyOverrides(base, overrides Config) Config {
 		&base.AccentColor,
 		&base.LinkColor,
 		&base.FocusColor,
+		&base.LiveColor,
+		&base.WarningColor,
+		&base.DangerColor,
+		&base.SuccessColor,
 		&base.Background,
 		&base.Typeface,
 		&base.Transition,
@@ -241,6 +282,10 @@ func applyOverrides(base, overrides Config) Config {
 		overrides.AccentColor,
 		overrides.LinkColor,
 		overrides.FocusColor,
+		overrides.LiveColor,
+		overrides.WarningColor,
+		overrides.DangerColor,
+		overrides.SuccessColor,
 		overrides.Background,
 		overrides.Typeface,
 		overrides.Transition,
@@ -276,26 +321,39 @@ func ActivationFindings(config Config) []Finding {
 		}
 		return []Finding{{Field: validation.Field, Message: validation.Message}}
 	}
-	pairs := []struct {
-		field      string
-		foreground string
-		background string
-		minimum    float64
-		message    string
-	}{
+	pairs := []contrastPair{
 		{"text_color", config.TextColor, config.BackgroundColor, 4.5, "must have at least 4.5:1 contrast against the background"},
 		{"text_color", config.TextColor, config.SurfaceColor, 4.5, "must have at least 4.5:1 contrast against surfaces"},
 		{"muted_color", config.MutedColor, config.BackgroundColor, 4.5, "must have at least 4.5:1 contrast against the background"},
 		{"muted_color", config.MutedColor, config.SurfaceColor, 4.5, "must have at least 4.5:1 contrast against surfaces"},
 		{"accent_color", config.AccentColor, config.BackgroundColor, 4.5, "must have at least 4.5:1 contrast against the background"},
 		{"accent_color", config.AccentColor, config.SurfaceColor, 4.5, "must have at least 4.5:1 contrast against surfaces"},
-		{"accent_color", "#07130f", config.AccentColor, 4.5, "must preserve at least 4.5:1 button text contrast"},
+		{"accent_color", AccentInk, config.AccentColor, 4.5, "must preserve at least 4.5:1 button text contrast"},
 		{"link_color", config.LinkColor, config.BackgroundColor, 4.5, "must have at least 4.5:1 contrast against the background"},
 		{"link_color", config.LinkColor, config.SurfaceColor, 4.5, "must have at least 4.5:1 contrast against surfaces"},
 		{"focus_color", config.FocusColor, config.BackgroundColor, 3, "must have at least 3:1 contrast against the background"},
 		{"focus_color", config.FocusColor, config.SurfaceColor, 3, "must have at least 3:1 contrast against surfaces"},
 		{"border_color", config.BorderColor, config.BackgroundColor, 3, "must have at least 3:1 contrast against the background"},
 		{"border_color", config.BorderColor, config.SurfaceColor, 3, "must have at least 3:1 contrast against surfaces"},
+	}
+	// A state color is a filled surface behind its own fixed ink, so it needs
+	// legible ink and a visible edge rather than small-text contrast of its own.
+	for _, state := range []struct {
+		field string
+		color string
+		ink   string
+	}{
+		{"live_color", config.LiveColor, LiveInk},
+		{"warning_color", config.WarningColor, WarningInk},
+		{"danger_color", config.DangerColor, DangerInk},
+		{"success_color", config.SuccessColor, SuccessInk},
+	} {
+		pairs = append(
+			pairs,
+			contrastPair{state.field, state.ink, state.color, 4.5, "must preserve at least 4.5:1 state text contrast"},
+			contrastPair{state.field, state.color, config.BackgroundColor, 3, "must have at least 3:1 contrast against the background"},
+			contrastPair{state.field, state.color, config.SurfaceColor, 3, "must have at least 3:1 contrast against surfaces"},
+		)
 	}
 	var findings []Finding
 	for _, pair := range pairs {
@@ -352,6 +410,10 @@ func Stylesheet(config Config) (string, error) {
   --accent: %s;
   --link: %s;
   --focus: %s;
+  --live: %s;
+  --warning: %s;
+  --danger: %s;
+  --success: %s;
   --heading-font: %s;
   --body-font: "Open Sans", system-ui, sans-serif;
 }
@@ -360,7 +422,7 @@ h1, h2, h3, nav > a:first-child { font-family: var(--heading-font); }
 body::before { display: %s; }
 body[data-reduced-effects="false"]::before { animation: starfield %s linear infinite; }
 body[data-reduced-effects="false"] main { animation: %s; }
-%sbody[data-reduced-effects="true"]::before { animation: none; opacity: 0.08; }
+%sbody[data-reduced-effects="true"]::before { animation: none; opacity: 0.14; }
 body[data-reduced-effects="true"] main { animation: none; }
 @media (prefers-reduced-motion: reduce) {
   body[data-reduced-effects]::before,
@@ -380,6 +442,10 @@ body[data-reduced-effects="true"] main { animation: none; }
 		config.AccentColor,
 		config.LinkColor,
 		config.FocusColor,
+		config.LiveColor,
+		config.WarningColor,
+		config.DangerColor,
+		config.SuccessColor,
 		headingFont,
 		backgroundImage,
 		effectDisplay,

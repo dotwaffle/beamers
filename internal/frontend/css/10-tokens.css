@@ -1,0 +1,121 @@
+/* Design tokens.
+ *
+ * The first group is Theme-controlled: themevalue.Stylesheet redefines exactly
+ * these custom properties, so every value here must match
+ * themevalue.DefaultConfig. TestBuiltInThemeMatchesTheBaseStylesheet enforces
+ * that.
+ *
+ * Every other group is fixed. Spacing, type, radius, elevation, and density are
+ * craft rather than branding, and freezing them keeps the contrast and
+ * legibility requirements of ADR 0032 enforceable: a Theme that could resize or
+ * re-space text could render an interface unreadable without failing a single
+ * contrast check. See ADR 0057.
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* Theme-controlled. Keep in sync with themevalue.DefaultConfig. */
+  --background: #080b15;
+  --surface: #141a2c;
+  --border: #7180aa;
+  --text: #f1f5ff;
+  --muted: #c2cbe0;
+  --accent: #62ebcb;
+  --link: #79d7ff;
+  --focus: #ffdf6e;
+  --live: #ff6b5e;
+  --warning: #f5b544;
+  --danger: #ff86a2;
+  --success: #5ee38b;
+  --heading-font: "Chakra Petch", sans-serif;
+  --body-font: "Open Sans", system-ui, sans-serif;
+
+  /* Fixed ink colors. Each state color is used as a filled surface behind its
+   * own ink, never as small text over a Theme-controlled surface, so these stay
+   * out of Theme control and themevalue validates each pair. */
+  --accent-ink: #07130f;
+  --live-ink: #2a0403;
+  --warning-ink: #241a00;
+  --danger-ink: #2a0710;
+  --success-ink: #04210f;
+
+  /* Derived from Theme colors so surfaces keep their hierarchy under any Theme.
+   * Never emitted by themevalue.Stylesheet. */
+  --surface-raised: color-mix(in srgb, var(--surface) 88%, var(--text));
+  --surface-sunken: color-mix(in srgb, var(--surface) 88%, var(--background));
+  --border-subtle: color-mix(in srgb, var(--border) 45%, var(--surface));
+
+  /* Fixed: system monospace for digests, identifiers, and codes. Themes select
+   * only bundled families, and Beamers bundles no monospace face. */
+  --mono-font: ui-monospace, "Cascadia Mono", "Consolas", monospace;
+
+  /* Fixed: spacing. Four-pixel base; --gutter keeps the page inset fluid. */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+  --gutter: clamp(1rem, 4vw, 3rem);
+  --stack-gap: var(--space-4);
+
+  /* Fixed: type. --text-hero is opt-in through .hero, so a dense Crew form
+   * never inherits a landing-page heading. */
+  --text-caption: 0.8125rem;
+  --text-small: 0.875rem;
+  --text-body: 1rem;
+  --text-lead: 1.125rem;
+  --text-h3: clamp(1.05rem, 0.99rem + 0.35vw, 1.25rem);
+  --text-h2: clamp(1.25rem, 1.13rem + 0.7vw, 1.625rem);
+  --text-h1: clamp(1.75rem, 1.45rem + 1.4vw, 2.5rem);
+  --text-hero: clamp(2.25rem, 1.4rem + 4.5vw, 4.5rem);
+  --leading-tight: 1.15;
+  --leading-snug: 1.3;
+  --leading-body: 1.5;
+  --tracking-eyebrow: 0.08em;
+  --measure: 70ch;
+
+  /* Fixed: radius, elevation, rules. */
+  --radius-1: 0.25rem;
+  --radius-2: 0.5rem;
+  --radius-3: 0.75rem;
+  --radius-pill: 999px;
+  --elevation-1: 0 1px 0 #00000033;
+  --elevation-2: 0 0.5rem 1.5rem #00000055;
+  --elevation-3: 0 1.5rem 5rem #00000066;
+  --hairline: 1px solid var(--border-subtle);
+  --signal-bar: 0.3rem;
+
+  /* Fixed: controls and density. --control-min carries the 44 pixel target
+   * commitment; see 20-reset.css. */
+  --control-min: 2.75rem;
+  --control-pad-block: 0.55rem;
+  --control-pad-inline: 0.9rem;
+  --cell-pad-block: 0.55rem;
+  --cell-pad-inline: 0.7rem;
+  --focus-ring: 0.2rem solid var(--focus);
+  --focus-offset: 0.15rem;
+
+  font-family: var(--body-font);
+  line-height: var(--leading-body);
+}
+
+/* Browsers without color-mix keep the hand-picked equivalents. */
+@supports not (color: color-mix(in srgb, red, blue)) {
+  :root {
+    --surface-raised: #1c2440;
+    --surface-sunken: #0d1220;
+    --border-subtle: #3b466b;
+  }
+}
+
+/* Density is a per-surface attribute for data-heavy Crew pages, never a Theme
+ * control. */
+[data-density="compact"] {
+  --cell-pad-block: 0.3rem;
+  --cell-pad-inline: 0.5rem;
+  --stack-gap: var(--space-2);
+}

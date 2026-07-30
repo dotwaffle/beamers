@@ -1,0 +1,185 @@
+header,
+main {
+  margin: 0 auto;
+  max-width: 72rem;
+  padding: var(--gutter);
+  position: relative;
+}
+
+header {
+  padding-block-end: var(--space-4);
+}
+
+/* main stays the page surface and the Theme's transition target:
+ * themevalue.Stylesheet animates it and restyles it under forced colors. */
+main {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-3);
+  box-shadow: var(--elevation-3);
+}
+
+nav {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-5);
+}
+
+nav form {
+  margin: 0;
+}
+
+nav form:first-of-type {
+  margin-inline-start: auto;
+}
+
+.primary-navigation > .brand {
+  color: var(--accent);
+  font-family: var(--heading-font);
+  font-size: var(--text-lead);
+  font-weight: 700;
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+}
+
+.skip-link {
+  background: var(--accent);
+  color: var(--accent-ink);
+  inset-block-start: var(--space-2);
+  inset-inline-start: var(--space-2);
+  padding: var(--control-pad-block) var(--control-pad-inline);
+  position: fixed;
+  transform: translateY(-200%);
+  z-index: 10;
+}
+
+.skip-link:focus {
+  transform: none;
+}
+
+.backstage-layout,
+.event-layout {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: minmax(0, 1fr);
+  margin: 0 auto;
+  max-width: 90rem;
+  padding: 0 var(--gutter) var(--gutter);
+}
+
+.event-content {
+  min-width: 0;
+}
+
+.event-content main,
+.backstage-layout main {
+  margin: 0;
+  max-width: none;
+  overflow-wrap: anywhere;
+  width: 100%;
+}
+
+.backstage-drawer,
+.event-drawer {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-3);
+  padding: var(--space-3) var(--space-4);
+}
+
+.backstage-drawer summary,
+.event-drawer summary {
+  color: var(--accent);
+  cursor: pointer;
+  font-family: var(--heading-font);
+  font-weight: 700;
+  min-block-size: var(--control-min);
+  padding-block: var(--control-pad-block);
+}
+
+.backstage-layout main details > summary {
+  cursor: pointer;
+  min-block-size: var(--control-min);
+  padding-block: var(--control-pad-block);
+}
+
+.backstage-sidebar,
+.event-sidebar {
+  display: none;
+}
+
+.backstage-breadcrumbs {
+  min-width: 0;
+}
+
+.backstage-links,
+.event-links {
+  align-items: stretch;
+  display: grid;
+}
+
+.navigation-title {
+  color: var(--text);
+  display: block;
+  font-family: var(--heading-font);
+  font-size: var(--text-body);
+}
+
+.backstage-links p {
+  color: var(--muted);
+}
+
+.backstage-links ul,
+.event-links ul {
+  margin: 0;
+  padding-inline-start: var(--space-5);
+}
+
+.breadcrumbs {
+  margin-block-end: var(--space-4);
+}
+
+.breadcrumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.breadcrumbs li + li::before {
+  color: var(--muted);
+  content: "/";
+  margin-inline-end: var(--space-3);
+}
+
+@media (min-width: 48rem) {
+  .backstage-layout,
+  .event-layout {
+    grid-template-columns: minmax(15rem, 20rem) minmax(0, 1fr);
+  }
+
+  .backstage-drawer,
+  .event-drawer {
+    display: none;
+  }
+
+  .backstage-sidebar,
+  .event-sidebar {
+    align-self: start;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-3);
+    display: block;
+    padding: var(--space-4);
+    position: sticky;
+    top: var(--space-4);
+  }
+
+  .backstage-breadcrumbs,
+  .backstage-layout main {
+    grid-column: 2;
+  }
+}
