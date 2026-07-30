@@ -50,6 +50,10 @@ const (
 	VariantLocationSignage = "location-signage"
 	// VariantStandby specializes the built-in Standby View.
 	VariantStandby = "standby"
+	// VariantTimeline specializes the built-in Timeline View.
+	VariantTimeline = "timeline"
+	// VariantCrewOverview specializes the built-in Crew Overview View.
+	VariantCrewOverview = "crew-overview"
 
 	// Ink colors are fixed rather than Theme-controlled. Each is the text color
 	// printed on its own filled state surface, so activation validates the
@@ -222,6 +226,8 @@ func EventActivationFindings(base Config, config EventConfig) []Finding {
 		VariantEventOverview,
 		VariantLocationSignage,
 		VariantStandby,
+		VariantTimeline,
+		VariantCrewOverview,
 	} {
 		if variant != "" {
 			if _, configured := config.Variants[variant]; !configured {
@@ -305,7 +311,9 @@ func validVariant(value string) bool {
 	case VariantCompetitionOutput,
 		VariantEventOverview,
 		VariantLocationSignage,
-		VariantStandby:
+		VariantStandby,
+		VariantTimeline,
+		VariantCrewOverview:
 		return true
 	default:
 		return false

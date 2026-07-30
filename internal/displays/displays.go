@@ -135,6 +135,7 @@ type Snapshot struct {
 	ActiveEventID         int
 	EventName             string
 	EventTimezone         string
+	EventDayBoundary      string
 	ActivationGeneration  int
 	PublishedRevision     int
 	LocationID            int
@@ -236,6 +237,11 @@ type Session struct {
 	PresentedEndLabel     publictime.Label
 	DisplayPresentedStart string
 	DisplayPresentedEnd   string
+	TimelineDay           string
+	TimelineOffset        int
+	TimelineWidth         int
+	TimelineLane          int
+	TimelineLaneCount     int
 	orderAt               time.Time
 }
 
@@ -372,6 +378,7 @@ func (service *Service) Current(ctx context.Context, credential string) (Snapsho
 		ProtocolVersion: protocolVersion, AssetVersion: AssetVersion(), ServerTime: now,
 		Display: display(found.Display), ActiveEventID: found.ActiveEventID,
 		EventName: found.EventName, EventTimezone: found.EventTimezone,
+		EventDayBoundary:     found.EventDayBoundary,
 		ActivationGeneration: found.ActivationGeneration,
 		PublishedRevision:    found.PublishedRevision, LocationID: found.LocationID,
 		LocationName: found.LocationName, ViewKey: found.ViewKey, Standby: found.Standby,
@@ -439,6 +446,11 @@ func (service *Service) Current(ctx context.Context, credential string) (Snapsho
 	sort.SliceStable(result.Sessions, func(first, second int) bool {
 		return result.Sessions[first].orderAt.Before(result.Sessions[second].orderAt)
 	})
+	if result.ViewKey == displayviews.Timeline {
+		if err := projectTimeline(result.Sessions, zone, found.EventDayBoundary); err != nil {
+			return Snapshot{}, errors.Join(errors.New("project Timeline"), err)
+		}
+	}
 	completedAt := service.now().UTC()
 	result.ServerTime = now.Add(completedAt.Sub(now) / 2)
 	return result, nil
@@ -494,7 +506,11 @@ func projectStageTimer(
 	found store.DisplaySnapshotState,
 	configuration displayviews.Configuration,
 ) (StageTimer, bool, error) {
-	if found.Standby || found.ViewKey != displayviews.StageTimer {
+	// Crew Overview carries a Stage Timer Region beside its other Regions, so the
+	// projection follows the Layout rather than a single View key. Naming the
+	// Stage Timer View directly left that Region permanently reporting that no
+	// Session was live.
+	if !displayviews.UsesWidget(found.ViewKey, found.Standby, displayviews.WidgetStageTimer) {
 		return StageTimer{}, false, nil
 	}
 	eventThresholds := timerThresholds(configuration.TimerThresholds)
@@ -998,21 +1014,33 @@ func displaySession(
 	now time.Time,
 	zone *time.Location,
 ) (Session, bool, error) {
-	if found.Lifecycle == "Ended" || found.Lifecycle != "Live" && !found.ForecastEnd.After(now) {
+	if snapshot.ViewKey != displayviews.Timeline &&
+		(found.Lifecycle == "Ended" || found.Lifecycle != "Live" && !found.ForecastEnd.After(now)) {
 		return Session{}, false, nil
 	}
 	if snapshot.ViewKey == displayviews.EventOverview && found.AudienceVisibility != "Public" {
 		return Session{}, false, nil
 	}
-	if snapshot.ViewKey == displayviews.LocationSignage && !containsID(found.LocationIDs, snapshot.LocationID) {
+	if (snapshot.ViewKey == displayviews.LocationSignage ||
+		snapshot.ViewKey == displayviews.CrewOverview) &&
+		!containsID(found.LocationIDs, snapshot.LocationID) {
 		return Session{}, false, nil
 	}
-	if found.AudienceVisibility != "Public" {
+	// Crew Overview is a crew surface, so a Crew Only Session reaches it in full.
+	// ADR 0022's example is exactly this: a Published, Crew Only soundcheck goes
+	// Live without appearing on public Views, and the crew still has to see it.
+	// Every other View reports only that the span is taken and until when.
+	if found.AudienceVisibility != "Public" && snapshot.ViewKey != displayviews.CrewOverview {
 		return Session{
 			Unavailable: true,
 			AvailabilityMessage: "Location unavailable until " +
 				found.ForecastEnd.In(zone).Format("Jan 2, 2006 15:04 MST"),
-			orderAt: found.ForecastStart,
+			// The span's edges size a Timeline block. They reveal nothing the
+			// message does not already state, and without them a suppressed
+			// Session would collapse to no width at all.
+			ForecastStart: found.ForecastStart,
+			ForecastEnd:   found.ForecastEnd,
+			orderAt:       found.ForecastStart,
 		}, true, nil
 	}
 	presentation, err := publictime.Present(found.PublicTime)

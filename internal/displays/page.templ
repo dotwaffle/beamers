@@ -207,7 +207,7 @@ templ displayRegion(snapshot Snapshot, name string, widget string, persistent bo
 			<p>Location Signage</p>
 		} else if widget == "now-next" {
 			<h2>Now / Next</h2>
-			for index, session := range displayNowNext(snapshot.Sessions) {
+			for index, session := range displayNowNext(snapshot.Sessions, snapshot.ServerTime) {
 				if index < 2 {
 					@displaySessionRegion(snapshot, session, false, false, displayNowNextSlot(index))
 				}
@@ -219,8 +219,24 @@ templ displayRegion(snapshot Snapshot, name string, widget string, persistent bo
 			if len(snapshot.Sessions) == 0 {
 				<p>No public Event information is currently scheduled.</p>
 			}
+		} else if widget == "timeline" {
+			<div class="display-timeline-days">
+				for _, day := range displayTimelineDays(snapshot.Sessions) {
+					<section class="display-timeline-day">
+						<h3>{ day.Label }</h3>
+						<ol class="display-timeline" style={ displayTimelineDayStyle(day) }>
+							for _, session := range day.Sessions {
+								@displayTimelineBlock(snapshot, session)
+							}
+						</ol>
+					</section>
+				}
+			</div>
+			if len(snapshot.Sessions) == 0 {
+				<p>No public Event information is currently scheduled.</p>
+			}
 		} else if widget == "clock" {
-			<time data-display-clock datetime={ snapshot.ServerTime.Format("2006-01-02T15:04:05Z07:00") }>{ snapshot.ServerTime.Format("15:04") }</time>
+			<time data-display-clock datetime={ snapshot.ServerTime.Format("2006-01-02T15:04:05Z07:00") }>{ displayClockTime(snapshot) }</time>
 		} else if widget == "stage-timer" {
 			if timer, ok := displayStageTimer(snapshot); ok {
 				<h2>{ timer.Title }</h2>
@@ -246,6 +262,19 @@ templ displayRegion(snapshot Snapshot, name string, widget string, persistent bo
 			}
 		}
 	</section>
+}
+
+templ displayTimelineBlock(snapshot Snapshot, session Session) {
+	<li class="display-timeline-block" style={ displayTimelineStyle(session) } data-unavailable?={ session.Unavailable }>
+		if session.Unavailable {
+			<p>{ session.AvailabilityMessage }</p>
+		} else {
+			<h3>{ session.Title }</h3>
+			<p>
+				<time datetime={ session.PresentedStart.Format("2006-01-02T15:04:05Z07:00") }>{ session.DisplayPresentedStart }</time>
+			</p>
+		}
+	</li>
 }
 
 templ displaySessionRegion(

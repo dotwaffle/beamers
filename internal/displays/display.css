@@ -256,6 +256,132 @@ body {
 	font-variant-numeric: tabular-nums;
 }
 
+/* Timeline. Each Event day is a real time axis: gaps remain visible and
+ * overlapping Sessions occupy separate lanes. See ADR 0058. */
+.display-timeline-days {
+	display: grid;
+	gap: clamp(0.5rem, 1vw, 1rem);
+	min-block-size: 0;
+}
+
+.display-timeline-day {
+	display: grid;
+	grid-template-rows: auto minmax(0, 1fr);
+	gap: 0.25rem;
+	min-block-size: 0;
+}
+
+.display-timeline-day > h3 {
+	margin: 0;
+	font-size: var(--display-text-caption);
+}
+
+.display-timeline {
+	position: relative;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	min-block-size: max(4rem, calc(var(--display-lanes, 1) * 4rem));
+}
+
+.display-timeline-block {
+	position: absolute;
+	inset-block-start: calc(var(--display-lane, 0) * 100% / var(--display-lanes, 1));
+	inset-inline-start: calc(var(--display-offset, 0) * 0.01%);
+	box-sizing: border-box;
+	block-size: calc(100% / var(--display-lanes, 1));
+	inline-size: max(0.5rem, calc(var(--display-width, 1) * 0.01%));
+	overflow: hidden;
+	padding: clamp(0.5rem, 1vw, 1.25rem);
+	border-block-start: 0.25rem solid var(--display-signal, #62ebcb);
+	border-radius: clamp(0.25rem, 0.5vw, 0.75rem);
+	background: rgb(255 255 255 / 8%);
+}
+
+/* A block inherits the Region's body size rather than the heading scale: at
+ * Timeline widths a full-size h3 would clip before it wrapped. */
+.display-timeline-block h3 {
+	font-size: var(--display-text-body);
+}
+
+/* A suppressed span is visibly a placeholder, not a Session whose title failed
+ * to load. The hatching reads as unavailable without relying on color. */
+.display-timeline-block[data-unavailable] {
+	border-block-start-style: dashed;
+	background-image: repeating-linear-gradient(
+		135deg,
+		rgb(255 255 255 / 10%) 0 0.5rem,
+		transparent 0.5rem 1rem
+	);
+	font-size: var(--display-text-caption);
+}
+
+/* Timeline: branding and clock share a header row, the Now / Next summary sits
+ * beneath it, and the Timeline itself takes the remaining height. */
+.display-layout-timeline {
+	grid-template:
+		"header clock" auto
+		"now-next now-next" auto
+		"timeline timeline" minmax(0, 1fr)
+		/ minmax(0, 1fr) auto;
+}
+
+.display-layout-timeline [data-region="header"] {
+	grid-area: header;
+}
+
+.display-layout-timeline [data-region="now-next"] {
+	grid-area: now-next;
+}
+
+.display-layout-timeline [data-region="timeline"] {
+	grid-area: timeline;
+}
+
+.display-layout-timeline [data-region="clock"] {
+	grid-area: clock;
+}
+
+/* Crew Overview: the timer dominates, because it is what a technician checks
+ * first. Now / Next and the rotating Schedule answer "and then what?" beside it.
+ */
+.display-layout-crew-overview {
+	grid-template:
+		"header clock" auto
+		"timer now-next" minmax(0, 3fr)
+		"timer schedule" minmax(0, 2fr)
+		/ minmax(0, 3fr) minmax(16rem, 2fr);
+}
+
+.display-layout-crew-overview [data-region="header"] {
+	grid-area: header;
+}
+
+.display-layout-crew-overview [data-region="timer"] {
+	grid-area: timer;
+	display: grid;
+	place-items: center;
+	text-align: center;
+}
+
+.display-layout-crew-overview [data-region="now-next"] {
+	grid-area: now-next;
+}
+
+.display-layout-crew-overview [data-region="schedule"] {
+	grid-area: schedule;
+}
+
+.display-layout-crew-overview [data-region="clock"] {
+	grid-area: clock;
+}
+
+/* The Crew Overview timer shares a Region with two neighbours, so it cannot
+ * claim the full-panel size a dedicated Stage Timer View uses. */
+.display-layout-crew-overview [data-stage-timer-clock] {
+	font-size: clamp(3rem, 12vw, 14rem);
+}
+
 .display-transition-fade [data-rotation-page]:not([hidden]) {
 	animation: display-fade 250ms ease-out;
 }
@@ -311,5 +437,16 @@ html[data-connection="connected"] #display-connection {
 		animation-iteration-count: 1 !important;
 		transition-duration: 0.01ms !important;
 		scroll-behavior: auto !important;
+	}
+}
+
+@media (max-aspect-ratio: 8/5) {
+	.display-layout-crew-overview {
+		grid-template:
+			"header clock" auto
+			"timer timer" minmax(0, 2fr)
+			"now-next now-next" minmax(0, 1fr)
+			"schedule schedule" minmax(0, 1fr)
+			/ minmax(0, 1fr) auto;
 	}
 }

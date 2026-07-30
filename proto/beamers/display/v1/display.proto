@@ -108,6 +108,11 @@ message DisplaySession {
   google.protobuf.Timestamp presented_end = 17;
   string presented_start_label = 18;
   string presented_end_label = 19;
+  string timeline_day = 20;
+  uint32 timeline_offset = 21;
+  uint32 timeline_width = 22;
+  uint32 timeline_lane = 23;
+  uint32 timeline_lane_count = 24;
 }
 
 enum StageTimerMode {

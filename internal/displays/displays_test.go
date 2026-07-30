@@ -16,6 +16,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/displayviews"
 	"github.com/dotwaffle/beamers/internal/publictime"
+	"github.com/dotwaffle/beamers/internal/rundown"
 	"github.com/dotwaffle/beamers/internal/store"
 )
 
@@ -343,5 +344,188 @@ func TestEnrollmentQRCodeDataURLContainsPNG(t *testing.T) {
 	}
 	if image.Bounds().Dx() < 200 || image.Bounds().Dx() != image.Bounds().Dy() {
 		t.Errorf("Enrollment QR dimensions = %v", image.Bounds())
+	}
+}
+
+// TestCrewOnlySessionsReachCrewOverviewInFull separates the audience-facing Views
+// from the crew one. ADR 0022's worked example is a Published, Crew Only
+// soundcheck going Live without appearing on public Views, and the crew still has
+// to be able to see it. Every other View reports only that the span is taken.
+func TestCrewOnlySessionsReachCrewOverviewInFull(t *testing.T) {
+	forecastStart := time.Date(2026, 8, 21, 10, 0, 0, 0, time.UTC)
+	forecastEnd := forecastStart.Add(time.Hour)
+	actualStart := forecastStart.Add(2 * time.Minute)
+	found := store.DisplaySessionState{
+		ID: 21, Title: "Private Soundcheck", AudienceVisibility: "CrewOnly",
+		Lifecycle: "Live", ForecastStart: forecastStart, ForecastEnd: forecastEnd,
+		LocationIDs: []int{7},
+		PublicTime: publictime.Facts{
+			Lifecycle:   publictime.Live,
+			Forecast:    publictime.Range{Start: forecastStart, End: forecastEnd},
+			Actual:      publictime.OptionalRange{Start: &actualStart},
+			RunDuration: time.Hour,
+		},
+	}
+
+	crew, selected, err := displaySession(
+		store.DisplaySnapshotState{
+			ViewKey:    displayviews.CrewOverview,
+			LocationID: 7,
+		},
+		found,
+		forecastStart,
+		time.UTC,
+	)
+	if err != nil {
+		t.Fatalf("present Crew Overview Session: %v", err)
+	}
+	if !selected || crew.Unavailable || crew.Title != "Private Soundcheck" {
+		t.Errorf("Crew Overview Session = %+v, want the Crew Only Session in full", crew)
+	}
+
+	// Timeline is audience-facing, so the same Session becomes an opaque span.
+	timeline, selected, err := displaySession(
+		store.DisplaySnapshotState{ViewKey: displayviews.Timeline},
+		found,
+		forecastStart,
+		time.UTC,
+	)
+	if err != nil {
+		t.Fatalf("present Timeline Session: %v", err)
+	}
+	if !selected || !timeline.Unavailable {
+		t.Errorf("Timeline Session = %+v, want an unavailable span", timeline)
+	}
+	if timeline.Title != "" {
+		t.Errorf("Timeline leaked the Crew Only title %q", timeline.Title)
+	}
+	// The span still needs its edges, or a suppressed block has no width.
+	if !timeline.ForecastStart.Equal(forecastStart) || !timeline.ForecastEnd.Equal(forecastEnd) {
+		t.Errorf("Timeline span = %+v, want the Session's edges", timeline)
+	}
+}
+
+func TestTimelineRetainsEndedSessionsForTheWholeEventDay(t *testing.T) {
+	forecastStart := time.Date(2026, 8, 21, 10, 0, 0, 0, time.UTC)
+	forecastEnd := forecastStart.Add(time.Hour)
+	actualStart := forecastStart.Add(2 * time.Minute)
+	actualEnd := forecastEnd.Add(3 * time.Minute)
+	found := store.DisplaySessionState{
+		ID: 22, Title: "Opening Keynote", AudienceVisibility: "Public",
+		Lifecycle: "Ended", ForecastStart: forecastStart, ForecastEnd: forecastEnd,
+		PublicTime: publictime.Facts{
+			Lifecycle: publictime.Ended,
+			Forecast:  publictime.Range{Start: forecastStart, End: forecastEnd},
+			Actual: publictime.OptionalRange{
+				Start: &actualStart,
+				End:   &actualEnd,
+			},
+			RunDuration: time.Hour,
+		},
+	}
+	now := forecastEnd.Add(4 * time.Hour)
+
+	timeline, selected, err := displaySession(
+		store.DisplaySnapshotState{ViewKey: displayviews.Timeline},
+		found,
+		now,
+		time.UTC,
+	)
+	if err != nil {
+		t.Fatalf("present ended Timeline Session: %v", err)
+	}
+	if !selected || timeline.Title != found.Title || timeline.Lifecycle != "Ended" {
+		t.Fatalf("ended Timeline Session = %+v, selected %v", timeline, selected)
+	}
+
+	_, selected, err = displaySession(
+		store.DisplaySnapshotState{ViewKey: displayviews.EventOverview},
+		found,
+		now,
+		time.UTC,
+	)
+	if err != nil || selected {
+		t.Fatalf("ended Event Overview Session selected = %v, error %v", selected, err)
+	}
+}
+
+func TestCrewOverviewSessionsFollowTheAssignedLocation(t *testing.T) {
+	forecastStart := time.Date(2026, 8, 21, 10, 0, 0, 0, time.UTC)
+	forecastEnd := forecastStart.Add(time.Hour)
+	found := store.DisplaySessionState{
+		ID: 23, Title: "Soundcheck", AudienceVisibility: "CrewOnly",
+		Lifecycle: "Scheduled", ForecastStart: forecastStart, ForecastEnd: forecastEnd,
+		LocationIDs: []int{8},
+		PublicTime: publictime.Facts{
+			Lifecycle: publictime.Scheduled,
+			Forecast:  publictime.Range{Start: forecastStart, End: forecastEnd},
+		},
+	}
+
+	_, selected, err := displaySession(
+		store.DisplaySnapshotState{
+			ViewKey:    displayviews.CrewOverview,
+			LocationID: 7,
+		},
+		found,
+		forecastStart,
+		time.UTC,
+	)
+	if err != nil || selected {
+		t.Fatalf("off-Location Crew Session selected = %v, error %v", selected, err)
+	}
+
+	session, selected, err := displaySession(
+		store.DisplaySnapshotState{
+			ViewKey:    displayviews.CrewOverview,
+			LocationID: 8,
+		},
+		found,
+		forecastStart,
+		time.UTC,
+	)
+	if err != nil || !selected || session.Title != found.Title {
+		t.Fatalf("assigned Crew Session = %+v, selected %v, error %v", session, selected, err)
+	}
+}
+
+// TestStageTimerProjectionFollowsTheLayout pins the Stage Timer projection to the
+// Layout rather than to one View key. Crew Overview carries a Stage Timer Region
+// beside its other Regions, and naming the Stage Timer View directly left that
+// Region reporting that no Session was live however the Event was running.
+func TestStageTimerProjectionFollowsTheLayout(t *testing.T) {
+	start := time.Date(2026, 8, 21, 10, 0, 0, 0, time.UTC)
+	state := func(viewKey string) store.DisplaySnapshotState {
+		return store.DisplaySnapshotState{
+			ViewKey:    viewKey,
+			LocationID: 7,
+			Sessions: []store.DisplaySessionState{{
+				ID: 31, Title: "Tracked Music", Lifecycle: "Live",
+				AudienceVisibility: "Public", LocationIDs: []int{7},
+				ForecastStart: start, ForecastEnd: start.Add(time.Hour),
+				ActualStart:     start,
+				RunPlannedStart: start,
+				RunPlannedEnd:   start.Add(time.Hour),
+				TimingPolicy:    string(rundown.TimingFixedEnd),
+			}},
+		}
+	}
+
+	for _, viewKey := range []string{displayviews.StageTimer, displayviews.CrewOverview} {
+		timer, ok, err := projectStageTimer(state(viewKey), displayviews.DefaultConfiguration())
+		if err != nil {
+			t.Fatalf("project Stage Timer for %q: %v", viewKey, err)
+		}
+		if !ok || timer.SessionID != 31 {
+			t.Errorf("View %q Stage Timer = %+v (present %t), want the live Session", viewKey, timer, ok)
+		}
+	}
+
+	// A View without a Stage Timer Region still gets nothing to render.
+	if _, ok, err := projectStageTimer(
+		state(displayviews.EventOverview),
+		displayviews.DefaultConfiguration(),
+	); err != nil || ok {
+		t.Errorf("Event Overview Stage Timer present = %t, error = %v; want absent", ok, err)
 	}
 }

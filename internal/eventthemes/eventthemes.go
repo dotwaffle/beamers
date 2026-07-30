@@ -176,6 +176,8 @@ func (service *Service) Preview(
 		themevalue.VariantEventOverview,
 		themevalue.VariantLocationSignage,
 		themevalue.VariantStandby,
+		themevalue.VariantTimeline,
+		themevalue.VariantCrewOverview,
 	} {
 		variants[variant], err = themevalue.ResolveEvent(base.Config, found.Config, variant)
 		if err != nil {

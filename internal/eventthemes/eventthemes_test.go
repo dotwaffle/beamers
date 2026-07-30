@@ -55,6 +55,8 @@ func TestProducerActivatesAndRollsBackInheritedEventTheme(t *testing.T) {
 			Overrides: themevalue.Config{BrandAsset: themevalue.BrandAssetWordmark},
 			Variants: map[string]themevalue.Config{
 				themevalue.VariantLocationSignage: {AccentColor: "#ffdf6e"},
+				themevalue.VariantTimeline:        {AccentColor: "#f5b544"},
+				themevalue.VariantCrewOverview:    {Motion: themevalue.MotionStill},
 			},
 		},
 		CommandID: "create-first-event-theme",
@@ -69,6 +71,12 @@ func TestProducerActivatesAndRollsBackInheritedEventTheme(t *testing.T) {
 	}
 	if got := preview.Variants[themevalue.VariantLocationSignage].AccentColor; got != "#ffdf6e" {
 		t.Fatalf("Location Signage preview accent = %q, want #ffdf6e", got)
+	}
+	if got := preview.Variants[themevalue.VariantTimeline].AccentColor; got != "#f5b544" {
+		t.Fatalf("Timeline preview accent = %q, want #f5b544", got)
+	}
+	if got := preview.Variants[themevalue.VariantCrewOverview].Motion; got != themevalue.MotionStill {
+		t.Fatalf("Crew Overview preview motion = %q, want %q", got, themevalue.MotionStill)
 	}
 	if _, err = service.Activate(t.Context(), producer, eventID, eventthemes.ActivateInput{
 		RevisionID: first.ID, CommandID: "activate-first-event-theme",

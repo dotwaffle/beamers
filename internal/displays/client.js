@@ -342,8 +342,12 @@ function renderSnapshot(snapshot, offset) {
   main.dataset.streamPosition = String(snapshot.streamPosition);
   main.className = [
     "display-view",
+    // Every built-in Layout key in internal/displayviews must appear here, or
+    // the client rejects a Composition the server happily served and the Display
+    // stops repainting. TestClientAcceptsEveryBuiltInLayoutKey pins the pairing.
     `display-layout-${controlledToken(composition.layout.key, [
       "standby", "event-overview", "location-signage", "stage-timer", "competition-output",
+      "timeline", "crew-overview",
     ])}`,
     `display-font-${controlledToken(composition.theme.font, ["sans", "serif", "mono", "demoscene"])}`,
     `display-background-${controlledToken(composition.theme.background, ["solid", "variable-media", "nebula"])}`,
@@ -498,8 +502,21 @@ function renderWidget(region, widget, snapshot, theme, candidateClockReference) 
     return;
   case "now-next": {
     appendHeading(region, "Now / Next", 2);
+    const snapshotTime = Date.parse(snapshot.serverTime);
+    if (!Number.isFinite(snapshotTime)) {
+      throw new Error("snapshot server time is invalid");
+    }
     const upcoming = (snapshot.sessions ?? [])
-      .filter((candidate) => candidate.lifecycle !== "Canceled")
+      .filter((candidate) => {
+        if (candidate.lifecycle === "Canceled" || candidate.lifecycle === "Ended") {
+          return false;
+        }
+        if (candidate.lifecycle === "Live" || !candidate.forecastEnd) {
+          return true;
+        }
+        const forecastEnd = Date.parse(candidate.forecastEnd);
+        return Number.isFinite(forecastEnd) && forecastEnd > snapshotTime;
+      })
       .slice(0, 2);
     for (const [index, session] of upcoming.entries()) {
       const article = document.createElement("article");
@@ -522,6 +539,31 @@ function renderWidget(region, widget, snapshot, theme, candidateClockReference) 
       appendParagraph(region, "No public Event information is currently scheduled.");
     }
     return;
+  case "timeline": {
+    const days = document.createElement("div");
+    days.className = "display-timeline-days";
+    const timelines = new Map();
+    for (const session of snapshot.sessions ?? []) {
+      let timeline = timelines.get(session.timelineDay);
+      if (!timeline) {
+        const day = document.createElement("section");
+        day.className = "display-timeline-day";
+        appendHeading(day, session.timelineDay, 3);
+        timeline = document.createElement("ol");
+        timeline.className = "display-timeline";
+        timeline.style.setProperty("--display-lanes", String(session.timelineLaneCount));
+        day.append(timeline);
+        days.append(day);
+        timelines.set(session.timelineDay, timeline);
+      }
+      timeline.append(renderTimelineBlock(snapshot, session));
+    }
+    region.append(days);
+    if ((snapshot.sessions ?? []).length === 0) {
+      appendParagraph(region, "No public Event information is currently scheduled.");
+    }
+    return;
+  }
   case "clock": {
     const clock = document.createElement("time");
     clock.dataset.displayClock = "true";
@@ -692,6 +734,30 @@ function timerEmphasis(thresholds, remainingMilliseconds) {
     }
   }
   return result;
+}
+
+// renderTimelineBlock consumes server-projected Event-day geometry so the entry
+// document and browser renderer cannot disagree.
+function renderTimelineBlock(snapshot, session) {
+  const block = document.createElement("li");
+  block.className = "display-timeline-block";
+  block.style.setProperty("--display-offset", String(session.timelineOffset));
+  block.style.setProperty("--display-width", String(session.timelineWidth));
+  block.style.setProperty("--display-lane", String(session.timelineLane));
+  block.style.setProperty("--display-lanes", String(session.timelineLaneCount));
+  if (session.unavailable) {
+    block.dataset.unavailable = "true";
+    appendParagraph(block, session.availabilityMessage);
+    return block;
+  }
+  appendHeading(block, session.title, 3);
+  const start = document.createElement("time");
+  start.dateTime = String(session.presentedStart ?? "");
+  start.textContent = formatScheduleTime(snapshot, session.presentedStart);
+  const line = document.createElement("p");
+  line.append(start);
+  block.append(line);
+  return block;
 }
 
 function renderSession(parent, snapshot, session) {

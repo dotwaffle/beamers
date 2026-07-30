@@ -435,6 +435,8 @@ func TestProducerActivatesInheritedEventThemeAcrossPublicSchedule(t *testing.T) 
 	draft.Set("background_color", "#112233")
 	draft.Set("location-signage_accent_color", "#ffdf6e")
 	draft.Set("location-signage_motion", "still")
+	draft.Set("timeline_accent_color", "#f5b544")
+	draft.Set("crew-overview_motion", "still")
 	status, body := postBrowserForm(
 		t,
 		producer,
@@ -446,7 +448,9 @@ func TestProducerActivatesInheritedEventThemeAcrossPublicSchedule(t *testing.T) 
 		!strings.Contains(body, "Event Theme Revision #1") ||
 		!strings.Contains(body, "passes known inherited activation checks") ||
 		!strings.Contains(body, `data-theme-variant="location-signage"`) ||
-		!strings.Contains(body, "#ffdf6e") {
+		!strings.Contains(body, "#ffdf6e") ||
+		!strings.Contains(body, `data-theme-variant="timeline"`) ||
+		!strings.Contains(body, `data-theme-variant="crew-overview"`) {
 		t.Fatalf("Event Theme preview = %d %q", status, body)
 	}
 	assertGETContains(

@@ -23,6 +23,8 @@ const (
 	WidgetClock = "clock"
 	// WidgetStageTimer identifies live Stage Timer content.
 	WidgetStageTimer = "stage-timer"
+	// WidgetTimeline identifies the proportional Event day Timeline.
+	WidgetTimeline = "timeline"
 	// WidgetProgramOutput identifies Competition Program Output.
 	WidgetProgramOutput = "program-output"
 
@@ -184,6 +186,25 @@ func Compose(viewKey string, standby bool, configuration Configuration) (Composi
 	return Composition{Layout: layout, Theme: configuration.Theme}, nil
 }
 
+// UsesWidget reports whether a built-in View's Layout includes a Region driven by
+// the named Widget.
+//
+// Projections consult this rather than naming a View directly, so a Widget that
+// gains a second home cannot leave that Region starved of its data and rendering
+// an empty-state message forever.
+func UsesWidget(viewKey string, standby bool, widget string) bool {
+	layout, ok := builtInLayout(viewKey, standby)
+	if !ok {
+		return false
+	}
+	for _, region := range layout.Regions {
+		if region.Widget == widget {
+			return true
+		}
+	}
+	return false
+}
+
 // ValidateConfiguration rejects inaccessible or renderer-defined Event presentation.
 func ValidateConfiguration(configuration Configuration) error {
 	if configuration.RotationSeconds < 5 || configuration.RotationSeconds > 300 {
@@ -336,6 +357,27 @@ func builtInLayout(viewKey string, standby bool) (Layout, bool) {
 			Regions: []Region{
 				{Name: "header", Widget: WidgetBranding, Persistent: true},
 				{Name: "program", Widget: WidgetProgramOutput, Persistent: true},
+			},
+		}, true
+	case Timeline:
+		return Layout{
+			Key: Timeline,
+			Regions: []Region{
+				{Name: "header", Widget: WidgetBranding, Persistent: true},
+				{Name: "now-next", Widget: WidgetNowNext, Persistent: true},
+				{Name: "timeline", Widget: WidgetTimeline, Persistent: true},
+				{Name: "clock", Widget: WidgetClock, Persistent: true},
+			},
+		}, true
+	case CrewOverview:
+		return Layout{
+			Key: CrewOverview,
+			Regions: []Region{
+				{Name: "header", Widget: WidgetBranding, Persistent: true},
+				{Name: "timer", Widget: WidgetStageTimer, Persistent: true},
+				{Name: "now-next", Widget: WidgetNowNext, Persistent: true},
+				{Name: "schedule", Widget: WidgetRotation},
+				{Name: "clock", Widget: WidgetClock, Persistent: true},
 			},
 		}, true
 	default:

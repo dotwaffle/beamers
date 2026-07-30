@@ -319,3 +319,94 @@ func TestValidateConfigurationRejectsInvalidTimerThresholds(t *testing.T) {
 		})
 	}
 }
+
+// TestEveryCatalogedViewComposes keeps the catalog and the Layout table in step.
+// A View that IsNormal accepts but builtInLayout does not know would be
+// assignable and then fail to compose at render time.
+func TestEveryCatalogedViewComposes(t *testing.T) {
+	t.Parallel()
+
+	for _, viewKey := range Normal() {
+		t.Run(viewKey, func(t *testing.T) {
+			t.Parallel()
+
+			if !IsNormal(viewKey) {
+				t.Fatalf("catalog lists %q but IsNormal rejects it", viewKey)
+			}
+			composition, err := Compose(viewKey, false, DefaultConfiguration())
+			if err != nil {
+				t.Fatalf("compose %q: %v", viewKey, err)
+			}
+			if composition.Layout.Key != viewKey {
+				t.Errorf("composed Layout = %q, want %q", composition.Layout.Key, viewKey)
+			}
+			if len(composition.Layout.Regions) == 0 {
+				t.Errorf("View %q composed no Regions", viewKey)
+			}
+		})
+	}
+}
+
+// TestTimelineAndCrewOverviewCarryTheirAdrRegions pins the Region sets ADR 0058
+// specifies, so a later edit cannot quietly drop one.
+func TestTimelineAndCrewOverviewCarryTheirAdrRegions(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		viewKey string
+		widgets map[string]bool
+	}{
+		{
+			viewKey: Timeline,
+			widgets: map[string]bool{
+				WidgetBranding: true,
+				WidgetNowNext:  true,
+				WidgetTimeline: true,
+				WidgetClock:    true,
+			},
+		},
+		{
+			viewKey: CrewOverview,
+			widgets: map[string]bool{
+				WidgetBranding:   true,
+				WidgetStageTimer: true,
+				WidgetNowNext:    true,
+				WidgetRotation:   false,
+				WidgetClock:      true,
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.viewKey, func(t *testing.T) {
+			t.Parallel()
+
+			composition, err := Compose(test.viewKey, false, DefaultConfiguration())
+			if err != nil {
+				t.Fatalf("compose %q: %v", test.viewKey, err)
+			}
+			found := map[string]bool{}
+			for _, region := range composition.Layout.Regions {
+				found[region.Widget] = region.Persistent
+			}
+			for widget, persistent := range test.widgets {
+				gotPersistent, present := found[widget]
+				if !present {
+					t.Errorf("View %q has no %q Region", test.viewKey, widget)
+					continue
+				}
+				if gotPersistent != persistent {
+					t.Errorf(
+						"View %q Region %q persistent = %t, want %t",
+						test.viewKey,
+						widget,
+						gotPersistent,
+						persistent,
+					)
+				}
+			}
+			if len(found) != len(test.widgets) {
+				t.Errorf("View %q Regions = %v, want exactly %v", test.viewKey, found, test.widgets)
+			}
+		})
+	}
+}

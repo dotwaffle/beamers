@@ -268,6 +268,8 @@ func eventThemeVariantNames() []string {
 		themevalue.VariantEventOverview,
 		themevalue.VariantLocationSignage,
 		themevalue.VariantStandby,
+		themevalue.VariantTimeline,
+		themevalue.VariantCrewOverview,
 	}
 }
 

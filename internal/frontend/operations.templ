@@ -8,6 +8,7 @@ import (
 
 	"github.com/dotwaffle/beamers/internal/competition"
 	"github.com/dotwaffle/beamers/internal/displays"
+	"github.com/dotwaffle/beamers/internal/displayviews"
 	"github.com/dotwaffle/beamers/internal/events"
 	"github.com/dotwaffle/beamers/internal/rundown"
 	"github.com/dotwaffle/beamers/internal/sessioncontrol"
@@ -397,7 +398,7 @@ templ Operations(page OperationsPage) {
 												required
 												{ page.Errors.Attributes(OperationFieldID("assign-display", display.ID, "view_key"))... }
 											>
-												for _, view := range []string{"event-overview", "location-signage", "stage-timer", "competition-output"} {
+												for _, view := range displayviews.Normal() {
 													<option value={ view } selected?={ page.value("assign-display", display.ID, "view_key", display.ViewKey) == view }>{ view }</option>
 												}
 											</select>
