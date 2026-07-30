@@ -65,24 +65,6 @@ func ReplaceMigrationChecksum(ctx context.Context, path string) error {
 	})
 }
 
-// AddLiveSession adds the smallest persisted live-operation fixture.
-func AddLiveSession(ctx context.Context, path string) error {
-	return mutateSchema(path, func(database *sql.DB) error {
-		const statement = `
-INSERT INTO events (
-	name, planned_start_date, planned_end_date, timezone, event_locale,
-	event_day_boundary, created_at
-) VALUES ('Upgrade fixture', '2026-07-24', '2026-07-24', 'UTC', 'en-US',
-	'04:00', CURRENT_TIMESTAMP);
-INSERT INTO sessions (event_id, lifecycle, created_at)
-VALUES (last_insert_rowid(), 'Live', CURRENT_TIMESTAMP);`
-		if _, err := database.ExecContext(ctx, statement); err != nil {
-			return fmt.Errorf("add live Session fixture: %w", err)
-		}
-		return nil
-	})
-}
-
 // AddReferencedAttachment adds the smallest committed Attachment Version fixture.
 func AddReferencedAttachment(
 	ctx context.Context,
@@ -132,26 +114,6 @@ func MarkAttachmentVersionFinal(ctx context.Context, path string, versionID int)
 		}
 		return nil
 	})
-}
-
-// CountUpgradeAudits reports durable guarded-upgrade evidence.
-func CountUpgradeAudits(ctx context.Context, path string) (count int, returnErr error) {
-	location := &url.URL{Scheme: "file", Path: path}
-	database, err := sql.Open("sqlite", location.String())
-	if err != nil {
-		return 0, fmt.Errorf("open SQLite fixture: %w", err)
-	}
-	defer func() {
-		returnErr = errors.Join(returnErr, database.Close())
-	}()
-	if err = database.QueryRowContext(
-		ctx,
-		"SELECT COUNT(*) FROM audit_entries WHERE action IN "+
-			"('ApproveStorageUpgrade', 'ForceLiveStorageUpgrade')",
-	).Scan(&count); err != nil {
-		return 0, fmt.Errorf("count upgrade Audit Entries: %w", err)
-	}
-	return count, nil
 }
 
 // FailSessionRunUpdates installs a test-only trigger that forces target adjustment rollback.
