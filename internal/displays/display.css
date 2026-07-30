@@ -1,0 +1,299 @@
+@font-face {
+	font-family: "Chakra Petch";
+	src: url("chakra-petch-regular.ttf") format("truetype");
+	font-display: swap;
+}
+@font-face {
+	font-family: "Open Sans";
+	src: url("open-sans.ttf") format("truetype");
+	font-display: swap;
+}
+html,
+body {
+	min-height: 100%;
+	margin: 0;
+}
+body {
+	background: #101828;
+}
+.display-view {
+	box-sizing: border-box;
+	display: grid;
+	min-height: 100vh;
+	min-height: 100dvh;
+	gap: clamp(1rem, 2vw, 3rem);
+	padding: clamp(1rem, 3vw, 4rem);
+	overflow: hidden;
+	color: var(--display-foreground, #fff);
+	background: var(--display-background, #101828);
+	font-family: system-ui, sans-serif;
+	font-size: var(--display-text-body);
+	line-height: 1.35;
+}
+.display-override-replace {
+	place-items: center;
+	text-align: center;
+}
+.display-override-text {
+	white-space: pre-line;
+}
+.emergency-alert {
+	color: #fff;
+	background: #8b0000;
+	font-family: system-ui, sans-serif;
+	font-size: clamp(1.5rem, 3vw, 4rem);
+	border: clamp(0.5rem, 1vw, 1.25rem) double #fff;
+}
+.urgent-notice-replace {
+	border: clamp(0.4rem, 0.8vw, 1rem) solid var(--display-accent, #ffd400);
+}
+.urgent-notice-overlay {
+	position: fixed;
+	z-index: 40;
+	inset: 0 0 auto;
+	padding: clamp(1rem, 2vw, 2rem);
+	color: #111;
+	background: #ffd400;
+	border-block-start: clamp(0.35rem, 0.7vw, 0.75rem) double #111;
+	font: 700 clamp(1rem, 2vw, 2.5rem)/1.3 system-ui, sans-serif;
+}
+.stage-message {
+	position: fixed;
+	inset: auto clamp(1rem, 3vw, 4rem) clamp(1rem, 3vw, 4rem);
+	z-index: 30;
+	padding: 1rem 1.5rem;
+	border: .35rem solid currentcolor;
+	border-radius: .5rem;
+	color: #101828;
+	background: #fff;
+	box-shadow: 0 .5rem 2rem rgb(0 0 0 / 50%);
+}
+.stage-message[data-emphasis="Attention"] {
+	border-style: double;
+	border-width: .6rem;
+}
+.stage-message[data-emphasis="Urgent"] {
+	border-style: dashed;
+	border-width: .6rem;
+	font-size: 1.2em;
+	text-transform: uppercase;
+}
+.display-font-serif {
+	font-family: Georgia, "Times New Roman", serif;
+}
+.display-font-sans {
+	font-family: "Open Sans", system-ui, sans-serif;
+}
+.display-font-mono {
+	font-family: ui-monospace, "Cascadia Mono", monospace;
+}
+.display-font-demoscene {
+	font-family: "Chakra Petch", system-ui, sans-serif;
+}
+.display-region {
+	box-sizing: border-box;
+	min-width: 0;
+	min-height: 0;
+	padding: clamp(0.75rem, 1.5vw, 2rem);
+	border-block-start: 0.25rem solid var(--display-signal, #62ebcb);
+	border-radius: clamp(0.5rem, 1vw, 1.5rem);
+	background: var(--display-accent, #1d4ed8);
+	overflow: hidden;
+}
+.display-background-variable-media .display-region {
+	background:
+		linear-gradient(
+			var(--display-scrim-layer, #000000d9),
+			var(--display-scrim-layer, #000000d9)
+		),
+		var(--display-accent, #1d4ed8);
+}
+.display-background-nebula {
+	background-image: radial-gradient(circle at 15% 10%, #172755 0, transparent 32rem);
+}
+.display-layout-standby {
+	grid-template-rows: auto 1fr;
+}
+.display-layout-event-overview {
+	grid-template:
+		"header clock" auto
+		"schedule schedule" 1fr
+		/ minmax(0, 1fr) auto;
+}
+.display-layout-event-overview [data-region="header"] {
+	grid-area: header;
+}
+.display-layout-event-overview [data-region="schedule"] {
+	grid-area: schedule;
+}
+.display-layout-event-overview [data-region="clock"] {
+	grid-area: clock;
+}
+.display-layout-location-signage {
+	grid-template:
+		"event location" minmax(0, 1fr)
+		"event now-next" minmax(0, 2fr)
+		"event clock" auto
+		/ minmax(0, 7fr) minmax(18rem, 3fr);
+}
+.display-layout-location-signage [data-region="event-content"] {
+	grid-area: event;
+}
+.display-layout-location-signage [data-region="location"] {
+	grid-area: location;
+}
+.display-layout-location-signage [data-region="now-next"] {
+	grid-area: now-next;
+}
+.display-layout-location-signage [data-region="clock"] {
+	grid-area: clock;
+}
+.display-layout-stage-timer {
+	grid-template-rows: auto minmax(0, 1fr);
+}
+.display-layout-stage-timer [data-widget="stage-timer"] {
+	display: grid;
+	place-items: center;
+	text-align: center;
+}
+[data-stage-timer-clock] {
+	display: block;
+	font-family: ui-monospace, "Cascadia Mono", monospace;
+	font-size: clamp(5rem, 25vw, 28rem);
+	font-variant-numeric: tabular-nums;
+	font-weight: 700;
+	line-height: 1;
+}
+[data-timer-emphasis="attention"] {
+	outline: 0.4rem solid currentcolor;
+	outline-offset: 0.5rem;
+}
+[data-timer-emphasis="urgent"] {
+	border: 0.6rem double currentcolor;
+	padding: clamp(0.5rem, 2vw, 2rem);
+}
+[data-timer-overtime="true"] [data-stage-timer-clock] {
+	text-decoration: underline;
+	text-decoration-thickness: 0.08em;
+}
+/* Display type scale.
+ *
+ * Fixed here rather than exposed as Theme fields. A Theme that could resize
+ * Display text could render a Region unreadable from the back of a room without
+ * failing any contrast check, so the scale is craft rather than branding. See
+ * ADR 0057.
+ *
+ * The steps are viewport-relative because a Display is read at a distance that
+ * grows with the panel, unlike a Crew Client read at arm's length.
+ */
+.display-view {
+	--display-text-caption: clamp(0.75rem, 0.9vw, 1.4rem);
+	--display-text-body: clamp(1rem, 1.45vw, 2.25rem);
+	--display-text-lead: clamp(1.15rem, 1.9vw, 3rem);
+	--display-text-h3: clamp(1.3rem, 2.4vw, 3.75rem);
+	--display-text-h2: clamp(1.6rem, 3.2vw, 5rem);
+	--display-text-h1: clamp(2rem, 4.2vw, 6.5rem);
+}
+
+/* Headings previously inherited the browser's em-relative defaults, which sized
+ * them against the clamped body text and left the levels nearly
+ * indistinguishable at Display scale. */
+.display-view :is(h1, h2, h3) {
+	margin-block: 0 0.25em;
+	font-weight: 700;
+	line-height: 1.1;
+	text-wrap: balance;
+}
+
+.display-view h1 {
+	font-size: var(--display-text-h1);
+}
+
+.display-view h2 {
+	font-size: var(--display-text-h2);
+}
+
+.display-view h3 {
+	font-size: var(--display-text-h3);
+}
+
+.display-view p {
+	margin-block: 0 0.4em;
+}
+
+/* A Region heading that only names its Region is a label, not content. Sizing it
+ * below the content stops "Now / Next" from outshouting the Session it
+ * introduces. Regions whose heading carries real content -- a Location name, a
+ * Program Output title -- are deliberately excluded. */
+.display-region[data-widget="now-next"] > h2:first-child,
+.display-region[data-widget="stage-timer"] > h2:first-child {
+	font-size: var(--display-text-caption);
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	opacity: 0.85;
+	text-transform: uppercase;
+}
+
+/* A clock or a Session boundary is read as digits, so it must not reflow as the
+ * numerals change. */
+.display-region time {
+	font-variant-numeric: tabular-nums;
+}
+
+.display-transition-fade [data-rotation-page]:not([hidden]) {
+	animation: display-fade 250ms ease-out;
+}
+@keyframes display-fade {
+	from { opacity: 0; }
+	to { opacity: 1; }
+}
+@media (min-aspect-ratio: 8/5) {
+	.display-view {
+		padding-inline: clamp(1.5rem, 4vw, 6rem);
+	}
+}
+@media (max-aspect-ratio: 8/5) {
+	.display-layout-location-signage {
+		grid-template:
+			"location clock" auto
+			"now-next now-next" minmax(0, 2fr)
+			"event event" minmax(0, 5fr)
+			/ minmax(0, 1fr) auto;
+	}
+}
+#display-connection {
+	position: fixed;
+	right: 1rem;
+	bottom: 1rem;
+	z-index: 1000;
+	margin: 0;
+	padding: 0.5rem 0.75rem;
+	border-radius: 0.25rem;
+	background: #111;
+	color: #fff;
+}
+html[data-connection="disconnected"] #display-connection {
+	animation: display-connection-pulse 4s ease-in-out infinite;
+}
+@keyframes display-connection-pulse {
+	50% { opacity: 0.55; }
+}
+html[data-connection="connected"] #display-connection {
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
+}

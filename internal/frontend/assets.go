@@ -7,6 +7,8 @@ import (
 	"errors"
 	"strconv"
 	"sync"
+
+	"github.com/dotwaffle/beamers/internal/fontassets"
 )
 
 // EventThemePath returns one Event's resolved controlled stylesheet route.
@@ -27,7 +29,7 @@ const (
 	WebAuthnPath          = "/assets/webauthn-v1.js"
 )
 
-//go:embed css/*.css vendor/*.js vendor/fonts/*
+//go:embed css/*.css vendor/*.js
 var assets embed.FS
 
 // stylesheetParts is the cascade order of the base stylesheet. It is listed
@@ -66,11 +68,11 @@ func Asset(path string) ([]byte, error) {
 	case StylesheetPath:
 		return stylesheet()
 	case ChakraRegularPath:
-		name = "vendor/fonts/ChakraPetch-Regular.ttf"
+		return fontassets.Asset(fontassets.ChakraPetchRegular)
 	case ChakraBoldPath:
-		name = "vendor/fonts/ChakraPetch-Bold.ttf"
+		return fontassets.Asset(fontassets.ChakraPetchBold)
 	case OpenSansPath:
-		name = "vendor/fonts/OpenSans.ttf"
+		return fontassets.Asset(fontassets.OpenSans)
 	case HTMXPath:
 		name = "vendor/htmx-2.0.10.min.js"
 	case SSEPath:

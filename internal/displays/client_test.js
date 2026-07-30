@@ -667,13 +667,13 @@ test("Emergency and Urgent priority compose above lower Overrides", async () => 
 });
 
 test("display styles preserve content changes while reducing motion", () => {
-  const template = fs.readFileSync(
-    new URL("./page.templ", `file://${__filename}`),
+  const stylesheet = fs.readFileSync(
+    new URL("./display.css", `file://${__filename}`),
     "utf8",
   );
-  assert.match(template, /@media \(prefers-reduced-motion: reduce\)/);
-  assert.match(template, /transition-duration: 0\.01ms/);
-  assert.match(template, /@media \(min-aspect-ratio: 8\/5\)/);
+  assert.match(stylesheet, /@media \(prefers-reduced-motion: reduce\)/);
+  assert.match(stylesheet, /transition-duration: 0\.01ms/);
+  assert.match(stylesheet, /@media \(min-aspect-ratio: 8\/5\)/);
 });
 
 test("Event Theme variants survive Display snapshot rendering", async () => {

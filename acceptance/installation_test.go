@@ -2063,8 +2063,93 @@ func TestDisplayEntryUsesRecoverableContentAddressedAssets(t *testing.T) {
 	if stale.StatusCode != http.StatusNotFound {
 		t.Errorf("stale Display client asset = %d, want %d", stale.StatusCode, http.StatusNotFound)
 	}
-	if closeErr := stale.Body.Close(); closeErr != nil {
-		t.Errorf("close stale Display client response: %v", closeErr)
+	if staleCloseErr := stale.Body.Close(); staleCloseErr != nil {
+		t.Errorf("close stale Display client response: %v", staleCloseErr)
+	}
+
+	// ADR 0048 puts every Display asset behind one version, so the stylesheet
+	// must be content-addressed under the same digest as the client. A
+	// stylesheet served off a separate version could let a cached kiosk pair
+	// new markup with old styles.
+	styleMatch := regexp.MustCompile(
+		`href="(/display/assets/([0-9a-f]{64})/display\.css)"`,
+	).FindStringSubmatch(page)
+	if len(styleMatch) != 3 {
+		t.Fatalf("Display entry document has no content-addressed stylesheet: %s", page)
+	}
+	if styleMatch[2] != assetMatch[2] {
+		t.Errorf(
+			"Display stylesheet asset version = %q, client = %q; want one version",
+			styleMatch[2],
+			assetMatch[2],
+		)
+	}
+	stylesheet := get(t, displayClient, server.address, styleMatch[1])
+	stylesheetBody, readErr := io.ReadAll(stylesheet.Body)
+	closeErr = stylesheet.Body.Close()
+	if err := errors.Join(readErr, closeErr); err != nil {
+		t.Fatalf("read content-addressed Display stylesheet: %v", err)
+	}
+	if stylesheet.StatusCode != http.StatusOK || !strings.Contains(string(stylesheetBody), ".display-view") {
+		t.Errorf(
+			"content-addressed Display stylesheet = %d %q, want %d carrying .display-view",
+			stylesheet.StatusCode,
+			stylesheetBody,
+			http.StatusOK,
+		)
+	}
+	if got := stylesheet.Header.Get("Content-Type"); got != "text/css; charset=utf-8" {
+		t.Errorf("Display stylesheet Content-Type = %q", got)
+	}
+	if got := stylesheet.Header.Get("Cache-Control"); got != "public, max-age=31536000, immutable" {
+		t.Errorf("Display stylesheet Cache-Control = %q", got)
+	}
+	for _, name := range []string{"chakra-petch-regular.ttf", "open-sans.ttf"} {
+		fontPath := "/display/assets/" + styleMatch[2] + "/" + name
+		if !strings.Contains(string(stylesheetBody), `url("`+name+`")`) {
+			t.Errorf("Display stylesheet does not reference versioned font %q", name)
+		}
+		font := get(t, displayClient, server.address, fontPath)
+		fontBody, fontReadErr := io.ReadAll(font.Body)
+		fontCloseErr := font.Body.Close()
+		if err := errors.Join(fontReadErr, fontCloseErr); err != nil {
+			t.Fatalf("read content-addressed Display font %q: %v", name, err)
+		}
+		if font.StatusCode != http.StatusOK || len(fontBody) == 0 {
+			t.Errorf(
+				"content-addressed Display font %q = %d with %d bytes",
+				name,
+				font.StatusCode,
+				len(fontBody),
+			)
+		}
+		if got := font.Header.Get("Cache-Control"); got != "public, max-age=31536000, immutable" {
+			t.Errorf("Display font %q Cache-Control = %q", name, got)
+		}
+	}
+	staleStyle := get(
+		t,
+		displayClient,
+		server.address,
+		"/display/assets/"+strings.Repeat("0", 64)+"/display.css",
+	)
+	if staleStyle.StatusCode != http.StatusNotFound {
+		t.Errorf("stale Display stylesheet = %d, want %d", staleStyle.StatusCode, http.StatusNotFound)
+	}
+	if staleStyleCloseErr := staleStyle.Body.Close(); staleStyleCloseErr != nil {
+		t.Errorf("close stale Display stylesheet response: %v", staleStyleCloseErr)
+	}
+	staleFont := get(
+		t,
+		displayClient,
+		server.address,
+		"/display/assets/"+strings.Repeat("0", 64)+"/open-sans.ttf",
+	)
+	if staleFont.StatusCode != http.StatusNotFound {
+		t.Errorf("stale Display font = %d, want %d", staleFont.StatusCode, http.StatusNotFound)
+	}
+	if staleFontCloseErr := staleFont.Body.Close(); staleFontCloseErr != nil {
+		t.Errorf("close stale Display font response: %v", staleFontCloseErr)
 	}
 	server.stop(t)
 }
