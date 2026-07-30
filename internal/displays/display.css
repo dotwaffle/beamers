@@ -92,6 +92,9 @@ body {
 }
 .display-region {
 	box-sizing: border-box;
+	container-name: display-region;
+	container-type: inline-size;
+	position: relative;
 	min-width: 0;
 	min-height: 0;
 	padding: clamp(0.75rem, 1.5vw, 2rem);
@@ -193,6 +196,7 @@ body {
 	--display-text-h3: clamp(1.3rem, 2.4vw, 3.75rem);
 	--display-text-h2: clamp(1.6rem, 3.2vw, 5rem);
 	--display-text-h1: clamp(2rem, 4.2vw, 6.5rem);
+	--display-progress-size: clamp(0.6rem, 1.4vh, 1.5rem);
 }
 
 /* Headings previously inherited the browser's em-relative defaults, which sized
@@ -380,6 +384,114 @@ body {
  * claim the full-panel size a dedicated Stage Timer View uses. */
 .display-layout-crew-overview [data-stage-timer-clock] {
 	font-size: clamp(3rem, 12vw, 14rem);
+}
+
+/* Session times.
+ *
+ * Two rows rather than one line: run together, start and end wrapped
+ * mid-timestamp on a narrow Region. The value column is tabular so the digits
+ * line up between the rows.
+ */
+.display-times {
+	display: grid;
+	grid-template-columns: auto auto;
+	justify-content: start;
+	column-gap: clamp(0.5rem, 1.2vw, 1.5rem);
+	row-gap: 0.15em;
+	margin: 0 0 0.4em;
+}
+
+.display-times dt {
+	color: inherit;
+	/* The label yields first: it can wrap, a timestamp cannot. */
+	min-inline-size: 0;
+	opacity: 0.8;
+}
+
+.display-times dd {
+	font-family: ui-monospace, "Cascadia Mono", monospace;
+	font-variant-numeric: tabular-nums;
+	margin: 0;
+	/* A timestamp broken across two lines is unreadable, which is the whole
+	 * reason these moved onto their own rows. */
+	white-space: nowrap;
+}
+
+/* A narrow Region cannot hold a label and a full timestamp side by side, so the
+ * rows stack there and keep the values aligned with each other instead. */
+@container display-region (max-inline-size: 34rem) {
+	.display-times {
+		grid-template-columns: minmax(0, 1fr);
+		row-gap: 0;
+	}
+
+	.display-times dt {
+		font-size: var(--display-text-caption);
+	}
+}
+
+/* Elapsed bar.
+ *
+ * Ontime's insight: a countdown says how much is left, but not how far through
+ * the Session you are. The bar answers that without being read.
+ */
+.display-progress {
+	/* The bar is the box's footer rather than a line floating inside it. Flush
+	 * along the bottom edge it reads as a property of the whole Region, and the
+	 * Region's own rounding and overflow clip it to the box. */
+	background: rgb(0 0 0 / 55%);
+	block-size: var(--display-progress-size);
+	inset-block-end: 0;
+	inset-inline: 0;
+	position: absolute;
+}
+
+/* The elapsed portion is plain white.
+ *
+ * It has to be the most legible thing in the Region from across a room, and
+ * white outruns any Theme accent for that. Red is deliberately not used: the
+ * Stage Timer already spends red on threshold emphasis and overtime, and a bar
+ * that was permanently red would drain those of meaning. */
+.display-progress::after {
+	background: var(--display-progress-fill, #fff);
+	block-size: 100%;
+	content: "";
+	display: block;
+	inline-size: calc(var(--display-progress, 0) * 100%);
+}
+
+/* The bar tracks a one-second update, so smooth the step without implying a
+ * different value than the one reported. */
+@media (prefers-reduced-motion: no-preference) {
+	.display-progress::after {
+		transition: inline-size 1s linear;
+	}
+}
+
+.display-region:has(.display-progress) {
+	padding-block-end: calc(var(--display-progress-size) + clamp(0.75rem, 1.5vw, 2rem));
+}
+
+/* Clock.
+ *
+ * A Display clock is glanced at from across a room, so it is centered in its
+ * Region and set larger and bolder than body text, with tabular figures so it
+ * does not jitter as the minutes change.
+ */
+.display-region[data-widget="clock"] {
+	align-content: center;
+	align-items: center;
+	display: grid;
+	justify-content: center;
+	justify-items: center;
+	text-align: center;
+}
+
+[data-display-clock] {
+	font-size: var(--display-text-h1);
+	font-variant-numeric: tabular-nums;
+	font-weight: 700;
+	line-height: 1;
 }
 
 .display-transition-fade [data-rotation-page]:not([hidden]) {

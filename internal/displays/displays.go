@@ -1034,7 +1034,7 @@ func displaySession(
 		return Session{
 			Unavailable: true,
 			AvailabilityMessage: "Location unavailable until " +
-				found.ForecastEnd.In(zone).Format("Jan 2, 2006 15:04 MST"),
+				publictime.FormatDisplayDateTime(found.ForecastEnd, zone),
 			// The span's edges size a Timeline block. They reveal nothing the
 			// message does not already state, and without them a suppressed
 			// Session would collapse to no width at all.
@@ -1055,8 +1055,8 @@ func displaySession(
 		LocationIDs: found.LocationIDs, LaneIDs: found.LaneIDs, TrackIDs: found.TrackIDs,
 		PresentedStart: presentation.Start.Time, PresentedEnd: presentation.End.Time,
 		PresentedStartLabel: presentation.Start.Label, PresentedEndLabel: presentation.End.Label,
-		DisplayPresentedStart: presentation.Start.Time.In(zone).Format("Jan 2, 2006 15:04 MST"),
-		DisplayPresentedEnd:   presentation.End.Time.In(zone).Format("Jan 2, 2006 15:04 MST"),
+		DisplayPresentedStart: publictime.FormatDisplayDateTime(presentation.Start.Time, zone),
+		DisplayPresentedEnd:   publictime.FormatDisplayDateTime(presentation.End.Time, zone),
 		orderAt:               found.ForecastStart,
 	}, true, nil
 }

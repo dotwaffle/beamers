@@ -12,6 +12,7 @@ import (
 
 	"github.com/dotwaffle/beamers/internal/displayviews"
 	"github.com/dotwaffle/beamers/internal/events"
+	"github.com/dotwaffle/beamers/internal/publictime"
 	"github.com/dotwaffle/beamers/internal/stagetimer"
 	"github.com/dotwaffle/beamers/internal/themevalue"
 )
@@ -229,6 +230,61 @@ func displayClockTime(snapshot Snapshot) string {
 	return snapshot.ServerTime.In(zone).Format("15:04")
 }
 
+// displayTimerSpan bounds the Session a Stage Timer is counting. It mirrors the
+// same derivation in internal/displays/client.js, so the entry document and the
+// client draw the same bar.
+func displayTimerSpan(snapshot Snapshot) (time.Time, time.Time) {
+	if snapshot.StageTimer == nil {
+		return time.Time{}, time.Time{}
+	}
+	var counted Session
+	for _, session := range snapshot.Sessions {
+		if session.ID == snapshot.StageTimer.SessionID {
+			counted = session
+			break
+		}
+	}
+	if snapshot.StageTimer.Mode == stagetimer.Elapsed {
+		end := snapshot.StageTimer.ForecastEnd
+		if end.IsZero() {
+			end = counted.PresentedEnd
+		}
+		return snapshot.StageTimer.Anchor, end
+	}
+	start := counted.PresentedStart
+	if start.IsZero() {
+		start = counted.ForecastStart
+	}
+	return start, snapshot.StageTimer.Anchor
+}
+
+// displayProgressMeasurable reports whether a span can carry an elapsed bar. An
+// unmeasurable span renders no bar at all rather than an empty one, which would
+// claim the Session had not started.
+func displayProgressMeasurable(start, end time.Time) bool {
+	return !start.IsZero() && !end.IsZero() && end.After(start)
+}
+
+// displayProgressFraction is how far now sits between two instants, clamped.
+func displayProgressFraction(start, end, now time.Time) float64 {
+	if !displayProgressMeasurable(start, end) {
+		return 0
+	}
+	elapsed := now.Sub(start).Seconds() / end.Sub(start).Seconds()
+	return math.Min(1, math.Max(0, elapsed))
+}
+
+func displayProgressStyle(start, end, now time.Time) templ.SafeCSS {
+	return templ.SafeCSS(
+		"--display-progress:" +
+			strconv.FormatFloat(displayProgressFraction(start, end, now), 'f', 4, 64),
+	)
+}
+
+func displayProgressPercent(start, end, now time.Time) string {
+	return strconv.Itoa(int(math.Round(displayProgressFraction(start, end, now) * 100)))
+}
+
 // displayNowNextSlot ranks the two Sessions a Now / Next Region shows. The rank
 // drives presentation only: read from across a room, two equally weighted
 // Sessions leave the viewer working out which one is actually running.
@@ -267,6 +323,11 @@ type stageTimerPresentation struct {
 	AdjustmentNotice          string
 	AdjustmentNoticeExpiresAt time.Time
 	Overtime                  bool
+	// SpanStart and SpanEnd bound the Session the timer is counting, so the
+	// elapsed bar can report progress. A countdown anchors on the end and an
+	// elapsed timer on the start, so the missing edge comes from the Session.
+	SpanStart time.Time
+	SpanEnd   time.Time
 }
 
 func displayStageTimer(snapshot Snapshot) (stageTimerPresentation, bool) {
@@ -300,9 +361,11 @@ func displayStageTimer(snapshot Snapshot) (stageTimerPresentation, bool) {
 				zone = found
 			}
 		}
-		displayForecastEnd = forecastEnd.In(zone).Format("15:04")
+		displayForecastEnd = forecastEnd.In(zone).Format(publictime.TimeLayout)
 	}
+	spanStart, spanEnd := displayTimerSpan(snapshot)
 	return stageTimerPresentation{
+		SpanStart: spanStart, SpanEnd: spanEnd,
 		Title: snapshot.StageTimer.Title, Direction: direction,
 		Text: frame.Text, Emphasis: emphasis, EmphasisLabel: label,
 		Anchor: snapshot.StageTimer.Anchor, ForecastEnd: forecastEnd,

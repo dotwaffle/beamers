@@ -378,6 +378,11 @@ test("Stage Timer advances from the synchronized monotonic clock into overtime",
   }
   assert.match(nodeText(region), /\+00:01/);
   assert.equal(browser.document.main.children[1], region);
+  assert.equal(
+    vm.runInContext("updateTimers.size", browser.context),
+    1,
+    "completed timer handles are not retained",
+  );
 });
 
 test("Stage Timer shows manual elapsed time and accessible threshold emphasis", async () => {
