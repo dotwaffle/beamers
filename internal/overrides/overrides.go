@@ -136,8 +136,9 @@ type ClearInput struct {
 
 // Service owns Override commands.
 type Service struct {
-	storage *store.SQLite
-	now     func() time.Time
+	storage        *store.SQLite
+	now            func() time.Time
+	notifyDisplays func()
 
 	recoveryMu        sync.Mutex
 	degradedMu        sync.Mutex
@@ -280,7 +281,12 @@ func (service *Service) previewPriority(
 }
 
 // New creates an Override service with explicit dependencies.
-func New(ctx context.Context, storage *store.SQLite, now func() time.Time) (*Service, error) {
+func New(
+	ctx context.Context,
+	storage *store.SQLite,
+	now func() time.Time,
+	notifyDisplays func(),
+) (*Service, error) {
 	if storage == nil {
 		return nil, errors.New("override storage is required")
 	}
@@ -297,6 +303,7 @@ func New(ctx context.Context, storage *store.SQLite, now func() time.Time) (*Ser
 	return &Service{
 		storage:           storage,
 		now:               now,
+		notifyDisplays:    notifyDisplays,
 		displaySnapshots:  make(map[string]store.DisplaySnapshotState),
 		degradedReceipts:  make(map[degradedReceiptKey]degradedReceipt),
 		degradedConflicts: make(map[degradedConflictKey]struct{}),
@@ -852,9 +859,16 @@ func (service *Service) activateDegradedEmergency(
 	}
 	key := degradedReceiptKey{commandID: input.CommandID}
 
+	notify := false
 	service.degradedMu.Lock()
-	defer service.degradedMu.Unlock()
+	defer func() {
+		service.degradedMu.Unlock()
+		if notify && service.notifyDisplays != nil {
+			service.notifyDisplays()
+		}
+	}()
 	if replayed, ok, replayErr := service.degradedReplayLocked(key, actor, identity); ok {
+		notify = replayErr == nil
 		return replayed, replayErr
 	}
 	if input.EventID <= 0 || input.DurationSeconds != 0 ||
@@ -904,6 +918,7 @@ func (service *Service) activateDegradedEmergency(
 	service.degradedPending = append(service.degradedPending, degradedCommand{
 		kind: degradedActivate, actor: cloneActor(actor), identity: identity, outcome: activated,
 	})
+	notify = true
 	return activated, nil
 }
 
@@ -924,9 +939,16 @@ func (service *Service) clearDegradedEmergency(
 	}
 	key := degradedReceiptKey{commandID: input.CommandID}
 
+	notify := false
 	service.degradedMu.Lock()
-	defer service.degradedMu.Unlock()
+	defer func() {
+		service.degradedMu.Unlock()
+		if notify && service.notifyDisplays != nil {
+			service.notifyDisplays()
+		}
+	}()
 	if replayed, ok, replayErr := service.degradedReplayLocked(key, actor, identity); ok {
+		notify = replayErr == nil
 		return replayed, replayErr
 	}
 	if input.EventID <= 0 || input.OverrideID <= 0 || input.ExpectedRevision <= 0 ||
@@ -967,6 +989,7 @@ func (service *Service) clearDegradedEmergency(
 	service.degradedPending = append(service.degradedPending, degradedCommand{
 		kind: degradedClear, actor: cloneActor(actor), identity: identity, outcome: cleared,
 	})
+	notify = true
 	return cleared, nil
 }
 
@@ -1315,7 +1338,7 @@ func execute[T any](
 		TargetType: targetType, TargetID: targetID, Now: service.now().UTC(),
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[T]{
-		Storage: service.storage, Identity: identity,
+		Storage: service.storage, Identity: identity, Notify: service.notifyDisplays,
 		Replay: func(outcome string) (T, error) {
 			var replayed T
 			if decodeErr := store.DecodeCommandReceipt(outcome, &replayed); decodeErr != nil {

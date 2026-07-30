@@ -346,9 +346,11 @@ func (err *RevisionConflictError) Unwrap() error {
 
 // Service owns Session progression command lifecycle.
 type Service struct {
-	storage      *store.SQLite
-	publications *results.Service
-	now          func() time.Time
+	storage        *store.SQLite
+	publications   *results.Service
+	now            func() time.Time
+	notifyDisplays func()
+	notifySchedule func()
 }
 
 // New creates a Session control service with explicit persistence and clock dependencies.
@@ -356,6 +358,8 @@ func New(
 	storage *store.SQLite,
 	publications *results.Service,
 	now func() time.Time,
+	notifyDisplays func(),
+	notifySchedule func(),
 ) (*Service, error) {
 	if storage == nil {
 		return nil, errors.New("session control storage is required")
@@ -366,7 +370,10 @@ func New(
 	if now == nil {
 		return nil, errors.New("session control clock is required")
 	}
-	return &Service{storage: storage, publications: publications, now: now}, nil
+	return &Service{
+		storage: storage, publications: publications, now: now,
+		notifyDisplays: notifyDisplays, notifySchedule: notifySchedule,
+	}, nil
 }
 
 // Start creates one immutable Run and advances a Scheduled Session to Live.
@@ -520,7 +527,7 @@ func (service *Service) AdjustTarget(
 		TargetType: "Session", TargetID: strconv.Itoa(input.SessionID), Now: service.now().UTC(),
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[TargetAdjustmentResult]{
-		Storage: service.storage, Identity: identity,
+		Storage: service.storage, Identity: identity, Notify: service.notifyLive,
 		Replay: func(outcome string) (TargetAdjustmentResult, error) {
 			var stored store.SessionTargetAdjustment
 			if decodeErr := store.DecodeCommandReceipt(outcome, &stored); decodeErr != nil {
@@ -607,7 +614,7 @@ func (service *Service) PullForward(
 		TargetType: "Session", TargetID: strconv.Itoa(input.SessionID), Now: service.now().UTC(),
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[PullForwardResult]{
-		Storage: service.storage, Identity: identity,
+		Storage: service.storage, Identity: identity, Notify: service.notifyLive,
 		Replay: func(outcome string) (PullForwardResult, error) {
 			var stored store.PullForwardAdjustment
 			if decodeErr := store.DecodeCommandReceipt(outcome, &stored); decodeErr != nil {
@@ -686,7 +693,7 @@ func (service *Service) Reinstate(
 		TargetType: "Session", TargetID: strconv.Itoa(input.SessionID), Now: service.now().UTC(),
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[ReinstateResult]{
-		Storage: service.storage, Identity: identity,
+		Storage: service.storage, Identity: identity, Notify: service.notifyLive,
 		Replay: func(outcome string) (ReinstateResult, error) {
 			var stored store.ReinstateSessionResult
 			if decodeErr := store.DecodeCommandReceipt(outcome, &stored); decodeErr != nil {
@@ -756,7 +763,7 @@ func (service *Service) CorrectLiveDetails(
 		TargetType: "Session", TargetID: strconv.Itoa(input.SessionID), Now: service.now().UTC(),
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[Correction]{
-		Storage: service.storage, Identity: identity,
+		Storage: service.storage, Identity: identity, Notify: service.notifyLive,
 		Replay: func(outcome string) (Correction, error) {
 			var stored store.LiveDetailCorrection
 			if decodeErr := store.DecodeCommandReceipt(outcome, &stored); decodeErr != nil {
@@ -1095,7 +1102,7 @@ func (service *Service) execute(
 		TargetType: "Session", TargetID: strconv.Itoa(input.SessionID), Now: service.now().UTC(),
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[State]{
-		Storage: service.storage, Identity: identity,
+		Storage: service.storage, Identity: identity, Notify: service.notifyLive,
 		Replay: func(outcome string) (State, error) {
 			var original store.LiveSessionState
 			if err := store.DecodeCommandReceipt(outcome, &original); err != nil {
@@ -1122,6 +1129,15 @@ func (service *Service) execute(
 			return command.Success(state(stored), string(encoded)), nil
 		},
 	})
+}
+
+func (service *Service) notifyLive() {
+	if service.notifyDisplays != nil {
+		service.notifyDisplays()
+	}
+	if service.notifySchedule != nil {
+		service.notifySchedule()
+	}
 }
 
 func sessionRejection(

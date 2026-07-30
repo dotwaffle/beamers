@@ -24,8 +24,6 @@ type Handler struct {
 	service       *programcontrol.Service
 	displays      *displays.Service
 	displayStream *displaystream.Hub
-	programStream *displaystream.Hub
-	votingStream  *displaystream.Hub
 }
 
 // NewHandler creates the Program control Connect adapter.
@@ -33,8 +31,6 @@ func NewHandler(
 	service *programcontrol.Service,
 	displayService *displays.Service,
 	displayStream *displaystream.Hub,
-	programStream *displaystream.Hub,
-	votingStream *displaystream.Hub,
 ) (*Handler, error) {
 	if service == nil {
 		return nil, errors.New("program control service is required")
@@ -45,15 +41,9 @@ func NewHandler(
 	if displayStream == nil {
 		return nil, errors.New("display stream is required")
 	}
-	if programStream == nil {
-		return nil, errors.New("program stream is required")
-	}
-	if votingStream == nil {
-		return nil, errors.New("voting stream is required")
-	}
 	return &Handler{
 		service: service, displays: displayService,
-		displayStream: displayStream, programStream: programStream, votingStream: votingStream,
+		displayStream: displayStream,
 	}, nil
 }
 
@@ -97,7 +87,6 @@ func (handler *Handler) ChangeControl(
 	if err != nil {
 		return nil, err
 	}
-	handler.programStream.Notify()
 	channel, err := handler.channel(ctx, state, false)
 	if err != nil {
 		return nil, err
@@ -123,7 +112,6 @@ func (handler *Handler) SelectPreview(
 	if err != nil {
 		return nil, err
 	}
-	handler.programStream.Notify()
 	channel, err := handler.channel(ctx, state, false)
 	if err != nil {
 		return nil, err
@@ -151,13 +139,6 @@ func (handler *Handler) Take(
 	if err != nil {
 		return nil, err
 	}
-	if taken.Committed {
-		handler.displayStream.Notify()
-		handler.programStream.Notify()
-		if taken.State.Channel.Output.Kind == store.ProgramItemEntry {
-			handler.votingStream.Notify()
-		}
-	}
 	channel, err := handler.channel(ctx, taken.State, true)
 	if err != nil {
 		return nil, err
@@ -183,9 +164,6 @@ func (handler *Handler) DeferEntry(
 	})
 	if err != nil {
 		return nil, err
-	}
-	if deferred.Committed {
-		handler.programStream.Notify()
 	}
 	channel, err := handler.channel(ctx, deferred.State, false)
 	if err != nil {
@@ -221,10 +199,6 @@ func (handler *Handler) ActOnResult(
 	)
 	if err != nil {
 		return nil, err
-	}
-	if acted.Committed {
-		handler.displayStream.Notify()
-		handler.programStream.Notify()
 	}
 	channel, err := handler.channel(ctx, acted.State, true)
 	if err != nil {

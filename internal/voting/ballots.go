@@ -69,7 +69,8 @@ func (service *Service) Configure(
 		input.CommandID, input.ExpectedRevision, input.MethodOverride, input.SelfVoteOverride,
 	)
 	window, err := command.Execute(actor.Context(ctx), command.Plan[Window]{
-		Storage: service.storage, Identity: identity, Replay: replayWindow,
+		Storage: service.storage, Identity: identity,
+		Notify: service.notifyVoting, Replay: replayWindow,
 		Apply: func(transaction *store.CommandTx) (command.Execution[Window], error) {
 			window, err := transaction.ConfigureVoting(ctx, store.ConfigureVotingParams{
 				EventID: input.EventID, SessionID: input.SessionID,
@@ -141,7 +142,8 @@ func (service *Service) changeWindow(
 		input.CommandID, input.ExpectedRevision,
 	)
 	window, err := command.Execute(actor.Context(ctx), command.Plan[Window]{
-		Storage: service.storage, Identity: identity, Replay: replayWindow,
+		Storage: service.storage, Identity: identity,
+		Notify: service.notifyVoting, Replay: replayWindow,
 		Apply: func(transaction *store.CommandTx) (command.Execution[Window], error) {
 			params := store.VotingWindowParams{
 				EventID: input.EventID, SessionID: input.SessionID,
@@ -183,7 +185,7 @@ func (service *Service) Vote(
 		input.CommandID, input.ExpectedRevision, input.EntryID, input.Value,
 	)
 	_, err := command.Execute(actor.Context(ctx), command.Plan[struct{}]{
-		Storage: service.storage, Identity: identity,
+		Storage: service.storage, Identity: identity, Notify: service.notifyVoting,
 		Replay: func(outcome string) (struct{}, error) {
 			var result struct{}
 			return result, ballotReceiptError(outcome)

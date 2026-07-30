@@ -195,11 +195,14 @@ type takeReceipt struct {
 
 // Service serializes process-local ownership around durable Program Output.
 type Service struct {
-	storage      *store.SQLite
-	publications *results.Service
-	now          func() time.Time
-	mu           sync.Mutex
-	controls     map[int]*channelControl
+	storage        *store.SQLite
+	publications   *results.Service
+	now            func() time.Time
+	notifyDisplays func()
+	notifyProgram  func()
+	notifyVoting   func()
+	mu             sync.Mutex
+	controls       map[int]*channelControl
 }
 
 // New creates a Program control service. Its empty control map deliberately
@@ -208,6 +211,9 @@ func New(
 	storage *store.SQLite,
 	publications *results.Service,
 	now func() time.Time,
+	notifyDisplays func(),
+	notifyProgram func(),
+	notifyVoting func(),
 ) (*Service, error) {
 	if storage == nil {
 		return nil, errors.New("program control storage is required")
@@ -220,6 +226,7 @@ func New(
 	}
 	return &Service{
 		storage: storage, publications: publications, now: now,
+		notifyDisplays: notifyDisplays, notifyProgram: notifyProgram, notifyVoting: notifyVoting,
 		controls: make(map[int]*channelControl),
 	}, nil
 }
@@ -640,15 +647,26 @@ func (service *Service) Control(
 		return State{}, err
 	}
 	current := owned.state
-	applied := false
+	var executionState controlState
+	replayed := false
 	next, err := command.Execute(actor.Context(ctx), command.Plan[controlState]{
 		Storage: service.storage, Identity: identity,
+		Notify: func() {
+			if !replayed {
+				owned.state = executionState
+			}
+			if service.notifyProgram != nil {
+				service.notifyProgram()
+			}
+		},
 		Replay: func(outcome string) (controlState, error) {
 			var receipt controlReceipt
 			if decodeErr := store.DecodeCommandReceipt(outcome, &receipt); decodeErr != nil {
 				return controlState{}, decodeErr
 			}
-			return receipt.control(), nil
+			replayed = true
+			executionState = receipt.control()
+			return executionState, nil
 		},
 		Apply: func(_ *store.CommandTx) (command.Execution[controlState], error) {
 			if current.revision != input.ExpectedRevision {
@@ -666,7 +684,7 @@ func (service *Service) Control(
 			if encodeErr != nil {
 				return command.Execution[controlState]{}, errors.New("encode Program control outcome")
 			}
-			applied = true
+			executionState = transitioned
 			return command.Success(transitioned, string(encoded)), nil
 		},
 	})
@@ -676,9 +694,6 @@ func (service *Service) Control(
 			err = controlError(rejected.Rejection.Code)
 		}
 		return service.state(channel, current), err
-	}
-	if applied {
-		owned.state = next
 	}
 	return service.state(channel, next), nil
 }
@@ -764,15 +779,26 @@ func (service *Service) SelectPreview(
 		return State{}, err
 	}
 	control := owned.state
-	applied := false
+	var executionState controlState
+	replayed := false
 	selected, err := command.Execute(actor.Context(ctx), command.Plan[controlState]{
 		Storage: service.storage, Identity: identity,
+		Notify: func() {
+			if !replayed {
+				owned.state = executionState
+			}
+			if service.notifyProgram != nil {
+				service.notifyProgram()
+			}
+		},
 		Replay: func(outcome string) (controlState, error) {
 			var receipt controlReceipt
 			if decodeErr := store.DecodeCommandReceipt(outcome, &receipt); decodeErr != nil {
 				return controlState{}, decodeErr
 			}
-			return receipt.control(), nil
+			replayed = true
+			executionState = receipt.control()
+			return executionState, nil
 		},
 		Apply: func(_ *store.CommandTx) (command.Execution[controlState], error) {
 			if control.revision != input.ExpectedRevision {
@@ -794,7 +820,7 @@ func (service *Service) SelectPreview(
 			if encodeErr != nil {
 				return command.Execution[controlState]{}, errors.New("encode Program Preview outcome")
 			}
-			applied = true
+			executionState = next
 			return command.Success(next, string(encoded)), nil
 		},
 	})
@@ -805,13 +831,10 @@ func (service *Service) SelectPreview(
 		}
 		return service.state(channel, control), err
 	}
-	if applied {
-		owned.state = selected
-	}
 	return service.state(channel, selected), nil
 }
 
-// Take commits Program Output before a caller notifies Displays.
+// Take commits Program Output and refreshes its affected live projections.
 func (service *Service) Take(
 	ctx context.Context,
 	actor auth.Account,
@@ -834,13 +857,23 @@ func (service *Service) Take(
 	defer owned.mu.Unlock()
 	control := owned.state
 	committed := false
+	var executionReceipt takeReceipt
+	wasReplay := false
 	outcome, err := command.Execute(actor.Context(ctx), command.Plan[takeReceipt]{
 		Storage: service.storage, Identity: identity,
+		Notify: func() {
+			if !wasReplay {
+				owned.state = executionReceipt.Control.control()
+			}
+			service.notifyOutput(executionReceipt.Channel.Output.Kind == store.ProgramItemEntry)
+		},
 		Replay: func(outcome string) (takeReceipt, error) {
 			var replayed takeReceipt
 			if err := store.DecodeCommandReceipt(outcome, &replayed); err != nil {
 				return takeReceipt{}, err
 			}
+			wasReplay = true
+			executionReceipt = replayed
 			return replayed, nil
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[takeReceipt], error) {
@@ -946,6 +979,7 @@ func (service *Service) Take(
 				Control: controlReceiptFrom(nextControl),
 			}
 			committed = true
+			executionReceipt = result
 			encoded, encodeErr := json.Marshal(result)
 			if encodeErr != nil {
 				return command.Execution[takeReceipt]{}, errors.New("encode Program Output outcome")
@@ -959,9 +993,6 @@ func (service *Service) Take(
 			err = takeError(rejected.Rejection.Code)
 		}
 		return TakeResult{}, err
-	}
-	if committed {
-		owned.state = outcome.Control.control()
 	}
 	return TakeResult{
 		State:     service.state(outcome.Channel, outcome.Control.control()),
@@ -992,14 +1023,26 @@ func (service *Service) DeferEntry(
 	defer owned.mu.Unlock()
 	control := owned.state
 	committed := false
+	var executionReceipt takeReceipt
+	wasReplay := false
 	outcome, err := command.Execute(actor.Context(ctx), command.Plan[takeReceipt]{
 		Storage:  service.storage,
 		Identity: identity,
+		Notify: func() {
+			if !wasReplay {
+				owned.state = executionReceipt.Control.control()
+			}
+			if service.notifyProgram != nil {
+				service.notifyProgram()
+			}
+		},
 		Replay: func(outcome string) (takeReceipt, error) {
 			var replayed takeReceipt
 			if err := store.DecodeCommandReceipt(outcome, &replayed); err != nil {
 				return takeReceipt{}, err
 			}
+			wasReplay = true
+			executionReceipt = replayed
 			return replayed, nil
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[takeReceipt], error) {
@@ -1063,6 +1106,7 @@ func (service *Service) DeferEntry(
 				return command.Execution[takeReceipt]{}, errors.New("encode Program Defer outcome")
 			}
 			committed = true
+			executionReceipt = result
 			return command.Success(result, string(encoded)), nil
 		},
 	})
@@ -1073,17 +1117,14 @@ func (service *Service) DeferEntry(
 		}
 		return TakeResult{}, err
 	}
-	if committed {
-		owned.state = outcome.Control.control()
-	}
 	return TakeResult{
 		State:     service.state(outcome.Channel, outcome.Control.control()),
 		Committed: committed,
 	}, nil
 }
 
-// ActOnResult applies a pure Prizegiving Result transition before a caller
-// notifies Displays.
+// ActOnResult applies a pure Prizegiving Result transition and refreshes its
+// affected live projections.
 func (service *Service) ActOnResult(
 	ctx context.Context,
 	actor auth.Account,
@@ -1109,19 +1150,29 @@ func (service *Service) ActOnResult(
 	defer owned.mu.Unlock()
 	control := owned.state
 	committed := false
+	var executionReceipt takeReceipt
+	wasReplay := false
 	outcome, err := command.Execute(actor.Context(ctx), command.Plan[takeReceipt]{
 		Storage:  service.storage,
 		Identity: identity,
+		Notify: func() {
+			if !wasReplay {
+				owned.state = executionReceipt.Control.control()
+			}
+			service.notifyOutput(false)
+		},
 		Replay: func(outcome string) (takeReceipt, error) {
 			var replayed takeReceipt
 			if err := store.DecodeCommandReceipt(outcome, &replayed); err != nil {
 				return takeReceipt{}, err
 			}
+			wasReplay = true
+			executionReceipt = replayed
 			return replayed, nil
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[takeReceipt], error) {
 			execution, applied, applyErr := service.applyResultAction(
-				ctx, actor, input, identity.Now, control, transaction,
+				ctx, actor, input, identity.Now, control, transaction, &executionReceipt,
 			)
 			committed = applied
 			return execution, applyErr
@@ -1134,13 +1185,22 @@ func (service *Service) ActOnResult(
 		}
 		return TakeResult{}, err
 	}
-	if committed {
-		owned.state = outcome.Control.control()
-	}
 	return TakeResult{
 		State:     service.state(outcome.Channel, outcome.Control.control()),
 		Committed: committed,
 	}, nil
+}
+
+func (service *Service) notifyOutput(voting bool) {
+	if service.notifyDisplays != nil {
+		service.notifyDisplays()
+	}
+	if service.notifyProgram != nil {
+		service.notifyProgram()
+	}
+	if voting && service.notifyVoting != nil {
+		service.notifyVoting()
+	}
 }
 
 func (service *Service) applyResultAction(
@@ -1150,6 +1210,7 @@ func (service *Service) applyResultAction(
 	now time.Time,
 	control controlState,
 	transaction *store.CommandTx,
+	executionReceipt *takeReceipt,
 ) (command.Execution[takeReceipt], bool, error) {
 	current, err := transaction.LoadProgramChannelAt(
 		actor.Context(ctx), input.EventID, input.SessionID, now,
@@ -1197,6 +1258,7 @@ func (service *Service) applyResultAction(
 		Channel: updated,
 		Control: controlReceiptFrom(nextControl),
 	}
+	*executionReceipt = result
 	encoded, err := json.Marshal(result)
 	if err != nil {
 		return command.Execution[takeReceipt]{}, false, errors.New(

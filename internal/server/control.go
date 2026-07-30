@@ -259,7 +259,6 @@ func (handlers controlHandlers) submitControl(
 		)
 		return
 	}
-	handlers.stream.Notify()
 	http.Redirect(response, request, controlPath(event.ID), http.StatusSeeOther)
 }
 

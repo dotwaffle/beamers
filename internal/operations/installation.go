@@ -81,10 +81,12 @@ type OpenConfig struct {
 	MeterProvider     metric.MeterProvider
 	AllowDemoPassword bool
 	Now               func() time.Time
-	// NotifyDisplays and NotifySchedule are optional freshness callbacks invoked
-	// after successful commits and replays that select those projections.
+	// Projection callbacks are optional freshness hints invoked after successful
+	// commits and replays that select those projections.
 	NotifyDisplays func()
 	NotifySchedule func()
+	NotifyProgram  func()
+	NotifyVoting   func()
 }
 
 // Initialize creates a new installation with the committed schema.
@@ -213,7 +215,7 @@ func OpenInstallationWithConfig(
 	if now == nil {
 		now = time.Now
 	}
-	overrideService, err := overrides.New(ctx, storage, now)
+	overrideService, err := overrides.New(ctx, storage, now, config.NotifyDisplays)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
 	}
@@ -293,7 +295,14 @@ func OpenInstallationWithConfig(
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.results = resultsService
-	programControlService, err := programcontrol.New(storage, resultsService, now)
+	programControlService, err := programcontrol.New(
+		storage,
+		resultsService,
+		now,
+		config.NotifyDisplays,
+		config.NotifyProgram,
+		config.NotifyVoting,
+	)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
 	}
@@ -327,12 +336,14 @@ func OpenInstallationWithConfig(
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.baselineQueries = baselineQueries
-	sessionControlService, err := sessioncontrol.New(storage, resultsService, now)
+	sessionControlService, err := sessioncontrol.New(
+		storage, resultsService, now, config.NotifyDisplays, config.NotifySchedule,
+	)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.sessionControl = sessionControlService
-	votingService, err := voting.New(storage, nil, now)
+	votingService, err := voting.New(storage, nil, now, config.NotifyVoting)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
 	}

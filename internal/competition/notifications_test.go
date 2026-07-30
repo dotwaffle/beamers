@@ -7,11 +7,17 @@ import (
 	"time"
 
 	_ "github.com/dotwaffle/beamers/ent/runtime"
+	"github.com/dotwaffle/beamers/internal/activation"
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/events"
+	"github.com/dotwaffle/beamers/internal/overrides"
+	"github.com/dotwaffle/beamers/internal/programcontrol"
+	"github.com/dotwaffle/beamers/internal/results"
 	"github.com/dotwaffle/beamers/internal/rundown"
+	"github.com/dotwaffle/beamers/internal/sessioncontrol"
 	"github.com/dotwaffle/beamers/internal/store"
 	"github.com/dotwaffle/beamers/internal/viewer"
+	"github.com/dotwaffle/beamers/internal/voting"
 )
 
 func TestEntryCommandsSelectCombinedAndScheduleOnlyNotifications(t *testing.T) {
@@ -100,6 +106,240 @@ func TestEntryCommandsSelectCombinedAndScheduleOnlyNotifications(t *testing.T) {
 			"replayed release-hold notifications = display %d, schedule %d",
 			displayNotifications,
 			scheduleNotifications,
+		)
+	}
+}
+
+func TestVotingCommandsSelectVotingNotifications(t *testing.T) {
+	storage, producer, eventID := openNotificationTest(t)
+	sessionID := publishNotificationCompetition(t, storage, producer, eventID)
+	notifications := 0
+	service, err := voting.New(
+		storage,
+		nil,
+		time.Now,
+		func() { notifications++ },
+	)
+	if err != nil {
+		t.Fatalf("create Voting service: %v", err)
+	}
+	input := voting.ConfigureInput{
+		EventID: eventID, SessionID: sessionID,
+		CommandID: "configure-notified-voting",
+	}
+	configured, err := service.Configure(t.Context(), producer, input)
+	if err != nil {
+		t.Fatalf("configure Voting: %v", err)
+	}
+	if notifications != 1 {
+		t.Fatalf("Voting notifications = %d, want 1", notifications)
+	}
+	if _, err = service.Configure(t.Context(), producer, input); err != nil {
+		t.Fatalf("replay Voting configuration: %v", err)
+	}
+	if notifications != 2 {
+		t.Fatalf("replayed Voting notifications = %d, want 2", notifications)
+	}
+	conflicting := input
+	conflicting.MethodOverride = "Range1To5"
+	if _, err = service.Configure(
+		t.Context(), producer, conflicting,
+	); !errors.Is(err, voting.ErrVotingRevision) {
+		t.Fatalf("conflicting Voting configuration error = %v", err)
+	}
+	rejected := input
+	rejected.CommandID = "reject-stale-voting"
+	rejected.ExpectedRevision = configured.Revision + 1
+	if _, err = service.Configure(
+		t.Context(), producer, rejected,
+	); !errors.Is(err, voting.ErrVotingRevision) {
+		t.Fatalf("rejected Voting configuration error = %v", err)
+	}
+	if notifications != 2 {
+		t.Fatalf("failed Voting notifications = %d, want 2", notifications)
+	}
+}
+
+func TestOverrideCommandsSelectDisplayNotifications(t *testing.T) {
+	storage, producer, eventID := openNotificationTest(t)
+	notifications := 0
+	service, err := overrides.New(
+		t.Context(),
+		storage,
+		time.Now,
+		func() { notifications++ },
+	)
+	if err != nil {
+		t.Fatalf("create Override service: %v", err)
+	}
+	input := overrides.ConfigureInput{
+		EventID: eventID, DefaultDurationSeconds: 10,
+		CommandID: "configure-notified-overrides",
+	}
+	if _, err = service.ConfigureStageMessages(t.Context(), producer, input); err != nil {
+		t.Fatalf("configure Stage Messages: %v", err)
+	}
+	if notifications != 1 {
+		t.Fatalf("Override notifications = %d, want 1", notifications)
+	}
+	if _, err = service.ConfigureStageMessages(t.Context(), producer, input); err != nil {
+		t.Fatalf("replay Stage Message configuration: %v", err)
+	}
+	if notifications != 2 {
+		t.Fatalf("replayed Override notifications = %d, want 2", notifications)
+	}
+	conflicting := input
+	conflicting.DefaultDurationSeconds = 20
+	if _, err = service.ConfigureStageMessages(
+		t.Context(), producer, conflicting,
+	); !errors.Is(err, overrides.ErrCommandConflict) {
+		t.Fatalf("conflicting Stage Message configuration error = %v", err)
+	}
+	rejected := input
+	rejected.CommandID = "reject-stage-message-configuration"
+	if _, err = service.ConfigureStageMessages(
+		t.Context(), auth.Account{ID: producer.ID}, rejected,
+	); !errors.Is(err, overrides.ErrProducerRequired) {
+		t.Fatalf("rejected Stage Message configuration error = %v", err)
+	}
+	if notifications != 2 {
+		t.Fatalf("failed Override notifications = %d, want 2", notifications)
+	}
+}
+
+func TestProgramEntryTakeSelectsDisplayProgramAndVotingNotifications(t *testing.T) {
+	storage, producer, eventID := openNotificationTest(t)
+	sessionID := publishNotificationCompetition(t, storage, producer, eventID)
+	entries, err := New(storage, time.Now, nil, nil)
+	if err != nil {
+		t.Fatalf("create Competition service: %v", err)
+	}
+	if _, err = entries.ConfigureReadiness(
+		t.Context(),
+		producer,
+		ConfigureReadinessInput{
+			EventID: eventID, SessionID: sessionID,
+			CommandID: "disable-program-file-preflight",
+		},
+	); err != nil {
+		t.Fatalf("configure Program Competition readiness: %v", err)
+	}
+	if _, err = entries.CreateEntry(t.Context(), producer, CreateEntryInput{
+		EventID: eventID, SessionID: sessionID,
+		Name: "Aurora", CommandID: "create-program-entry",
+	}); err != nil {
+		t.Fatalf("create Program Entry: %v", err)
+	}
+	activationService, err := activation.New(storage, time.Now, nil, nil)
+	if err != nil {
+		t.Fatalf("create Activation service: %v", err)
+	}
+	preflight, err := activationService.Preflight(t.Context(), producer, eventID)
+	if err != nil {
+		t.Fatalf("preflight Program Event: %v", err)
+	}
+	if _, err = activationService.Activate(
+		t.Context(),
+		producer,
+		activation.ActivateInput{
+			EventID: eventID, CommandID: "activate-program-event",
+			Confirmation: preflight.Confirmation,
+		},
+	); err != nil {
+		t.Fatalf("activate Program Event: %v", err)
+	}
+	publications, err := results.New(storage, time.Now)
+	if err != nil {
+		t.Fatalf("create Results service: %v", err)
+	}
+	sessions, err := sessioncontrol.New(storage, publications, time.Now, nil, nil)
+	if err != nil {
+		t.Fatalf("create Session service: %v", err)
+	}
+	if _, err = sessions.Start(t.Context(), producer, sessioncontrol.StartInput{
+		EventID: eventID, SessionID: sessionID, CommandID: "start-program-session",
+	}); err != nil {
+		t.Fatalf("start Program Session: %v", err)
+	}
+	var displayNotifications, programNotifications, votingNotifications int
+	program, err := programcontrol.New(
+		storage,
+		publications,
+		time.Now,
+		func() { displayNotifications++ },
+		func() { programNotifications++ },
+		func() { votingNotifications++ },
+	)
+	if err != nil {
+		t.Fatalf("create Program service: %v", err)
+	}
+	claimed, err := program.Control(t.Context(), producer, programcontrol.ControlInput{
+		EventID: eventID, SessionID: sessionID,
+		Action: programcontrol.ControlClaim, CommandID: "claim-entry-program",
+	})
+	if err != nil {
+		t.Fatalf("claim Entry Program: %v", err)
+	}
+	var entryItem store.ProgramItem
+	for _, item := range claimed.Channel.Items {
+		if item.Kind == store.ProgramItemEntry {
+			entryItem = item
+			break
+		}
+	}
+	selected, err := program.SelectPreview(
+		t.Context(),
+		producer,
+		programcontrol.SelectPreviewInput{
+			EventID: eventID, SessionID: sessionID, Item: entryItem,
+			ExpectedRevision: claimed.ControlRevision,
+			CommandID:        "select-program-entry",
+		},
+	)
+	if err != nil {
+		t.Fatalf("select Program Entry: %v", err)
+	}
+	order, err := entries.PreviewEntryOrder(t.Context(), producer, eventID, sessionID)
+	if err != nil {
+		t.Fatalf("preview Program Entry order: %v", err)
+	}
+	input := programcontrol.TakeInput{
+		EventID: eventID, SessionID: sessionID, CommandID: "take-program-entry",
+		ExpectedRevision:           selected.Channel.Revision,
+		ExpectedControlRevision:    selected.ControlRevision,
+		Item:                       selected.Preview,
+		ExpectedEntryOrderRevision: order.Revision,
+		EntryOrderFingerprint:      order.Fingerprint,
+	}
+	if _, err = program.Take(t.Context(), producer, input); err != nil {
+		t.Fatalf("take Program Entry: %v", err)
+	}
+	if displayNotifications != 1 || programNotifications != 3 || votingNotifications != 1 {
+		t.Fatalf(
+			"Program Entry notifications = display %d, program %d, voting %d",
+			displayNotifications, programNotifications, votingNotifications,
+		)
+	}
+	if _, err = program.Take(t.Context(), producer, input); err != nil {
+		t.Fatalf("replay Program Entry Take: %v", err)
+	}
+	if displayNotifications != 2 || programNotifications != 4 || votingNotifications != 2 {
+		t.Fatalf(
+			"replayed Program Entry notifications = display %d, program %d, voting %d",
+			displayNotifications, programNotifications, votingNotifications,
+		)
+	}
+	conflicting := input
+	conflicting.ExpectedRevision++
+	if _, err = program.Take(
+		t.Context(), producer, conflicting,
+	); !errors.Is(err, programcontrol.ErrCommandConflict) {
+		t.Fatalf("conflicting Program Entry Take error = %v", err)
+	}
+	if displayNotifications != 2 || programNotifications != 4 || votingNotifications != 2 {
+		t.Fatalf(
+			"conflicting Program Entry notifications = display %d, program %d, voting %d",
+			displayNotifications, programNotifications, votingNotifications,
 		)
 	}
 }

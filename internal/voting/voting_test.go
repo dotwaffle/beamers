@@ -36,9 +36,12 @@ func TestPrintableVotingKeyNormalizesWithoutChangingDigest(t *testing.T) {
 func TestVotingKeyIssueRetryAndRevocation(t *testing.T) {
 	storage, producer, attendee, eventID, databasePath := votingFixture(t)
 	now := time.Date(2026, time.August, 21, 10, 0, 0, 0, time.UTC)
-	service, err := New(storage, bytes.NewReader(make([]byte, votingTokenBytes)), func() time.Time {
-		return now
-	})
+	service, err := New(
+		storage,
+		bytes.NewReader(make([]byte, votingTokenBytes)),
+		func() time.Time { return now },
+		nil,
+	)
 	if err != nil {
 		t.Fatalf("create Voting service: %v", err)
 	}

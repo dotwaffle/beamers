@@ -65,13 +65,19 @@ type Key struct {
 
 // Service owns Voting Key command lifecycle and protected material.
 type Service struct {
-	storage *store.SQLite
-	random  io.Reader
-	now     func() time.Time
+	storage      *store.SQLite
+	random       io.Reader
+	now          func() time.Time
+	notifyVoting func()
 }
 
 // New creates a Voting Key service with explicit dependencies.
-func New(storage *store.SQLite, random io.Reader, now func() time.Time) (*Service, error) {
+func New(
+	storage *store.SQLite,
+	random io.Reader,
+	now func() time.Time,
+	notifyVoting func(),
+) (*Service, error) {
 	if storage == nil {
 		return nil, errors.New("voting key storage is required")
 	}
@@ -81,7 +87,9 @@ func New(storage *store.SQLite, random io.Reader, now func() time.Time) (*Servic
 	if now == nil {
 		return nil, errors.New("voting key clock is required")
 	}
-	return &Service{storage: storage, random: random, now: now}, nil
+	return &Service{
+		storage: storage, random: random, now: now, notifyVoting: notifyVoting,
+	}, nil
 }
 
 // Issue creates one protected batch and returns printable values once.
