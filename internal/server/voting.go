@@ -217,7 +217,6 @@ func (handlers votingHandlers) ballot(response http.ResponseWriter, request *htt
 			)
 			return
 		}
-		handlers.stream.Notify()
 		http.Redirect(
 			response, request,
 			"/voting/"+strconv.Itoa(sessionID)+"?event_id="+strconv.Itoa(eventID),
@@ -407,7 +406,6 @@ func (handlers votingHandlers) competition(response http.ResponseWriter, request
 		}
 		err = handlers.submitCompetition(request, actor, eventID, sessionID)
 		if err == nil {
-			handlers.stream.Notify()
 			http.Redirect(
 				response, request,
 				"/backstage/events/"+strconv.Itoa(eventID)+"/competitions/"+

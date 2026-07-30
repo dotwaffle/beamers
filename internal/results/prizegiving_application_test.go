@@ -1293,22 +1293,62 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 	); err != nil {
 		t.Fatalf("activate Event: %v", err)
 	}
-	sessionService, err := sessioncontrol.New(storage, resultsService, now)
+	var sessionDisplayNotifications, scheduleNotifications int
+	sessionService, err := sessioncontrol.New(
+		storage,
+		resultsService,
+		now,
+		func() { sessionDisplayNotifications++ },
+		func() { scheduleNotifications++ },
+	)
 	if err != nil {
 		t.Fatalf("create Session control: %v", err)
 	}
-	started, err := sessionService.Start(
-		t.Context(),
-		actor,
-		sessioncontrol.StartInput{
-			EventID: eventID, SessionID: ceremonyID,
-			CommandID: "start-public-program-prizegiving",
-		},
-	)
+	startInput := sessioncontrol.StartInput{
+		EventID: eventID, SessionID: ceremonyID,
+		CommandID: "start-public-program-prizegiving",
+	}
+	started, err := sessionService.Start(t.Context(), actor, startInput)
 	if err != nil {
 		t.Fatalf("start Prizegiving: %v", err)
 	}
-	programService, err := programcontrol.New(storage, resultsService, now)
+	if sessionDisplayNotifications != 1 || scheduleNotifications != 1 {
+		t.Fatalf(
+			"Session notifications = display %d, schedule %d",
+			sessionDisplayNotifications, scheduleNotifications,
+		)
+	}
+	if _, err = sessionService.Start(t.Context(), actor, startInput); err != nil {
+		t.Fatalf("replay Prizegiving start: %v", err)
+	}
+	if sessionDisplayNotifications != 2 || scheduleNotifications != 2 {
+		t.Fatalf(
+			"replayed Session notifications = display %d, schedule %d",
+			sessionDisplayNotifications, scheduleNotifications,
+		)
+	}
+	conflictingStart := startInput
+	conflictingStart.ExpectedLiveStateRevision = 1
+	if _, err = sessionService.Start(
+		t.Context(), actor, conflictingStart,
+	); !errors.Is(err, sessioncontrol.ErrCommandConflict) {
+		t.Fatalf("conflicting Prizegiving start error = %v", err)
+	}
+	if sessionDisplayNotifications != 2 || scheduleNotifications != 2 {
+		t.Fatalf(
+			"conflicting Session notifications = display %d, schedule %d",
+			sessionDisplayNotifications, scheduleNotifications,
+		)
+	}
+	var displayNotifications, programNotifications, votingNotifications int
+	programService, err := programcontrol.New(
+		storage,
+		resultsService,
+		now,
+		func() { displayNotifications++ },
+		func() { programNotifications++ },
+		func() { votingNotifications++ },
+	)
 	if err != nil {
 		t.Fatalf("create Program control: %v", err)
 	}
@@ -1322,6 +1362,12 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 	)
 	if err != nil {
 		t.Fatalf("claim Program Channel: %v", err)
+	}
+	if displayNotifications != 0 || programNotifications != 1 || votingNotifications != 0 {
+		t.Fatalf(
+			"Program claim notifications = display %d, program %d, voting %d",
+			displayNotifications, programNotifications, votingNotifications,
+		)
 	}
 	taken, err := programService.Take(t.Context(), actor, programcontrol.TakeInput{
 		EventID: eventID, SessionID: ceremonyID,
@@ -1341,6 +1387,12 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 		taken.State.Preview.Result.Ref.AwardKey != "jury" {
 		t.Fatalf("Taken Program Result = %+v", taken)
 	}
+	if displayNotifications != 1 || programNotifications != 2 || votingNotifications != 0 {
+		t.Fatalf(
+			"Program Result Take notifications = display %d, program %d, voting %d",
+			displayNotifications, programNotifications, votingNotifications,
+		)
+	}
 	if _, err = programService.Take(
 		t.Context(),
 		actor,
@@ -1354,7 +1406,7 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 	); !errors.Is(err, programcontrol.ErrResultRevealRunning) {
 		t.Fatalf("premature second Result Take error = %v", err)
 	}
-	invokeResult, displayStream, programStream := newResultRPCInvoker(
+	invokeResult := newResultRPCInvoker(
 		t,
 		storage,
 		programService,
@@ -1372,7 +1424,7 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 			},
 		},
 	}
-	revealing, err := invokeResult(&programv1.ActOnResultRequest{
+	revealRequest := &programv1.ActOnResultRequest{
 		EventId: int64(eventID), SessionId: int64(ceremonyID),
 		CommandId: "reveal-public-program-result",
 		Action:    programv1.ResultAction_RESULT_ACTION_REVEAL,
@@ -1383,7 +1435,8 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 		ExpectedControlStateRevision: int64(
 			taken.State.ControlRevision,
 		),
-	})
+	}
+	revealing, err := invokeResult(revealRequest)
 	if err != nil {
 		t.Fatalf("Reveal Result RPC: %v", err)
 	}
@@ -1392,10 +1445,23 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 		programv1.ResultStageStatus_RESULT_STAGE_STATUS_REVEALING ||
 		revealingResult.GetRelease() !=
 			programv1.ResultReleaseState_RESULT_RELEASE_STATE_HELD ||
-		revealingResult.GetRevealDuration().AsDuration() != 3*time.Second ||
-		displayStream.Cursor().Position != 1 ||
-		programStream.Cursor().Position != 1 {
+		revealingResult.GetRevealDuration().AsDuration() != 3*time.Second {
 		t.Fatalf("Revealing Program Result RPC = %+v", revealing)
+	}
+	if displayNotifications != 2 || programNotifications != 3 || votingNotifications != 0 {
+		t.Fatalf(
+			"Result action notifications = display %d, program %d, voting %d",
+			displayNotifications, programNotifications, votingNotifications,
+		)
+	}
+	if _, err = invokeResult(revealRequest); err != nil {
+		t.Fatalf("replay Reveal Result RPC: %v", err)
+	}
+	if displayNotifications != 3 || programNotifications != 4 || votingNotifications != 0 {
+		t.Fatalf(
+			"replayed Result notifications = display %d, program %d, voting %d",
+			displayNotifications, programNotifications, votingNotifications,
+		)
 	}
 	if _, retryErr := invokeResult(&programv1.ActOnResultRequest{
 		EventId: int64(eventID), SessionId: int64(ceremonyID),
@@ -1407,12 +1473,10 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 	}); connect.CodeOf(retryErr) != connect.CodeFailedPrecondition {
 		t.Fatalf("second Reveal RPC error = %v", retryErr)
 	}
-	if displayStream.Cursor().Position != 1 ||
-		programStream.Cursor().Position != 1 {
+	if displayNotifications != 3 || programNotifications != 4 || votingNotifications != 0 {
 		t.Fatalf(
-			"rejected Reveal notifications = display %d, program %d",
-			displayStream.Cursor().Position,
-			programStream.Cursor().Position,
+			"rejected Reveal notifications = display %d, program %d, voting %d",
+			displayNotifications, programNotifications, votingNotifications,
 		)
 	}
 	beforeElapsed, err := storage.LoadResultsPublication(
@@ -1623,11 +1687,7 @@ func newResultRPCInvoker(
 	authentication *auth.Service,
 	sessionToken string,
 	now func() time.Time,
-) (
-	func(*programv1.ActOnResultRequest) (*programv1.ActOnResultResponse, error),
-	*displaystream.Hub,
-	*displaystream.Hub,
-) {
+) func(*programv1.ActOnResultRequest) (*programv1.ActOnResultResponse, error) {
 	t.Helper()
 	displayConfig := displays.DefaultConfig()
 	displayConfig.Now = now
@@ -1639,20 +1699,10 @@ func newResultRPCInvoker(
 	if err != nil {
 		t.Fatalf("create Display stream: %v", err)
 	}
-	programStream, err := displaystream.New("result-rpc-program", 1)
-	if err != nil {
-		t.Fatalf("create Program stream: %v", err)
-	}
-	votingStream, err := displaystream.New("result-rpc-voting", 1)
-	if err != nil {
-		t.Fatalf("create Voting stream: %v", err)
-	}
 	handler, err := programconnect.NewHandler(
 		programService,
 		displayService,
 		displayStream,
-		programStream,
-		votingStream,
 	)
 	if err != nil {
 		t.Fatalf("create Program Connect handler: %v", err)
@@ -1696,7 +1746,7 @@ func newResultRPCInvoker(
 			return nil, invokeErr
 		}
 		return response.Msg, nil
-	}, displayStream, programStream
+	}
 }
 
 func newResultsRPCClient(

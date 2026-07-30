@@ -21,7 +21,6 @@ import (
 type overrideHandlers struct {
 	authentication     *auth.Service
 	service            *overrides.Service
-	notify             func()
 	buildVersion       string
 	logger             *slog.Logger
 	allowPlaintextCrew bool
@@ -31,13 +30,12 @@ func registerOverrideRoutes(
 	mux *routeMux,
 	authentication *auth.Service,
 	service *overrides.Service,
-	notify func(),
 	buildVersion string,
 	logger *slog.Logger,
 	listenerAddress net.Addr,
 ) {
 	handlers := overrideHandlers{
-		authentication: authentication, service: service, notify: notify,
+		authentication: authentication, service: service,
 		buildVersion: buildVersion, logger: logger,
 		allowPlaintextCrew: listenerIsLoopback(listenerAddress),
 	}
@@ -169,7 +167,6 @@ func (handlers overrideHandlers) emergencyAlertConfirmation(
 			)
 		}
 		if err == nil && !result.Nondurable {
-			handlers.notify()
 			// #nosec G710 -- commandContext parses eventID as an integer.
 			http.Redirect(response, request, controlPath(eventID), http.StatusSeeOther)
 			return
@@ -348,7 +345,6 @@ func (handlers overrideHandlers) emergencyClearConfirmation(
 			)
 		}
 		if clearErr == nil && !result.Nondurable {
-			handlers.notify()
 			// #nosec G710 -- commandContext parses eventID as an integer.
 			http.Redirect(response, request, controlPath(eventID), http.StatusSeeOther)
 			return
@@ -852,7 +848,6 @@ func (handlers overrideHandlers) writeResult(
 			handlers.logger.ErrorContext(request.Context(), "write Display Override", "error", encodeErr)
 			return
 		}
-		handlers.notify()
 	}
 }
 

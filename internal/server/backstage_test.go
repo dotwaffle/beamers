@@ -137,7 +137,7 @@ func TestBackstageNavigationRejectsAttendeeAndSeparatesRouteInterfaces(t *testin
 	}
 	registerPlanningRoutes(routes, nil, nil, nil, nil, nil, nil)
 	registerAdministrationRoutes(routes, nil, nil, nil, nil)
-	registerOperationRoutes(routes, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	registerOperationRoutes(routes, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	registerControlRoutes(routes, nil, nil, nil, nil, nil, "", nil)
 	registerVotingRoutes(routes, nil, nil, nil, nil, nil, nil)
 	for path, want := range map[string]interfaceKind{

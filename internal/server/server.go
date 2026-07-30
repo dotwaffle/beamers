@@ -94,10 +94,20 @@ func Run(ctx context.Context, config Config) error {
 	if err != nil {
 		return err
 	}
+	programStream, err := displaystream.NewProcess(displaySubscriberQueueCapacity)
+	if err != nil {
+		return err
+	}
+	votingStream, err := displaystream.NewProcess(displaySubscriberQueueCapacity)
+	if err != nil {
+		return err
+	}
 	openConfig := operations.OpenConfig{
 		DataDir: config.DataDir, AttachmentsDir: attachmentsDir,
 		NotifyDisplays: displayStream.Notify,
 		NotifySchedule: scheduleStream.Notify,
+		NotifyProgram:  programStream.Notify,
+		NotifyVoting:   votingStream.Notify,
 	}
 	if config.Telemetry != nil && config.Telemetry.Enabled() {
 		openConfig.TracerProvider = config.TracerProvider
@@ -141,14 +151,6 @@ func Run(ctx context.Context, config Config) error {
 		if err != nil {
 			return errors.Join(err, listener.Close(), installation.Close(), upgrade.Close())
 		}
-	}
-	programStream, err := displaystream.NewProcess(displaySubscriberQueueCapacity)
-	if err != nil {
-		return errors.Join(err, listener.Close(), closeListener(publicListener), installation.Close(), upgrade.Close())
-	}
-	votingStream, err := displaystream.NewProcess(displaySubscriberQueueCapacity)
-	if err != nil {
-		return errors.Join(err, listener.Close(), closeListener(publicListener), installation.Close(), upgrade.Close())
 	}
 	var replica *replication.Adapter
 	replicationSync := config.ReplicationSync

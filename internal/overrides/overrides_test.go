@@ -47,7 +47,7 @@ func TestCanceledEmergencyActivationDoesNotEnterDegradedMode(t *testing.T) {
 			t.Errorf("close canceled Emergency storage: %v", closeErr)
 		}
 	})
-	service, err := New(t.Context(), storage, time.Now)
+	service, err := New(t.Context(), storage, time.Now, nil)
 	if err != nil {
 		t.Fatalf("create canceled Emergency service: %v", err)
 	}
@@ -107,8 +107,11 @@ func TestEmergencyAlertDegradesWithoutOpeningOtherMutationPaths(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open Override storage: %v", err)
 	}
+	notifications := 0
 	service, err := New(t.Context(), storage, func() time.Time {
 		return now
+	}, func() {
+		notifications++
 	})
 	if err != nil {
 		t.Fatalf("create Override service: %v", err)
@@ -171,6 +174,9 @@ func TestEmergencyAlertDegradesWithoutOpeningOtherMutationPaths(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(replayed, activated) {
 		t.Fatalf("replay degraded Emergency activation = %+v, %v", replayed, err)
 	}
+	if notifications != 2 {
+		t.Fatalf("degraded Emergency notifications = %d, want 2", notifications)
+	}
 	secondActivation := input
 	secondActivation.CommandID = "second-active-emergency"
 	if _, secondErr := service.ActivateEmergencyAlert(
@@ -189,6 +195,9 @@ func TestEmergencyAlertDegradesWithoutOpeningOtherMutationPaths(t *testing.T) {
 	)
 	if !errors.Is(conflictErr, ErrCommandConflict) {
 		t.Fatalf("conflicting degraded Emergency command error = %v", conflictErr)
+	}
+	if notifications != 2 {
+		t.Fatalf("rejected degraded Emergency notifications = %d, want 2", notifications)
 	}
 	projected, err := service.ProjectDisplaySnapshot(
 		displayKey,
@@ -250,6 +259,9 @@ func TestEmergencyAlertDegradesWithoutOpeningOtherMutationPaths(t *testing.T) {
 	if !cleared.Nondurable || cleared.Revision != 2 || cleared.ClearedAt.IsZero() {
 		t.Fatalf("cleared degraded Emergency Alert = %+v", cleared)
 	}
+	if notifications != 3 {
+		t.Fatalf("degraded Emergency clear notifications = %d, want 3", notifications)
+	}
 	projected, err = service.ProjectDisplaySnapshot(
 		displayKey,
 		store.DisplaySnapshotState{},
@@ -269,7 +281,7 @@ func TestRecoverEndsPreviewOnlyDegradation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open preview recovery storage: %v", err)
 	}
-	service, err := New(t.Context(), storage, time.Now)
+	service, err := New(t.Context(), storage, time.Now, nil)
 	if err != nil {
 		t.Fatalf("create preview recovery service: %v", err)
 	}
@@ -389,7 +401,7 @@ func TestRecoverPersistsDegradedEmergencyEvidenceExactlyOnce(t *testing.T) {
 	actor.EventRoles = map[int]viewer.Role{event.ID: viewer.Producer}
 	service, err := New(t.Context(), storage, func() time.Time {
 		return now
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("create Override service: %v", err)
 	}
@@ -692,7 +704,7 @@ func TestRecoverPersistsDegradedEmergencyEvidenceExactlyOnce(t *testing.T) {
 
 	nextService, err := New(t.Context(), recoveredStorage, func() time.Time {
 		return now.Add(time.Hour)
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("create service after recovered Emergency: %v", err)
 	}

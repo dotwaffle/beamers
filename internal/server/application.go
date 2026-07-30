@@ -533,6 +533,8 @@ func (application *application) openConfig() operations.OpenConfig {
 		DataDir: application.config.DataDir, AttachmentsDir: application.config.AttachmentsDir,
 		NotifyDisplays: application.config.DisplayStream.Notify,
 		NotifySchedule: application.config.ScheduleStream.Notify,
+		NotifyProgram:  application.config.ProgramStream.Notify,
+		NotifyVoting:   application.config.VotingStream.Notify,
 	}
 	if application.config.Telemetry != nil && application.config.Telemetry.Enabled() {
 		config.TracerProvider = application.config.TracerProvider
@@ -617,10 +619,6 @@ func (application *application) buildHandler(
 		application.config.InsecureDisplay,
 	); err != nil {
 		return nil, err
-	}
-	notifyScheduleAndDisplays := func() {
-		application.config.DisplayStream.Notify()
-		application.config.ScheduleStream.Notify()
 	}
 	diagnostics := registerDiagnosticsRoutes(
 		mux,
@@ -709,7 +707,6 @@ func (application *application) buildHandler(
 		installation.Competition(),
 		installation.Displays(),
 		application.config.DisplayStream,
-		application.config.ScheduleStream.Notify,
 		application.config.Logger,
 	)
 	registerControlRoutes(
@@ -779,7 +776,6 @@ func (application *application) buildHandler(
 		mux,
 		installation.Authentication(),
 		installation.Overrides(),
-		application.config.DisplayStream.Notify,
 		application.config.BuildVersion,
 		application.config.Logger,
 		application.config.ListenerAddress,
@@ -859,7 +855,6 @@ func (application *application) buildHandler(
 		installation.Displays(),
 		application.config.DisplayStream,
 		application.config.ProgramStream,
-		application.config.VotingStream,
 		application.config.ListenerAddress,
 		application.config.TracerProvider,
 		application.config.MeterProvider,
@@ -896,7 +891,6 @@ func (application *application) buildHandler(
 		mux,
 		installation.Authentication(),
 		installation.SessionControl(),
-		notifyScheduleAndDisplays,
 		application.config.ListenerAddress,
 		application.config.TracerProvider,
 		application.config.MeterProvider,
