@@ -305,6 +305,13 @@ p {
   color: var(--preview-muted);
 }
 
+.theme-preview-controls {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .theme-preview button {
   background: var(--preview-accent);
   color: #07130f;
@@ -388,11 +395,50 @@ a {
   outline-offset: 0.15rem;
 }
 
-.error {
+.error,
+.field-error {
   background: #4c1320;
   border-inline-start: 0.3rem solid var(--danger);
   color: #fff0f2;
   padding: 0.75rem;
+}
+
+.error-summary h2 {
+  font-size: 1.25rem;
+  margin-block: 0 0.5rem;
+}
+
+.error-summary ul {
+  margin: 0;
+  padding-inline-start: 1.25rem;
+}
+
+.warning {
+  background: #3d2f05;
+  border-inline-start: 0.3rem solid var(--focus);
+  color: #fff8e2;
+  padding: 0.75rem;
+}
+
+.visually-hidden {
+  block-size: 1px;
+  clip-path: inset(50%);
+  inline-size: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+}
+
+.calendar-date-rollover {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.competition-entry {
+  border-block-start: 1px solid var(--border);
+  padding-block: 1rem;
 }
 
 .table-scroll {

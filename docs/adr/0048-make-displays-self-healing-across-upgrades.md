@@ -3,6 +3,8 @@
 Displays never require a manual browser refresh for an ordinary server restart, upgrade, transport interruption, or recoverable rendering failure.
 They keep their last rendered frame, show the disconnection indicator, reconnect with bounded backoff and jitter, obtain an authoritative snapshot, and resume live updates.
 Asset URLs are content-addressed so cached files from different builds cannot be mixed.
+One asset version covers every Display asset the renderer depends on, including its stylesheet, so markup, styles, and page code can never disagree.
+A stylesheet change therefore invalidates a Display exactly as a page-code change does, which is how a presentation fix reaches a kiosk that has been running for days.
 
 During Maintenance Mode, an output Display remains connected to the maintenance shell, retains its last committed frame, and shows a discreet accessible Stale marker distinct from Disconnected.
 Interactive Crew Clients instead show the maintenance state and return to their requested page when readiness returns.

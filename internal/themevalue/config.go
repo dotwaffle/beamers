@@ -339,11 +339,13 @@ func Stylesheet(config Config) (string, error) {
 		brandMark = `nav > a:first-child::before { content: "◆"; margin-inline-end: 0.35rem; }` + "\n"
 	}
 
+	// --surface-raised is deliberately absent: it is derived from --surface by
+	// the base stylesheet. Emitting it here from SurfaceColor collapsed raised
+	// surfaces onto ordinary ones on every themed page.
 	var css strings.Builder
 	_, _ = fmt.Fprintf(&css, `:root {
   --background: %s;
   --surface: %s;
-  --surface-raised: %s;
   --border: %s;
   --text: %s;
   --muted: %s;
@@ -371,7 +373,6 @@ body[data-reduced-effects="true"] main { animation: none; }
 }
 `,
 		config.BackgroundColor,
-		config.SurfaceColor,
 		config.SurfaceColor,
 		config.BorderColor,
 		config.TextColor,

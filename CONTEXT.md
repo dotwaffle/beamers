@@ -625,6 +625,10 @@ _Avoid_: Installation Theme, View Layout
 Editing creates a Draft revision; activation selects the revision used by its surfaces and rollback activates an earlier revision.
 _Avoid_: live CSS edit, View Layout
 
+**Theme Preset**: A bundled, reviewed set of Theme values that populates a Draft Theme Revision when selected.
+It is an authoring starting point rather than a separate presentation mode, and the resulting revision remains fully editable.
+_Avoid_: Theme, Theme Revision, stylesheet
+
 **Reduced Effects**: A persistent visitor or Display preference that suppresses decorative motion and overrides Theme motion choices.
 Browser reduced-motion and forced-color preferences take precedence automatically.
 _Avoid_: accessibility overlay, unstyled mode
@@ -660,6 +664,13 @@ _Avoid_: Stage Message, audit entry
 
 **Competition Output**: The public View presenting Competition Slides as Program Output.
 _Avoid_: Competition control View
+
+**Timeline**: A public View presenting the Event day as proportional blocks with a persistent Now/Next summary and clock.
+It conveys compression and slippage rather than order alone, and suppresses Crew Only Session details like Location Signage.
+_Avoid_: Event Overview, Schedule
+
+**Crew Overview**: A crew View combining current Session timing and progress, the next Session, and a compact Schedule, without controls.
+_Avoid_: Stage Timer, Program control
 
 **Favorite Session**: An Account's private bookmark of one Public Session, used only to construct My Schedule.
 _Avoid_: public endorsement, notification subscription

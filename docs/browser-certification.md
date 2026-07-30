@@ -147,6 +147,7 @@ Across the role-to-workflow matrix, Enrollment, Crew control, and Display, revie
 - Reflow and legibility at 200% and 400% zoom.
 - Text and non-text contrast, including configured Display themes and scrims.
 - Non-color status, document language, reading order, and reduced motion.
+- The visual state vocabulary: that every badge carries its state as text and shape as well as color, that a Session's publication, Audience Visibility, and lifecycle axes read as three separate states, that Preview and Program Output remain distinguishable without color, and that Stage Timer Emphasis and overtime announce themselves by label as well as by color and viewport outline.
 
 Automated results support this review; they do not replace it.
 Record the exact Beamers commit, browser and operating-system versions, hardware where relevant, screenshots or video, and a written result for every row.

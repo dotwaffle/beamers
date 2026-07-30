@@ -34,7 +34,7 @@ Version one must provide:
 - An authoritative multi-Lane Rundown with Draft, selective Publish, and CSV or iCalendar import.
 - Public and Crew-only Schedule views whose current state follows live operation.
 - Explicit Session start, timing adjustment, End Now, cancellation, reinstatement, and optional Pull Forward controls.
-- Event Overview, Location Signage, Stage Timer, Competition Output, and Standby Views.
+- Event Overview, Location Signage, Stage Timer, Competition Output, Timeline, Crew Overview, and Standby Views.
 - Inputless Display Enrollment, Event-specific Assignment, grouped targeting, and automatic recovery.
 - Emergency Alert, Urgent Notice, Stage Message, and Technical Difficulties Overrides.
 - Competition submission, review, ordering, Preview, Take, replay, deferral, and resolution workflows.
@@ -44,7 +44,7 @@ Version one must provide:
 - Crew-managed Competition results, Awards, Prizegiving sequences, deterministic reveal methods, and public HTML, `results.txt`, and JSON publication.
 - One responsive browser shell for public, Account, Crew, and administration workflows.
 - Event-scoped roles and capabilities, durable command receipts, and lifetime Audit Entries.
-- Versioned Installation and Event Themes with accessible demoscene-forward defaults and reduced-effects behavior.
+- Versioned Installation and Event Themes with an accessible neutral base, bundled Demoscene and Conference Presets, and reduced-effects behavior.
 - Backup, restore, migration, diagnostics, telemetry, and tested shutdown and upgrade behavior.
 
 ### Explicitly deferred
@@ -349,6 +349,8 @@ The built-in catalog is:
 - Location Signage with roughly 70 percent rotating content plus persistent Location, Now/Next, and digital clock.
 - Stage Timer with live target, countdown or elapsed time, overtime, Emphasis, adjustment notices, and Stage Messages.
 - Competition Output for Competition and Results Program Output.
+- Timeline for the Event day as proportional blocks with a persistent Now/Next summary and clock.
+- Crew Overview for current Session timing and progress, the next Session, and a compact Schedule, without controls.
 - Standby for an enrolled but unassigned or idle Display.
 
 Location Signage does not disclose a Crew Only Session; it shows only that the Location is unavailable and until when.
@@ -639,14 +641,21 @@ Public, Display, and Crew surfaces target WCAG 2.2 AA.
 Keyboard use, focus, touch targets, screen readers, zoom, contrast, reduced motion, and text over variable media are release concerns rather than optional polish.
 Themes must preserve required contrast, using Contrast Scrims where content varies.
 
-The built-in visual direction is demoscene-forward without sacrificing body-text legibility.
+The built-in visual direction is neutral and venue-agnostic, because Beamers serves demoparties and conferences equally.
 Beamers bundles and self-hosts Chakra Petch for headings and Open Sans for body text.
 Version one Themes select only bundled font families.
+Bundled Theme Presets carry reviewed value sets: Base, Demoscene, and Conference.
+Selecting a Preset populates a Draft Theme Revision and adds no rendering path.
 
 The built-in base Theme feeds an Installation Theme for root, authentication, Public Profiles, and the Backstage shell.
 Each Event Theme inherits from it for public pages and Displays and may define controlled signage variants.
 Themes configure tokens, branding assets, backgrounds, type choices, transition and effect presets, and motion level.
 Arbitrary CSS, HTML, JavaScript, and font upload are prohibited.
+
+Spacing scale, type scale, radii, elevation, and interface density are fixed in the base stylesheet rather than exposed as Theme fields.
+They are craft rather than branding, and freezing them keeps the contrast and legibility requirements above enforceable.
+Semantic state colors for live, warning, danger, and success are Theme fields, each paired with a fixed ink color and used as a filled surface behind that ink.
+Operational state is always carried by text and shape as well as color, and a Session's publication, Audience Visibility, and lifecycle axes are presented separately rather than collapsed into one indicator.
 
 Theme editing creates an immutable Draft Theme Revision.
 Preview renders representative pages and Displays.
@@ -708,6 +717,8 @@ An optional integration is a gate only if that integration ships.
 - [ADR 0048: Make Displays self-healing across upgrades](adr/0048-make-displays-self-healing-across-upgrades.md)
 - [ADR 0053: Make the browser Frontend primary](adr/0053-make-the-browser-frontend-primary.md)
 - [ADR 0056: Version controlled Themes](adr/0056-version-controlled-themes.md)
+- [ADR 0057: Ship a neutral base Theme with bundled Presets](adr/0057-ship-a-neutral-base-theme-with-bundled-presets.md)
+- [ADR 0058: Extend the built-in View catalog](adr/0058-extend-the-built-in-view-catalog.md)
 
 ### Competitions, Attachments, and Results
 
