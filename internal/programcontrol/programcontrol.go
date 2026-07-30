@@ -242,19 +242,19 @@ func (service *Service) controlFor(sessionID int) *channelControl {
 	return created
 }
 
-// OpenConnection tracks one live control View and reports presence transitions.
+// OpenConnection tracks one live control View and publishes presence transitions.
 func (service *Service) OpenConnection(
 	ctx context.Context,
 	actor auth.Account,
 	eventID, sessionID int,
-) (State, bool, func() bool, error) {
+) (State, func(), error) {
 	if !actor.CanOperateEvent(eventID) {
-		return State{}, false, nil, ErrOperatorRequired
+		return State{}, nil, ErrOperatorRequired
 	}
 	if _, err := service.storage.LoadProgramChannelAt(
 		actor.Context(ctx), eventID, sessionID, service.now().UTC(),
 	); err != nil {
-		return State{}, false, nil, err
+		return State{}, nil, err
 	}
 	owned := service.controlFor(sessionID)
 	owned.mu.Lock()
@@ -263,7 +263,7 @@ func (service *Service) OpenConnection(
 	)
 	if err != nil {
 		owned.mu.Unlock()
-		return State{}, false, nil, err
+		return State{}, nil, err
 	}
 	owned.connections[actor.ID]++
 	changed := false
@@ -285,13 +285,15 @@ func (service *Service) OpenConnection(
 	}
 	state := service.state(channel, owned.state)
 	owned.mu.Unlock()
+	if changed && service.notifyProgram != nil {
+		service.notifyProgram()
+	}
 
 	var closeOnce sync.Once
-	release := func() bool {
-		disconnected := false
+	release := func() {
 		closeOnce.Do(func() {
 			owned.mu.Lock()
-			defer owned.mu.Unlock()
+			disconnected := false
 			owned.connections[actor.ID]--
 			if owned.connections[actor.ID] <= 0 {
 				delete(owned.connections, actor.ID)
@@ -312,10 +314,13 @@ func (service *Service) OpenConnection(
 					disconnected = true
 				}
 			}
+			owned.mu.Unlock()
+			if disconnected && service.notifyProgram != nil {
+				service.notifyProgram()
+			}
 		})
-		return disconnected
 	}
-	return state, changed, release, nil
+	return state, release, nil
 }
 
 func (service *Service) controlIdentity(actor auth.Account, input ControlInput) store.CommandIdentity {

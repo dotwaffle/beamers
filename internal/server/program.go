@@ -127,21 +127,14 @@ func (handlers programViewHandlers) events(response http.ResponseWriter, request
 		http.Error(response, "invalid Program stream position", http.StatusBadRequest)
 		return
 	}
-	state, connectedChanged, release, err := handlers.service.OpenConnection(
+	state, release, err := handlers.service.OpenConnection(
 		request.Context(), actor, eventID, sessionID,
 	)
 	if err != nil {
 		http.Error(response, "Program stream unavailable", http.StatusForbidden)
 		return
 	}
-	if connectedChanged {
-		handlers.stream.Notify()
-	}
-	defer func() {
-		if release() {
-			handlers.stream.Notify()
-		}
-	}()
+	defer release()
 	cursor := handlers.stream.Cursor()
 	if after > cursor.Position {
 		after = cursor.Position

@@ -271,6 +271,7 @@ func OpenInstallationWithConfig(
 	displayConfig.Now = now
 	displayConfig.Emergency = overrideService
 	displayConfig.EventThemes = eventThemeService
+	displayConfig.NotifyDisplays = config.NotifyDisplays
 	displayService, err := displays.New(storage, displayConfig)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
