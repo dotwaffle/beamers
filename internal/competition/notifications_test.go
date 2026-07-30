@@ -1,6 +1,7 @@
 package competition
 
 import (
+	"bytes"
 	"errors"
 	"strings"
 	"testing"
@@ -9,6 +10,8 @@ import (
 	_ "github.com/dotwaffle/beamers/ent/runtime"
 	"github.com/dotwaffle/beamers/internal/activation"
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/displays"
+	"github.com/dotwaffle/beamers/internal/displayviews"
 	"github.com/dotwaffle/beamers/internal/events"
 	"github.com/dotwaffle/beamers/internal/overrides"
 	"github.com/dotwaffle/beamers/internal/programcontrol"
@@ -19,6 +22,65 @@ import (
 	"github.com/dotwaffle/beamers/internal/viewer"
 	"github.com/dotwaffle/beamers/internal/voting"
 )
+
+func TestDisplayAssignmentSelectsDisplayNotifications(t *testing.T) {
+	storage, administrator, eventID := openNotificationTest(t)
+	publishNotificationCompetition(t, storage, administrator, eventID)
+	queries, err := rundown.NewQueries(storage)
+	if err != nil {
+		t.Fatalf("create Rundown queries: %v", err)
+	}
+	crew, err := queries.CrewRundown(t.Context(), administrator, eventID)
+	if err != nil || len(crew.Locations) != 1 {
+		t.Fatalf("load Display Assignment Location = %+v, %v", crew, err)
+	}
+	notifications := 0
+	service, err := displays.New(storage, displays.Config{
+		Now: time.Now, Random: bytes.NewReader(make([]byte, 128)),
+		EnrollmentTTL:  10 * time.Minute,
+		NotifyDisplays: func() { notifications++ },
+	})
+	if err != nil {
+		t.Fatalf("create Display service: %v", err)
+	}
+	enrollment, err := service.EnrollmentForBrowser(t.Context(), "", "")
+	if err != nil {
+		t.Fatalf("create Display Enrollment: %v", err)
+	}
+	display, err := service.ClaimEnrollment(
+		t.Context(),
+		administrator,
+		displays.ClaimInput{
+			Code: enrollment.Code, Name: "Main", CommandID: "claim-assigned-display",
+		},
+	)
+	if err != nil {
+		t.Fatalf("claim Display Enrollment: %v", err)
+	}
+	notifications = 0
+	input := displays.AssignInput{
+		DisplayID: display.ID, EventID: eventID, LocationID: crew.Locations[0].ID,
+		ViewKey: displayviews.EventOverview, CommandID: "assign-notified-display",
+	}
+	if _, err = service.Assign(t.Context(), administrator, input); err != nil {
+		t.Fatalf("assign Display: %v", err)
+	}
+	if _, err = service.Assign(
+		t.Context(), auth.Account{ID: administrator.ID}, input,
+	); err != nil {
+		t.Fatalf("replay Display Assignment: %v", err)
+	}
+	rejected := input
+	rejected.CommandID = "reject-display-assignment"
+	if _, err = service.Assign(
+		t.Context(), auth.Account{ID: administrator.ID}, rejected,
+	); !errors.Is(err, displays.ErrAdministratorRequired) {
+		t.Fatalf("rejected Display Assignment error = %v", err)
+	}
+	if notifications != 2 {
+		t.Fatalf("Display Assignment notifications = %d, want 2", notifications)
+	}
+}
 
 func TestEntryCommandsSelectCombinedAndScheduleOnlyNotifications(t *testing.T) {
 	storage, producer, eventID := openNotificationTest(t)
@@ -280,6 +342,37 @@ func TestProgramEntryTakeSelectsDisplayProgramAndVotingNotifications(t *testing.
 	if err != nil {
 		t.Fatalf("claim Entry Program: %v", err)
 	}
+	disconnected, err := program.Control(
+		t.Context(),
+		producer,
+		programcontrol.ControlInput{
+			EventID: eventID, SessionID: sessionID,
+			Action:           programcontrol.ControlDisconnect,
+			CommandID:        "disconnect-entry-program",
+			ExpectedRevision: claimed.ControlRevision,
+		},
+	)
+	if err != nil {
+		t.Fatalf("disconnect Entry Program: %v", err)
+	}
+	_, release, err := program.OpenConnection(
+		t.Context(), producer, eventID, sessionID,
+	)
+	if err != nil {
+		t.Fatalf("open Entry Program connection: %v", err)
+	}
+	if programNotifications != 3 {
+		t.Fatalf("connected Program notifications = %d, want 3", programNotifications)
+	}
+	release()
+	release()
+	if programNotifications != 4 {
+		t.Fatalf("disconnected Program notifications = %d, want 4", programNotifications)
+	}
+	claimed, err = program.Current(t.Context(), producer, eventID, sessionID)
+	if err != nil || claimed.ControlRevision != disconnected.ControlRevision+2 {
+		t.Fatalf("Program state after connection release = %+v, %v", claimed, err)
+	}
 	var entryItem store.ProgramItem
 	for _, item := range claimed.Channel.Items {
 		if item.Kind == store.ProgramItemEntry {
@@ -314,7 +407,7 @@ func TestProgramEntryTakeSelectsDisplayProgramAndVotingNotifications(t *testing.
 	if _, err = program.Take(t.Context(), producer, input); err != nil {
 		t.Fatalf("take Program Entry: %v", err)
 	}
-	if displayNotifications != 1 || programNotifications != 3 || votingNotifications != 1 {
+	if displayNotifications != 1 || programNotifications != 6 || votingNotifications != 1 {
 		t.Fatalf(
 			"Program Entry notifications = display %d, program %d, voting %d",
 			displayNotifications, programNotifications, votingNotifications,
@@ -323,7 +416,7 @@ func TestProgramEntryTakeSelectsDisplayProgramAndVotingNotifications(t *testing.
 	if _, err = program.Take(t.Context(), producer, input); err != nil {
 		t.Fatalf("replay Program Entry Take: %v", err)
 	}
-	if displayNotifications != 2 || programNotifications != 4 || votingNotifications != 2 {
+	if displayNotifications != 2 || programNotifications != 7 || votingNotifications != 2 {
 		t.Fatalf(
 			"replayed Program Entry notifications = display %d, program %d, voting %d",
 			displayNotifications, programNotifications, votingNotifications,
@@ -336,7 +429,7 @@ func TestProgramEntryTakeSelectsDisplayProgramAndVotingNotifications(t *testing.
 	); !errors.Is(err, programcontrol.ErrCommandConflict) {
 		t.Fatalf("conflicting Program Entry Take error = %v", err)
 	}
-	if displayNotifications != 2 || programNotifications != 4 || votingNotifications != 2 {
+	if displayNotifications != 2 || programNotifications != 7 || votingNotifications != 2 {
 		t.Fatalf(
 			"conflicting Program Entry notifications = display %d, program %d, voting %d",
 			displayNotifications, programNotifications, votingNotifications,

@@ -70,11 +70,12 @@ var (
 
 // Config contains explicit Display Enrollment dependencies.
 type Config struct {
-	Now           func() time.Time
-	Random        io.Reader
-	EnrollmentTTL time.Duration
-	Emergency     EmergencySnapshotProjector
-	EventThemes   *eventthemes.Service
+	Now            func() time.Time
+	Random         io.Reader
+	EnrollmentTTL  time.Duration
+	NotifyDisplays func()
+	Emergency      EmergencySnapshotProjector
+	EventThemes    *eventthemes.Service
 }
 
 // EmergencySnapshotProjector preserves connected Display snapshots and applies
@@ -94,14 +95,15 @@ func DefaultConfig() Config {
 
 // Service owns Display Enrollment credentials and Assignment commands.
 type Service struct {
-	storage       *store.SQLite
-	now           func() time.Time
-	random        io.Reader
-	enrollmentTTL time.Duration
-	emergency     EmergencySnapshotProjector
-	eventThemes   *eventthemes.Service
-	themeMu       sync.RWMutex
-	themeCache    map[eventThemeCacheKey]themevalue.Config
+	storage        *store.SQLite
+	now            func() time.Time
+	random         io.Reader
+	enrollmentTTL  time.Duration
+	emergency      EmergencySnapshotProjector
+	eventThemes    *eventthemes.Service
+	notifyDisplays func()
+	themeMu        sync.RWMutex
+	themeCache     map[eventThemeCacheKey]themevalue.Config
 }
 
 type eventThemeCacheKey struct {
@@ -331,6 +333,7 @@ func New(storage *store.SQLite, config Config) (*Service, error) {
 	return &Service{
 		storage: storage, now: config.Now, random: config.Random, enrollmentTTL: config.EnrollmentTTL,
 		emergency: config.Emergency, eventThemes: config.EventThemes,
+		notifyDisplays: config.NotifyDisplays,
 	}, nil
 }
 
@@ -684,7 +687,8 @@ func (service *Service) Assign(
 		TargetID: strconv.Itoa(input.DisplayID), Now: service.now().UTC(),
 	}
 	result, err := command.Execute(actor.Context(ctx), command.Plan[Assignment]{
-		Storage: service.storage, Identity: identity, Replay: replayAssignment,
+		Storage: service.storage, Identity: identity, Notify: service.notifyDisplays,
+		Replay: replayAssignment,
 		Apply: func(transaction *store.CommandTx) (command.Execution[Assignment], error) {
 			if !actor.Administrator {
 				return assignmentRejection(ErrAdministratorRequired), nil
@@ -742,7 +746,8 @@ func (service *Service) ClaimEnrollment(
 		TargetType:  "Display", TargetID: targetID, Now: service.now().UTC(),
 	}
 	result, err := command.Execute(actor.Context(ctx), command.Plan[Display]{
-		Storage: service.storage, Identity: identity, Replay: replayDisplay,
+		Storage: service.storage, Identity: identity, Notify: service.notifyDisplays,
+		Replay: replayDisplay,
 		Apply: func(transaction *store.CommandTx) (command.Execution[Display], error) {
 			if !actor.Administrator {
 				return displayRejection(ErrAdministratorRequired), nil

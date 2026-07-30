@@ -262,7 +262,6 @@ func (handlers displayHandlers) assign(response http.ResponseWriter, request *ht
 	if err := json.NewEncoder(response).Encode(assigned); err != nil {
 		handlers.logger.ErrorContext(request.Context(), "write Display Assignment", "error", err)
 	}
-	handlers.stream.Notify()
 }
 
 func (handlers displayHandlers) enroll(response http.ResponseWriter, request *http.Request) {

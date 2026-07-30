@@ -185,10 +185,6 @@ func (handlers operationHandlers) submit(
 		)
 		return
 	}
-	action := request.Form.Get("action")
-	if action == "enroll-display" || action == "assign-display" {
-		handlers.stream.Notify()
-	}
 	http.Redirect(
 		response,
 		request,

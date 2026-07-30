@@ -147,6 +147,7 @@ func TestDisplayEnrollmentExpiresAndClaimIsSingleUse(t *testing.T) {
 		bytes.Repeat([]byte{2}, enrollmentCodeBytes+displayTokenBytes)...)
 	clock := now
 	clockStep := time.Duration(0)
+	notifications := 0
 	service, err := New(storage, Config{
 		Now: func() time.Time {
 			current := clock
@@ -154,6 +155,7 @@ func TestDisplayEnrollmentExpiresAndClaimIsSingleUse(t *testing.T) {
 			return current
 		},
 		Random: bytes.NewReader(random), EnrollmentTTL: 10 * time.Minute,
+		NotifyDisplays: func() { notifications++ },
 	})
 	if err != nil {
 		t.Fatalf("create Display service: %v", err)
@@ -179,6 +181,9 @@ func TestDisplayEnrollmentExpiresAndClaimIsSingleUse(t *testing.T) {
 	}); !errors.Is(claimErr, ErrEnrollmentUnavailable) {
 		t.Errorf("expired Display claim error = %v", claimErr)
 	}
+	if notifications != 0 {
+		t.Fatalf("rejected Display claim notifications = %d, want 0", notifications)
+	}
 
 	issued, err := service.EnrollmentForBrowser(t.Context(), "", "")
 	if err != nil {
@@ -193,10 +198,16 @@ func TestDisplayEnrollmentExpiresAndClaimIsSingleUse(t *testing.T) {
 	if err != nil || replayed != claimed {
 		t.Errorf("exact Display claim retry = %+v, %v; want %+v", replayed, err, claimed)
 	}
+	if notifications != 2 {
+		t.Fatalf("successful Display claim notifications = %d, want 2", notifications)
+	}
 	if _, claimErr := service.ClaimEnrollment(t.Context(), administrator, ClaimInput{
 		Code: issued.Code, Name: "Reused", CommandID: "reuse-stage-right-code",
 	}); !errors.Is(claimErr, ErrEnrollmentUnavailable) {
 		t.Errorf("reused Display code error = %v", claimErr)
+	}
+	if notifications != 2 {
+		t.Fatalf("rejected Display reuse notifications = %d, want 2", notifications)
 	}
 	clockStep = 100 * time.Millisecond
 	currentStarted := clock
