@@ -45,6 +45,7 @@ import (
 	"github.com/dotwaffle/beamers/gen/beamers/rundown/v1/rundownv1connect"
 	sessionv1 "github.com/dotwaffle/beamers/gen/beamers/session/v1"
 	"github.com/dotwaffle/beamers/gen/beamers/session/v1/sessionv1connect"
+	"github.com/dotwaffle/beamers/internal/publictime"
 	"github.com/dotwaffle/beamers/internal/store/storetest"
 )
 
@@ -3880,9 +3881,9 @@ func TestPublicScheduleEncodesFiltersAndLocalTimeInURL(t *testing.T) {
 		`<option value="1" selected>General</option>`,
 		`value="America/New_York"`,
 		"Attendee-local conversion: America/New_York. Program days remain grouped in Event time.",
-		"Event Time (CEST +02:00): Forecast Start 21 Aug 2099 10:00 CEST",
+		"Event Time (CEST +02:00): Forecast Start 2099-08-21 10:00 CEST",
 		"Attendee-local time (EDT -04:00): Forecast Start",
-		`datetime="2099-08-21T04:00:00-04:00">21 Aug 2099 04:00 EDT`,
+		`datetime="2099-08-21T04:00:00-04:00">2099-08-21 04:00 EDT`,
 		fmt.Sprintf(`/events/beamconf-2099/schedule/sessions/%d?time_zone=America%%2FNew_York`, publicSessionID),
 		`hx-get="/events/beamconf-2099/schedule?day=2099-08-21&amp;lane=1&amp;location=1&amp;time_zone=America%2FNew_York&amp;track=1"`,
 	} {
@@ -7495,7 +7496,7 @@ func TestProducerReinstatesCanceledLiveSessionFromPlacementPreview(t *testing.T)
 			string(body),
 			proposedStart.
 				In(time.FixedZone("CEST", 2*60*60)).
-				Format("02 Jan 2006 15:04 MST"),
+				Format(publictime.DateTimeLayout),
 		) {
 		t.Fatalf("reinstated public Session = %d %q", public.StatusCode, body)
 	}

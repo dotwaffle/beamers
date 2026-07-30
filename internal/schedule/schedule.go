@@ -11,7 +11,6 @@ import (
 	"slices"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/dotwaffle/beamers/internal/events"
@@ -292,14 +291,13 @@ func (service *Service) snapshot(ctx context.Context, upcomingOnly bool, filter 
 		displayStart := presentation.Start.Time.In(displayZone)
 		var was *TimePoint
 		if presentation.Was != nil &&
-			formatEventTime(presentation.Start.Time.In(displayZone), state.EventLocale) !=
-				formatEventTime(presentation.Was.Time.In(displayZone), state.EventLocale) {
+			formatEventTime(presentation.Start.Time.In(displayZone)) !=
+				formatEventTime(presentation.Was.Time.In(displayZone)) {
 			projected := projectedTimePoint(
 				string(presentation.Was.Label),
 				presentation.Was.Time,
 				displayZone,
 				zone,
-				state.EventLocale,
 			)
 			was = &projected
 		}
@@ -309,14 +307,12 @@ func (service *Service) snapshot(ctx context.Context, upcomingOnly bool, filter 
 			presentation.Start.Time,
 			displayZone,
 			zone,
-			state.EventLocale,
 		)
 		presentedEnd := projectedTimePoint(
 			string(presentation.End.Label),
 			presentation.End.Time,
 			displayZone,
 			zone,
-			state.EventLocale,
 		)
 		timePresentation := TimePresentation{Start: presentedStart, End: presentedEnd}
 		timePresentation.ViewerLocal = result.ViewerLocal
@@ -414,11 +410,15 @@ func sortScheduleSessions(sessions []store.PublicScheduleSession) {
 	})
 }
 
-func formatEventTime(value time.Time, locale string) string {
-	if strings.HasPrefix(strings.ToLower(locale), "en-us") {
-		return value.Format("Jan 2, 2006 3:04 PM MST")
-	}
-	return value.Format("02 Jan 2006 15:04 MST")
+// formatEventTime renders an instant identically whatever the Event locale.
+//
+// The format used to follow the locale, which put a US Event on a 12-hour clock
+// and a month-first date. An ISO 8601 date with a 24-hour clock cannot be
+// misread in either direction, which matters most for an attendee reading a
+// Schedule for a venue in another country. Language still follows the locale
+// everywhere else on the page.
+func formatEventTime(value time.Time) string {
+	return value.Format(publictime.DateTimeLayout)
 }
 
 // Find returns one public Session by stable identity.
@@ -781,12 +781,11 @@ func projectedTimePoint(
 	value time.Time,
 	displayZone *time.Location,
 	eventZone *time.Location,
-	locale string,
 ) TimePoint {
 	return TimePoint{
 		Label: label, Datetime: value.In(displayZone).Format(time.RFC3339),
-		Display: formatEventTime(value.In(displayZone), locale),
-		Event:   formatEventTime(value.In(eventZone), locale),
+		Display: formatEventTime(value.In(displayZone)),
+		Event:   formatEventTime(value.In(eventZone)),
 	}
 }
 

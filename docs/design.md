@@ -671,7 +671,9 @@ Accessibility is inherent to every Theme rather than supplied by an overlay or s
 
 Version one user-interface copy is English.
 Content accepts Unicode and carries Event Locale and optional Content Language metadata.
-Dates, numbers, and public metadata follow Event Locale while stored instants remain timezone-safe.
+Public dates use ISO 8601 calendar-date order (`YYYY-MM-DD`) and public times use a 24-hour clock regardless of Event Locale.
+Attendee-facing timestamps include the Event time zone where it matters; venue Displays may omit it because their Event zone is implicit.
+Numbers and other public metadata follow Event Locale while stored instants remain timezone-safe.
 
 ### Release verification
 

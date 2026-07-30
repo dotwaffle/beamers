@@ -15,7 +15,8 @@ _Avoid_: Hard Boundary
 It defaults to midnight; a nonexistent boundary uses the first valid instant after the jump, while a repeated boundary uses its later occurrence.
 _Avoid_: Event timezone, Hard Boundary
 
-**Event Locale**: The Event's default language tag and regional formatting conventions for public content, dates, numbers, and document metadata.
+**Event Locale**: The Event's default language tag and regional formatting conventions for public content, numbers, and document metadata.
+Public dates and times instead use Beamers' locale-independent calendar-date order and 24-hour clock.
 _Avoid_: Event timezone, translated content
 
 **Content Language**: An optional language tag for Event content that differs from the Event Locale.

@@ -63,7 +63,7 @@ func TestRenderPublicationKeepsHTMLTextAndJSONOnOneModel(t *testing.T) {
 		`<body data-reduced-effects="false">`,
 		`class="skip-link" href="#main-content"`,
 		`<main id="main-content" tabindex="-1">`,
-		`<time datetime="2026-08-21T14:00:00Z">21 Aug 2026, 14:00 UTC</time>`,
+		`<time datetime="2026-08-21T14:00:00Z">2026-08-21 14:00 UTC</time>`,
 		`href="/events/demo-dance/schedule"`,
 	} {
 		if !strings.Contains(rendered.HTML, want) {
@@ -90,7 +90,7 @@ func TestRenderPublicationKeepsHTMLTextAndJSONOnOneModel(t *testing.T) {
 	}
 	if !strings.Contains(
 		rendered.HTML,
-		`<time datetime="2026-08-21T14:00:00Z">Aug 21, 2026, 2:00 PM UTC</time>`,
+		`<time datetime="2026-08-21T14:00:00Z">2026-08-21 14:00 UTC</time>`,
 	) {
 		t.Fatalf("en-US Results time missing: %s", rendered.HTML)
 	}
