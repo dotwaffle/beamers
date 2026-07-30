@@ -735,9 +735,6 @@ func (application *application) buildHandler(
 	registerResultsFrontendRoutes(
 		mux,
 		installation.Authentication(),
-		installation.Events(),
-		installation.RundownQueries(),
-		installation.Competition(),
 		installation.Results(),
 		application.config.Logger,
 	)

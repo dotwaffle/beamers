@@ -35,19 +35,13 @@ import (
 const maxResultsRPCBodyBytes = 128 << 10
 
 type backstageResultsHandlers struct {
-	browser     frontendHandlers
-	events      *events.Service
-	rundown     *rundown.Queries
-	competition *competition.Service
-	results     *results.Service
+	browser frontendHandlers
+	results *results.Service
 }
 
 func registerResultsFrontendRoutes(
 	mux *routeMux,
 	authentication *auth.Service,
-	eventService *events.Service,
-	rundownQueries *rundown.Queries,
-	competitionService *competition.Service,
 	resultsService *results.Service,
 	logger *slog.Logger,
 ) {
@@ -57,8 +51,7 @@ func registerResultsFrontendRoutes(
 			logger:         logger,
 			random:         rand.Reader,
 		},
-		events: eventService, rundown: rundownQueries,
-		competition: competitionService, results: resultsService,
+		results: resultsService,
 	}
 	route := backstagePageRoute()
 	route.maxBodyBytes = maxResultsRPCBodyBytes
@@ -950,100 +943,31 @@ func (handlers backstageResultsHandlers) renderPage(
 	status int,
 	formErrors frontend.FormErrors,
 ) {
-	event, err := handlers.events.CrewEvent(request.Context(), actor, eventID)
+	workspace, err := handlers.results.Workspace(request.Context(), actor, eventID)
 	if err != nil {
-		handlers.browser.frontendError(response, request, "read Results Event", err)
+		handlers.browser.frontendError(response, request, "read Results Workspace", err)
 		return
 	}
-	crewRundown, err := handlers.rundown.CrewRundown(request.Context(), actor, eventID)
-	if err != nil {
-		handlers.browser.frontendError(response, request, "read Results Rundown", err)
-		return
-	}
-	competitions := make([]frontend.ResultsCompetitionPage, 0)
-	prizegivings := make([]frontend.ResultsPrizegivingPage, 0)
-	assignments := make(map[int]int)
-	for _, session := range crewRundown.Sessions {
-		switch session.Type {
-		case rundown.SessionCompetition:
-			state, stateErr := handlers.competition.Get(
-				request.Context(), actor, eventID, session.ID,
-			)
-			if stateErr != nil {
-				handlers.browser.frontendError(response, request, "read Results Competition", stateErr)
-				return
-			}
-			draft, draftErr := handlers.results.Get(
-				request.Context(), actor, eventID, session.ID,
-			)
-			if draftErr != nil {
-				handlers.browser.frontendError(response, request, "read Results Draft", draftErr)
-				return
-			}
-			competitions = append(competitions, resultsCompetitionPage(session, state, draft))
-		case rundown.SessionCeremony:
-			plan, planErr := handlers.results.GetPrizegivingPlan(
-				request.Context(), actor, eventID, session.ID,
-			)
-			if errors.Is(planErr, results.ErrPrizegivingSession) {
-				prizegivings = append(prizegivings, frontend.ResultsPrizegivingPage{
-					Session: session,
-				})
-				continue
-			}
-			if planErr != nil {
-				handlers.browser.frontendError(response, request, "read Prizegiving plan", planErr)
-				return
-			}
-			if plan.Template.Revision == 0 {
-				plan.Template = results.DefaultResultsTextTemplate()
-			}
-			var preview *results.PrizegivingPreview
-			if request.URL.Query().Get("ceremony_id") == strconv.Itoa(session.ID) {
-				mode := results.PrizegivingPreviewMode(request.URL.Query().Get("preview"))
-				if mode != "" {
-					value, previewErr := handlers.results.PreviewPrizegiving(
-						request.Context(), actor, eventID, session.ID, mode,
-					)
-					if previewErr != nil {
-						var message string
-						status, message = backstageResultsError(previewErr)
-						formErrors = frontend.FormErrors{{Message: message}}
-					} else {
-						preview = &value
-					}
-				}
-			}
-			for _, competitionID := range plan.CompetitionSessionIDs {
-				assignments[competitionID] = session.ID
-			}
-			prizegivings = append(prizegivings, frontend.ResultsPrizegivingPage{
-				Session: session, Designated: true, Plan: plan, Preview: preview,
-			})
-		default:
+	competitions, prizegivings := resultsWorkspacePage(workspace)
+	for index := range prizegivings {
+		if request.URL.Query().Get("ceremony_id") !=
+			strconv.Itoa(prizegivings[index].Session.ID) {
 			continue
 		}
-	}
-	for index := range competitions {
-		competitions[index].AssignedPrizegivingID =
-			assignments[competitions[index].Session.ID]
-		correction, correctionErr := handlers.correctionPage(
-			request,
-			actor,
-			eventID,
-			results.PublicationScopeStandalone,
-			competitions[index].Session.ID,
-		)
-		if correctionErr != nil {
-			handlers.browser.frontendError(response, request, "read Results Correction", correctionErr)
-			return
+		mode := results.PrizegivingPreviewMode(request.URL.Query().Get("preview"))
+		if mode == "" {
+			continue
 		}
-		competitions[index].Correction = correction
-	}
-	eventAwards, err := handlers.results.GetEventAwards(request.Context(), actor, eventID)
-	if err != nil {
-		handlers.browser.frontendError(response, request, "read Event Awards", err)
-		return
+		value, previewErr := handlers.results.PreviewPrizegiving(
+			request.Context(), actor, eventID, prizegivings[index].Session.ID, mode,
+		)
+		if previewErr != nil {
+			var message string
+			status, message = backstageResultsError(previewErr)
+			formErrors = frontend.FormErrors{{Message: message}}
+		} else {
+			prizegivings[index].Preview = &value
+		}
 	}
 	var eventAwardsPreflight *results.StandaloneEventAwardsPreflight
 	if actor.CanProduceEvent(eventID) &&
@@ -1068,95 +992,71 @@ func (handlers backstageResultsHandlers) renderPage(
 		AccountName: actor.Name, CSRFToken: csrfToken,
 		ReducedEffects: reducedEffectsCookie(request),
 		Navigation:     backstageNavigation(actor, request.URL.Path),
-		CommandID:      commandID, Event: event,
+		CommandID:      commandID,
+		Event: events.Event{
+			ID: workspace.Event.ID, Name: workspace.Event.Name,
+			EventLocale: workspace.Event.EventLocale,
+		},
 		CanManage:    actor.HasCapability(eventID, viewer.ManageResults),
 		Producer:     actor.CanProduceEvent(eventID),
 		Competitions: competitions, Prizegivings: prizegivings,
 		SubmittedAction: request.Form.Get("action"), Form: request.Form, Errors: formErrors,
-		EventAwards: eventAwards, EventAwardsPreflight: eventAwardsPreflight,
+		EventAwards: workspace.EventAwards, EventAwardsPreflight: eventAwardsPreflight,
 	}))
 }
 
-func (handlers backstageResultsHandlers) correctionPage(
-	request *http.Request,
-	actor auth.Account,
-	eventID int,
-	scope results.PublicationScope,
-	scopeSessionID int,
-) (*frontend.ResultsCorrectionPage, error) {
-	history, err := handlers.results.GetCorrectionHistory(
-		request.Context(), actor, eventID, scope, scopeSessionID,
+func resultsWorkspacePage(
+	workspace results.Workspace,
+) ([]frontend.ResultsCompetitionPage, []frontend.ResultsPrizegivingPage) {
+	competitions := make(
+		[]frontend.ResultsCompetitionPage,
+		0,
+		len(workspace.Competitions),
 	)
-	if err != nil {
-		return nil, err
-	}
-	if len(history.Publications) == 0 {
-		return nil, nil
-	}
-	latest := history.Publications[0]
-	for _, publication := range history.Publications[1:] {
-		if publication.Revision > latest.Revision {
-			latest = publication
+	for _, found := range workspace.Competitions {
+		entries := make([]frontend.ResultsEntryPage, 0, len(found.Entries))
+		for _, entry := range found.Entries {
+			entries = append(entries, frontend.ResultsEntryPage{
+				Entry: competition.Entry{
+					ID: entry.ID, Name: entry.Name,
+				},
+				Standing: entry.Standing,
+			})
 		}
-	}
-	current, err := handlers.results.GetCorrection(
-		request.Context(), actor, eventID, scope, scopeSessionID,
-	)
-	if err != nil {
-		return nil, err
-	}
-	correctedJSON := latest.JSON
-	if current.Revision > 0 &&
-		(current.Status == results.CorrectionDraft ||
-			current.Status == results.CorrectionReady) {
-		var model results.PublicResultsPublication
-		if unmarshalErr := json.Unmarshal([]byte(latest.JSON), &model); unmarshalErr != nil {
-			return nil, unmarshalErr
-		}
-		model.Items = current.Proposal.Items
-		encoded, marshalErr := json.MarshalIndent(model, "", "  ")
-		if marshalErr != nil {
-			return nil, marshalErr
-		}
-		correctedJSON = string(encoded)
-	}
-	return &frontend.ResultsCorrectionPage{
-		Scope: scope, ScopeSessionID: scopeSessionID,
-		Current: current, PublicationRevision: latest.Revision,
-		CorrectedResultsJSON:    correctedJSON,
-		PublicationHistoryCount: len(history.Publications),
-	}, nil
-}
-
-func resultsCompetitionPage(
-	session rundown.CrewSession,
-	state competition.State,
-	draft results.Draft,
-) frontend.ResultsCompetitionPage {
-	standings := make(map[int]results.Standing, len(draft.Standings))
-	for _, standing := range draft.Standings {
-		standings[standing.EntryID] = standing
-	}
-	entries := make([]frontend.ResultsEntryPage, 0, len(state.Entries))
-	for _, entry := range state.Entries {
-		if entry.Disposition != competition.DispositionIncluded ||
-			entry.ResultDisposition != "Eligible" {
-			continue
-		}
-		standing, ok := standings[entry.ID]
-		if !ok {
-			standing = results.Standing{
-				EntryID: entry.ID, Standing: results.Unplaced,
-				DisplayOrder: len(entries) + 1,
+		var correction *frontend.ResultsCorrectionPage
+		if found.Correction != nil {
+			correction = &frontend.ResultsCorrectionPage{
+				Scope:                   found.Correction.Scope,
+				ScopeSessionID:          found.Correction.ScopeSessionID,
+				Current:                 found.Correction.Current,
+				PublicationRevision:     found.Correction.PublicationRevision,
+				CorrectedResultsJSON:    found.Correction.CorrectedResultsJSON,
+				PublicationHistoryCount: found.Correction.PublicationHistoryCount,
 			}
 		}
-		entries = append(entries, frontend.ResultsEntryPage{
-			Entry: entry, Standing: standing,
+		competitions = append(competitions, frontend.ResultsCompetitionPage{
+			Session: rundown.CrewSession{
+				ID: found.Session.ID, Title: found.Session.Title,
+			},
+			Draft: found.Draft, Entries: entries,
+			AssignedPrizegivingID: found.AssignedPrizegivingID,
+			Correction:            correction,
 		})
 	}
-	return frontend.ResultsCompetitionPage{
-		Session: session, Draft: draft, Entries: entries,
+	prizegivings := make(
+		[]frontend.ResultsPrizegivingPage,
+		0,
+		len(workspace.Prizegivings),
+	)
+	for _, found := range workspace.Prizegivings {
+		prizegivings = append(prizegivings, frontend.ResultsPrizegivingPage{
+			Session: rundown.CrewSession{
+				ID: found.Session.ID, Title: found.Session.Title,
+			},
+			Designated: found.Designated, Plan: found.Plan,
+		})
 	}
+	return competitions, prizegivings
 }
 
 func backstageResultsError(err error) (int, string) {
