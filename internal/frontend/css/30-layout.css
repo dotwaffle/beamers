@@ -214,8 +214,30 @@ nav form:first-of-type {
     top: var(--space-4);
   }
 
-  .backstage-breadcrumbs,
+  /* Place both column-two children explicitly.
+   *
+   * The sidebar is the tallest thing in row one, so a breadcrumb strip sharing
+   * that row stretched to the sidebar's full height and pushed main into row
+   * two -- below the entire sidebar, leaving a screen-high empty gap above the
+   * page heading. Spanning the sidebar across both rows lets row one size to
+   * the breadcrumbs instead.
+   */
+  .backstage-layout {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .backstage-sidebar {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+  }
+
+  .backstage-breadcrumbs {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
   .backstage-layout main {
     grid-column: 2;
+    grid-row: 2;
   }
 }
