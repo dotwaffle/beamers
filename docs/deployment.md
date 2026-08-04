@@ -151,14 +151,25 @@ A missing or damaged database makes `serve` enter its documented local recovery 
 It sends `SIGTERM` to the Beamers process and gives it the 30-second budget configured with `--shutdown-timeout`, with `TimeoutStopSec=35s` as the platform kill deadline that budget must fit inside.
 `MemoryMax=4G` leaves half of the [reference hardware](capacity.md)'s 8 GB for the OS, Litestream, and other host processes while still covering the rated capacity envelope; a unit that exceeds it is killed rather than pushing the host into swap or OOM-killing something else.
 
-Because the unit carries no readiness awareness of its own, add an external watchdog that polls `/readyz` and restarts the service on sustained failure, for example a companion timer unit running:
+Because the unit carries no readiness awareness of its own, add an external watchdog that polls `/readyz` on a companion timer unit and pages an Administrator on sustained failure, rather than restarting blindly:
 
 ```sh
-curl --fail --silent --show-error --max-time 2 \
-  https://127.0.0.1:8443/readyz \
-  || systemctl restart beamers.service
+#!/bin/sh
+# beamers-watchdog.sh, invoked by a companion .timer unit.
+systemctl is-active --quiet beamers.service || exit 0
+curl --fail --silent --show-error --insecure --max-time 2 \
+  https://127.0.0.1:8443/readyz && exit 0
+STATE=/run/beamers-watchdog.count
+COUNT=$(( $(cat "$STATE" 2>/dev/null || echo 0) + 1 ))
+echo "$COUNT" >"$STATE"
+[ "$COUNT" -ge 3 ] || exit 0
+echo 0 >"$STATE"
+logger -t beamers-watchdog "readiness failed 3 consecutive checks; check for recovery mode before restarting"
 ```
 
+The `systemctl is-active` guard keeps the watchdog from fighting an Administrator's intentional `systemctl stop beamers.service`, for example during the offline restore below.
+The consecutive-failure counter keeps one slow probe from restarting a healthy process.
+Recovery mode itself fails `/readyz` by design and a restart does not clear it, since the underlying database is still missing or damaged; alert an Administrator to diagnose and restore instead of looping `systemctl restart` against it.
 Beamers does not implement `sd_notify` watchdog pings; systemd's own `Restart=on-failure` only reacts to the process exiting, not to a running-but-unready process.
 
 ## Run with Docker Compose
@@ -198,7 +209,8 @@ Compose uses an exec-form entrypoint, leaves Beamers as PID 1, sends `SIGTERM`, 
 `mem_limit: 4G` matches the systemd profile's bound: half of the [reference hardware](capacity.md)'s 8 GB, leaving headroom for the host while covering the rated capacity envelope.
 
 Compose's `healthcheck` only affects `docker compose up --wait` and `docker ps` status; Compose does not restart a container that is running but reports unhealthy.
-An installation that stops passing `/readyz` while the process keeps running needs an external watchdog (a host-level `docker inspect --format '{{.State.Health.Status}}'` poll, or a systemd unit wrapping Compose) to force a restart; do not assume `restart: unless-stopped` alone covers this case, since it only restarts a container that has exited.
+An installation that stops passing `/readyz` while the process keeps running needs an external watchdog (a host-level `docker inspect --format '{{.State.Health.Status}}'` poll, or a systemd unit wrapping Compose) to notice and act; do not assume `restart: unless-stopped` alone covers this case, since it only restarts a container that has exited.
+Apply the same care as the systemd watchdog below: require several consecutive unhealthy checks before restarting, and recognize that recovery mode reports unhealthy by design and needs an Administrator to restore, not a repeated `docker compose restart`.
 
 ### Recover a Docker deployment locally
 
