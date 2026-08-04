@@ -140,21 +140,21 @@ func (service *Service) Activate(
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[ActiveEvent], error) {
 			if !actor.Administrator {
-				return activationRejection("administrator_required", ErrAdministratorRequired), nil
+				return activationRejection(ErrAdministratorRequired), nil
 			}
 			state, loadErr := transaction.LoadActivationPreflight(actor.Context(ctx), input.EventID)
 			if errors.Is(loadErr, ErrEventNotFound) {
-				return activationRejection("event_not_found", ErrEventNotFound), nil
+				return activationRejection(ErrEventNotFound), nil
 			}
 			if loadErr != nil {
 				return command.Execution[ActiveEvent]{}, loadErr
 			}
 			preflight := formPreflight(state, identity.Now)
 			if len(preflight.Blockers) > 0 {
-				return activationRejection("preflight_blocked", ErrPreflightBlocked), nil
+				return activationRejection(ErrPreflightBlocked), nil
 			}
 			if input.Confirmation != preflight.Confirmation {
-				return activationRejection("stale_preflight", ErrStalePreflight), nil
+				return activationRejection(ErrStalePreflight), nil
 			}
 			stored, activateErr := transaction.ActivateEvent(
 				actor.Context(ctx), input.EventID,
@@ -162,7 +162,7 @@ func (service *Service) Activate(
 				input.Confirmation.ActivationGeneration,
 			)
 			if errors.Is(activateErr, store.ErrActivationRevisionConflict) {
-				return activationRejection("stale_preflight", ErrStalePreflight), nil
+				return activationRejection(ErrStalePreflight), nil
 			}
 			if activateErr != nil {
 				return command.Execution[ActiveEvent]{}, activateErr
@@ -198,10 +198,24 @@ func (service *Service) ActiveEvent(ctx context.Context, actor auth.Account) (Ac
 	return ActiveEvent{EventID: found.EventID, Generation: found.Generation}, nil
 }
 
-func activationRejection(code string, reason error) command.Execution[ActiveEvent] {
-	return command.Reject(
-		ActiveEvent{}, store.CommandRejection{Code: code, Message: reason.Error()}, reason,
-	)
+// activationRejections is the single source for Activation rejection codes in
+// both directions.
+var activationRejections = command.RejectionTable{
+	Rejections: []command.Rejection{
+		{Err: ErrAdministratorRequired, Code: "administrator_required"},
+		{Err: ErrPreflightBlocked, Code: "preflight_blocked"},
+		{Err: ErrStalePreflight, Code: "stale_preflight"},
+		{Err: ErrEventNotFound, Code: "event_not_found"},
+	},
+	RecordMessage: true,
+}
+
+func activationRejection(reason error) command.Execution[ActiveEvent] {
+	rejection, known := activationRejections.Rejection(reason)
+	if !known {
+		rejection = store.CommandRejection{Code: "unavailable", Message: reason.Error()}
+	}
+	return command.Reject(ActiveEvent{}, rejection, reason)
 }
 
 func formPreflight(state store.ActivationPreflightState, now time.Time) Preflight {
@@ -398,20 +412,5 @@ func eventCalendarDate(now time.Time, timezone string) time.Time {
 }
 
 func activationError(err error) error {
-	var rejected *store.RejectedCommandError
-	if !errors.As(err, &rejected) {
-		return err
-	}
-	switch rejected.Rejection.Code {
-	case "administrator_required":
-		return ErrAdministratorRequired
-	case "preflight_blocked":
-		return ErrPreflightBlocked
-	case "stale_preflight":
-		return ErrStalePreflight
-	case "event_not_found":
-		return ErrEventNotFound
-	default:
-		return err
-	}
+	return activationRejections.Restore(err)
 }
