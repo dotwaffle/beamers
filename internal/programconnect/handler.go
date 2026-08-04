@@ -272,15 +272,25 @@ func (handler *Handler) channel(
 			status.ProgramChannelID != state.Channel.SessionID {
 			continue
 		}
-		delivery := status.DeliveryState
-		if delivery != "applied" && delivery != "offline" {
-			delivery = "lagging"
-		}
 		result.ConsumingDisplays = append(result.ConsumingDisplays, &programv1.ConsumingDisplay{
-			DisplayId: int64(status.ID), Name: status.Name, DeliveryState: delivery,
+			DisplayId: int64(status.ID), Name: status.Name,
+			DeliveryState: consumingDeliveryState(status.DeliveryState),
 		})
 	}
 	return result, nil
+}
+
+// consumingDeliveryState narrows a Display's delivery state to the three cases
+// a Program Channel operator can act on: the Display is presenting current
+// output, it is gone, or it is behind for some reason the operator cannot tell
+// apart from the Program Channel.
+func consumingDeliveryState(state string) string {
+	switch state {
+	case displays.DeliveryApplied, displays.DeliveryOffline:
+		return state
+	default:
+		return displays.DeliveryLagging
+	}
 }
 
 func controlAction(value programv1.ControlAction) programcontrol.ControlAction {
