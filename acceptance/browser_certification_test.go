@@ -849,6 +849,7 @@ func TestBrowserCertification(t *testing.T) {
 		crewDriver,
 		origin+"/events/beamconf-2099/schedule",
 		320,
+		768,
 		1440,
 	)
 	assertResponsivePageWidths(
@@ -860,6 +861,7 @@ func TestBrowserCertification(t *testing.T) {
 	)
 	assertResponsivePageZoom(t, crewDriver, origin+"/events/beamconf-2099/schedule", 1024, 2)
 	assertResponsivePageZoom(t, crewDriver, origin+"/events/beamconf-2099/schedule", 1280, 4)
+	certifyScheduleCardLayout(t, crewDriver, origin)
 	certifyLiveScheduleUpdate(
 		t,
 		crewDriver,
@@ -2660,6 +2662,50 @@ func assertResponsivePageZoom(
 	}
 	if !fits {
 		t.Fatalf("page overflows horizontally at %d pixels and %d%% zoom", width, zoom*100)
+	}
+}
+
+// certifyScheduleCardLayout certifies the public Schedule's card layout
+// (#207): a dedicated tabular-numeral time column, a sticky per Event-day
+// heading, and an explicit grid instead of the former first-paragraph CSS
+// selector hack, at both a narrow (stacked) and a wide (two-column) width.
+func certifyScheduleCardLayout(t *testing.T, driver *webDriver, origin string) {
+	t.Helper()
+	target := origin + "/events/beamconf-2099/schedule"
+	if err := driver.navigate(t.Context(), target); err != nil {
+		t.Fatalf("navigate to Schedule card layout: %v", err)
+	}
+	if err := driver.setWindowSize(t.Context(), 1440); err != nil {
+		t.Fatalf("set desktop Schedule width: %v", err)
+	}
+	wide, err := driver.evaluateBool(
+		t.Context(),
+		`const card = document.querySelector(".schedule-card"); `+
+			`const heading = document.querySelector(".schedule-day-heading"); `+
+			`const time = document.querySelector(".schedule-card-time"); `+
+			`if (!card || !heading || !time) return false; `+
+			`const cardStyle = getComputedStyle(card); `+
+			`const headingStyle = getComputedStyle(heading); `+
+			`const timeStyle = getComputedStyle(time); `+
+			`return cardStyle.display === "grid" && `+
+			`cardStyle.gridTemplateColumns.trim().split(" ").length >= 2 && `+
+			`headingStyle.position === "sticky" && `+
+			`timeStyle.fontVariantNumeric.includes("tabular-nums");`,
+	)
+	if err != nil || !wide {
+		t.Fatalf("certify desktop Schedule card layout = %t, %v", wide, err)
+	}
+	if setErr := driver.setWindowSize(t.Context(), 320); setErr != nil {
+		t.Fatalf("set phone Schedule width: %v", setErr)
+	}
+	narrow, err := driver.evaluateBool(
+		t.Context(),
+		`const card = document.querySelector(".schedule-card"); `+
+			`if (!card) return false; `+
+			`return getComputedStyle(card).gridTemplateColumns.trim().split(" ").length === 1;`,
+	)
+	if err != nil || !narrow {
+		t.Fatalf("certify phone Schedule card layout = %t, %v", narrow, err)
 	}
 }
 

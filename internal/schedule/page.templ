@@ -73,19 +73,16 @@ templ Page(snapshot Snapshot) {
 					<button id="schedule-apply" type="submit">Apply filters</button>
 				</form>
 				for _, day := range snapshot.Days {
-					<section>
-						<h2>Program day { day.Date }</h2>
-						for _, session := range day.Sessions {
-							if session.CalendarDateRollover {
-								<p class="calendar-date-rollover">Local calendar date: { session.LocalDate }</p>
+					<section class="schedule-day">
+						<h2 class="schedule-day-heading">Program day { day.Date }</h2>
+						<div class="schedule-cards">
+							for _, session := range day.Sessions {
+								if session.CalendarDateRollover {
+									<p class="calendar-date-rollover">Local calendar date: { session.LocalDate }</p>
+								}
+								@ScheduleCard(snapshot, session)
 							}
-							<article id={ fmt.Sprintf("schedule-session-card-%d", session.ID) }>
-								<h3><a id={ fmt.Sprintf("schedule-session-%d", session.ID) } data-lifecycle={ session.Lifecycle } href={ session.PathWithTimezone(snapshot.ViewerTimezone) }>{ session.Title }</a></h3>
-								@SessionLifecycleBadge(session)
-								@SessionDetails(session)
-								@FavoriteControl(snapshot, session, snapshot.ViewPath())
-							</article>
-						}
+						</div>
 					</section>
 				}
 				if snapshot.MySchedule && len(snapshot.Sessions) == 0 {
@@ -304,6 +301,88 @@ templ SessionLifecycleBadge(session Session) {
 	if session.Lifecycle == "Live" || session.Lifecycle == "Canceled" {
 		<span class="lifecycle-badge" data-lifecycle={ session.Lifecycle }>{ session.Lifecycle }</span>
 	}
+}
+
+// ScheduleCard is one Schedule list entry: a dedicated tabular-numeral time
+// column beside the Session's identity and details, replacing the former
+// stack of "Label: value" paragraphs laid out through a first-paragraph CSS
+// selector hack.
+templ ScheduleCard(snapshot Snapshot, session Session) {
+	<article
+		id={ fmt.Sprintf("schedule-session-card-%d", session.ID) }
+		class="schedule-card"
+		data-lifecycle={ session.Lifecycle }
+	>
+		@ScheduleCardTime(session.Time)
+		<div class="schedule-card-body">
+			<h3>
+				<a
+					id={ fmt.Sprintf("schedule-session-%d", session.ID) }
+					data-lifecycle={ session.Lifecycle }
+					href={ session.PathWithTimezone(snapshot.ViewerTimezone) }
+				>{ session.Title }</a>
+			</h3>
+			@SessionLifecycleBadge(session)
+			if session.Speaker != "" {
+				<p>{ session.Speaker }</p>
+			}
+			if session.PublicDetails != "" {
+				<p>{ session.PublicDetails }</p>
+			}
+			if session.Lifecycle == "Canceled" {
+				if session.CancellationMessage != "" {
+					<p>{ session.CancellationMessage }</p>
+				} else {
+					<p>Canceled.</p>
+				}
+			}
+			if session.Was != nil {
+				<p class="schedule-card-was">Was: <time datetime={ session.Was.Datetime }>{ session.Was.Clock }</time></p>
+			}
+			if len(session.Locations) > 0 || len(session.Lanes) > 0 || len(session.Tracks) > 0 {
+				<p class="schedule-card-meta">
+					for index, location := range session.Locations {
+						if index > 0 {
+							{ ", " }
+						}
+						{ location }
+					}
+					for _, lane := range session.Lanes {
+						{ " · " }{ lane }
+					}
+					for _, track := range session.Tracks {
+						{ " · " }{ track }
+					}
+				</p>
+			}
+			@FavoriteControl(snapshot, session, snapshot.ViewPath())
+		</div>
+	</article>
+}
+
+// ScheduleCardTime is the Schedule card's dedicated time column: a compact
+// tabular-numeral clock range, with a second compact line for the other
+// zone rather than a full "Event Time (...): ..." sentence. A Live Session
+// presents a normalized Actual Start beside a Forecast End
+// (publictime.Live), so the Forecast/Actual distinction stays visible
+// whenever the two endpoints differ, and shows once when they agree.
+templ ScheduleCardTime(presentation TimePresentation) {
+	<div class="schedule-card-time">
+		<p class="schedule-card-time-range">
+			<span class="schedule-card-time-kind">{ timeKind(presentation.Start.Label) }</span>
+			<time datetime={ presentation.Start.Datetime }>{ presentation.Start.Clock }</time>–<time datetime={ presentation.End.Datetime }>{ presentation.End.Clock }</time>
+			if timeKind(presentation.End.Label) != timeKind(presentation.Start.Label) {
+				<span class="schedule-card-time-kind">{ timeKind(presentation.End.Label) }</span>
+			}
+		</p>
+		if presentation.ViewerLocal {
+			<p class="schedule-card-time-secondary">
+				{ presentation.EventTimezoneLabel } { presentation.Start.EventClock }–{ presentation.End.EventClock }
+			</p>
+		} else {
+			<p class="schedule-card-time-secondary">{ presentation.TimezoneLabel }</p>
+		}
+	</div>
 }
 
 templ SessionDetails(session Session) {
