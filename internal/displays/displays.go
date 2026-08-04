@@ -247,10 +247,13 @@ type Session struct {
 // on a Timeline View, and Lane is a visual overlap column there, not a
 // Rundown Lane.
 //
-// NowOffset and Gridlines describe the whole Event day rather than this one
-// Session, and so carry the same value on every Session sharing a Day, the
-// same way LaneCount already does. NowOffset is nil when the server time
-// falls outside this Event day.
+// NowOffset, DayStart, DayEnd, and Gridlines describe the whole Event day
+// rather than this one Session, and so carry the same value on every
+// Session sharing a Day, the same way LaneCount already does. NowOffset is
+// nil when the server time falls outside this Event day. DayStart and
+// DayEnd let a Display client re-derive the now-line locally from its
+// synchronized clock between snapshots, rather than freezing it at the
+// offset this snapshot happened to compute.
 type TimelineGeometry struct {
 	Day       string
 	Offset    int
@@ -258,6 +261,8 @@ type TimelineGeometry struct {
 	Lane      int
 	LaneCount int
 	NowOffset *int
+	DayStart  time.Time
+	DayEnd    time.Time
 	Gridlines []TimelineGridline
 }
 

@@ -345,6 +345,54 @@ test("Timeline draws the now-line, hour gridlines, and Live signal-color fill", 
   assert.equal(block.dataset.lifecycle, "Live");
 });
 
+test("Timeline now-line tracks the synchronized clock between snapshots", async () => {
+  const browser = await startBrowser({
+    snapshot: displaySnapshot({
+      // Exactly a quarter into a whole 24h Event day, matching the fixture's
+      // timelineNowOffset below, so the immediate render-time recomputation
+      // (see startRegionUpdates in client.js) reproduces the same value
+      // instead of visibly correcting it.
+      serverTime: "2099-08-21T12:00:00Z",
+      standby: false,
+      viewKey: "timeline",
+      composition: displayComposition({
+        key: "timeline",
+        regions: [
+          {name: "timeline", widget: "timeline", persistent: true},
+        ],
+      }),
+      sessions: [
+        {
+          ...displaySession("Opening Keynote"),
+          lifecycle: "Live",
+          timelineDay: "2099-08-21",
+          timelineOffset: 0,
+          timelineWidth: 5000,
+          timelineLane: 0,
+          timelineLaneCount: 1,
+          timelineNowOffset: 2500,
+          timelineDayStart: "2099-08-21T06:00:00Z",
+          timelineDayEnd: "2099-08-22T06:00:00Z",
+        },
+      ],
+    }),
+  });
+
+  const day = browser.document.main.children[0].children[0].children[0];
+  const timeline = day.children[1];
+  const now = timeline.children.find((child) => child.className === "display-timeline-now");
+  assert.equal(now.style.properties.get("--display-offset"), "2500");
+
+  // 60 one-minute ticks (one simulated hour) with no new snapshot must
+  // still advance the now-line, or it would sit frozen next to a
+  // persistent clock and Stage Timer that keep advancing on the same
+  // Display. One hour of a 24h day is 417 further basis points.
+  for (let minute = 0; minute < 60; minute++) {
+    await browser.runTimer((delay) => delay === 60000);
+  }
+  assert.equal(now.style.properties.get("--display-offset"), "2917");
+});
+
 test("Timeline omits the now-line when the server projected no NowOffset for the Event day", async () => {
   const browser = await startBrowser({
     snapshot: displaySnapshot({
@@ -1472,6 +1520,33 @@ class FakeNode {
 
   append(...children) {
     this.children.push(...children);
+  }
+
+  // querySelectorAll supports only the class-plus-attribute-presence form
+  // client.js actually issues (".display-timeline-now[data-day-start]"),
+  // matched by walking the fake tree rather than a real selector engine.
+  querySelectorAll(selector) {
+    const className = selector.match(/^\.([\w-]+)/)?.[1];
+    const attribute = selector.match(/\[data-([\w-]+)\]/)?.[1];
+    const camelAttribute = attribute?.replace(
+      /-([a-z])/g,
+      (_, letter) => letter.toUpperCase(),
+    );
+    const matches = [];
+    const walk = (node) => {
+      for (const child of node.children) {
+        const classMatches = !className ||
+          (child.className ?? "").split(" ").includes(className);
+        const attributeMatches = !camelAttribute ||
+          child.dataset?.[camelAttribute] !== undefined;
+        if (classMatches && attributeMatches) {
+          matches.push(child);
+        }
+        walk(child);
+      }
+    };
+    walk(this);
+    return matches;
   }
 
   setAttribute(name, value) {

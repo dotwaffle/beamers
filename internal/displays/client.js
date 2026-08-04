@@ -638,7 +638,12 @@ function renderWidget(region, widget, snapshot, theme, candidateClockReference) 
         timeline.style.setProperty("--display-lanes", String(session.timelineLaneCount));
         appendTimelineLaneLabels(timeline, session.timelineLaneCount);
         appendTimelineGridlines(timeline, session.timelineGridlines);
-        appendTimelineNow(timeline, session.timelineNowOffset);
+        appendTimelineNow(
+          timeline,
+          session.timelineNowOffset,
+          session.timelineDayStart,
+          session.timelineDayEnd,
+        );
         day.append(timeline);
         days.append(day);
         timelines.set(session.timelineDay, timeline);
@@ -649,7 +654,7 @@ function renderWidget(region, widget, snapshot, theme, candidateClockReference) 
     if ((snapshot.sessions ?? []).length === 0) {
       appendParagraph(region, "No public Event information is currently scheduled.");
     }
-    return;
+    return startTimelineNowUpdates(region, candidateClockReference);
   }
   case "clock": {
     const clock = document.createElement("time");
@@ -866,7 +871,11 @@ function appendTimelineGridlines(timeline, gridlines) {
 // appendTimelineNow draws the now-line only when the server projected one
 // for this Event day; nowOffset is absent (not zero) when the server time
 // falls outside it, so an absent value must never draw a stray line at 0%.
-function appendTimelineNow(timeline, nowOffset) {
+// The line's position is then kept live from dayStart/dayEnd and the
+// synchronized clock (see updateTimelineNowLines) rather than left frozen
+// at the offset this one snapshot happened to compute, so it never visibly
+// drifts from the persistent clock and Stage Timer on the same Display.
+function appendTimelineNow(timeline, nowOffset, dayStart, dayEnd) {
   if (nowOffset === undefined || nowOffset === null) {
     return;
   }
@@ -874,7 +883,41 @@ function appendTimelineNow(timeline, nowOffset) {
   now.className = "display-timeline-now";
   now.style.setProperty("--display-offset", String(nowOffset));
   now.setAttribute("aria-hidden", "true");
+  const start = Date.parse(dayStart ?? "");
+  const end = Date.parse(dayEnd ?? "");
+  if (Number.isFinite(start) && Number.isFinite(end)) {
+    now.dataset.dayStart = String(start);
+    now.dataset.dayEnd = String(end);
+  }
   timeline.append(now);
+}
+
+// updateTimelineNowLines recomputes every now-line's offset from its Event
+// day bounds and the synchronized clock, so the Timeline keeps advancing
+// between snapshots and while disconnected instead of freezing.
+function updateTimelineNowLines(main, reference) {
+  const now = estimatedServerNow(reference);
+  for (const line of main.querySelectorAll(".display-timeline-now[data-day-start]")) {
+    const fraction = elapsedFraction(
+      Number(line.dataset.dayStart),
+      Number(line.dataset.dayEnd),
+      now,
+    );
+    if (fraction !== null) {
+      line.style.setProperty("--display-offset", String(Math.round(fraction * 10000)));
+    }
+  }
+}
+
+function startTimelineNowUpdates(main, reference) {
+  if (main.querySelectorAll(".display-timeline-now[data-day-start]").length === 0) {
+    return undefined;
+  }
+  const update = () => {
+    updateTimelineNowLines(main, reference);
+    scheduleTrackedUpdate(update, minuteAlignmentDelay(estimatedServerNow(reference)));
+  };
+  return update;
 }
 
 function renderTimelineBlock(snapshot, session) {

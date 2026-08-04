@@ -133,6 +133,8 @@ func projectTimeline(sessions []Session, now time.Time, zone *time.Location, bou
 		}
 		dayDuration := dayEnd.Sub(dayStart)
 		session.Timeline.Day = dayStart.Format(time.DateOnly)
+		session.Timeline.DayStart = dayStart
+		session.Timeline.DayEnd = dayEnd
 		session.Timeline.Offset = timelineBasisPoints(spanStart.Sub(dayStart), dayDuration, 0)
 		session.Timeline.Width = timelineBasisPoints(spanEnd.Sub(spanStart), dayDuration, 1)
 		if session.Timeline.Offset+session.Timeline.Width > 10000 {

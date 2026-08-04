@@ -355,6 +355,8 @@ func sessionMessage(found displays.Session) *displayv1.DisplaySession {
 	if found.Timeline.NowOffset != nil {
 		nowOffset := uint32(*found.Timeline.NowOffset) //nolint:gosec // Projection is bounded to 0..10000.
 		result.TimelineNowOffset = &nowOffset
+		result.TimelineDayStart = timestamppb.New(found.Timeline.DayStart)
+		result.TimelineDayEnd = timestamppb.New(found.Timeline.DayEnd)
 	}
 	for _, gridline := range found.Timeline.Gridlines {
 		result.TimelineGridlines = append(result.TimelineGridlines, &displayv1.DisplayTimelineGridline{

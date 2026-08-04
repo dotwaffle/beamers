@@ -129,6 +129,11 @@ message DisplaySession {
   // it is repeated per Session (as the other Timeline geometry is) so the
   // Timeline widget needs only the Session list to render one day.
   repeated DisplayTimelineGridline timeline_gridlines = 26;
+  // timeline_day_start and timeline_day_end bound this Event day, letting a
+  // Display client re-derive the now-line from its own synchronized clock
+  // between snapshots instead of freezing it at timeline_now_offset.
+  google.protobuf.Timestamp timeline_day_start = 27;
+  google.protobuf.Timestamp timeline_day_end = 28;
 }
 
 message DisplayTimelineGridline {

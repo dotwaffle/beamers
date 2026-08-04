@@ -624,6 +624,17 @@ func TestTimelineProjectionComputesNowLineAndGridlines(t *testing.T) {
 	if sessions[1].Timeline.NowOffset != nil {
 		t.Errorf("second Event day NowOffset = %v, want nil (now falls outside it)", *sessions[1].Timeline.NowOffset)
 	}
+	// DayStart and DayEnd let a Display client re-derive the now-line from
+	// its own synchronized clock between snapshots; Europe/Berlin sits two
+	// hours ahead of UTC in August, so the 06:00 local boundary is 04:00 UTC.
+	wantDayStart := time.Date(2099, 8, 21, 4, 0, 0, 0, time.UTC)
+	wantDayEnd := time.Date(2099, 8, 22, 4, 0, 0, 0, time.UTC)
+	if !sessions[0].Timeline.DayStart.Equal(wantDayStart) || !sessions[0].Timeline.DayEnd.Equal(wantDayEnd) {
+		t.Errorf(
+			"first Event day bounds = [%v, %v), want [%v, %v)",
+			sessions[0].Timeline.DayStart, sessions[0].Timeline.DayEnd, wantDayStart, wantDayEnd,
+		)
+	}
 
 	// The first Event day spans 06:00 to 06:00 local, so its hour gridlines
 	// start at 07:00 and run hourly to 05:00 the next local day.

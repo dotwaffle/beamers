@@ -899,8 +899,13 @@ type DisplaySession struct {
 	// it is repeated per Session (as the other Timeline geometry is) so the
 	// Timeline widget needs only the Session list to render one day.
 	TimelineGridlines []*DisplayTimelineGridline `protobuf:"bytes,26,rep,name=timeline_gridlines,json=timelineGridlines,proto3" json:"timeline_gridlines,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// timeline_day_start and timeline_day_end bound this Event day, letting a
+	// Display client re-derive the now-line from its own synchronized clock
+	// between snapshots instead of freezing it at timeline_now_offset.
+	TimelineDayStart *timestamppb.Timestamp `protobuf:"bytes,27,opt,name=timeline_day_start,json=timelineDayStart,proto3" json:"timeline_day_start,omitempty"`
+	TimelineDayEnd   *timestamppb.Timestamp `protobuf:"bytes,28,opt,name=timeline_day_end,json=timelineDayEnd,proto3" json:"timeline_day_end,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *DisplaySession) Reset() {
@@ -1111,6 +1116,20 @@ func (x *DisplaySession) GetTimelineNowOffset() uint32 {
 func (x *DisplaySession) GetTimelineGridlines() []*DisplayTimelineGridline {
 	if x != nil {
 		return x.TimelineGridlines
+	}
+	return nil
+}
+
+func (x *DisplaySession) GetTimelineDayStart() *timestamppb.Timestamp {
+	if x != nil {
+		return x.TimelineDayStart
+	}
+	return nil
+}
+
+func (x *DisplaySession) GetTimelineDayEnd() *timestamppb.Timestamp {
+	if x != nil {
+		return x.TimelineDayEnd
 	}
 	return nil
 }
@@ -1868,7 +1887,8 @@ const file_beamers_display_v1_display_proto_rawDesc = "" +
 	"live_color\x18\n" +
 	" \x01(\tR\tliveColor\x12!\n" +
 	"\fdanger_color\x18\v \x01(\tR\vdangerColor\x12!\n" +
-	"\fsignal_color\x18\f \x01(\tR\vsignalColor\"\xcc\t\n" +
+	"\fsignal_color\x18\f \x01(\tR\vsignalColor\"\xdc\n" +
+	"\n" +
 	"\x0eDisplaySession\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x18\n" +
@@ -1897,7 +1917,9 @@ const file_beamers_display_v1_display_proto_rawDesc = "" +
 	"\rtimeline_lane\x18\x17 \x01(\rR\ftimelineLane\x12.\n" +
 	"\x13timeline_lane_count\x18\x18 \x01(\rR\x11timelineLaneCount\x123\n" +
 	"\x13timeline_now_offset\x18\x19 \x01(\rH\x00R\x11timelineNowOffset\x88\x01\x01\x12Z\n" +
-	"\x12timeline_gridlines\x18\x1a \x03(\v2+.beamers.display.v1.DisplayTimelineGridlineR\x11timelineGridlinesB\x16\n" +
+	"\x12timeline_gridlines\x18\x1a \x03(\v2+.beamers.display.v1.DisplayTimelineGridlineR\x11timelineGridlines\x12H\n" +
+	"\x12timeline_day_start\x18\x1b \x01(\v2\x1a.google.protobuf.TimestampR\x10timelineDayStart\x12D\n" +
+	"\x10timeline_day_end\x18\x1c \x01(\v2\x1a.google.protobuf.TimestampR\x0etimelineDayEndB\x16\n" +
 	"\x14_timeline_now_offset\"G\n" +
 	"\x17DisplayTimelineGridline\x12\x16\n" +
 	"\x06offset\x18\x01 \x01(\rR\x06offset\x12\x14\n" +
@@ -2041,25 +2063,27 @@ var file_beamers_display_v1_display_proto_depIdxs = []int32{
 	17, // 18: beamers.display.v1.DisplaySession.presented_start:type_name -> google.protobuf.Timestamp
 	17, // 19: beamers.display.v1.DisplaySession.presented_end:type_name -> google.protobuf.Timestamp
 	11, // 20: beamers.display.v1.DisplaySession.timeline_gridlines:type_name -> beamers.display.v1.DisplayTimelineGridline
-	1,  // 21: beamers.display.v1.TimerThreshold.emphasis:type_name -> beamers.display.v1.TimerEmphasis
-	0,  // 22: beamers.display.v1.StageTimer.mode:type_name -> beamers.display.v1.StageTimerMode
-	17, // 23: beamers.display.v1.StageTimer.anchor:type_name -> google.protobuf.Timestamp
-	12, // 24: beamers.display.v1.StageTimer.thresholds:type_name -> beamers.display.v1.TimerThreshold
-	17, // 25: beamers.display.v1.StageTimer.forecast_end:type_name -> google.protobuf.Timestamp
-	17, // 26: beamers.display.v1.StageTimer.adjustment_notice_expires_at:type_name -> google.protobuf.Timestamp
-	17, // 27: beamers.display.v1.StageTimer.span_start:type_name -> google.protobuf.Timestamp
-	17, // 28: beamers.display.v1.StageTimer.span_end:type_name -> google.protobuf.Timestamp
-	16, // 29: beamers.display.v1.AcknowledgeResponse.acknowledgment:type_name -> beamers.display.v1.DisplayAcknowledgment
-	17, // 30: beamers.display.v1.DisplayAcknowledgment.applied_at:type_name -> google.protobuf.Timestamp
-	2,  // 31: beamers.display.v1.DisplayService.GetSnapshot:input_type -> beamers.display.v1.GetSnapshotRequest
-	14, // 32: beamers.display.v1.DisplayService.Acknowledge:input_type -> beamers.display.v1.AcknowledgeRequest
-	3,  // 33: beamers.display.v1.DisplayService.GetSnapshot:output_type -> beamers.display.v1.GetSnapshotResponse
-	15, // 34: beamers.display.v1.DisplayService.Acknowledge:output_type -> beamers.display.v1.AcknowledgeResponse
-	33, // [33:35] is the sub-list for method output_type
-	31, // [31:33] is the sub-list for method input_type
-	31, // [31:31] is the sub-list for extension type_name
-	31, // [31:31] is the sub-list for extension extendee
-	0,  // [0:31] is the sub-list for field type_name
+	17, // 21: beamers.display.v1.DisplaySession.timeline_day_start:type_name -> google.protobuf.Timestamp
+	17, // 22: beamers.display.v1.DisplaySession.timeline_day_end:type_name -> google.protobuf.Timestamp
+	1,  // 23: beamers.display.v1.TimerThreshold.emphasis:type_name -> beamers.display.v1.TimerEmphasis
+	0,  // 24: beamers.display.v1.StageTimer.mode:type_name -> beamers.display.v1.StageTimerMode
+	17, // 25: beamers.display.v1.StageTimer.anchor:type_name -> google.protobuf.Timestamp
+	12, // 26: beamers.display.v1.StageTimer.thresholds:type_name -> beamers.display.v1.TimerThreshold
+	17, // 27: beamers.display.v1.StageTimer.forecast_end:type_name -> google.protobuf.Timestamp
+	17, // 28: beamers.display.v1.StageTimer.adjustment_notice_expires_at:type_name -> google.protobuf.Timestamp
+	17, // 29: beamers.display.v1.StageTimer.span_start:type_name -> google.protobuf.Timestamp
+	17, // 30: beamers.display.v1.StageTimer.span_end:type_name -> google.protobuf.Timestamp
+	16, // 31: beamers.display.v1.AcknowledgeResponse.acknowledgment:type_name -> beamers.display.v1.DisplayAcknowledgment
+	17, // 32: beamers.display.v1.DisplayAcknowledgment.applied_at:type_name -> google.protobuf.Timestamp
+	2,  // 33: beamers.display.v1.DisplayService.GetSnapshot:input_type -> beamers.display.v1.GetSnapshotRequest
+	14, // 34: beamers.display.v1.DisplayService.Acknowledge:input_type -> beamers.display.v1.AcknowledgeRequest
+	3,  // 35: beamers.display.v1.DisplayService.GetSnapshot:output_type -> beamers.display.v1.GetSnapshotResponse
+	15, // 36: beamers.display.v1.DisplayService.Acknowledge:output_type -> beamers.display.v1.AcknowledgeResponse
+	35, // [35:37] is the sub-list for method output_type
+	33, // [33:35] is the sub-list for method input_type
+	33, // [33:33] is the sub-list for extension type_name
+	33, // [33:33] is the sub-list for extension extendee
+	0,  // [0:33] is the sub-list for field type_name
 }
 
 func init() { file_beamers_display_v1_display_proto_init() }
