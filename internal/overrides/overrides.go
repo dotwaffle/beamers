@@ -15,6 +15,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 )
 
 var (
@@ -164,7 +165,9 @@ func New(
 	if now == nil {
 		return nil, errors.New("override clock is required")
 	}
-	nextDegradedID, err := storage.DegradedEmergencyIDFloor(ctx)
+	nextDegradedID, err := storage.DegradedEmergencyIDFloor(
+		systemactor.NewContext(ctx, systemactor.HostMaintenance),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -554,7 +557,8 @@ func execute[T any](
 		PayloadHash: command.PayloadHash(string(encodedPayload)), Action: action,
 		TargetType: targetType, TargetID: targetID, Now: service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[T]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[T]{
 		Storage: service.storage, Identity: identity, Notify: service.notifyDisplays,
 		Authorization: command.Authorization{
 			EventID: eventID, LoadFacts: scope, Refusals: overrideRejections,

@@ -12,12 +12,13 @@ import (
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/backup"
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 	"github.com/dotwaffle/beamers/internal/themes"
 	"github.com/dotwaffle/beamers/internal/themevalue"
 )
 
 func TestOpenInstallationRollsBackInterruptedRestoreBeforeReadiness(t *testing.T) {
-	ctx := t.Context()
+	ctx := systemactor.NewContext(t.Context(), systemactor.HostMaintenance)
 	sourceDataDir := filepath.Join(t.TempDir(), "source")
 	if err := Initialize(ctx, sourceDataDir); err != nil {
 		t.Fatalf("initialize source: %v", err)
@@ -117,7 +118,7 @@ func TestThemeActivationUsesInstallationDisplayNotification(t *testing.T) {
 
 	bootstrapHash := strings.Repeat("b", 64)
 	if err = installation.storage.IssueBootstrap(
-		t.Context(),
+		systemactor.NewContext(t.Context(), systemactor.HostMaintenance),
 		bootstrapHash,
 		now,
 		now.Add(time.Hour),
@@ -125,7 +126,7 @@ func TestThemeActivationUsesInstallationDisplayNotification(t *testing.T) {
 		t.Fatalf("issue bootstrap: %v", err)
 	}
 	account, err := installation.storage.BootstrapAdministrator(
-		t.Context(),
+		systemactor.NewContext(t.Context(), systemactor.HostMaintenance),
 		store.BootstrapAdministratorParams{
 			BootstrapHash: bootstrapHash, Name: "Administrator",
 			NormalizedName: "administrator", PasswordHash: "test-password-hash",

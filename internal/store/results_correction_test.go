@@ -17,7 +17,7 @@ func TestResultsCorrectionLifecycleIsAppendOnlyAndReviewBound(t *testing.T) {
 		"Ceremony",
 		"Prizegiving",
 	)
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	now := time.Date(2026, 8, 21, 16, 0, 0, 0, time.UTC)
 	params := AppendResultsCorrectionParams{
 		EventID: event.ID, Scope: ResultsPublicationPrizegiving,

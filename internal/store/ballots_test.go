@@ -14,7 +14,7 @@ import (
 func TestCompetitionBallotPresentationPrivacyEditsAndFreeze(t *testing.T) {
 	client := openEntTestClient(t)
 	storage := &SQLite{client: client}
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	now := time.Date(2026, time.August, 21, 12, 0, 0, 0, time.UTC)
 	foundEvent := createSchemaTestEvent(t, client)
 	client.Installation.Create().SetActiveEventID(foundEvent.ID).SaveX(ctx)
@@ -264,7 +264,7 @@ func TestCompetitionBallotPresentationPrivacyEditsAndFreeze(t *testing.T) {
 func TestCloseVotingWindowCreatesAggregateTallyAndResultsDraft(t *testing.T) {
 	client := openEntTestClient(t)
 	storage := &SQLite{client: client}
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	now := time.Date(2026, time.August, 21, 12, 0, 0, 0, time.UTC)
 	foundEvent := createSchemaTestEvent(t, client)
 	foundEvent.Update().SetSelfVotePolicy(event.SelfVotePolicyNeutral).SaveX(ctx)

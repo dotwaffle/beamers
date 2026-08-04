@@ -94,7 +94,7 @@ func (transaction *CommandTx) CancelSession(
 		SetCrewNotes(params.CrewNotes).
 		SetForecastStart(forecastStart).
 		SetCreatedAt(params.Now).
-		Save(systemContext(ctx)); createErr != nil {
+		Save(ctx); createErr != nil {
 		return LiveSessionState{}, opaqueError("record Session cancellation", createErr)
 	}
 	updated, err := transaction.transaction.Session.UpdateOneID(params.SessionID).

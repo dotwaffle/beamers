@@ -15,7 +15,7 @@ func (installation *SQLite) FavoriteSessionIDs(
 	found, err := installation.client.FavoriteSession.Query().
 		Where(favoritesession.AccountIDEQ(accountID)).
 		Select(favoritesession.FieldSessionID).
-		Ints(systemContext(ctx))
+		Ints(ctx)
 	if err != nil {
 		return nil, opaqueError("read Favorite Sessions", err)
 	}
@@ -29,14 +29,13 @@ func (installation *SQLite) SetFavoriteSession(
 	sessionID int,
 	favorite bool,
 ) error {
-	internalContext := systemContext(ctx)
 	if !favorite {
 		_, err := installation.client.FavoriteSession.Delete().
 			Where(
 				favoritesession.AccountIDEQ(accountID),
 				favoritesession.SessionIDEQ(sessionID),
 			).
-			Exec(internalContext)
+			Exec(ctx)
 		if err != nil {
 			return opaqueError("remove Favorite Session", err)
 		}
@@ -45,14 +44,14 @@ func (installation *SQLite) SetFavoriteSession(
 	_, err := installation.client.FavoriteSession.Create().
 		SetAccountID(accountID).
 		SetSessionID(sessionID).
-		Save(internalContext)
+		Save(ctx)
 	if ent.IsConstraintError(err) {
 		exists, existsErr := installation.client.FavoriteSession.Query().
 			Where(
 				favoritesession.AccountIDEQ(accountID),
 				favoritesession.SessionIDEQ(sessionID),
 			).
-			Exist(internalContext)
+			Exist(ctx)
 		if existsErr != nil {
 			return opaqueError("verify duplicate Favorite Session", existsErr)
 		}

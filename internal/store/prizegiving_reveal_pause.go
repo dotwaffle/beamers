@@ -18,7 +18,6 @@ func (transaction *CommandTx) reconcilePrizegivingRevealPauses(
 	eventID int,
 	now time.Time,
 ) error {
-	ctx = systemContext(ctx)
 	plans, err := transaction.transaction.Prizegiving.Query().
 		Where(
 			prizegiving.EventIDEQ(eventID),

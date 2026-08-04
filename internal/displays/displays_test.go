@@ -18,6 +18,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/publictime"
 	"github.com/dotwaffle/beamers/internal/rundown"
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 )
 
 func TestDisplaySessionUsesSharedPublicTimePresentation(t *testing.T) {
@@ -79,10 +80,10 @@ func TestDisplaySessionRejectsImpossiblePublicTimeState(t *testing.T) {
 
 func TestEnrollmentForBrowserPersistsAndReusesPendingMaterial(t *testing.T) {
 	dataDir := t.TempDir()
-	if err := store.Initialize(t.Context(), dataDir); err != nil {
+	if err := store.Initialize(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir); err != nil {
 		t.Fatalf("initialize storage: %v", err)
 	}
-	storage, err := store.Open(t.Context(), dataDir)
+	storage, err := store.Open(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir)
 	if err != nil {
 		t.Fatalf("open storage: %v", err)
 	}
@@ -118,10 +119,10 @@ func TestEnrollmentForBrowserPersistsAndReusesPendingMaterial(t *testing.T) {
 
 func TestDisplayEnrollmentExpiresAndClaimIsSingleUse(t *testing.T) {
 	dataDir := t.TempDir()
-	if err := store.Initialize(t.Context(), dataDir); err != nil {
+	if err := store.Initialize(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir); err != nil {
 		t.Fatalf("initialize storage: %v", err)
 	}
-	storage, err := store.Open(t.Context(), dataDir)
+	storage, err := store.Open(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir)
 	if err != nil {
 		t.Fatalf("open storage: %v", err)
 	}
@@ -132,10 +133,10 @@ func TestDisplayEnrollmentExpiresAndClaimIsSingleUse(t *testing.T) {
 	})
 	now := time.Date(2026, 7, 23, 1, 0, 0, 0, time.UTC)
 	bootstrapHash := strings.Repeat("b", 64)
-	if issueErr := storage.IssueBootstrap(t.Context(), bootstrapHash, now, now.Add(time.Hour)); issueErr != nil {
+	if issueErr := storage.IssueBootstrap(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), bootstrapHash, now, now.Add(time.Hour)); issueErr != nil {
 		t.Fatalf("issue bootstrap: %v", issueErr)
 	}
-	created, err := storage.BootstrapAdministrator(t.Context(), store.BootstrapAdministratorParams{
+	created, err := storage.BootstrapAdministrator(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), store.BootstrapAdministratorParams{
 		BootstrapHash: bootstrapHash, Name: "Administrator", NormalizedName: "administrator",
 		PasswordHash: "test-password-hash", SessionHash: strings.Repeat("s", 64),
 		Now: now, SessionExpiry: now.Add(time.Hour),
@@ -225,7 +226,7 @@ func TestDisplayEnrollmentExpiresAndClaimIsSingleUse(t *testing.T) {
 }
 
 func TestDisplayReenrollmentPreservesExistingIdentity(t *testing.T) {
-	ctx := t.Context()
+	ctx := systemactor.NewContext(t.Context(), systemactor.HostMaintenance)
 	dataDir := t.TempDir()
 	if err := store.Initialize(ctx, dataDir); err != nil {
 		t.Fatalf("initialize storage: %v", err)

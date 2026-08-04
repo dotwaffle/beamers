@@ -14,6 +14,7 @@ import (
 
 	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
@@ -254,10 +255,10 @@ func TestExecuteSignalsApplicationSeparatelyFromReplay(t *testing.T) {
 func openExecutionTestStore(t *testing.T) (*store.SQLite, int, context.Context, string) {
 	t.Helper()
 	dataDir := t.TempDir()
-	if err := store.Initialize(t.Context(), dataDir); err != nil {
+	if err := store.Initialize(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir); err != nil {
 		t.Fatalf("initialize storage: %v", err)
 	}
-	storage, err := store.Open(t.Context(), dataDir)
+	storage, err := store.Open(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir)
 	if err != nil {
 		t.Fatalf("open storage: %v", err)
 	}
@@ -268,10 +269,10 @@ func openExecutionTestStore(t *testing.T) (*store.SQLite, int, context.Context, 
 	})
 	now := time.Date(2026, time.July, 22, 11, 0, 0, 0, time.UTC)
 	bootstrapHash := strings.Repeat("d", 64)
-	if issueErr := storage.IssueBootstrap(t.Context(), bootstrapHash, now, now.Add(time.Minute)); issueErr != nil {
+	if issueErr := storage.IssueBootstrap(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), bootstrapHash, now, now.Add(time.Minute)); issueErr != nil {
 		t.Fatalf("issue bootstrap: %v", issueErr)
 	}
-	actor, err := storage.BootstrapAdministrator(t.Context(), store.BootstrapAdministratorParams{
+	actor, err := storage.BootstrapAdministrator(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), store.BootstrapAdministratorParams{
 		BootstrapHash: bootstrapHash, Name: "Ada Admin", NormalizedName: "ada admin",
 		PasswordHash: "password hash", SessionHash: strings.Repeat("e", 64),
 		Now: now, SessionExpiry: now.Add(time.Hour),

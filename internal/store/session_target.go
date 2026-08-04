@@ -177,7 +177,7 @@ func previewSessionTarget(
 	adjustment sessiontarget.Adjustment,
 	now time.Time,
 ) (SessionTargetPreview, error) {
-	active, err := client.Installation.Query().Where(installation.ActiveEventIDEQ(eventID)).Exist(systemContext(ctx))
+	active, err := client.Installation.Query().Where(installation.ActiveEventIDEQ(eventID)).Exist(ctx)
 	if err != nil {
 		return SessionTargetPreview{}, opaqueError("check active Event for Adjust Target", err)
 	}
@@ -228,8 +228,7 @@ func previewSessionTarget(
 	for index, seconds := range presetSeconds {
 		presets[index] = time.Duration(seconds) * time.Second
 	}
-	internalContext := systemContext(ctx)
-	timing, err := loadTimingState(internalContext, client, eventID, sessionID)
+	timing, err := loadTimingState(ctx, client, eventID, sessionID)
 	if err != nil {
 		return SessionTargetPreview{}, err
 	}

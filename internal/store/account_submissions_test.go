@@ -14,7 +14,7 @@ import (
 func TestAccountCompetitionSubmissionsHonorPolicyOwnershipAndReopenWindows(t *testing.T) {
 	client := openEntTestClient(t)
 	installation := &SQLite{client: client}
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	now := time.Date(2026, 8, 21, 10, 0, 0, 0, time.UTC)
 	deadline := now.Add(time.Hour)
 	event := createSchemaTestEvent(t, client)
@@ -276,7 +276,7 @@ func TestAccountCompetitionSubmissionsHonorPolicyOwnershipAndReopenWindows(t *te
 	rollbackSubmissionTestCommand(t, privateCreate)
 
 	firstView, err := installation.LoadAccountCompetitionSubmissions(
-		t.Context(),
+		hostMaintenanceContext(t.Context()),
 		firstAccount.ID,
 		deadline.Add(time.Minute),
 	)
@@ -285,7 +285,7 @@ func TestAccountCompetitionSubmissionsHonorPolicyOwnershipAndReopenWindows(t *te
 		t.Fatalf("first Account submissions = %+v, %v", firstView, err)
 	}
 	secondView, err := installation.LoadAccountCompetitionSubmissions(
-		t.Context(),
+		hostMaintenanceContext(t.Context()),
 		secondAccount.ID,
 		deadline.Add(time.Minute),
 	)

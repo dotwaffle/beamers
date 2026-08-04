@@ -85,7 +85,7 @@ func (transaction *CommandTx) DeleteDraftSession(
 		draftchange.TargetTypeEQ(draftTargetSession),
 		draftchange.TargetIDEQ(params.SessionID),
 		draftchange.StatusIn(draftchange.StatusEffective, draftchange.StatusConflicted),
-	).SetStatus(draftchange.StatusDiscarded).Save(systemContext(ctx)); updateErr != nil {
+	).SetStatus(draftchange.StatusDiscarded).Save(ctx); updateErr != nil {
 		return DeleteDraftSessionResult{}, opaqueError("discard deleted Session Draft history", updateErr)
 	}
 	if deleteErr := transaction.transaction.Session.DeleteOne(identity).Exec(ctx); deleteErr != nil {
@@ -108,12 +108,11 @@ func (transaction *CommandTx) draftSessionHasDependents(
 	eventID int,
 	sessionID int,
 ) (bool, error) {
-	internalContext := systemContext(ctx)
 	imported, err := transaction.transaction.ImportReference.Query().Where(
 		importreference.EventIDEQ(eventID),
 		importreference.TargetTypeEQ(draftTargetSession),
 		importreference.TargetIDEQ(sessionID),
-	).Exist(internalContext)
+	).Exist(ctx)
 	if err != nil {
 		return false, opaqueError("load Draft Session Import References", err)
 	}
@@ -124,7 +123,7 @@ func (transaction *CommandTx) draftSessionHasDependents(
 		draftchange.EventIDEQ(eventID),
 		draftchange.TargetTypeEQ(draftTargetSession),
 		draftchange.TargetIDEQ(sessionID),
-	).IDs(internalContext)
+	).IDs(ctx)
 	if err != nil {
 		return false, opaqueError("load Draft Session change history", err)
 	}
@@ -133,7 +132,7 @@ func (transaction *CommandTx) draftSessionHasDependents(
 	}
 	dependencies, err := transaction.transaction.DraftChangeDependency.Query().Where(
 		draftchangedependency.DependsOnIDIn(owned...),
-	).All(internalContext)
+	).All(ctx)
 	if err != nil {
 		return false, opaqueError("load Draft Session dependents", err)
 	}

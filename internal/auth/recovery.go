@@ -10,6 +10,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 )
 
 // ReplaceRecoveryCodes invalidates prior codes and returns one write-only replacement set.
@@ -38,7 +39,8 @@ func (service *Service) ReplaceRecoveryCodes(
 		hashes[index] = tokenDigest(code)
 	}
 	now := service.now().UTC()
-	result, err := command.Execute(actor.Context(ctx), command.Plan[[]string]{
+	ctx = actor.Context(ctx)
+	result, err := command.Execute(ctx, command.Plan[[]string]{
 		Storage:       service.storage,
 		Authorization: command.Authorization{Facts: authz.Installation(), Refusals: accountRejections},
 		Identity: store.CommandIdentity{
@@ -121,6 +123,7 @@ func (service *Service) Recover(
 	now := service.now().UTC()
 	expiresAt := now.Add(service.sessionTTL)
 	secretHash := tokenDigest(secret)
+	ctx = systemactor.NewContext(ctx, systemactor.PublicVisitor)
 	recoverable, err := service.storage.FindRecoveryTarget(ctx, normalizedName)
 	if errors.Is(err, store.ErrInvalidRecovery) {
 		return Session{}, ErrAuthenticationFailed
@@ -229,7 +232,8 @@ func (service *Service) IssueRecoveryToken(
 		TargetID:       strconv.Itoa(accountID),
 		Now:            now,
 	}
-	result, err := command.Execute(actor.Context(ctx), command.Plan[RecoveryToken]{
+	ctx = actor.Context(ctx)
+	result, err := command.Execute(ctx, command.Plan[RecoveryToken]{
 		Storage:       service.storage,
 		Authorization: command.Authorization{Facts: authz.Installation(), Refusals: accountRejections},
 		Identity:      identity,

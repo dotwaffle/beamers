@@ -19,7 +19,7 @@ import (
 func TestAttachmentReleasePolicyEligibilityHoldAndCue(t *testing.T) {
 	client := openEntTestClient(t)
 	installationStore := &SQLite{client: client}
-	fixtureContext := systemContext(t.Context())
+	fixtureContext := hostMaintenanceContext(t.Context())
 	event := createSchemaTestEvent(t, client)
 	client.Installation.Create().SetActiveEventID(event.ID).SaveX(fixtureContext)
 	competition := client.Session.Create().
@@ -90,7 +90,7 @@ func TestAttachmentReleasePolicyEligibilityHoldAndCue(t *testing.T) {
 	_ = crewVersion
 	_ = pendingVersion
 	_ = withheldVersion
-	producerContext := viewer.NewContext(t.Context(), viewer.Identity{
+	producerContext := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID: 1, EventRoles: map[int]viewer.Role{event.ID: viewer.Producer},
 	})
 
@@ -302,7 +302,7 @@ func createReleaseVersion(
 
 func releasedVersionIDs(t *testing.T, installationStore *SQLite) []int {
 	t.Helper()
-	released, err := installationStore.LoadReleasedAttachmentVersions(t.Context())
+	released, err := installationStore.LoadReleasedAttachmentVersions(hostMaintenanceContext(t.Context()))
 	if err != nil {
 		t.Fatalf("load released Attachment Versions: %v", err)
 	}

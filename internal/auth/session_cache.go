@@ -6,10 +6,12 @@ import (
 	"time"
 
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 )
 
 // SessionCounts returns token-free active durable and in-memory session counts.
 func (service *Service) SessionCounts(ctx context.Context) (SessionCounts, error) {
+	ctx = systemactor.NewContext(ctx, systemactor.HostMaintenance)
 	now := service.now().UTC()
 	durable, err := service.storage.CountAccountSessions(ctx, now)
 	if err != nil {
@@ -41,6 +43,7 @@ func (service *Service) AuthenticatePreviouslyValidated(
 	if !validToken(token) {
 		return Account{}, ErrInvalidSession
 	}
+	ctx = systemactor.NewContext(ctx, systemactor.PublicVisitor)
 	now := service.now().UTC()
 	tokenHash := tokenDigest(token)
 	cached, previouslyValidated := service.validatedSession(tokenHash, now)
@@ -90,6 +93,7 @@ func (service *Service) AuthenticatePreviouslyValidated(
 }
 
 func (service *Service) authenticate(ctx context.Context, token string) (Account, error) {
+	ctx = systemactor.NewContext(ctx, systemactor.PublicVisitor)
 	if !validToken(token) {
 		return Account{}, ErrInvalidSession
 	}
@@ -117,6 +121,7 @@ func (service *Service) authenticate(ctx context.Context, token string) (Account
 
 // SignOut durably revokes a session. Invalid tokens have the same successful result.
 func (service *Service) SignOut(ctx context.Context, token string) error {
+	ctx = systemactor.NewContext(ctx, systemactor.PublicVisitor)
 	if !validToken(token) {
 		return nil
 	}

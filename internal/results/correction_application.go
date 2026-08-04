@@ -223,7 +223,8 @@ func (service *Service) SaveCorrection(
 		string(payload),
 		service.now().UTC(),
 	)
-	return command.Execute(actor.Context(ctx), command.Plan[Correction]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[Correction]{
 		Storage: service.storage, Identity: identity,
 		Authorization: command.Authorization{
 			Facts: authz.Event(input.EventID), Refusals: resultsRejections,
@@ -328,7 +329,8 @@ func (service *Service) PublishCorrection(
 		string(payload),
 		service.now().UTC(),
 	)
-	return command.Execute(actor.Context(ctx), command.Plan[PublishCorrectionResult]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[PublishCorrectionResult]{
 		Storage: service.storage, Identity: identity,
 		Authorization: command.Authorization{
 			Facts: authz.Event(input.EventID), Refusals: resultsRejections,
@@ -463,7 +465,8 @@ func (service *Service) advanceCorrectionReview(
 		string(payload),
 		service.now().UTC(),
 	)
-	return command.Execute(actor.Context(ctx), command.Plan[Correction]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[Correction]{
 		Storage: service.storage, Identity: identity,
 		Authorization: command.Authorization{
 			Facts: authz.Event(input.EventID), Refusals: resultsRejections,

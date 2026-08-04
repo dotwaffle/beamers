@@ -53,7 +53,8 @@ func (commands *Commands) changeDraftHistory(
 	identity := store.CommandIdentity{ActorAccountID: actor.ID, CommandID: input.CommandID,
 		PayloadHash: command.PayloadHash(string(payload)), Action: action, TargetType: "Event",
 		TargetID: strconv.Itoa(input.EventID), Now: commands.now().UTC()}
-	return command.Execute(actor.Context(ctx), command.Plan[EditDraftResult]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[EditDraftResult]{
 		Storage: commands.storage, Identity: identity,
 		Authorization: command.Authorization{
 			Facts: authz.Event(input.EventID), Refusals: rundownAuthorizationRejections,

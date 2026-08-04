@@ -12,7 +12,7 @@ import (
 func TestPublicCompetitionEntriesFollowCanonicalOrder(t *testing.T) {
 	client := openEntTestClient(t)
 	installation := &SQLite{client: client}
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	event := createSchemaTestEvent(t, client)
 	client.Installation.Create().SetActiveEventID(event.ID).SaveX(ctx)
 	competition := client.Session.Create().
@@ -47,7 +47,7 @@ func TestPublicCompetitionEntriesFollowCanonicalOrder(t *testing.T) {
 		SaveX(ctx)
 	competition.Update().SetEntryOrderManualIds([]int{second.ID, first.ID}).SaveX(ctx)
 
-	public, err := installation.LoadPublicSchedule(t.Context())
+	public, err := installation.LoadPublicSchedule(hostMaintenanceContext(t.Context()))
 	if err != nil {
 		t.Fatalf("load public Competition: %v", err)
 	}

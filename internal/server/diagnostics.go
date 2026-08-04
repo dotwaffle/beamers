@@ -16,6 +16,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/displaystream"
 	"github.com/dotwaffle/beamers/internal/operations"
 	"github.com/dotwaffle/beamers/internal/replication"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 	"github.com/dotwaffle/beamers/internal/telemetry"
 )
 
@@ -147,6 +148,7 @@ func (handlers diagnosticHandlers) collect(
 	ctx context.Context,
 	actor auth.Account,
 ) normalDiagnosticsResponse {
+	ctx = systemactor.NewContext(ctx, systemactor.HostMaintenance)
 	readinessErr := handlers.installation.Ready(ctx)
 	if readinessErr != nil {
 		handlers.logger.ErrorContext(

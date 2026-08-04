@@ -12,6 +12,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 	"github.com/dotwaffle/beamers/internal/themevalue"
 )
 
@@ -80,6 +81,7 @@ func New(
 
 // Active returns the public active Theme or the built-in base Revision.
 func (service *Service) Active(ctx context.Context) (Revision, error) {
+	ctx = systemactor.NewContext(ctx, systemactor.PublicVisitor)
 	found, err := service.storage.LoadActiveInstallationThemeRevision(ctx)
 	if err != nil {
 		return Revision{}, err
@@ -149,7 +151,8 @@ func (service *Service) CreateDraft(
 		TargetID:       "pending",
 		Now:            service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[Revision]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[Revision]{
 		Storage:  service.storage,
 		Identity: identity,
 		Replay:   replayRevision,
@@ -205,7 +208,8 @@ func (service *Service) Activate(
 		TargetID:       strconv.Itoa(input.RevisionID),
 		Now:            service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[Revision]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[Revision]{
 		Storage:  service.storage,
 		Identity: identity,
 		Replay:   replayRevision,

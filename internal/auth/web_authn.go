@@ -19,6 +19,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 )
 
 const (
@@ -160,7 +161,8 @@ func (service *Service) FinishWebAuthnRegistration(
 		TargetID:   "unidentified",
 		Now:        service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[WebAuthnCredential]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[WebAuthnCredential]{
 		Storage:       service.storage,
 		Authorization: command.Authorization{Facts: authz.Installation(), Refusals: accountRejections},
 		Identity:      identity,
@@ -237,6 +239,7 @@ func (service *Service) BeginWebAuthnSignIn(
 	if err != nil {
 		return WebAuthnSignIn{}, ErrAuthenticationFailed
 	}
+	ctx = systemactor.NewContext(ctx, systemactor.PublicVisitor)
 	found, err := service.storage.WebAuthnAccountByName(ctx, normalizedName)
 	if errors.Is(err, store.ErrInvalidSession) {
 		return WebAuthnSignIn{}, ErrAuthenticationFailed
@@ -304,7 +307,7 @@ func (service *Service) FinishWebAuthnSignIn(
 	now := service.now().UTC()
 	expiresAt := now.Add(service.sessionTTL)
 	found, revoked, err := service.storage.CreateWebAuthnSession(
-		ctx,
+		systemactor.NewContext(ctx, systemactor.PublicVisitor),
 		ceremony.account.Account.ID,
 		credential.ID,
 		encoded,
@@ -366,7 +369,8 @@ func (service *Service) RemovePassword(
 		TargetID:       "unidentified",
 		Now:            service.now().UTC(),
 	}
-	_, err := command.Execute(actor.Context(ctx), command.Plan[struct{}]{
+	ctx = actor.Context(ctx)
+	_, err := command.Execute(ctx, command.Plan[struct{}]{
 		Storage:       service.storage,
 		Authorization: command.Authorization{Facts: authz.Installation(), Refusals: accountRejections},
 		Identity:      identity,
@@ -423,7 +427,8 @@ func (service *Service) RevokeWebAuthnCredential(
 		TargetID:   strconv.Itoa(credentialID),
 		Now:        service.now().UTC(),
 	}
-	_, err := command.Execute(actor.Context(ctx), command.Plan[struct{}]{
+	ctx = actor.Context(ctx)
+	_, err := command.Execute(ctx, command.Plan[struct{}]{
 		Storage:       service.storage,
 		Authorization: command.Authorization{Facts: authz.Installation(), Refusals: accountRejections},
 		Identity:      identity,

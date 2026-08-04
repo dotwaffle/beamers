@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 )
 
 // PublicArtifact is one frozen released Results representation set.
@@ -29,6 +30,7 @@ func (service *Service) PublicArtifact(
 			scope != PublicationScopeEvent) {
 		return PublicArtifact{}, false, ErrInvalidInput
 	}
+	ctx = systemactor.NewContext(ctx, systemactor.PublicVisitor)
 	storeScope := map[PublicationScope]store.ResultsPublicationScope{
 		PublicationScopePrizegiving: store.ResultsPublicationPrizegiving,
 		PublicationScopeStandalone:  store.ResultsPublicationStandalone,

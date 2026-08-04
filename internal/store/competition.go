@@ -306,10 +306,9 @@ func (installation *SQLite) LoadAccountCompetitionSubmissions(
 	accountID int,
 	now time.Time,
 ) ([]SubmissionCompetition, error) {
-	internalContext := systemContext(ctx)
 	enabled, err := installation.client.Account.Query().
 		Where(account.IDEQ(accountID), account.DisabledAtIsNil()).
-		Exist(internalContext)
+		Exist(ctx)
 	if err != nil {
 		return nil, opaqueError("load submission Account", err)
 	}
@@ -319,7 +318,7 @@ func (installation *SQLite) LoadAccountCompetitionSubmissions(
 	entries, err := installation.client.CompetitionEntry.Query().
 		Where(competitionentry.SubmitterAccountIDEQ(accountID)).
 		Order(ent.Asc(competitionentry.FieldCreatedAt), ent.Asc(competitionentry.FieldID)).
-		All(internalContext)
+		All(ctx)
 	if err != nil {
 		return nil, opaqueError("load Account Competition Entries", err)
 	}
@@ -342,7 +341,7 @@ func (installation *SQLite) LoadAccountCompetitionSubmissions(
 			ent.Asc(sessionpublishedversion.FieldSessionID),
 			ent.Desc(sessionpublishedversion.FieldPublishedRevision),
 		).
-		All(internalContext)
+		All(ctx)
 	if err != nil {
 		return nil, opaqueError("load published submission Competitions", err)
 	}
@@ -369,7 +368,7 @@ func (installation *SQLite) LoadAccountCompetitionSubmissions(
 		}
 		eligibility := effectiveSubmissionEligibility(foundEvent, foundSession)
 		eligible, eligibilityErr := accountSubmissionEligible(
-			internalContext,
+			ctx,
 			installation.client,
 			foundEvent.ID,
 			accountID,
@@ -397,7 +396,7 @@ func (installation *SQLite) ListSubmissionAccounts(ctx context.Context) ([]Submi
 		Where(account.DisabledAtIsNil()).
 		WithProfile().
 		Order(ent.Asc(account.FieldID)).
-		All(systemContext(ctx))
+		All(ctx)
 	if err != nil {
 		return nil, opaqueError("list submission Accounts", err)
 	}
@@ -450,11 +449,10 @@ func loadCompetitionPreflight(
 		RequireEntryReview:   state.RequireEntryReview,
 		FileDeliveryRequired: state.FileDeliveryRequired,
 	}
-	internalContext := systemContext(ctx)
 	entries, err := client.CompetitionEntry.Query().
 		Where(competitionentry.CompetitionSessionIDEQ(sessionID)).
 		Order(ent.Asc(competitionentry.FieldCreatedAt), ent.Asc(competitionentry.FieldID)).
-		All(internalContext)
+		All(ctx)
 	if err != nil {
 		return CompetitionPreflight{}, opaqueError("load Competition Preflight Entries", err)
 	}
@@ -482,7 +480,7 @@ func loadCompetitionPreflight(
 				WithVersions(func(query *ent.AttachmentVersionQuery) {
 					query.Order(ent.Asc(attachmentversion.FieldID))
 				}).
-				All(internalContext)
+				All(ctx)
 			if queryErr != nil {
 				return CompetitionPreflight{}, opaqueError("load Entry Attachments for Preflight", queryErr)
 			}
@@ -499,7 +497,7 @@ func loadCompetitionPreflight(
 			if len(versions) == 1 {
 				desiredFinal := !result.RequireEntryReview || reviewCurrent
 				updated, updateErr := applyAttachmentAutomation(
-					internalContext, versions[0], true, desiredFinal, persistAutomation,
+					ctx, versions[0], true, desiredFinal, persistAutomation,
 				)
 				if updateErr != nil {
 					return CompetitionPreflight{}, updateErr
@@ -509,7 +507,7 @@ func loadCompetitionPreflight(
 				finals := finalAttachmentVersions(versions)
 				if len(finals) == 1 {
 					updated, updateErr := applyAttachmentAutomation(
-						internalContext, finals[0], true, true, persistAutomation,
+						ctx, finals[0], true, true, persistAutomation,
 					)
 					if updateErr != nil {
 						return CompetitionPreflight{}, updateErr
@@ -578,9 +576,8 @@ func (transaction *CommandTx) CreateSubmittedCompetitionEntry(
 	ctx context.Context,
 	params CreateSubmittedCompetitionEntryParams,
 ) (CompetitionEntry, error) {
-	internalContext := systemContext(ctx)
 	state, _, err := transaction.competitionConfiguration(
-		internalContext,
+		ctx,
 		params.EventID,
 		params.SessionID,
 	)
@@ -594,7 +591,7 @@ func (transaction *CommandTx) CreateSubmittedCompetitionEntry(
 		return CompetitionEntry{}, ErrCompetitionSubmissionClosed
 	}
 	eligible, err := accountSubmissionEligible(
-		internalContext,
+		ctx,
 		transaction.transaction.Client(),
 		params.EventID,
 		params.AccountID,
@@ -607,7 +604,7 @@ func (transaction *CommandTx) CreateSubmittedCompetitionEntry(
 		return CompetitionEntry{}, ErrCompetitionSubmissionIneligible
 	}
 	return transaction.createCompetitionEntry(
-		internalContext,
+		ctx,
 		CreateCompetitionEntryParams{
 			EventID: params.EventID, SessionID: params.SessionID,
 			Name: params.Name, PublicDetails: params.PublicDetails, Now: params.Now,
@@ -688,16 +685,15 @@ func (transaction *CommandTx) UpdateSubmittedCompetitionEntry(
 	ctx context.Context,
 	params UpdateSubmittedCompetitionEntryParams,
 ) (CompetitionEntry, error) {
-	internalContext := systemContext(ctx)
 	if _, _, err := transaction.competitionConfiguration(
-		internalContext,
+		ctx,
 		params.EventID,
 		params.SessionID,
 	); err != nil {
 		return CompetitionEntry{}, err
 	}
 	entry, err := transaction.competitionEntry(
-		internalContext,
+		ctx,
 		params.EventID,
 		params.SessionID,
 		params.EntryID,
@@ -710,7 +706,7 @@ func (transaction *CommandTx) UpdateSubmittedCompetitionEntry(
 		return competitionEntry(entry), ErrCompetitionEntryRevision
 	}
 	open, err := uploadTargetOpen(
-		internalContext,
+		ctx,
 		transaction.transaction.Client(),
 		UploadAuthorization{
 			EventID: params.EventID, TargetType: UploadTargetEntry, TargetID: params.EntryID,
@@ -731,12 +727,12 @@ func (transaction *CommandTx) UpdateSubmittedCompetitionEntry(
 		SetPublicDetails(params.PublicDetails).
 		AddContentRevision(1).
 		AddRevision(1).
-		Save(internalContext)
+		Save(ctx)
 	if err != nil {
 		return CompetitionEntry{}, opaqueError("update submitted Competition Entry", err)
 	}
 	if err := transaction.SupersedeCompetitionResultsDraft(
-		internalContext,
+		ctx,
 		params.EventID,
 		params.SessionID,
 		params.Now,
@@ -751,9 +747,8 @@ func (transaction *CommandTx) AssignCompetitionEntrySubmitter(
 	ctx context.Context,
 	params AssignCompetitionEntrySubmitterParams,
 ) (CompetitionEntry, error) {
-	internalContext := systemContext(ctx)
 	entry, err := transaction.competitionEntry(
-		internalContext,
+		ctx,
 		params.EventID,
 		params.SessionID,
 		params.EntryID,
@@ -769,7 +764,7 @@ func (transaction *CommandTx) AssignCompetitionEntrySubmitter(
 	}
 	enabled, err := transaction.transaction.Account.Query().
 		Where(account.IDEQ(params.AccountID), account.DisabledAtIsNil()).
-		Exist(internalContext)
+		Exist(ctx)
 	if err != nil {
 		return CompetitionEntry{}, opaqueError("load assigned Submitter Account", err)
 	}
@@ -779,7 +774,7 @@ func (transaction *CommandTx) AssignCompetitionEntrySubmitter(
 	updated, err := entry.Update().
 		SetSubmitterAccountID(params.AccountID).
 		AddRevision(1).
-		Save(internalContext)
+		Save(ctx)
 	if err != nil {
 		return CompetitionEntry{}, opaqueError("assign Competition Entry Submitter", err)
 	}
@@ -791,9 +786,8 @@ func (transaction *CommandTx) ConfigureCompetitionSubmissionEligibility(
 	ctx context.Context,
 	params ConfigureSubmissionEligibilityParams,
 ) (SubmissionEligibility, error) {
-	internalContext := systemContext(ctx)
 	state, found, err := transaction.competitionConfiguration(
-		internalContext,
+		ctx,
 		params.EventID,
 		params.SessionID,
 	)
@@ -811,11 +805,11 @@ func (transaction *CommandTx) ConfigureCompetitionSubmissionEligibility(
 	} else {
 		update.ClearSubmissionEligibilityOverride()
 	}
-	updated, err := update.Save(internalContext)
+	updated, err := update.Save(ctx)
 	if err != nil {
 		return SubmissionEligibility{}, opaqueError("configure Submission Eligibility", err)
 	}
-	event, err := transaction.transaction.Event.Get(internalContext, params.EventID)
+	event, err := transaction.transaction.Event.Get(ctx, params.EventID)
 	if err != nil {
 		return SubmissionEligibility{}, opaqueError("load Submission Eligibility Event", err)
 	}
@@ -868,14 +862,13 @@ func (transaction *CommandTx) ReviewCompetitionEntry(
 	if entry.Revision != params.ExpectedRevision {
 		return competitionEntry(entry), ErrCompetitionEntryRevision
 	}
-	internalContext := systemContext(ctx)
 	versions, err := transaction.transaction.AttachmentVersion.Query().
 		Where(attachmentversion.HasAttachmentWith(
 			attachment.EventIDEQ(params.EventID),
 			attachment.OwnerTypeEQ(attachment.OwnerTypeEntry),
 			attachment.OwnerIDEQ(params.EntryID),
 		)).
-		All(internalContext)
+		All(ctx)
 	if err != nil {
 		return CompetitionEntry{}, opaqueError("load reviewed Entry Attachments", err)
 	}
@@ -883,7 +876,7 @@ func (transaction *CommandTx) ReviewCompetitionEntry(
 		if _, err = versions[0].Update().
 			SetFinal(true).
 			AddReadinessRevision(1).
-			Save(internalContext); err != nil {
+			Save(ctx); err != nil {
 			return CompetitionEntry{}, opaqueError("finalize reviewed Entry Attachment", err)
 		}
 	}
@@ -914,11 +907,10 @@ func (transaction *CommandTx) SetEntryAttachmentReadiness(
 	); err != nil {
 		return AttachmentReadiness{}, err
 	}
-	internalContext := systemContext(ctx)
 	version, err := transaction.transaction.AttachmentVersion.Query().
 		Where(attachmentversion.IDEQ(params.AttachmentVersionID)).
 		WithAttachment().
-		Only(internalContext)
+		Only(ctx)
 	if ent.IsNotFound(err) {
 		return AttachmentReadiness{}, ErrCompetitionEntryNotFound
 	}
@@ -944,7 +936,7 @@ func (transaction *CommandTx) SetEntryAttachmentReadiness(
 					attachment.OwnerIDEQ(params.EntryID),
 				),
 			).
-			All(internalContext)
+			All(ctx)
 		if queryErr != nil {
 			return AttachmentReadiness{}, opaqueError("load other Primary Attachments", queryErr)
 		}
@@ -952,7 +944,7 @@ func (transaction *CommandTx) SetEntryAttachmentReadiness(
 			if _, updateErr := other.Update().
 				SetPrimary(false).
 				AddReadinessRevision(1).
-				Save(internalContext); updateErr != nil {
+				Save(ctx); updateErr != nil {
 				return AttachmentReadiness{}, opaqueError("clear prior Primary Attachment", updateErr)
 			}
 		}
@@ -961,14 +953,14 @@ func (transaction *CommandTx) SetEntryAttachmentReadiness(
 		SetFinal(params.Final).
 		SetPrimary(params.Primary).
 		AddReadinessRevision(1).
-		Save(internalContext)
+		Save(ctx)
 	if err != nil {
 		return AttachmentReadiness{}, opaqueError("set Entry Attachment readiness", err)
 	}
 	if _, err = transaction.transaction.CompetitionEntry.UpdateOneID(params.EntryID).
 		AddContentRevision(1).
 		AddRevision(1).
-		Save(internalContext); err != nil {
+		Save(ctx); err != nil {
 		return AttachmentReadiness{}, opaqueError("invalidate Entry review after readiness change", err)
 	}
 	return attachmentReadiness(updated), nil

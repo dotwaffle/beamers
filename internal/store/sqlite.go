@@ -12,7 +12,6 @@ import (
 
 	"entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/sql"
-	"entgo.io/ent/privacy"
 	"github.com/XSAM/otelsql"
 	"go.opentelemetry.io/otel/attribute"
 	otelmetric "go.opentelemetry.io/otel/metric"
@@ -59,11 +58,6 @@ type SQLite struct {
 	displayRundownKey    displayRundownCacheKey
 	displayRundown       displayRundownState
 	displayRundownCached bool
-}
-
-// systemContext is the store-only boundary for narrowly isolated internal work.
-func systemContext(ctx context.Context) context.Context {
-	return privacy.DecisionContext(ctx, privacy.Allow)
 }
 
 // Initialize creates a new installation and atomically installs its committed
@@ -293,7 +287,7 @@ func (installation *SQLite) Ready(ctx context.Context) error {
 	if err := validateCurrentSchema(ctx, installation.database, installation.migrations); err != nil {
 		return err
 	}
-	count, err := installation.client.Installation.Query().Count(systemContext(ctx))
+	count, err := installation.client.Installation.Query().Count(ctx)
 	if err != nil {
 		return fmt.Errorf("read installation identity: %w", err)
 	}

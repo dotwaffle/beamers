@@ -53,7 +53,6 @@ const MaxActiveSessionsPerAccount = 8
 
 // SetupRequired reports whether the installation has no Account Credential.
 func (installation *SQLite) SetupRequired(ctx context.Context) (bool, error) {
-	ctx = systemContext(ctx)
 	credentials, err := activeCredentialCount(ctx, installation.client)
 	if err != nil {
 		return false, err
@@ -116,7 +115,7 @@ func (installation *SQLite) AccountReducedEffects(
 ) (bool, error) {
 	preference, err := installation.client.AccountPreference.Query().
 		Where(accountpreference.AccountIDEQ(accountID)).
-		Only(systemContext(ctx))
+		Only(ctx)
 	if ent.IsNotFound(err) {
 		return false, nil
 	}
@@ -132,19 +131,18 @@ func (installation *SQLite) SetAccountReducedEffects(
 	accountID int,
 	enabled bool,
 ) error {
-	internalContext := systemContext(ctx)
 	preference, err := installation.client.AccountPreference.Query().
 		Where(accountpreference.AccountIDEQ(accountID)).
-		Only(internalContext)
+		Only(ctx)
 	if ent.IsNotFound(err) {
 		_, err = installation.client.AccountPreference.Create().
 			SetAccountID(accountID).
 			SetReducedEffects(enabled).
-			Save(internalContext)
+			Save(ctx)
 	} else if err == nil {
 		_, err = preference.Update().
 			SetReducedEffects(enabled).
-			Save(internalContext)
+			Save(ctx)
 	}
 	if err != nil {
 		return opaqueError("set Account Reduced Effects", err)
@@ -204,7 +202,7 @@ type RecoveryTokenParams struct {
 // RegistrationOpen reports whether visitors may create Accounts. Visitors have
 // no viewer identity, so the read states its decision explicitly.
 func (installation *SQLite) RegistrationOpen(ctx context.Context) (bool, error) {
-	found, err := installation.client.RegistrationPolicy.Query().Only(systemContext(ctx))
+	found, err := installation.client.RegistrationPolicy.Query().Only(ctx)
 	if ent.IsNotFound(err) {
 		return true, nil
 	}
@@ -235,22 +233,21 @@ func (installation *SQLite) RegisterAccount(
 	ctx context.Context,
 	params CreateAccountParams,
 ) (AccountCredential, error) {
-	internalContext := systemContext(ctx)
 	return withTx(ctx, installation.client, "Account registration", func(transaction *ent.Tx) (AccountCredential, error) {
-		return registerAccount(internalContext, transaction, params)
+		return registerAccount(ctx, transaction, params)
 	})
 }
 
 func registerAccount(
-	internalContext context.Context,
+	ctx context.Context,
 	transaction *ent.Tx,
 	params CreateAccountParams,
 ) (AccountCredential, error) {
-	credentials, err := activeCredentialCount(internalContext, transaction.Client())
+	credentials, err := activeCredentialCount(ctx, transaction.Client())
 	if err != nil {
 		return AccountCredential{}, err
 	}
-	policy, err := transaction.RegistrationPolicy.Query().Only(internalContext)
+	policy, err := transaction.RegistrationPolicy.Query().Only(ctx)
 	if err != nil && !ent.IsNotFound(err) {
 		return AccountCredential{}, opaqueError("read Registration Policy", err)
 	}
@@ -263,7 +260,7 @@ func registerAccount(
 		SetWebauthnUserHandle(params.WebAuthnUserHandle).
 		SetAdministrator(false).
 		SetCreatedAt(params.Now).
-		Save(internalContext)
+		Save(ctx)
 	if ent.IsConstraintError(err) {
 		return AccountCredential{}, ErrAccountExists
 	}
@@ -274,7 +271,7 @@ func registerAccount(
 		SetAccountID(created.ID).
 		SetPasswordHash(params.PasswordHash).
 		SetCreatedAt(params.Now).
-		Save(internalContext); err != nil {
+		Save(ctx); err != nil {
 		return AccountCredential{}, opaqueError("create registered Account credential", err)
 	}
 	return accountCredential(created, params.PasswordHash), nil
@@ -309,7 +306,7 @@ func (installation *SQLite) PublicProfile(
 			accountprofile.NormalizedHandleEQ(normalizedHandle),
 			accountprofile.PublishedEQ(true),
 		).
-		Only(systemContext(ctx))
+		Only(ctx)
 	if ent.IsNotFound(err) {
 		return AccountProfile{}, false, nil
 	}
@@ -417,7 +414,6 @@ func (transaction *CommandTx) DisableAccount(
 	now time.Time,
 ) (DisabledAccount, error) {
 	authorizedContext := ctx
-	internalContext := systemContext(ctx)
 	target, err := transaction.transaction.Account.Query().Where(
 		account.IDEQ(accountID),
 		account.DisabledAtIsNil(),
@@ -447,17 +443,17 @@ func (transaction *CommandTx) DisableAccount(
 	}
 	if _, deleteErr := transaction.transaction.FavoriteSession.Delete().
 		Where(favoritesession.AccountIDEQ(accountID)).
-		Exec(internalContext); deleteErr != nil {
+		Exec(ctx); deleteErr != nil {
 		return DisabledAccount{}, opaqueError("detach Favorite Sessions", deleteErr)
 	}
 	if _, deleteErr := transaction.transaction.RecoveryCode.Delete().
 		Where(recoverycode.AccountIDEQ(accountID)).
-		Exec(internalContext); deleteErr != nil {
+		Exec(ctx); deleteErr != nil {
 		return DisabledAccount{}, opaqueError("detach Recovery Codes", deleteErr)
 	}
 	if _, deleteErr := transaction.transaction.RecoveryToken.Delete().
 		Where(recoverytoken.AccountIDEQ(accountID)).
-		Exec(internalContext); deleteErr != nil {
+		Exec(ctx); deleteErr != nil {
 		return DisabledAccount{}, opaqueError("detach Recovery Tokens", deleteErr)
 	}
 	updated, err := transaction.transaction.Account.Update().Where(
@@ -476,30 +472,30 @@ func (transaction *CommandTx) DisableAccount(
 	if _, err := transaction.transaction.AccountSession.Update().Where(
 		accountsession.AccountIDEQ(accountID),
 		accountsession.RevokedAtIsNil(),
-	).SetRevokedAt(now).Save(internalContext); err != nil {
+	).SetRevokedAt(now).Save(ctx); err != nil {
 		return DisabledAccount{}, opaqueError("revoke Account sessions", err)
 	}
 	if _, err := transaction.transaction.PasswordCredential.Update().Where(
 		passwordcredential.AccountIDEQ(accountID),
 		passwordcredential.RevokedAtIsNil(),
-	).SetRevokedAt(now).Save(internalContext); err != nil {
+	).SetRevokedAt(now).Save(ctx); err != nil {
 		return DisabledAccount{}, opaqueError("revoke Account credentials", err)
 	}
 	if _, err := transaction.transaction.WebAuthnCredential.Update().Where(
 		webauthncredential.AccountIDEQ(accountID),
 		webauthncredential.RevokedAtIsNil(),
-	).SetRevokedAt(now).Save(internalContext); err != nil {
+	).SetRevokedAt(now).Save(ctx); err != nil {
 		return DisabledAccount{}, opaqueError("revoke Account WebAuthn Credentials", err)
 	}
 	if _, err := transaction.transaction.FederatedIdentity.Update().Where(
 		federatedidentity.AccountIDEQ(accountID),
 		federatedidentity.RevokedAtIsNil(),
-	).SetRevokedAt(now).Save(internalContext); err != nil {
+	).SetRevokedAt(now).Save(ctx); err != nil {
 		return DisabledAccount{}, opaqueError("revoke Account Federated Identities", err)
 	}
 	if _, err := transaction.transaction.EventGrant.Delete().Where(
 		eventgrant.AccountIDEQ(accountID),
-	).Exec(internalContext); err != nil {
+	).Exec(ctx); err != nil {
 		return DisabledAccount{}, opaqueError("revoke Account Event Grants", err)
 	}
 	return DisabledAccount{ID: target.ID, Name: target.Name}, nil
@@ -527,7 +523,7 @@ func (transaction *CommandTx) CreateAccount(
 		SetAccountID(created.ID).
 		SetPasswordHash(params.PasswordHash).
 		SetCreatedAt(params.Now).
-		Save(systemContext(ctx)); credentialErr != nil {
+		Save(ctx); credentialErr != nil {
 		return AccountCredential{}, opaqueError("create Account credential", credentialErr)
 	}
 	return accountCredential(created, params.PasswordHash), nil
@@ -541,7 +537,6 @@ func (installation *SQLite) IssueBootstrap(
 	now time.Time,
 	expiresAt time.Time,
 ) error {
-	ctx = systemContext(ctx)
 	return withVoidTx(ctx, installation.client, "bootstrap issuance", func(transaction *ent.Tx) error {
 		credentialCount, err := activeCredentialCount(ctx, transaction.Client())
 		if err != nil {
@@ -579,7 +574,6 @@ func (installation *SQLite) BootstrapAdministrator(
 	ctx context.Context,
 	params BootstrapAdministratorParams,
 ) (AccountCredential, error) {
-	ctx = systemContext(ctx)
 	return withTx(ctx, installation.client, "Administrator bootstrap", func(transaction *ent.Tx) (AccountCredential, error) {
 		return bootstrapAdministrator(ctx, transaction, params)
 	})
@@ -681,7 +675,6 @@ func (installation *SQLite) FindAccountCredential(
 	ctx context.Context,
 	normalizedName string,
 ) (AccountCredential, bool, error) {
-	ctx = systemContext(ctx)
 	found, err := installation.client.PasswordCredential.Query().
 		Where(
 			passwordcredential.RevokedAtIsNil(),
@@ -728,7 +721,6 @@ func (transaction *CommandTx) ReplaceRecoveryCodes(
 	codeHashes []string,
 	now time.Time,
 ) error {
-	ctx = systemContext(ctx)
 	if _, err := transaction.transaction.RecoveryCode.Delete().
 		Where(recoverycode.AccountIDEQ(accountID)).
 		Exec(ctx); err != nil {
@@ -753,7 +745,6 @@ func (transaction *CommandTx) IssueRecoveryToken(
 	params RecoveryTokenParams,
 ) error {
 	authorizedContext := ctx
-	internalContext := systemContext(ctx)
 	target, err := transaction.transaction.Account.Query().Where(
 		account.IDEQ(params.AccountID),
 		account.DisabledAtIsNil(),
@@ -778,7 +769,7 @@ func (transaction *CommandTx) IssueRecoveryToken(
 	}
 	if _, err = transaction.transaction.RecoveryToken.Delete().
 		Where(recoverytoken.AccountIDEQ(params.AccountID)).
-		Exec(internalContext); err != nil {
+		Exec(ctx); err != nil {
 		return opaqueError("replace prior Recovery Tokens", err)
 	}
 	if _, err = transaction.transaction.RecoveryToken.Create().
@@ -786,7 +777,7 @@ func (transaction *CommandTx) IssueRecoveryToken(
 		SetTokenHash(params.TokenHash).
 		SetCreatedAt(params.Now).
 		SetExpiresAt(params.ExpiresAt).
-		Save(internalContext); err != nil {
+		Save(ctx); err != nil {
 		return opaqueError("store Recovery Token", err)
 	}
 	if _, err = transaction.transaction.AccountSession.Update().
@@ -795,7 +786,7 @@ func (transaction *CommandTx) IssueRecoveryToken(
 			accountsession.RevokedAtIsNil(),
 		).
 		SetRevokedAt(params.Now).
-		Save(internalContext); err != nil {
+		Save(ctx); err != nil {
 		return opaqueError("revoke Account sessions for recovery", err)
 	}
 	return nil
@@ -807,7 +798,6 @@ func (installation *SQLite) FindRecoveryTarget(
 	ctx context.Context,
 	normalizedName string,
 ) (AccountCredential, error) {
-	ctx = systemContext(ctx)
 	found, err := findEnabledRecoveryAccount(ctx, installation.client, normalizedName)
 	if err != nil {
 		return AccountCredential{}, err
@@ -821,7 +811,6 @@ func (transaction *CommandTx) RecoverAccount(
 	ctx context.Context,
 	params RecoverAccountParams,
 ) (AccountCredential, error) {
-	ctx = systemContext(ctx)
 	client := transaction.transaction.Client()
 	found, codeID, tokenID, err := findRecoveryAccount(
 		ctx,
@@ -976,7 +965,6 @@ func (installation *SQLite) CreateAccountSession(
 	now time.Time,
 	expiresAt time.Time,
 ) ([]string, error) {
-	ctx = systemContext(ctx)
 	return withTx(ctx, installation.client, "Account session creation", func(transaction *ent.Tx) ([]string, error) {
 		return createBoundedAccountSession(ctx, transaction, accountID, tokenHash, now, expiresAt)
 	})
@@ -1044,8 +1032,7 @@ func (installation *SQLite) CountAccountSessions(
 	ctx context.Context,
 	now time.Time,
 ) (AccountSessionCounts, error) {
-	internalContext := systemContext(ctx)
-	stored, err := installation.client.AccountSession.Query().Count(internalContext)
+	stored, err := installation.client.AccountSession.Query().Count(ctx)
 	if err != nil {
 		return AccountSessionCounts{}, opaqueError("count stored Account sessions", err)
 	}
@@ -1055,7 +1042,7 @@ func (installation *SQLite) CountAccountSessions(
 			accountsession.ExpiresAtGT(now),
 			accountsession.HasAccountWith(account.DisabledAtIsNil()),
 		).
-		Count(internalContext)
+		Count(ctx)
 	if err != nil {
 		return AccountSessionCounts{}, opaqueError("count active Account sessions", err)
 	}
@@ -1068,7 +1055,6 @@ func (installation *SQLite) FindAccountSession(
 	tokenHash string,
 	now time.Time,
 ) (AccountCredential, error) {
-	ctx = systemContext(ctx)
 	session, err := installation.client.AccountSession.Query().
 		Where(
 			accountsession.TokenHashEQ(tokenHash),
@@ -1105,7 +1091,7 @@ func (installation *SQLite) findEventAccess(
 	found, err := installation.client.EventGrant.Query().
 		Where(eventgrant.AccountIDEQ(accountID)).
 		WithEvent().
-		All(systemContext(ctx))
+		All(ctx)
 	if err != nil {
 		return nil, nil, nil, opaqueError("read Account Event Grants", err)
 	}
@@ -1145,7 +1131,6 @@ func (installation *SQLite) RevokeAccountSession(
 	tokenHash string,
 	now time.Time,
 ) error {
-	ctx = systemContext(ctx)
 	if _, err := installation.client.AccountSession.Update().
 		Where(
 			accountsession.TokenHashEQ(tokenHash),

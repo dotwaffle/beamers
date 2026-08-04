@@ -36,7 +36,7 @@ func (handlers eventThemeHandlers) administration(
 	}
 	switch request.Method {
 	case http.MethodGet, http.MethodHead:
-		active, activeErr := handlers.themes.Active(request.Context(), eventID, "")
+		active, activeErr := handlers.themes.Active(actor.Context(request.Context()), eventID, "")
 		if activeErr != nil {
 			handlers.browser.frontendError(response, request, "read active Event Theme", activeErr)
 			return
@@ -169,7 +169,7 @@ func (handlers eventThemeHandlers) render(
 	status int,
 	message string,
 ) {
-	active, err := handlers.themes.Active(request.Context(), eventID, "")
+	active, err := handlers.themes.Active(actor.Context(request.Context()), eventID, "")
 	if err != nil {
 		handlers.browser.frontendError(response, request, "read active Event Theme", err)
 		return

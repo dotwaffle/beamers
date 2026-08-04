@@ -9,7 +9,7 @@ import (
 
 func TestEventThemeSelectionRejectsAnotherEventsRevision(t *testing.T) {
 	installation := openEventTestInstallation(t)
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	createEvent := func(name string) int {
 		t.Helper()
 		created, err := installation.client.Event.Create().

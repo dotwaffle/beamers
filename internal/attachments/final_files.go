@@ -19,6 +19,7 @@ import (
 	"unicode"
 
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 )
 
 const finalFilesFormat = 1
@@ -75,6 +76,7 @@ func (service *Service) PlanFinalFiles(
 	if eventID <= 0 {
 		return FinalFilesPlan{}, ErrInvalidInput
 	}
+	ctx = systemactor.NewContext(ctx, systemactor.HostMaintenance)
 	if outputPath != "" {
 		var err error
 		outputPath, err = canonicalFinalFilesOutput(outputPath)
@@ -125,6 +127,7 @@ func (service *Service) WriteFinalFilesDirectory(
 	if outputPath == "" || previewDigest == "" {
 		return FinalFilesManifest{}, ErrInvalidInput
 	}
+	ctx = systemactor.NewContext(ctx, systemactor.HostMaintenance)
 	plan, err := service.PlanFinalFiles(ctx, eventID, outputPath)
 	if err != nil {
 		return FinalFilesManifest{}, err
@@ -182,6 +185,7 @@ func (service *Service) WriteFinalFilesZIP(
 	if output == nil || previewDigest == "" {
 		return ErrInvalidInput
 	}
+	ctx = systemactor.NewContext(ctx, systemactor.HostMaintenance)
 	plan, err := service.PlanFinalFiles(ctx, eventID, "")
 	if err != nil {
 		return err

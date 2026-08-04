@@ -17,7 +17,7 @@ import (
 func TestReplaceOverridePausesOnlyFullProgramChannelCoverage(t *testing.T) {
 	client := openEntTestClient(t)
 	installation := &SQLite{client: client}
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	event := createSchemaTestEvent(t, client)
 	client.Installation.Create().SetActiveEventID(event.ID).SaveX(ctx)
 	client.Rundown.Create().SetEventID(event.ID).SaveX(ctx)
@@ -85,7 +85,7 @@ func TestReplaceOverridePausesOnlyFullProgramChannelCoverage(t *testing.T) {
 			SetDisplayGroupKeys(groups).
 			SaveX(ctx)
 	}
-	producerContext := viewer.NewContext(t.Context(), viewer.Identity{
+	producerContext := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID:  1,
 		EventRoles: map[int]viewer.Role{event.ID: viewer.Producer},
 	})
@@ -204,7 +204,7 @@ func assertRevealPause(
 	t.Helper()
 	state := client.Prizegiving.Query().
 		Where(prizegiving.CeremonySessionIDEQ(ceremonyID)).
-		OnlyX(systemContext(t.Context())).
+		OnlyX(hostMaintenanceContext(t.Context())).
 		ItemStates[0]
 	if state.RevealPausedAt != pausedAt ||
 		time.Duration(state.RevealPausedNanos) != pausedDuration {

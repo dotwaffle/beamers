@@ -13,6 +13,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/events"
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
@@ -98,22 +99,22 @@ func votingFixture(
 ) (*store.SQLite, auth.Account, auth.Account, int, string) {
 	t.Helper()
 	dataDir := t.TempDir()
-	if err := store.Initialize(t.Context(), dataDir); err != nil {
+	if err := store.Initialize(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir); err != nil {
 		t.Fatalf("initialize Voting store: %v", err)
 	}
-	storage, err := store.Open(t.Context(), dataDir)
+	storage, err := store.Open(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir)
 	if err != nil {
 		t.Fatalf("open Voting store: %v", err)
 	}
 	t.Cleanup(func() { _ = storage.Close() })
 	now := time.Date(2026, time.August, 21, 9, 0, 0, 0, time.UTC)
 	if err = storage.IssueBootstrap(
-		t.Context(), strings.Repeat("b", 64), now, now.Add(time.Hour),
+		systemactor.NewContext(t.Context(), systemactor.HostMaintenance), strings.Repeat("b", 64), now, now.Add(time.Hour),
 	); err != nil {
 		t.Fatalf("issue Voting bootstrap: %v", err)
 	}
 	created, err := storage.BootstrapAdministrator(
-		t.Context(),
+		systemactor.NewContext(t.Context(), systemactor.HostMaintenance),
 		store.BootstrapAdministratorParams{
 			BootstrapHash: strings.Repeat("b", 64),
 			Name:          "Producer", NormalizedName: "producer", PasswordHash: "password-hash",

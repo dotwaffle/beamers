@@ -6,6 +6,7 @@ import (
 
 	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
@@ -130,7 +131,11 @@ func Execute[T any](ctx context.Context, plan Plan[T]) (T, error) {
 		return zero, errors.New("command application is required")
 	}
 
-	transaction, err := plan.Storage.BeginCommand(ctx)
+	// The Command Receipt lifecycle acts as the command replay System Actor:
+	// receipt lookup and outcome recording run whether or not the command's
+	// own caller carries a viewer identity.
+	receiptContext := systemactor.NewContext(ctx, systemactor.CommandReplay)
+	transaction, err := plan.Storage.BeginCommand(receiptContext)
 	if err != nil {
 		return zero, err
 	}
@@ -138,9 +143,9 @@ func Execute[T any](ctx context.Context, plan Plan[T]) (T, error) {
 		_ = transaction.Rollback()
 	}()
 
-	original, retry, err := transaction.LookupReceipt(ctx, plan.Identity)
+	original, retry, err := transaction.LookupReceipt(receiptContext, plan.Identity)
 	if errors.Is(err, store.ErrCommandConflict) {
-		if commitErr := transaction.CommitConflict(ctx, plan.Identity); commitErr != nil {
+		if commitErr := transaction.CommitConflict(receiptContext, plan.Identity); commitErr != nil {
 			return zero, commitErr
 		}
 		return zero, store.ErrCommandConflict
@@ -178,12 +183,12 @@ func Execute[T any](ctx context.Context, plan Plan[T]) (T, error) {
 	}
 	switch {
 	case execution.rejection != nil:
-		err = transaction.RecordRejection(ctx, identity, *execution.rejection)
+		err = transaction.RecordRejection(receiptContext, identity, *execution.rejection)
 	case execution.outcomeJSON == "":
 		err = errors.New("command outcome is required")
 	default:
 		err = transaction.RecordOutcomeWithAudit(
-			ctx,
+			receiptContext,
 			identity,
 			execution.outcomeJSON,
 			execution.rejected,

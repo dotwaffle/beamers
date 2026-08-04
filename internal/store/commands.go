@@ -61,7 +61,7 @@ func findCommandReceipt(
 ) (outcomeJSON string, retry bool, err error) {
 	found, err := transaction.CommandReceipt.Query().
 		Where(commandreceipt.CommandIDEQ(params.CommandID)).
-		Only(systemContext(ctx))
+		Only(ctx)
 	if ent.IsNotFound(err) {
 		return "", false, nil
 	}
@@ -89,7 +89,7 @@ func createCommandReceipt(
 		SetTargetID(params.TargetID).
 		SetOutcomeJSON(params.OutcomeJSON).
 		SetCreatedAt(params.Now)
-	_, err := create.Save(systemContext(ctx))
+	_, err := create.Save(ctx)
 	return err
 }
 

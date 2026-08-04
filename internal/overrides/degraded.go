@@ -15,6 +15,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
@@ -64,7 +65,9 @@ func (service *Service) PrepareEmergencyStorage(ctx context.Context) error {
 	}
 	service.degradedMu.Unlock()
 
-	err := service.storage.ProbeCommandEvidence(ctx, service.now().UTC())
+	err := service.storage.ProbeCommandEvidence(
+		systemactor.NewContext(ctx, systemactor.CommandReplay), service.now().UTC(),
+	)
 	if err != nil &&
 		!errors.Is(err, context.Canceled) &&
 		!errors.Is(err, context.DeadlineExceeded) {
@@ -131,7 +134,9 @@ func (service *Service) Recover(ctx context.Context) (bool, error) {
 	defer service.recoveryMu.Unlock()
 
 	if service.isDegraded() {
-		if err := service.storage.ProbeCommandEvidence(ctx, service.now().UTC()); err != nil {
+		if err := service.storage.ProbeCommandEvidence(
+			systemactor.NewContext(ctx, systemactor.CommandReplay), service.now().UTC(),
+		); err != nil {
 			return false, err
 		}
 	}

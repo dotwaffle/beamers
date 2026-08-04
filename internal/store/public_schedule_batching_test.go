@@ -62,7 +62,7 @@ func (transaction *countingTx) Query(ctx context.Context, query string, args, re
 
 func openCountingEntTestClient(t *testing.T) (*ent.Client, *countingDriver) {
 	t.Helper()
-	client, driver, err := buildCountingEntTestClient(systemContext(t.Context()))
+	client, driver, err := buildCountingEntTestClient(hostMaintenanceContext(t.Context()))
 	if err != nil {
 		t.Fatalf("open counting Ent test client: %v", err)
 	}
@@ -118,7 +118,7 @@ func countPublicScheduleStatements(t *testing.T, scale int) int64 {
 	installationStore := &SQLite{client: client}
 	buildPublicScheduleFixture(t, client, scale)
 	before := driver.statements.Load()
-	state, err := installationStore.LoadPublicSchedule(t.Context())
+	state, err := installationStore.LoadPublicSchedule(hostMaintenanceContext(t.Context()))
 	if err != nil {
 		t.Fatalf("load public Schedule at scale %d: %v", scale, err)
 	}
@@ -149,7 +149,7 @@ func buildPublicScheduleFixture(
 	scale int,
 ) publicScheduleFixture {
 	t.Helper()
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	event := createSchemaTestEvent(t, client)
 	client.Installation.Create().SetActiveEventID(event.ID).SaveX(ctx)
 	now := time.Date(2026, 8, 21, 9, 0, 0, 0, time.UTC)

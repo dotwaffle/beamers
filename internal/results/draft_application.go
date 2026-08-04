@@ -66,7 +66,8 @@ func (service *Service) Save(
 		TargetID:       strconv.Itoa(input.SessionID),
 		Now:            service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[Draft]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[Draft]{
 		Storage:  service.storage,
 		Identity: identity,
 		Authorization: command.Authorization{
@@ -156,7 +157,8 @@ func (service *Service) MarkReady(
 		TargetID:       strconv.Itoa(input.SessionID),
 		Now:            service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[Draft]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[Draft]{
 		Storage:  service.storage,
 		Identity: identity,
 		Authorization: command.Authorization{

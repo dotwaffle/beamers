@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	"entgo.io/ent"
-	"entgo.io/ent/privacy"
 
 	beamersent "github.com/dotwaffle/beamers/ent"
 	"github.com/dotwaffle/beamers/ent/lane"
@@ -41,26 +40,25 @@ func validateSessionMembershipOwnership(next ent.Mutator) ent.Mutator {
 				return nil, err
 			}
 		}
-		internalContext := privacy.DecisionContext(ctx, privacy.Allow)
-		session, err := membership.Client().Session.Get(internalContext, sessionID)
+		session, err := membership.Client().Session.Get(ctx, sessionID)
 		if err != nil {
 			return nil, err
 		}
 		lanes, err := membership.Client().Lane.Query().
 			Where(lane.IDIn(membership.LanesIDs()...), lane.EventIDEQ(session.EventID)).
-			Count(internalContext)
+			Count(ctx)
 		if err != nil {
 			return nil, err
 		}
 		locations, err := membership.Client().Location.Query().
 			Where(location.IDIn(membership.LocationsIDs()...), location.EventIDEQ(session.EventID)).
-			Count(internalContext)
+			Count(ctx)
 		if err != nil {
 			return nil, err
 		}
 		tracks, err := membership.Client().Track.Query().
 			Where(track.IDIn(membership.TracksIDs()...), track.EventIDEQ(session.EventID)).
-			Count(internalContext)
+			Count(ctx)
 		if err != nil {
 			return nil, err
 		}

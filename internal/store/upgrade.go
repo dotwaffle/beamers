@@ -172,7 +172,7 @@ func (installation *SQLite) RecordUpgradeAudit(
 		entry.SetActorKind(auditentry.ActorKindAccount).
 			SetActorAccountID(evidence.ActorAccountID)
 	}
-	if _, err := entry.Save(systemContext(ctx)); err != nil {
+	if _, err := entry.Save(ctx); err != nil {
 		return opaqueError("record storage upgrade Audit Entry", err)
 	}
 	return nil

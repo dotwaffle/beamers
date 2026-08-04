@@ -57,7 +57,8 @@ func (service *Service) DesignatePrizegiving(
 		TargetID:       strconv.Itoa(input.CeremonySessionID),
 		Now:            service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[Prizegiving]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[Prizegiving]{
 		Storage: service.storage, Identity: identity,
 		Authorization: command.Authorization{
 			Facts: authz.Event(input.EventID), Refusals: resultsRejections,

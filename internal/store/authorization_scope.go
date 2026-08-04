@@ -25,14 +25,14 @@ func (transaction *CommandTx) SessionLaneScope(
 ) (authz.Facts, error) {
 	found, err := transaction.transaction.Session.Query().
 		Where(session.IDEQ(sessionID), session.EventIDEQ(eventID)).
-		Only(systemContext(ctx))
+		Only(ctx)
 	if ent.IsNotFound(err) {
 		return authz.Facts{}, ErrSessionNotFound
 	}
 	if err != nil {
 		return authz.Facts{}, opaqueError("load Session scope", err)
 	}
-	laneIDs, err := sessionLanes(systemContext(ctx), found)
+	laneIDs, err := sessionLanes(ctx, found)
 	if err != nil {
 		return authz.Facts{}, err
 	}
@@ -58,7 +58,7 @@ func (transaction *CommandTx) LiveSessionLaneScope(
 ) (authz.Facts, error) {
 	found, err := transaction.transaction.Session.Query().
 		Where(session.IDEQ(sessionID), session.EventIDEQ(eventID)).
-		Only(systemContext(ctx))
+		Only(ctx)
 	if ent.IsNotFound(err) {
 		return authz.Facts{}, ErrSessionNotFound
 	}
@@ -71,7 +71,7 @@ func (transaction *CommandTx) LiveSessionLaneScope(
 	run, err := transaction.transaction.SessionRun.Query().
 		Where(sessionrun.SessionIDEQ(sessionID), sessionrun.ActualEndIsNil()).
 		Order(ent.Desc(sessionrun.FieldID)).
-		First(systemContext(ctx))
+		First(ctx)
 	if err != nil {
 		return authz.Facts{}, opaqueError("load live Session Run scope", err)
 	}
@@ -92,7 +92,7 @@ func (transaction *CommandTx) StageMessageScope(
 	if err := transaction.requireActiveEvent(ctx, params.EventID); err != nil {
 		return authz.Facts{}, err
 	}
-	foundEvent, err := transaction.transaction.Event.Get(systemContext(ctx), params.EventID)
+	foundEvent, err := transaction.transaction.Event.Get(ctx, params.EventID)
 	if ent.IsNotFound(err) {
 		return authz.Facts{}, ErrDisplayOverrideNotFound
 	}
@@ -150,7 +150,7 @@ func (transaction *CommandTx) ClearDisplayOverrideScope(
 			displayoverride.IDEQ(overrideID),
 			displayoverride.EventIDEQ(eventID),
 		).
-		Only(systemContext(ctx))
+		Only(ctx)
 	if ent.IsNotFound(err) {
 		return authz.Facts{}, ErrDisplayOverrideNotFound
 	}

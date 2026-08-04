@@ -11,6 +11,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/displayviews"
 	"github.com/dotwaffle/beamers/internal/events"
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
@@ -107,10 +108,10 @@ func TestEventCommandsSelectStaleProjections(t *testing.T) {
 func openNotificationTest(t *testing.T) (*store.SQLite, auth.Account) {
 	t.Helper()
 	dataDir := t.TempDir()
-	if err := store.Initialize(t.Context(), dataDir); err != nil {
+	if err := store.Initialize(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir); err != nil {
 		t.Fatalf("initialize storage: %v", err)
 	}
-	storage, err := store.Open(t.Context(), dataDir)
+	storage, err := store.Open(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir)
 	if err != nil {
 		t.Fatalf("open storage: %v", err)
 	}
@@ -121,10 +122,10 @@ func openNotificationTest(t *testing.T) (*store.SQLite, auth.Account) {
 	})
 	now := time.Date(2099, 8, 20, 0, 0, 0, 0, time.UTC)
 	bootstrapHash := strings.Repeat("b", 64)
-	if err = storage.IssueBootstrap(t.Context(), bootstrapHash, now, now.Add(time.Hour)); err != nil {
+	if err = storage.IssueBootstrap(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), bootstrapHash, now, now.Add(time.Hour)); err != nil {
 		t.Fatalf("issue bootstrap: %v", err)
 	}
-	created, err := storage.BootstrapAdministrator(t.Context(), store.BootstrapAdministratorParams{
+	created, err := storage.BootstrapAdministrator(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), store.BootstrapAdministratorParams{
 		BootstrapHash: bootstrapHash, Name: "Administrator", NormalizedName: "administrator",
 		PasswordHash: "test-password-hash", SessionHash: strings.Repeat("s", 64),
 		Now: now, SessionExpiry: now.Add(time.Hour),

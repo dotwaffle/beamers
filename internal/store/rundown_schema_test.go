@@ -11,7 +11,7 @@ import (
 
 func TestLocationDraftAndPublishedStatesAreIndependent(t *testing.T) {
 	client := openEntTestClient(t)
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	event := createSchemaTestEvent(t, client)
 	rundown := client.Rundown.Create().SetEventID(event.ID).SaveX(ctx)
 	location := client.Location.Create().SetEventID(event.ID).SaveX(ctx)
@@ -49,7 +49,7 @@ func TestLocationDraftAndPublishedStatesAreIndependent(t *testing.T) {
 
 func TestEventHasAtMostOneRundown(t *testing.T) {
 	client := openEntTestClient(t)
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	event := createSchemaTestEvent(t, client)
 	client.Rundown.Create().SetEventID(event.ID).SaveX(ctx)
 
@@ -61,7 +61,7 @@ func TestEventHasAtMostOneRundown(t *testing.T) {
 
 func TestLaneDraftAndPublishedStatesAreIndependent(t *testing.T) {
 	client := openEntTestClient(t)
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	event := createSchemaTestEvent(t, client)
 	firstLocation := client.Location.Create().SetEventID(event.ID).SaveX(ctx)
 	secondLocation := client.Location.Create().SetEventID(event.ID).SaveX(ctx)
@@ -94,7 +94,7 @@ func TestLaneDraftAndPublishedStatesAreIndependent(t *testing.T) {
 
 func TestRetiredDraftLaneReleasesItsLocation(t *testing.T) {
 	client := openEntTestClient(t)
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	event := createSchemaTestEvent(t, client)
 	location := client.Location.Create().SetEventID(event.ID).SaveX(ctx)
 	first := client.Lane.Create().SetEventID(event.ID).SaveX(ctx)
@@ -125,7 +125,7 @@ func TestRetiredDraftLaneReleasesItsLocation(t *testing.T) {
 
 func TestLaneDraftRejectsCrossEventLocation(t *testing.T) {
 	client := openEntTestClient(t)
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	laneEvent := createSchemaTestEvent(t, client)
 	locationEvent := createSchemaTestEvent(t, client)
 	lane := client.Lane.Create().SetEventID(laneEvent.ID).SaveX(ctx)
@@ -152,10 +152,10 @@ func TestLaneDraftRejectsCrossEventLocation(t *testing.T) {
 
 func TestCommittedMigrationRejectsCrossEventLanePlacement(t *testing.T) {
 	dataDir := t.TempDir()
-	if err := Initialize(t.Context(), dataDir); err != nil {
+	if err := Initialize(hostMaintenanceContext(t.Context()), dataDir); err != nil {
 		t.Fatalf("initialize installation: %v", err)
 	}
-	installation, err := Open(t.Context(), dataDir)
+	installation, err := Open(hostMaintenanceContext(t.Context()), dataDir)
 	if err != nil {
 		t.Fatalf("open installation: %v", err)
 	}
@@ -164,7 +164,7 @@ func TestCommittedMigrationRejectsCrossEventLanePlacement(t *testing.T) {
 			t.Errorf("close installation: %v", err)
 		}
 	})
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	laneEvent := createSchemaTestEvent(t, installation.client)
 	locationEvent := createSchemaTestEvent(t, installation.client)
 	lane := installation.client.Lane.Create().SetEventID(laneEvent.ID).SaveX(ctx)
@@ -188,7 +188,7 @@ func TestCommittedMigrationRejectsCrossEventLanePlacement(t *testing.T) {
 
 func TestTrackDraftAndPublishedStatesAreIndependent(t *testing.T) {
 	client := openEntTestClient(t)
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	event := createSchemaTestEvent(t, client)
 	track := client.Track.Create().SetEventID(event.ID).SaveX(ctx)
 	draft := client.TrackDraft.Create().
@@ -214,7 +214,7 @@ func TestTrackDraftAndPublishedStatesAreIndependent(t *testing.T) {
 
 func TestSessionDraftAndPublishedStatesAreIndependent(t *testing.T) {
 	client := openEntTestClient(t)
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	event := createSchemaTestEvent(t, client)
 	firstLocation := client.Location.Create().SetEventID(event.ID).SaveX(ctx)
 	secondLocation := client.Location.Create().SetEventID(event.ID).SaveX(ctx)
@@ -280,7 +280,7 @@ func TestSessionDraftAndPublishedStatesAreIndependent(t *testing.T) {
 
 func TestSessionDraftSupportsEveryVersionOneType(t *testing.T) {
 	client := openEntTestClient(t)
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	event := createSchemaTestEvent(t, client)
 	location := client.Location.Create().SetEventID(event.ID).SaveX(ctx)
 	lane := client.Lane.Create().SetEventID(event.ID).SaveX(ctx)
@@ -314,7 +314,7 @@ func TestSessionDraftSupportsEveryVersionOneType(t *testing.T) {
 
 func TestSessionStateRejectsCrossEventMemberships(t *testing.T) {
 	client := openEntTestClient(t)
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	sessionEvent := createSchemaTestEvent(t, client)
 	memberEvent := createSchemaTestEvent(t, client)
 	session := client.Session.Create().SetEventID(sessionEvent.ID).SaveX(ctx)
@@ -344,10 +344,10 @@ func TestSessionStateRejectsCrossEventMemberships(t *testing.T) {
 
 func TestCommittedMigrationRejectsCrossEventSessionMembership(t *testing.T) {
 	dataDir := t.TempDir()
-	if err := Initialize(t.Context(), dataDir); err != nil {
+	if err := Initialize(hostMaintenanceContext(t.Context()), dataDir); err != nil {
 		t.Fatalf("initialize installation: %v", err)
 	}
-	installation, err := Open(t.Context(), dataDir)
+	installation, err := Open(hostMaintenanceContext(t.Context()), dataDir)
 	if err != nil {
 		t.Fatalf("open installation: %v", err)
 	}
@@ -356,7 +356,7 @@ func TestCommittedMigrationRejectsCrossEventSessionMembership(t *testing.T) {
 			t.Errorf("close installation: %v", err)
 		}
 	})
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	sessionEvent := createSchemaTestEvent(t, installation.client)
 	memberEvent := createSchemaTestEvent(t, installation.client)
 	session := installation.client.Session.Create().SetEventID(sessionEvent.ID).SaveX(ctx)
@@ -413,5 +413,5 @@ func createSchemaTestEvent(t *testing.T, client *ent.Client) *ent.Event {
 		SetTimezone("Europe/Berlin").
 		SetEventLocale("de-DE").
 		SetEventDayBoundary("06:00").
-		SaveX(systemContext(t.Context()))
+		SaveX(hostMaintenanceContext(t.Context()))
 }

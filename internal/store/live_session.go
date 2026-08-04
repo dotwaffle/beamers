@@ -481,7 +481,7 @@ func (transaction *CommandTx) CorrectLiveDetails(
 	}
 	amendment, err := transaction.transaction.SessionRunAmendment.Create().
 		SetSessionRunID(run.ID).SetActorAccountID(params.ActorAccountID).
-		SetDetailsJSON(string(evidence)).SetCreatedAt(params.Now).Save(systemContext(ctx))
+		SetDetailsJSON(string(evidence)).SetCreatedAt(params.Now).Save(ctx)
 	if err != nil {
 		return LiveDetailCorrection{}, opaqueError("create Run Amendment", err)
 	}
@@ -539,19 +539,18 @@ func (transaction *CommandTx) rebaseDraftAfterLiveCorrection(
 	before SessionDetails,
 	after SessionDetails,
 ) error {
-	internalContext := systemContext(ctx)
-	current, err := transaction.transaction.Rundown.Query().Where(rundown.EventIDEQ(params.EventID)).Only(internalContext)
+	current, err := transaction.transaction.Rundown.Query().Where(rundown.EventIDEQ(params.EventID)).Only(ctx)
 	if err != nil {
 		return opaqueError("load Rundown for Live Detail Correction", err)
 	}
 	nextRevision := current.DraftRevision + 1
 	if _, updateErr := transaction.transaction.Rundown.UpdateOneID(current.ID).
-		Where(rundown.DraftRevisionEQ(current.DraftRevision)).SetDraftRevision(nextRevision).Save(internalContext); updateErr != nil {
+		Where(rundown.DraftRevisionEQ(current.DraftRevision)).SetDraftRevision(nextRevision).Save(ctx); updateErr != nil {
 		return opaqueError("advance Draft for Live Detail Correction", updateErr)
 	}
 	edit, err := transaction.transaction.DraftEdit.Create().
 		SetEventID(params.EventID).SetActorAccountID(params.ActorAccountID).
-		SetRevision(nextRevision).SetCreatedAt(params.Now).Save(internalContext)
+		SetRevision(nextRevision).SetCreatedAt(params.Now).Save(ctx)
 	if err != nil {
 		return opaqueError("record Live Detail Correction Draft rebase", err)
 	}
@@ -559,7 +558,7 @@ func (transaction *CommandTx) rebaseDraftAfterLiveCorrection(
 		draftchange.EventIDEQ(params.EventID),
 		draftchange.TargetTypeEQ(draftTargetSession), draftchange.TargetIDEQ(params.SessionID),
 		draftchange.FactKeyIn(params.Fields...), draftchange.StatusEQ(draftchange.StatusEffective),
-	).SetStatus(draftchange.StatusConflicted).Save(internalContext); updateErr != nil {
+	).SetStatus(draftchange.StatusConflicted).Save(ctx); updateErr != nil {
 		return opaqueError("conflict Draft facts after Live Detail Correction", updateErr)
 	}
 	for _, field := range params.Fields {
@@ -573,18 +572,18 @@ func (transaction *CommandTx) rebaseDraftAfterLiveCorrection(
 			previous, corrected = before.PublicDetails, after.PublicDetails
 		}
 		change, changeErr := transaction.recordNamedFactChange(
-			internalContext,
+			ctx,
 			EditDraftParams{EventID: params.EventID, ActorAccountID: params.ActorAccountID, Now: params.Now},
 			edit.ID, nextRevision, "LiveDetailCorrection", draftTargetSession, params.SessionID, field, previous, corrected,
 		)
 		if changeErr != nil {
 			return changeErr
 		}
-		if _, changeErr = change.Update().SetStatus(draftchange.StatusConflicted).Save(internalContext); changeErr != nil {
+		if _, changeErr = change.Update().SetStatus(draftchange.StatusConflicted).Save(ctx); changeErr != nil {
 			return opaqueError("mark Live Detail Correction Draft evidence", changeErr)
 		}
 	}
-	draft, err := transaction.transaction.SessionDraft.Query().Where(sessiondraft.SessionIDEQ(params.SessionID)).Only(internalContext)
+	draft, err := transaction.transaction.SessionDraft.Query().Where(sessiondraft.SessionIDEQ(params.SessionID)).Only(ctx)
 	if ent.IsNotFound(err) {
 		return nil
 	}
@@ -602,7 +601,7 @@ func (transaction *CommandTx) rebaseDraftAfterLiveCorrection(
 			update.SetPublicDetails(after.PublicDetails)
 		}
 	}
-	if _, err := update.Save(internalContext); err != nil {
+	if _, err := update.Save(ctx); err != nil {
 		return opaqueError("rebase Session Draft after Live Detail Correction", err)
 	}
 	return nil
@@ -646,7 +645,7 @@ func (installationStore *SQLite) LoadSessionHistory(
 		}
 		amendments, queryErr := installationStore.client.SessionRunAmendment.Query().Where(
 			sessionrunamendment.SessionRunIDEQ(run.ID),
-		).Order(ent.Asc(sessionrunamendment.FieldID)).All(systemContext(ctx))
+		).Order(ent.Asc(sessionrunamendment.FieldID)).All(ctx)
 		if queryErr != nil {
 			return SessionHistory{}, opaqueError("load Run Amendments", queryErr)
 		}
@@ -664,7 +663,7 @@ func (installationStore *SQLite) LoadSessionHistory(
 	cancellations, err := installationStore.client.SessionCancellation.Query().
 		Where(sessioncancellation.SessionIDEQ(sessionID)).
 		Order(ent.Asc(sessioncancellation.FieldID)).
-		All(systemContext(ctx))
+		All(ctx)
 	if err != nil {
 		return SessionHistory{}, opaqueError("load Session cancellation history", err)
 	}
@@ -679,7 +678,6 @@ func (installationStore *SQLite) LoadSessionHistory(
 }
 
 func (transaction *CommandTx) requireActiveEvent(ctx context.Context, eventID int) error {
-	ctx = systemContext(ctx)
 	active, err := transaction.transaction.Installation.Query().
 		Where(installation.ActiveEventIDEQ(eventID)).Exist(ctx)
 	if err != nil {

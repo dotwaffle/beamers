@@ -14,7 +14,7 @@ import (
 func TestBeginCommandPreservesCancellationDuringDriverBegin(t *testing.T) {
 	driver := &blockingBeginDriver{entered: make(chan struct{})}
 	installation := &SQLite{client: ent.NewClient(ent.Driver(driver))}
-	ctx, cancel := context.WithCancel(t.Context())
+	ctx, cancel := context.WithCancel(hostMaintenanceContext(t.Context()))
 	result := make(chan error, 1)
 	go func() {
 		_, err := installation.BeginCommand(ctx)

@@ -91,8 +91,7 @@ func (installationStore *SQLite) LoadDisplaySnapshot(
 	credentialHash string,
 	now time.Time,
 ) (DisplaySnapshotState, error) {
-	internalContext := systemContext(ctx)
-	transaction, err := installationStore.reader.Tx(internalContext)
+	transaction, err := installationStore.reader.Tx(ctx)
 	if err != nil {
 		return DisplaySnapshotState{}, opaqueError("begin Display Snapshot", err)
 	}
@@ -103,7 +102,7 @@ func (installationStore *SQLite) LoadDisplaySnapshot(
 	credential, err := client.DisplayCredential.Query().Where(
 		displaycredential.TokenHashEQ(credentialHash),
 		displaycredential.RevokedAtIsNil(),
-	).WithDisplay().Only(internalContext)
+	).WithDisplay().Only(ctx)
 	if ent.IsNotFound(err) {
 		return DisplaySnapshotState{}, ErrDisplayCredential
 	}
@@ -120,7 +119,7 @@ func (installationStore *SQLite) LoadDisplaySnapshot(
 	}
 	routing, err := client.Installation.Query().
 		Where(installation.ActiveEventIDNotNil()).
-		Only(internalContext)
+		Only(ctx)
 	if ent.IsNotFound(err) {
 		return result, nil
 	}
@@ -129,7 +128,7 @@ func (installationStore *SQLite) LoadDisplaySnapshot(
 	}
 	result.ActiveEventID = *routing.ActiveEventID
 	result.ActivationGeneration = routing.ActivationGeneration
-	activeEvent, err := client.Event.Get(internalContext, result.ActiveEventID)
+	activeEvent, err := client.Event.Get(ctx, result.ActiveEventID)
 	if err != nil {
 		return DisplaySnapshotState{}, opaqueError("load Display Snapshot Event", err)
 	}
@@ -138,7 +137,7 @@ func (installationStore *SQLite) LoadDisplaySnapshot(
 	result.EventDayBoundary = activeEvent.EventDayBoundary
 	result.DisplayConfiguration = activeEvent.DisplayConfiguration
 	published, err := installationStore.loadDisplayRundown(
-		internalContext,
+		ctx,
 		client,
 		result.ActiveEventID,
 	)
@@ -149,7 +148,7 @@ func (installationStore *SQLite) LoadDisplaySnapshot(
 	assignment, err := client.DisplayAssignment.Query().Where(
 		displayassignment.DisplayIDEQ(found.ID),
 		displayassignment.EventIDEQ(result.ActiveEventID),
-	).Only(internalContext)
+	).Only(ctx)
 	if ent.IsNotFound(err) {
 		return result, nil
 	}
@@ -170,7 +169,7 @@ func (installationStore *SQLite) LoadDisplaySnapshot(
 	}
 	result.Standby = false
 	if overrideErr := loadCurrentDisplayOverrides(
-		internalContext,
+		ctx,
 		displayOverrideSelection{
 			Client: client, Assignment: assignment, Lanes: published.Lanes, Now: now,
 		},
@@ -186,7 +185,7 @@ func (installationStore *SQLite) LoadDisplaySnapshot(
 	if len(sessionIDs) > 0 {
 		identities, queryErr := client.Session.Query().
 			Where(session.IDIn(sessionIDs...)).
-			All(internalContext)
+			All(ctx)
 		if queryErr != nil {
 			return DisplaySnapshotState{}, opaqueError("load Display Session identities", queryErr)
 		}
@@ -201,7 +200,7 @@ func (installationStore *SQLite) LoadDisplaySnapshot(
 			runningIDs = append(runningIDs, identity.ID)
 		}
 	}
-	runs, err := latestSessionRuns(internalContext, client, runningIDs)
+	runs, err := latestSessionRuns(ctx, client, runningIDs)
 	if err != nil {
 		return DisplaySnapshotState{}, err
 	}
@@ -231,7 +230,7 @@ func (installationStore *SQLite) LoadDisplaySnapshot(
 			continue
 		}
 		programSession, programErr := isProgramChannelSession(
-			internalContext,
+			ctx,
 			client,
 			result.ActiveEventID,
 			publishedSession,
@@ -243,7 +242,7 @@ func (installationStore *SQLite) LoadDisplaySnapshot(
 			continue
 		}
 		channel, channelErr := loadProgramChannel(
-			internalContext, client, result.ActiveEventID, publishedSession.ID, now,
+			ctx, client, result.ActiveEventID, publishedSession.ID, now,
 		)
 		if channelErr != nil {
 			return DisplaySnapshotState{}, channelErr

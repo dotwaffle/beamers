@@ -12,7 +12,7 @@ func TestHostInterfaceModeAuditRecordsOnlyTransitions(t *testing.T) {
 
 	for _, enabled := range []bool{false, true, true, false, false} {
 		if err := installation.RecordHostInterfaceMode(
-			t.Context(),
+			hostMaintenanceContext(t.Context()),
 			"Crew",
 			enabled,
 		); err != nil {
@@ -22,7 +22,7 @@ func TestHostInterfaceModeAuditRecordsOnlyTransitions(t *testing.T) {
 	entries, err := client.AuditEntry.Query().
 		Where(auditentry.ActionEQ("ConfigureInsecureCrew")).
 		Order(auditentry.ByID()).
-		All(systemContext(t.Context()))
+		All(hostMaintenanceContext(t.Context()))
 	if err != nil {
 		t.Fatalf("read insecure Crew Audit: %v", err)
 	}

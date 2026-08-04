@@ -59,7 +59,7 @@ func (installation *SQLite) LoadPresentationSubmission(
 	eventID, sessionID int,
 ) (PresentationSubmission, error) {
 	found, version, foundEvent, err := loadPresentationSubmission(
-		systemContext(ctx),
+		ctx,
 		installation.client,
 		eventID,
 		sessionID,
@@ -75,10 +75,9 @@ func (installation *SQLite) LoadAccountPresentationSubmissions(
 	ctx context.Context,
 	accountID int,
 ) ([]PresentationSubmission, error) {
-	internalContext := systemContext(ctx)
 	enabled, err := installation.client.Account.Query().
 		Where(account.IDEQ(accountID), account.DisabledAtIsNil()).
-		Exist(internalContext)
+		Exist(ctx)
 	if err != nil {
 		return nil, opaqueError("load Presentation Submitter Account", err)
 	}
@@ -89,7 +88,7 @@ func (installation *SQLite) LoadAccountPresentationSubmissions(
 		Where(session.SubmitterAccountIDEQ(accountID)).
 		WithEvent().
 		Order(ent.Asc(session.FieldID)).
-		All(internalContext)
+		All(ctx)
 	if err != nil {
 		return nil, opaqueError("load Account Presentations", err)
 	}
@@ -97,7 +96,7 @@ func (installation *SQLite) LoadAccountPresentationSubmissions(
 	for _, identity := range found {
 		version, versionErr := identity.QueryPublishedVersions().
 			Order(ent.Desc(sessionpublishedversion.FieldPublishedRevision)).
-			First(internalContext)
+			First(ctx)
 		if ent.IsNotFound(versionErr) ||
 			(versionErr == nil && version.Type != sessionpublishedversion.TypePresentation) {
 			continue
@@ -119,9 +118,8 @@ func (transaction *CommandTx) AssignPresentationSubmitter(
 	ctx context.Context,
 	params AssignPresentationSubmitterParams,
 ) (PresentationSubmission, error) {
-	internalContext := systemContext(ctx)
 	found, version, foundEvent, err := loadPresentationSubmission(
-		internalContext,
+		ctx,
 		transaction.transaction.Client(),
 		params.EventID,
 		params.SessionID,
@@ -135,7 +133,7 @@ func (transaction *CommandTx) AssignPresentationSubmitter(
 	}
 	enabled, err := transaction.transaction.Account.Query().
 		Where(account.IDEQ(params.AccountID), account.DisabledAtIsNil()).
-		Exist(internalContext)
+		Exist(ctx)
 	if err != nil {
 		return PresentationSubmission{}, opaqueError("load assigned Presentation Submitter", err)
 	}
@@ -145,7 +143,7 @@ func (transaction *CommandTx) AssignPresentationSubmitter(
 	updated, err := found.Update().
 		SetSubmitterAccountID(params.AccountID).
 		AddPresentationSubmissionRevision(1).
-		Save(internalContext)
+		Save(ctx)
 	if err != nil {
 		return PresentationSubmission{}, opaqueError("assign Presentation Submitter", err)
 	}
@@ -157,9 +155,8 @@ func (transaction *CommandTx) UpdatePresentationSubmission(
 	ctx context.Context,
 	params UpdatePresentationSubmissionParams,
 ) (PresentationSubmission, error) {
-	internalContext := systemContext(ctx)
 	found, version, foundEvent, err := loadPresentationSubmission(
-		internalContext,
+		ctx,
 		transaction.transaction.Client(),
 		params.EventID,
 		params.SessionID,
@@ -176,7 +173,7 @@ func (transaction *CommandTx) UpdatePresentationSubmission(
 	}
 	started, err := transaction.transaction.SessionRun.Query().
 		Where(sessionrun.SessionIDEQ(params.SessionID)).
-		Exist(internalContext)
+		Exist(ctx)
 	if err != nil {
 		return PresentationSubmission{}, opaqueError("load Presentation start", err)
 	}
@@ -184,7 +181,7 @@ func (transaction *CommandTx) UpdatePresentationSubmission(
 		return current, ErrPresentationSubmissionClosed
 	}
 	open, err := uploadTargetOpen(
-		internalContext,
+		ctx,
 		transaction.transaction.Client(),
 		UploadAuthorization{
 			EventID: params.EventID, TargetType: UploadTargetPresentation, TargetID: params.SessionID,
@@ -201,7 +198,7 @@ func (transaction *CommandTx) UpdatePresentationSubmission(
 		SetCorrectedSpeaker(params.Speaker).
 		SetCorrectedPublicDetails(params.PublicDetails).
 		AddPresentationSubmissionRevision(1).
-		Save(internalContext)
+		Save(ctx)
 	if err != nil {
 		return PresentationSubmission{}, opaqueError("update Presentation submission", err)
 	}

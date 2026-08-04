@@ -11,7 +11,7 @@ import (
 func TestPresentationSubmitterAssignmentReplacementAndAccess(t *testing.T) {
 	client := openEntTestClient(t)
 	installation := &SQLite{client: client}
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	now := time.Date(2026, 8, 21, 10, 0, 0, 0, time.UTC)
 	deadline := now.Add(time.Hour)
 	event := createSchemaTestEvent(t, client)
@@ -63,11 +63,11 @@ func TestPresentationSubmitterAssignmentReplacementAndAccess(t *testing.T) {
 	}
 	commitSubmissionTestCommand(t, replace)
 
-	firstView, err := installation.LoadAccountPresentationSubmissions(t.Context(), first.ID)
+	firstView, err := installation.LoadAccountPresentationSubmissions(hostMaintenanceContext(t.Context()), first.ID)
 	if err != nil || len(firstView) != 0 {
 		t.Fatalf("replaced Account Presentation view = %+v, %v", firstView, err)
 	}
-	secondView, err := installation.LoadAccountPresentationSubmissions(t.Context(), second.ID)
+	secondView, err := installation.LoadAccountPresentationSubmissions(hostMaintenanceContext(t.Context()), second.ID)
 	if err != nil || len(secondView) != 1 ||
 		secondView[0].SessionID != presentation.ID ||
 		secondView[0].PublicDetails != "Crew-approved details" {

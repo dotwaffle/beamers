@@ -686,7 +686,8 @@ func (service *Service) runControlCommand(
 	}
 	current := owned.state
 	var executionState controlState
-	next, err := command.Execute(actor.Context(ctx), command.Plan[controlState]{
+	ctx = actor.Context(ctx)
+	next, err := command.Execute(ctx, command.Plan[controlState]{
 		Storage: service.storage, Identity: channelCommand.identity,
 		Authorization: command.Authorization{
 			Facts:    authz.Event(channelCommand.eventID),
@@ -989,7 +990,8 @@ func (service *Service) runChannelCommand(
 	control := owned.state
 	committed := false
 	var receipt takeReceipt
-	outcome, err := command.Execute(actor.Context(ctx), command.Plan[takeReceipt]{
+	ctx = actor.Context(ctx)
+	outcome, err := command.Execute(ctx, command.Plan[takeReceipt]{
 		Storage:  service.storage,
 		Identity: durableCommand.identity,
 		Authorization: command.Authorization{

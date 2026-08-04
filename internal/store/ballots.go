@@ -145,9 +145,8 @@ func (installation *SQLite) LoadVotingWindow(
 	ctx context.Context,
 	eventID, sessionID int,
 ) (VotingWindow, error) {
-	internalContext := systemContext(ctx)
 	found, foundEvent, version, err := votingCompetition(
-		internalContext, installation.client.Session.Query(), eventID, sessionID,
+		ctx, installation.client.Session.Query(), eventID, sessionID,
 	)
 	if err != nil {
 		return VotingWindow{}, err
@@ -160,9 +159,8 @@ func (transaction *CommandTx) ConfigureVoting(
 	ctx context.Context,
 	params ConfigureVotingParams,
 ) (VotingWindow, error) {
-	internalContext := systemContext(ctx)
 	found, foundEvent, version, err := votingCompetition(
-		internalContext, transaction.transaction.Session.Query(), params.EventID, params.SessionID,
+		ctx, transaction.transaction.Session.Query(), params.EventID, params.SessionID,
 	)
 	if err != nil {
 		return VotingWindow{}, err
@@ -184,7 +182,7 @@ func (transaction *CommandTx) ConfigureVoting(
 	} else {
 		update.SetSelfVotePolicyOverride(session.SelfVotePolicyOverride(params.SelfVoteOverride))
 	}
-	updated, err := update.Save(internalContext)
+	updated, err := update.Save(ctx)
 	if err != nil {
 		return VotingWindow{}, opaqueError("configure Competition voting", err)
 	}
@@ -199,9 +197,8 @@ func (transaction *CommandTx) OpenVotingWindow(
 	if err := transaction.requireActiveEvent(ctx, params.EventID); err != nil {
 		return VotingWindow{}, err
 	}
-	internalContext := systemContext(ctx)
 	found, foundEvent, version, err := votingCompetition(
-		internalContext, transaction.transaction.Session.Query(), params.EventID, params.SessionID,
+		ctx, transaction.transaction.Session.Query(), params.EventID, params.SessionID,
 	)
 	if err != nil {
 		return VotingWindow{}, err
@@ -220,7 +217,7 @@ func (transaction *CommandTx) OpenVotingWindow(
 		SetFrozenSelfVotePolicy(session.FrozenSelfVotePolicy(effective.SelfVotePolicy)).
 		SetVotingOpenedAt(params.Now).
 		AddVotingRevision(1).
-		Save(internalContext)
+		Save(ctx)
 	if err != nil {
 		return VotingWindow{}, opaqueError("open Competition Voting Window", err)
 	}
@@ -232,9 +229,8 @@ func (transaction *CommandTx) CloseVotingWindow(
 	ctx context.Context,
 	params VotingWindowParams,
 ) (VotingWindow, error) {
-	internalContext := systemContext(ctx)
 	found, foundEvent, version, err := votingCompetition(
-		internalContext, transaction.transaction.Session.Query(), params.EventID, params.SessionID,
+		ctx, transaction.transaction.Session.Query(), params.EventID, params.SessionID,
 	)
 	if err != nil {
 		return VotingWindow{}, err
@@ -249,7 +245,7 @@ func (transaction *CommandTx) CloseVotingWindow(
 		SetVotingWindowState(session.VotingWindowStateClosed).
 		SetVotingClosedAt(params.Now).
 		AddVotingRevision(1).
-		Save(internalContext)
+		Save(ctx)
 	if err != nil {
 		return VotingWindow{}, opaqueError("close Competition Voting Window", err)
 	}
@@ -275,7 +271,6 @@ func (transaction *CommandTx) createVotingTally(
 	if createdByAccountID <= 0 {
 		return errors.New("voting Tally creator is required")
 	}
-	internalContext := systemContext(ctx)
 	client := transaction.transaction.Client()
 	entries, err := client.CompetitionEntry.Query().Where(
 		competitionentry.EventIDEQ(found.EventID),
@@ -283,14 +278,14 @@ func (transaction *CommandTx) createVotingTally(
 		competitionentry.DispositionEQ(competitionentry.DispositionIncluded),
 		competitionentry.FirstPresentedAtNotNil(),
 	).Order(ent.Asc(competitionentry.FieldFirstPresentedAt), ent.Asc(competitionentry.FieldID)).
-		All(internalContext)
+		All(ctx)
 	if err != nil {
 		return opaqueError("load Voting Tally Entries", err)
 	}
 	votes, err := client.Vote.Query().Where(
 		vote.EventIDEQ(found.EventID),
 		vote.CompetitionSessionIDEQ(found.ID),
-	).All(internalContext)
+	).All(ctx)
 	if err != nil {
 		return opaqueError("load Voting Tally Votes", err)
 	}
@@ -331,12 +326,12 @@ func (transaction *CommandTx) createVotingTally(
 		SetEntries(aggregates).
 		SetCreatedByAccountID(createdByAccountID).
 		SetCreatedAt(now.UTC()).
-		Save(internalContext)
+		Save(ctx)
 	if err != nil {
 		return opaqueError("create Voting Tally", err)
 	}
 	current, err := transaction.LoadCompetitionResultsDraft(
-		internalContext,
+		ctx,
 		found.EventID,
 		found.ID,
 	)
@@ -358,7 +353,7 @@ func (transaction *CommandTx) createVotingTally(
 		})
 	}
 	_, err = transaction.SaveCompetitionResultsDraft(
-		internalContext,
+		ctx,
 		SaveCompetitionResultsDraftParams{
 			EventID: found.EventID, SessionID: found.ID,
 			ExpectedRevision: current.Revision,
@@ -379,7 +374,7 @@ func (installation *SQLite) LoadVotingTally(
 	found, err := installation.client.VotingTally.Query().Where(
 		votingtally.EventIDEQ(eventID),
 		votingtally.CompetitionSessionIDEQ(sessionID),
-	).Only(systemContext(ctx))
+	).Only(ctx)
 	if err != nil {
 		return VotingTally{}, opaqueError("load Voting Tally", err)
 	}
@@ -394,7 +389,7 @@ func (transaction *CommandTx) LoadVotingTally(
 	found, err := transaction.transaction.VotingTally.Query().Where(
 		votingtally.EventIDEQ(eventID),
 		votingtally.CompetitionSessionIDEQ(sessionID),
-	).Only(systemContext(ctx))
+	).Only(ctx)
 	if err != nil {
 		return VotingTally{}, opaqueError("load Voting Tally", err)
 	}
@@ -427,9 +422,8 @@ func (transaction *CommandTx) CastVote(
 	ctx context.Context,
 	params CastVoteParams,
 ) (Ballot, error) {
-	internalContext := systemContext(ctx)
 	found, _, _, err := votingCompetition(
-		internalContext, transaction.transaction.Session.Query(), params.EventID, params.SessionID,
+		ctx, transaction.transaction.Session.Query(), params.EventID, params.SessionID,
 	)
 	if err != nil {
 		return Ballot{}, err
@@ -443,7 +437,7 @@ func (transaction *CommandTx) CastVote(
 	eligible, err := transaction.transaction.VotingEligibility.Query().Where(
 		votingeligibility.EventIDEQ(params.EventID),
 		votingeligibility.AccountIDEQ(params.AccountID),
-	).Exist(internalContext)
+	).Exist(ctx)
 	if err != nil {
 		return Ballot{}, opaqueError("load Voting Eligibility", err)
 	}
@@ -456,7 +450,7 @@ func (transaction *CommandTx) CastVote(
 		competitionentry.CompetitionSessionIDEQ(params.SessionID),
 		competitionentry.DispositionEQ(competitionentry.DispositionIncluded),
 		competitionentry.FirstPresentedAtNotNil(),
-	).Only(internalContext)
+	).Only(ctx)
 	if ent.IsNotFound(err) {
 		return Ballot{}, ErrVoteUnavailable
 	}
@@ -472,7 +466,7 @@ func (transaction *CommandTx) CastVote(
 		vote.CompetitionSessionIDEQ(params.SessionID),
 		vote.AccountIDEQ(params.AccountID),
 		vote.EntryIDEQ(params.EntryID),
-	).Only(internalContext)
+	).Only(ctx)
 	switch {
 	case ent.IsNotFound(err):
 		_, err = transaction.transaction.Vote.Create().
@@ -483,14 +477,14 @@ func (transaction *CommandTx) CastVote(
 			SetValue(params.Value).
 			SetCreatedAt(params.Now).
 			SetUpdatedAt(params.Now).
-			Save(internalContext)
+			Save(ctx)
 	case err == nil:
-		_, err = stored.Update().SetValue(params.Value).SetUpdatedAt(params.Now).Save(internalContext)
+		_, err = stored.Update().SetValue(params.Value).SetUpdatedAt(params.Now).Save(ctx)
 	}
 	if err != nil {
 		return Ballot{}, opaqueError("save Competition Vote", err)
 	}
-	return transaction.loadBallot(internalContext, params.EventID, params.SessionID, params.AccountID)
+	return transaction.loadBallot(ctx, params.EventID, params.SessionID, params.AccountID)
 }
 
 func ballotEntries(
@@ -554,9 +548,8 @@ func (installation *SQLite) LoadBallot(
 	ctx context.Context,
 	eventID, sessionID, accountID int,
 ) (Ballot, error) {
-	internalContext := systemContext(ctx)
 	found, foundEvent, version, err := votingCompetition(
-		internalContext, installation.client.Session.Query(), eventID, sessionID,
+		ctx, installation.client.Session.Query(), eventID, sessionID,
 	)
 	if err != nil {
 		return Ballot{}, err
@@ -565,14 +558,14 @@ func (installation *SQLite) LoadBallot(
 		found.VotingWindowState != session.VotingWindowStateClosed {
 		return Ballot{}, ErrVotingWindowState
 	}
-	eligible, err := votingEligible(internalContext, installation.client, eventID, accountID)
+	eligible, err := votingEligible(ctx, installation.client, eventID, accountID)
 	if err != nil {
 		return Ballot{}, err
 	}
 	if !eligible {
 		return Ballot{}, ErrVotingIneligible
 	}
-	entries, err := ballotEntries(internalContext, installation.client, found, accountID)
+	entries, err := ballotEntries(ctx, installation.client, found, accountID)
 	if err != nil {
 		return Ballot{}, err
 	}
@@ -584,10 +577,9 @@ func (installation *SQLite) ListOpenBallots(
 	ctx context.Context,
 	accountID int,
 ) ([]VotingWindow, error) {
-	internalContext := systemContext(ctx)
 	eligibilities, err := installation.client.VotingEligibility.Query().
 		Where(votingeligibility.AccountIDEQ(accountID)).
-		All(internalContext)
+		All(ctx)
 	if err != nil {
 		return nil, opaqueError("load Account Voting Eligibilities", err)
 	}
@@ -603,7 +595,7 @@ func (installation *SQLite) ListOpenBallots(
 		session.VotingWindowStateEQ(session.VotingWindowStateOpen),
 	).WithEvent().WithPublishedVersions(func(versions *ent.SessionPublishedVersionQuery) {
 		versions.Order(ent.Desc(sessionpublishedversion.FieldPublishedRevision)).Limit(1)
-	}).Order(ent.Asc(session.FieldID)).All(internalContext)
+	}).Order(ent.Asc(session.FieldID)).All(ctx)
 	if err != nil {
 		return nil, opaqueError("list open Voting Windows", err)
 	}
@@ -625,16 +617,15 @@ func (installation *SQLite) LoadVotingParticipation(
 	ctx context.Context,
 	eventID, sessionID int,
 ) (VotingParticipation, error) {
-	internalContext := systemContext(ctx)
 	found, _, _, err := votingCompetition(
-		internalContext, installation.client.Session.Query(), eventID, sessionID,
+		ctx, installation.client.Session.Query(), eventID, sessionID,
 	)
 	if err != nil {
 		return VotingParticipation{}, err
 	}
 	eligible, err := installation.client.VotingEligibility.Query().
 		Where(votingeligibility.EventIDEQ(eventID)).
-		Count(internalContext)
+		Count(ctx)
 	if err != nil {
 		return VotingParticipation{}, opaqueError("count Voting Eligibility", err)
 	}
@@ -643,13 +634,13 @@ func (installation *SQLite) LoadVotingParticipation(
 		competitionentry.CompetitionSessionIDEQ(sessionID),
 		competitionentry.DispositionEQ(competitionentry.DispositionIncluded),
 		competitionentry.FirstPresentedAtNotNil(),
-	).All(internalContext)
+	).All(ctx)
 	if err != nil {
 		return VotingParticipation{}, opaqueError("count votable Entries", err)
 	}
 	votes, err := installation.client.Vote.Query().
 		Where(vote.CompetitionSessionIDEQ(sessionID)).
-		All(internalContext)
+		All(ctx)
 	if err != nil {
 		return VotingParticipation{}, opaqueError("count Ballot participation", err)
 	}

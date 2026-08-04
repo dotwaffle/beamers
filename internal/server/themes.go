@@ -143,7 +143,7 @@ func (handlers themeHandlers) administration(
 	case http.MethodGet, http.MethodHead:
 		selected, selectErr := nonnegativeThemeID(request.URL.Query().Get("revision"))
 		if request.URL.Query().Get("revision") == "" {
-			active, activeErr := handlers.themes.Active(request.Context())
+			active, activeErr := handlers.themes.Active(actor.Context(request.Context()))
 			if activeErr != nil {
 				handlers.browser.frontendError(
 					response,
@@ -309,7 +309,7 @@ func (handlers themeHandlers) render(
 	status int,
 	message string,
 ) {
-	active, err := handlers.themes.Active(request.Context())
+	active, err := handlers.themes.Active(actor.Context(request.Context()))
 	if err != nil {
 		handlers.browser.frontendError(response, request, "read active Installation Theme", err)
 		return

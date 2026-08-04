@@ -19,7 +19,7 @@ func TestResultsPublicationAppendIsImmutableAndRevisionChecked(t *testing.T) {
 		"Ceremony",
 		"Prizegiving",
 	)
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	now := time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC)
 	ref := PrizegivingResultItemRef{
 		Kind: "CompetitionResults", CompetitionSessionID: 17, DisplayOrder: 1,
@@ -141,7 +141,7 @@ func TestEventResultsPublicationRejectsNonMonotonicAppend(t *testing.T) {
 	client := openEntTestClient(t)
 	installation := &SQLite{client: client}
 	event := createSchemaTestEvent(t, client)
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	now := time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC)
 	competition := PrizegivingResultItemRef{
 		Kind: "CompetitionResults", CompetitionSessionID: 17, DisplayOrder: 1,
@@ -219,10 +219,10 @@ func TestResultsPublicationRenderSourceFreezesEventLocaleAndContentLanguage(t *t
 	event := createSchemaTestEvent(t, client)
 	client.Event.UpdateOne(event).
 		SetContentLanguage("fr").
-		SaveX(systemContext(t.Context()))
+		SaveX(hostMaintenanceContext(t.Context()))
 
 	source, err := installation.LoadResultsPublicationRenderSource(
-		t.Context(),
+		hostMaintenanceContext(t.Context()),
 		event.ID,
 		PrizegivingPreflightLock{},
 	)
@@ -238,7 +238,7 @@ func TestResultsPublicationRenderSourceFreezesEventLocaleAndContentLanguage(t *t
 	}
 
 	legacy, err := installation.LoadResultsPublicationRenderSource(
-		t.Context(),
+		hostMaintenanceContext(t.Context()),
 		event.ID,
 		PrizegivingPreflightLock{
 			RenderSource: []byte(`{"event_name":"Frozen Event"}`),
@@ -253,7 +253,7 @@ func TestResultsPublicationRenderSourceFreezesEventLocaleAndContentLanguage(t *t
 		t.Fatalf("legacy Results Publication Event metadata = %+v", legacy)
 	}
 	if _, err = installation.LoadResultsPublicationRenderSource(
-		t.Context(),
+		hostMaintenanceContext(t.Context()),
 		event.ID,
 		PrizegivingPreflightLock{
 			RenderSource: []byte(`{"event_id":999,"event_slug":"other"}`),
@@ -274,7 +274,7 @@ func TestPartialResultsCorrectionPreservesLockedUnreleasedItems(t *testing.T) {
 		"Ceremony",
 		"Prizegiving",
 	)
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	now := time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC)
 	released := PrizegivingResultItemRef{
 		Kind: "CompetitionResults", CompetitionSessionID: 17, DisplayOrder: 1,
@@ -369,7 +369,7 @@ func TestStandaloneResultsReleaseStateIncludesRequiredEntryResolution(t *testing
 		"Competition",
 		"Final",
 	)
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	client.CompetitionEntry.Create().
 		SetEventID(event.ID).
 		SetCompetitionSessionID(competition.ID).

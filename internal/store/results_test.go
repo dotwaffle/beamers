@@ -16,7 +16,7 @@ import (
 func TestCompetitionResultsDraftRevisionsClearReady(t *testing.T) {
 	client := openEntTestClient(t)
 	installation := &SQLite{client: client}
-	fixtureContext := systemContext(t.Context())
+	fixtureContext := hostMaintenanceContext(t.Context())
 	event := createSchemaTestEvent(t, client)
 	competition := client.Session.Create().
 		SetEventID(event.ID).
@@ -49,7 +49,7 @@ func TestCompetitionResultsDraftRevisionsClearReady(t *testing.T) {
 		SetDisposition(competitionentry.DispositionIncluded).
 		SaveX(fixtureContext)
 	competition.Update().SetLockedEntryOrderIds([]int{first.ID, second.ID}).SaveX(fixtureContext)
-	producerContext := viewer.NewContext(t.Context(), viewer.Identity{
+	producerContext := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID:  7,
 		EventRoles: map[int]viewer.Role{event.ID: viewer.Producer},
 	})
@@ -136,7 +136,7 @@ func TestCompetitionResultsDraftRevisionsClearReady(t *testing.T) {
 		t.Fatalf("current Results Draft = %+v, %v", current, err)
 	}
 
-	viewContext := viewer.NewContext(t.Context(), viewer.Identity{
+	viewContext := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID:  9,
 		EventRoles: map[int]viewer.Role{event.ID: viewer.Observer},
 		EventScopes: map[int]viewer.EventScope{
@@ -153,7 +153,7 @@ func TestCompetitionResultsDraftRevisionsClearReady(t *testing.T) {
 	if err != nil || visible.Revision != 2 {
 		t.Fatalf("View Results Draft = %+v, %v", visible, err)
 	}
-	manageContext := viewer.NewContext(t.Context(), viewer.Identity{
+	manageContext := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID:  10,
 		EventRoles: map[int]viewer.Role{event.ID: viewer.Operator},
 		EventScopes: map[int]viewer.EventScope{
@@ -210,7 +210,7 @@ func TestCompetitionResultsDraftRevisionsClearReady(t *testing.T) {
 		SetName("Other Event Entry").
 		SetDisposition(competitionentry.DispositionIncluded).
 		SaveX(fixtureContext)
-	otherProducerContext := viewer.NewContext(t.Context(), viewer.Identity{
+	otherProducerContext := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID:  11,
 		EventRoles: map[int]viewer.Role{otherEvent.ID: viewer.Producer},
 	})
@@ -289,7 +289,7 @@ func TestEventAwardsDraftKeepsReadinessPerReleasePath(t *testing.T) {
 	competition := createPublishedResultsSession(
 		t, client, event.ID, sessionpublishedversion.TypeCompetition, "Not a Prizegiving",
 	)
-	producerContext := viewer.NewContext(t.Context(), viewer.Identity{
+	producerContext := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID:  7,
 		EventRoles: map[int]viewer.Role{event.ID: viewer.Producer},
 	})
@@ -433,7 +433,7 @@ func TestEventAwardsDraftKeepsReadinessPerReleasePath(t *testing.T) {
 		t.Fatalf("unchanged Prizegiving path state = %+v", second.PathStates[1])
 	}
 
-	viewContext := viewer.NewContext(t.Context(), viewer.Identity{
+	viewContext := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID:  9,
 		EventRoles: map[int]viewer.Role{event.ID: viewer.Observer},
 		EventScopes: map[int]viewer.EventScope{
@@ -459,7 +459,7 @@ func TestEventAwardsDraftKeepsReadinessPerReleasePath(t *testing.T) {
 		t.Fatal("missing viewer read Event Awards")
 	}
 
-	manageContext := viewer.NewContext(t.Context(), viewer.Identity{
+	manageContext := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID:  10,
 		EventRoles: map[int]viewer.Role{event.ID: viewer.Operator},
 		EventScopes: map[int]viewer.EventScope{
@@ -493,7 +493,7 @@ func TestEventAwardsDraftKeepsReadinessPerReleasePath(t *testing.T) {
 	otherEventCeremony := createPublishedResultsSession(
 		t, client, otherEvent.ID, sessionpublishedversion.TypeCeremony, "Other Prizegiving",
 	)
-	otherProducerContext := viewer.NewContext(t.Context(), viewer.Identity{
+	otherProducerContext := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID:  11,
 		EventRoles: map[int]viewer.Role{otherEvent.ID: viewer.Producer},
 	})
@@ -543,7 +543,7 @@ func createPublishedResultsSession(
 	title string,
 ) *ent.Session {
 	t.Helper()
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	found := client.Session.Create().
 		SetEventID(eventID).
 		SetLifecycle(session.LifecycleEnded).

@@ -12,6 +12,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 )
 
 // FederatedIdentity is one Account-owned provider Credential.
@@ -46,7 +47,8 @@ func (service *Service) LinkFederatedIdentity(
 		AccountID int    `json:"account_id"`
 		Provider  string `json:"provider"`
 	}
-	result, err := command.Execute(actor.Context(ctx), command.Plan[FederatedIdentity]{
+	ctx = actor.Context(ctx)
+	result, err := command.Execute(ctx, command.Plan[FederatedIdentity]{
 		Storage:       service.storage,
 		Authorization: command.Authorization{Facts: authz.Installation(), Refusals: accountRejections},
 		Identity: store.CommandIdentity{
@@ -151,7 +153,7 @@ func (service *Service) FederatedSignIn(
 	now := service.now().UTC()
 	expiresAt := now.Add(service.sessionTTL)
 	found, revoked, created, err := service.storage.CreateFederatedSession(
-		ctx,
+		systemactor.NewContext(ctx, systemactor.PublicVisitor),
 		store.FederatedSessionParams{
 			Provider: provider, Subject: subject,
 			Name: displayName, NormalizedName: handle, WebAuthnUserHandle: userHandle,

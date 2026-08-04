@@ -276,7 +276,8 @@ func (service *Service) execute(
 		Action:      action, TargetType: "Presentation", TargetID: strconv.Itoa(sessionID),
 		Now: service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[State]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[State]{
 		Storage:  service.storage,
 		Identity: identity,
 		Notify:   notify,

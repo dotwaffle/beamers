@@ -24,6 +24,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 )
 
 var (
@@ -545,6 +546,7 @@ func (service *Service) storeFile(body io.Reader) (storedFile, error) {
 }
 
 func (service *Service) reconcileFiles(ctx context.Context) (returnErr error) {
+	ctx = systemactor.NewContext(ctx, systemactor.HostMaintenance)
 	referenced, err := service.storage.ReferencedAttachmentStorageKeys(ctx)
 	if err != nil {
 		return err
@@ -604,6 +606,7 @@ func (service *Service) removeIfUnreferenced(
 	ctx context.Context,
 	key string,
 ) (returnErr error) {
+	ctx = systemactor.NewContext(ctx, systemactor.HostMaintenance)
 	referenced, err := service.storage.ReferencedAttachmentStorageKeys(ctx)
 	if err != nil {
 		return err
@@ -769,7 +772,8 @@ func (service *Service) ConfigureEventRelease(
 		Action:      "ConfigureEventAttachmentRelease", TargetType: "Event",
 		TargetID: strconv.Itoa(input.EventID), Now: service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[store.AttachmentReleaseConfiguration]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[store.AttachmentReleaseConfiguration]{
 		Storage: service.storage, Identity: identity,
 		Authorization: command.Authorization{
 			Facts: authz.Event(input.EventID), Refusals: attachmentReleaseRejections,
@@ -867,7 +871,8 @@ func (service *Service) SetVersionRelease(
 		Action:      "SetAttachmentVersionRelease", TargetType: "AttachmentVersion",
 		TargetID: strconv.Itoa(input.VersionID), Now: service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[Version]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[Version]{
 		Storage: service.storage, Identity: identity,
 		Authorization: command.Authorization{
 			Facts: authz.Event(input.EventID), Refusals: attachmentReleaseRejections,
@@ -938,7 +943,8 @@ func (service *Service) FireReleaseCue(
 		Action:      "FireEventAttachmentReleaseCue", TargetType: "Event",
 		TargetID: strconv.Itoa(input.EventID), Now: service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[store.AttachmentReleaseConfiguration]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[store.AttachmentReleaseConfiguration]{
 		Storage: service.storage, Identity: identity,
 		Authorization: command.Authorization{
 			Facts: authz.Event(input.EventID), Refusals: attachmentReleaseRejections,
@@ -965,6 +971,7 @@ func (service *Service) FireReleaseCue(
 
 // ReleasedVersions lists attendee-safe Active Event files.
 func (service *Service) ReleasedVersions(ctx context.Context) ([]ReleasedVersion, error) {
+	ctx = systemactor.NewContext(ctx, systemactor.PublicVisitor)
 	stored, err := service.storage.LoadReleasedAttachmentVersions(ctx)
 	if err != nil {
 		return nil, err
@@ -984,6 +991,7 @@ func (service *Service) ReadReleasedVersion(
 	if versionID <= 0 {
 		return ReleasedVersion{}, nil, ErrNotReleased
 	}
+	ctx = systemactor.NewContext(ctx, systemactor.PublicVisitor)
 	stored, err := service.storage.LoadReleasedAttachmentVersion(ctx, versionID)
 	if err != nil {
 		return ReleasedVersion{}, nil, err
@@ -1079,7 +1087,8 @@ func (service *Service) CreateReopenWindow(
 		PayloadHash: command.PayloadHash(string(encoded)), Action: "CreateReopenWindow",
 		TargetType: string(input.TargetType), TargetID: strconv.Itoa(input.TargetID), Now: now,
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[store.ReopenWindow]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[store.ReopenWindow]{
 		Storage: service.storage, Identity: identity,
 		Authorization: command.Authorization{
 			Facts: authz.Event(input.EventID), Refusals: attachmentReleaseRejections,
@@ -1144,7 +1153,8 @@ func (service *Service) UpdateReopenWindow(
 		PayloadHash: command.PayloadHash(string(encoded)), Action: action,
 		TargetType: "ReopenWindow", TargetID: strconv.Itoa(input.WindowID), Now: now,
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[store.ReopenWindow]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[store.ReopenWindow]{
 		Storage: service.storage, Identity: identity,
 		Authorization: command.Authorization{
 			Facts: authz.Event(input.EventID), Refusals: attachmentReleaseRejections,

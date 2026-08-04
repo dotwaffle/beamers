@@ -582,7 +582,8 @@ func (service *Service) executeEntryOrderCommand(
 		Action:      action, TargetType: "Competition", TargetID: strconv.Itoa(sessionID),
 		Now: service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[EntryOrder]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[EntryOrder]{
 		Storage: service.storage, Identity: identity, Notify: service.notifyEntries,
 		Authorization: command.Authorization{
 			Facts: authz.Event(eventID), Refusals: competitionRejections,
@@ -639,7 +640,8 @@ func (service *Service) ConfigureReadiness(
 		Action:      "ConfigureCompetitionReadiness", TargetType: "Competition",
 		TargetID: strconv.Itoa(input.SessionID), Now: service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[Readiness]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[Readiness]{
 		Storage: service.storage, Identity: identity,
 		Authorization: command.Authorization{
 			Facts: authz.Event(input.EventID), Refusals: competitionRejections,
@@ -700,7 +702,8 @@ func (service *Service) ConfigureSubmissionEligibility(
 		TargetType:  "Competition", TargetID: strconv.Itoa(input.SessionID),
 		Now: service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[SubmissionEligibilityState]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[SubmissionEligibilityState]{
 		Storage: service.storage, Identity: identity,
 		Authorization: command.Authorization{
 			Facts: authz.Event(input.EventID), Refusals: competitionRejections,
@@ -1110,7 +1113,8 @@ func (service *Service) SetEntryAttachmentReadiness(
 		Action:      "SetEntryAttachmentReadiness", TargetType: "AttachmentVersion",
 		TargetID: strconv.Itoa(input.AttachmentVersionID), Now: service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[AttachmentReadiness]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[AttachmentReadiness]{
 		Storage: service.storage, Identity: identity, Notify: service.notifySchedule,
 		Authorization: command.Authorization{
 			Facts: authz.Event(input.EventID), Refusals: competitionRejections,
@@ -1205,7 +1209,8 @@ func (service *Service) executeEntryCommand(
 		ActorAccountID: actor.ID, CommandID: commandID, PayloadHash: command.PayloadHash(string(encodedPayload)),
 		Action: action, TargetType: "CompetitionEntry", TargetID: targetID, Now: service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[Entry]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[Entry]{
 		Storage: service.storage, Identity: identity, Notify: notify,
 		Authorization: command.Authorization{
 			Facts: facts, Refusals: competitionRejections,

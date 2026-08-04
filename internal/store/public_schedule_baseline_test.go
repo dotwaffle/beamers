@@ -15,7 +15,7 @@ func TestCapturePublicScheduleBaselineCommitsAllPublicSessions(t *testing.T) {
 	installationStore := openEventTestInstallation(t)
 	now := time.Date(2026, time.July, 23, 18, 0, 0, 0, time.UTC)
 	administrator := bootstrapEventTestAdministrator(t, installationStore, now)
-	ctx := viewer.NewContext(t.Context(), viewer.Identity{
+	ctx := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID: administrator.ID, Administrator: true,
 	})
 	event := createEventTestEvent(t, installationStore, ctx, administrator.ID, "FOSDEM 2026", now)
@@ -39,9 +39,9 @@ func TestCapturePublicScheduleBaselineCommitsAllPublicSessions(t *testing.T) {
 	installationStore.client.Rundown.Update().
 		Where(rundown.EventIDEQ(event.ID)).
 		SetPublishedRevision(1).
-		SaveX(systemContext(t.Context()))
+		SaveX(hostMaintenanceContext(t.Context()))
 	displayRundown, err := installationStore.loadDisplayRundown(
-		systemContext(t.Context()),
+		hostMaintenanceContext(t.Context()),
 		installationStore.client,
 		event.ID,
 	)
@@ -51,7 +51,7 @@ func TestCapturePublicScheduleBaselineCommitsAllPublicSessions(t *testing.T) {
 	if len(displayRundown.baselineStarts) != 0 {
 		t.Fatalf("Display baselines before capture = %+v, want none", displayRundown.baselineStarts)
 	}
-	staleReader, err := installationStore.reader.Tx(systemContext(t.Context()))
+	staleReader, err := installationStore.reader.Tx(hostMaintenanceContext(t.Context()))
 	if err != nil {
 		t.Fatalf("begin stale Display read: %v", err)
 	}
@@ -60,7 +60,7 @@ func TestCapturePublicScheduleBaselineCommitsAllPublicSessions(t *testing.T) {
 	})
 	if _, err = staleReader.Rundown.Query().
 		Where(rundown.EventIDEQ(event.ID)).
-		Only(systemContext(t.Context())); err != nil {
+		Only(hostMaintenanceContext(t.Context())); err != nil {
 		t.Fatalf("establish stale Display read snapshot: %v", err)
 	}
 
@@ -94,7 +94,7 @@ func TestCapturePublicScheduleBaselineCommitsAllPublicSessions(t *testing.T) {
 		t.Fatalf("capture result = %+v, want one Session at revision 1", result)
 	}
 	displayRundown, err = installationStore.loadDisplayRundown(
-		systemContext(t.Context()),
+		hostMaintenanceContext(t.Context()),
 		installationStore.client,
 		event.ID,
 	)
@@ -108,7 +108,7 @@ func TestCapturePublicScheduleBaselineCommitsAllPublicSessions(t *testing.T) {
 		)
 	}
 	staleDisplayRundown, err := installationStore.loadDisplayRundown(
-		systemContext(t.Context()),
+		hostMaintenanceContext(t.Context()),
 		staleReader.Client(),
 		event.ID,
 	)
@@ -120,7 +120,7 @@ func TestCapturePublicScheduleBaselineCommitsAllPublicSessions(t *testing.T) {
 		)
 	}
 	displayRundown, err = installationStore.loadDisplayRundown(
-		systemContext(t.Context()),
+		hostMaintenanceContext(t.Context()),
 		installationStore.client,
 		event.ID,
 	)
@@ -137,7 +137,7 @@ func TestCapturePublicScheduleBaselineCommitsAllPublicSessions(t *testing.T) {
 	baseline := installationStore.client.PublicScheduleBaseline.Query().
 		Where(publicschedulebaseline.EventIDEQ(event.ID)).
 		WithEntries().
-		OnlyX(systemContext(t.Context()))
+		OnlyX(hostMaintenanceContext(t.Context()))
 	if len(baseline.Edges.Entries) != 1 {
 		t.Fatalf("baseline entries = %d, want 1", len(baseline.Edges.Entries))
 	}
@@ -152,7 +152,7 @@ func TestCapturePublicScheduleBaselineAllowsEmptyEvent(t *testing.T) {
 	installationStore := openEventTestInstallation(t)
 	now := time.Date(2026, time.July, 23, 18, 0, 0, 0, time.UTC)
 	administrator := bootstrapEventTestAdministrator(t, installationStore, now)
-	ctx := viewer.NewContext(t.Context(), viewer.Identity{
+	ctx := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID: administrator.ID, Administrator: true,
 	})
 	event := createEventTestEvent(t, installationStore, ctx, administrator.ID, "Empty Event", now)
@@ -180,7 +180,7 @@ func TestCapturePublicScheduleBaselineRejectsStaleAndRepeatedCapture(t *testing.
 	installationStore := openEventTestInstallation(t)
 	now := time.Date(2026, time.July, 23, 18, 0, 0, 0, time.UTC)
 	administrator := bootstrapEventTestAdministrator(t, installationStore, now)
-	ctx := viewer.NewContext(t.Context(), viewer.Identity{
+	ctx := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID: administrator.ID, Administrator: true,
 	})
 	event := createEventTestEvent(t, installationStore, ctx, administrator.ID, "Revision Event", now)
@@ -229,7 +229,7 @@ func TestCapturePublicScheduleBaselineRejectsStaleAndRepeatedCapture(t *testing.
 		t.Fatalf("rollback repeated baseline capture: %v", err)
 	}
 	if count := installationStore.client.PublicScheduleBaseline.Query().
-		CountX(systemContext(t.Context())); count != 1 {
+		CountX(hostMaintenanceContext(t.Context())); count != 1 {
 		t.Fatalf("baseline count = %d, want 1", count)
 	}
 }
@@ -243,7 +243,7 @@ func createBaselineTestPublishedSession(
 	plannedStart time.Time,
 ) int {
 	t.Helper()
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	identity := installationStore.client.Session.Create().SetEventID(eventID).SaveX(ctx)
 	installationStore.client.SessionPublishedVersion.Create().
 		SetSessionID(identity.ID).

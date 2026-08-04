@@ -129,7 +129,8 @@ func (service *Service) Activate(
 		PayloadHash: command.PayloadHash(string(payload)), Action: "ActivateEvent",
 		TargetType: "Event", TargetID: strconv.Itoa(input.EventID), Now: service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[ActiveEvent]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[ActiveEvent]{
 		Storage: service.storage, Identity: identity,
 		Notify: service.notifyProjections,
 		Authorization: command.Authorization{

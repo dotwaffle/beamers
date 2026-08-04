@@ -13,7 +13,7 @@ import (
 func TestStageMessageTargetsCrewAndReplacesCurrentMessage(t *testing.T) {
 	client := openEntTestClient(t)
 	installationStore := &SQLite{client: client}
-	internalContext := systemContext(t.Context())
+	internalContext := hostMaintenanceContext(t.Context())
 	event := createSchemaTestEvent(t, client)
 	client.Installation.Create().SetActiveEventID(event.ID).SaveX(internalContext)
 	location := client.Location.Create().
@@ -43,7 +43,7 @@ func TestStageMessageTargetsCrewAndReplacesCurrentMessage(t *testing.T) {
 			SetDisplayGroupKeys([]string{"stage-a", "stage-b"}).
 			SaveX(internalContext)
 	}
-	producerContext := viewer.NewContext(t.Context(), viewer.Identity{
+	producerContext := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID: 1, EventRoles: map[int]viewer.Role{event.ID: viewer.Producer},
 	})
 	configure := beginCommand(t, installationStore, producerContext)
@@ -173,13 +173,13 @@ func TestStageMessageTargetsCrewAndReplacesCurrentMessage(t *testing.T) {
 func TestStageMessageConfigurationReportsCorruptPresetJSON(t *testing.T) {
 	client := openEntTestClient(t)
 	installationStore := &SQLite{client: client}
-	internalContext := systemContext(t.Context())
+	internalContext := hostMaintenanceContext(t.Context())
 	event := createSchemaTestEvent(t, client)
 	client.Event.UpdateOne(event).
 		SetStageMessagePresets("{").
 		SetStageMessageConfigurationRevision(1).
 		SaveX(internalContext)
-	producerContext := viewer.NewContext(t.Context(), viewer.Identity{
+	producerContext := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID: 1, EventRoles: map[int]viewer.Role{event.ID: viewer.Producer},
 	})
 	transaction := beginCommand(t, installationStore, producerContext)
@@ -197,7 +197,7 @@ func TestStageMessageConfigurationReportsCorruptPresetJSON(t *testing.T) {
 func TestTechnicalDifficultiesCanTargetPublicAndCrewDisplays(t *testing.T) {
 	client := openEntTestClient(t)
 	installationStore := &SQLite{client: client}
-	internalContext := systemContext(t.Context())
+	internalContext := hostMaintenanceContext(t.Context())
 	event := createSchemaTestEvent(t, client)
 	client.Installation.Create().SetActiveEventID(event.ID).SaveX(internalContext)
 	location := client.Location.Create().SetEventID(event.ID).SaveX(internalContext)
@@ -215,7 +215,7 @@ func TestTechnicalDifficultiesCanTargetPublicAndCrewDisplays(t *testing.T) {
 			SetDisplayGroupKeys([]string{"venue"}).
 			SaveX(internalContext)
 	}
-	producerContext := viewer.NewContext(t.Context(), viewer.Identity{
+	producerContext := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID: 1, EventRoles: map[int]viewer.Role{event.ID: viewer.Producer},
 	})
 	transaction := beginCommand(t, installationStore, producerContext)
@@ -281,9 +281,9 @@ func TestTechnicalDifficultiesCanTargetPublicAndCrewDisplays(t *testing.T) {
 func TestCommandEvidenceProbeRollsBackAllRows(t *testing.T) {
 	client := openEntTestClient(t)
 	installationStore := &SQLite{client: client}
-	internalContext := systemContext(t.Context())
+	internalContext := hostMaintenanceContext(t.Context())
 	if err := installationStore.ProbeCommandEvidence(
-		t.Context(),
+		hostMaintenanceContext(t.Context()),
 		time.Date(2026, time.July, 24, 12, 0, 0, 0, time.UTC),
 	); err != nil {
 		t.Fatalf("probe command evidence: %v", err)
@@ -299,7 +299,7 @@ func TestCommandEvidenceProbeRollsBackAllRows(t *testing.T) {
 func TestPersistDegradedEmergencyAlertKeepsProcessIdentityAndClearOrder(t *testing.T) {
 	client := openEntTestClient(t)
 	installationStore := &SQLite{client: client}
-	internalContext := systemContext(t.Context())
+	internalContext := hostMaintenanceContext(t.Context())
 	event := createSchemaTestEvent(t, client)
 	account := client.Account.Create().
 		SetName("Ada Admin").
@@ -385,7 +385,7 @@ func TestSameCursorAcknowledgmentAllowsOnlyOverrideExpiry(t *testing.T) {
 func TestPriorityOverridesResolveTargetsAndRequireEmergencyConfirmation(t *testing.T) {
 	client := openEntTestClient(t)
 	installationStore := &SQLite{client: client}
-	internalContext := systemContext(t.Context())
+	internalContext := hostMaintenanceContext(t.Context())
 	event := createSchemaTestEvent(t, client)
 	client.Installation.Create().SetActiveEventID(event.ID).SaveX(internalContext)
 	location := client.Location.Create().SetEventID(event.ID).SaveX(internalContext)
@@ -407,7 +407,7 @@ func TestPriorityOverridesResolveTargetsAndRequireEmergencyConfirmation(t *testi
 			SetDisplayGroupKeys([]string{"venue"}).
 			SaveX(internalContext)
 	}
-	producerContext := viewer.NewContext(t.Context(), viewer.Identity{
+	producerContext := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID: 1, EventRoles: map[int]viewer.Role{event.ID: viewer.Producer},
 	})
 	for _, test := range []struct {

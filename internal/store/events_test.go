@@ -22,7 +22,7 @@ func TestEventAndGrantChangesCreateAuditEntries(t *testing.T) {
 	installation := openEventTestInstallation(t)
 	now := time.Date(2026, time.July, 22, 12, 0, 0, 0, time.UTC)
 	administrator := bootstrapEventTestAdministrator(t, installation, now)
-	administratorContext := viewer.NewContext(t.Context(), viewer.Identity{
+	administratorContext := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID: administrator.ID, Administrator: true,
 	})
 	producer, err := createAccountCommand(t, installation, administratorContext, CreateAccountParams{
@@ -89,7 +89,7 @@ func TestEventCreationAssignsUniqueHumanReadableSlugs(t *testing.T) {
 	installation := openEventTestInstallation(t)
 	now := time.Date(2026, time.July, 22, 12, 0, 0, 0, time.UTC)
 	administrator := bootstrapEventTestAdministrator(t, installation, now)
-	ctx := viewer.NewContext(t.Context(), viewer.Identity{
+	ctx := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID: administrator.ID, Administrator: true,
 	})
 	params := CreateEventParams{
@@ -134,16 +134,16 @@ func TestFirstPublicationAssignsSlugToMigratedEvent(t *testing.T) {
 		SetTimezone("Europe/Berlin").
 		SetEventLocale("en-GB").
 		SetEventDayBoundary("00:00").
-		Save(systemContext(t.Context()))
+		Save(hostMaintenanceContext(t.Context()))
 	if err != nil {
 		t.Fatalf("create migrated Event fixture: %v", err)
 	}
-	transaction, err := installation.BeginCommand(t.Context())
+	transaction, err := installation.BeginCommand(hostMaintenanceContext(t.Context()))
 	if err != nil {
 		t.Fatalf("begin Event update: %v", err)
 	}
 	defer func() { _ = transaction.Rollback() }()
-	updated, err := transaction.UpdateEvent(systemContext(t.Context()), UpdateEventParams{
+	updated, err := transaction.UpdateEvent(hostMaintenanceContext(t.Context()), UpdateEventParams{
 		EventID: legacy.ID, Name: legacy.Name, Public: true,
 		PlannedStartDate: legacy.PlannedStartDate, PlannedEndDate: legacy.PlannedEndDate,
 		Timezone: legacy.Timezone, EventLocale: legacy.EventLocale,
@@ -164,7 +164,7 @@ func TestEventSlugAliasesShareNamespaceAndPermitWarnedReuse(t *testing.T) {
 	installation := openEventTestInstallation(t)
 	now := time.Date(2026, time.July, 22, 12, 0, 0, 0, time.UTC)
 	administrator := bootstrapEventTestAdministrator(t, installation, now)
-	ctx := viewer.NewContext(t.Context(), viewer.Identity{
+	ctx := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID: administrator.ID, Administrator: true,
 	})
 	create := func(name, commandID string) Event {
@@ -187,7 +187,7 @@ func TestEventSlugAliasesShareNamespaceAndPermitWarnedReuse(t *testing.T) {
 			t.Fatalf("begin Event Slug update: %v", err)
 		}
 		defer func() { _ = transaction.Rollback() }()
-		updated, err := transaction.UpdateEvent(systemContext(ctx), UpdateEventParams{
+		updated, err := transaction.UpdateEvent(hostMaintenanceContext(ctx), UpdateEventParams{
 			EventID: found.ID, Name: found.Name, Public: true, PublicSlug: slug,
 			PlannedStartDate: found.PlannedStartDate, PlannedEndDate: found.PlannedEndDate,
 			Timezone: found.Timezone, EventLocale: found.EventLocale,
@@ -212,7 +212,7 @@ func TestEventSlugAliasesShareNamespaceAndPermitWarnedReuse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("rename Event Slug: %v", err)
 	}
-	resolved, alias, err := installation.FindPublicEvent(t.Context(), "summer-showcase")
+	resolved, alias, err := installation.FindPublicEvent(hostMaintenanceContext(t.Context()), "summer-showcase")
 	if err != nil || !alias || resolved.ID != first.ID || resolved.PublicSlug != "autumn-showcase" {
 		t.Fatalf("resolve retained Event Slug Alias = %+v, alias=%t, err=%v", resolved, alias, err)
 	}
@@ -237,11 +237,11 @@ func TestEventSlugAliasesShareNamespaceAndPermitWarnedReuse(t *testing.T) {
 	if err != nil || reused.PublicSlug != "summer-showcase" {
 		t.Fatalf("reuse pruned Event Slug Alias = %+v, err=%v", reused, err)
 	}
-	resolved, alias, err = installation.FindPublicEvent(t.Context(), "summer-showcase")
+	resolved, alias, err = installation.FindPublicEvent(hostMaintenanceContext(t.Context()), "summer-showcase")
 	if err != nil || alias || resolved.ID != second.ID {
 		t.Fatalf("resolve reused current Event Slug = %+v, alias=%t, err=%v", resolved, alias, err)
 	}
-	if _, alias, err = installation.FindPublicEvent(t.Context(), renamed.PublicSlug); err != nil || alias {
+	if _, alias, err = installation.FindPublicEvent(hostMaintenanceContext(t.Context()), renamed.PublicSlug); err != nil || alias {
 		t.Fatalf("resolve renamed current Event Slug alias=%t, err=%v", alias, err)
 	}
 }
@@ -250,7 +250,7 @@ func TestEventCommandRetryReturnsOriginalOutcomeAndConflictIsAudited(t *testing.
 	installation := openEventTestInstallation(t)
 	now := time.Date(2026, time.July, 22, 12, 0, 0, 0, time.UTC)
 	administrator := bootstrapEventTestAdministrator(t, installation, now)
-	ctx := viewer.NewContext(t.Context(), viewer.Identity{
+	ctx := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID: administrator.ID, Administrator: true,
 	})
 	params := CreateEventParams{
@@ -276,11 +276,11 @@ func TestEventCommandRetryReturnsOriginalOutcomeAndConflictIsAudited(t *testing.
 		t.Fatalf("conflicting retry error = %v, want %v", conflictErr, ErrCommandConflict)
 	}
 
-	eventCount, err := installation.client.Event.Query().Count(systemContext(t.Context()))
+	eventCount, err := installation.client.Event.Query().Count(hostMaintenanceContext(t.Context()))
 	if err != nil {
 		t.Fatalf("count Events: %v", err)
 	}
-	receiptCount, err := installation.client.CommandReceipt.Query().Count(systemContext(t.Context()))
+	receiptCount, err := installation.client.CommandReceipt.Query().Count(hostMaintenanceContext(t.Context()))
 	if err != nil {
 		t.Fatalf("count Command Receipts: %v", err)
 	}
@@ -300,7 +300,7 @@ func TestRejectedCommandRetryKeepsOneAuditWithDomainTarget(t *testing.T) {
 	installation := openEventTestInstallation(t)
 	now := time.Date(2026, time.July, 22, 12, 0, 0, 0, time.UTC)
 	administrator := bootstrapEventTestAdministrator(t, installation, now)
-	ctx := viewer.NewContext(t.Context(), viewer.Identity{
+	ctx := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID: administrator.ID, Administrator: true,
 	})
 
@@ -497,10 +497,10 @@ func executeTestCommand[T any](
 func openEventTestInstallation(t *testing.T) *SQLite {
 	t.Helper()
 	dataDir := t.TempDir()
-	if err := Initialize(t.Context(), dataDir); err != nil {
+	if err := Initialize(hostMaintenanceContext(t.Context()), dataDir); err != nil {
 		t.Fatalf("initialize Event database: %v", err)
 	}
-	installation, err := Open(t.Context(), dataDir)
+	installation, err := Open(hostMaintenanceContext(t.Context()), dataDir)
 	if err != nil {
 		t.Fatalf("open Event database: %v", err)
 	}
@@ -519,11 +519,11 @@ func bootstrapEventTestAdministrator(
 ) AccountCredential {
 	t.Helper()
 	bootstrapHash := strings.Repeat("a", 64)
-	if err := installation.IssueBootstrap(t.Context(), bootstrapHash, now, now.Add(time.Minute)); err != nil {
+	if err := installation.IssueBootstrap(hostMaintenanceContext(t.Context()), bootstrapHash, now, now.Add(time.Minute)); err != nil {
 		t.Fatalf("issue bootstrap: %v", err)
 	}
 	administrator, err := installation.BootstrapAdministrator(
-		t.Context(),
+		hostMaintenanceContext(t.Context()),
 		BootstrapAdministratorParams{
 			BootstrapHash: bootstrapHash, Name: "Ada Admin", NormalizedName: "ada admin",
 			PasswordHash: "password hash", SessionHash: strings.Repeat("b", 64),

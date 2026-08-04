@@ -54,7 +54,7 @@ func TestReadOnlyLoadsDoNotQueueBehindTheWriter(t *testing.T) {
 			installationStore := openEventTestInstallation(t)
 			now := time.Date(2026, time.July, 23, 18, 0, 0, 0, time.UTC)
 			administrator := bootstrapEventTestAdministrator(t, installationStore, now)
-			ctx := viewer.NewContext(t.Context(), viewer.Identity{
+			ctx := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 				AccountID: administrator.ID, Administrator: true,
 			})
 			event := createEventTestEvent(
@@ -68,7 +68,7 @@ func TestReadOnlyLoadsDoNotQueueBehindTheWriter(t *testing.T) {
 				AccountID: administrator.ID, Administrator: true,
 				EventRoles: map[int]viewer.Role{event.ID: viewer.Role(eventgrant.RoleProducer)},
 			})
-			busy, err := installationStore.client.Tx(systemContext(t.Context()))
+			busy, err := installationStore.client.Tx(hostMaintenanceContext(t.Context()))
 			if err != nil {
 				t.Fatalf("occupy writer connection: %v", err)
 			}

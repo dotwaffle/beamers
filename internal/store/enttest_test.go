@@ -15,7 +15,15 @@ import (
 	"github.com/dotwaffle/beamers/ent"
 	"github.com/dotwaffle/beamers/ent/enttest"
 	"github.com/dotwaffle/beamers/ent/migrate"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 )
+
+// hostMaintenanceContext names a System Actor for store tests that exercise an
+// entrypoint directly, standing in for the caller boundary that names the actor
+// in production.
+func hostMaintenanceContext(ctx context.Context) context.Context {
+	return systemactor.NewContext(ctx, systemactor.HostMaintenance)
+}
 
 var (
 	registerEntSQLite sync.Once
@@ -76,7 +84,7 @@ const (
 // so putting an unsafe migration back into that setup fails here.
 func TestEntTestSchemaCreationIsParallelSafe(t *testing.T) {
 	t.Parallel()
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	clients := make([]*ent.Client, entTestSchemaBuildsTotal)
 	failures := make([]error, len(clients))
 	start := make(chan struct{})
@@ -109,7 +117,7 @@ func TestEntTestSchemaCreationIsParallelSafe(t *testing.T) {
 // the query-count guards measure, or those guards would compare zero to zero.
 func TestCountingEntTestClientCountsItsQueries(t *testing.T) {
 	t.Parallel()
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	client, driver := openCountingEntTestClient(t)
 	before := driver.statements.Load()
 	if _, err := client.Display.Query().Count(ctx); err != nil {

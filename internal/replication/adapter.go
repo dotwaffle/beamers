@@ -20,6 +20,8 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 	metricnoop "go.opentelemetry.io/otel/metric/noop"
+
+	"github.com/dotwaffle/beamers/internal/systemactor"
 )
 
 var errInvalidDestination = errors.New("replica destination must be an absolute file URL without credentials, query, or fragment")
@@ -95,6 +97,7 @@ func New(config Config) *Adapter {
 // Start begins asynchronous replication. Callers may report errors but must not
 // make authoritative service availability depend on the result.
 func (adapter *Adapter) Start(ctx context.Context) error {
+	ctx = systemactor.NewContext(ctx, systemactor.Replication)
 	if err := adapter.startupError(); err != nil {
 		return err
 	}
@@ -112,6 +115,7 @@ func (adapter *Adapter) StartAsync(
 	ctx context.Context,
 	budget time.Duration,
 ) error {
+	ctx = systemactor.NewContext(ctx, systemactor.Replication)
 	startContext, cancel := context.WithTimeout(ctx, budget)
 	if err := adapter.startupError(); err != nil {
 		cancel()

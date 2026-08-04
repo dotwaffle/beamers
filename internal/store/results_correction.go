@@ -70,7 +70,6 @@ func (transaction *CommandTx) AppendResultsCorrection(
 	ctx context.Context,
 	params AppendResultsCorrectionParams,
 ) (ResultsCorrection, error) {
-	ctx = systemContext(ctx)
 	current, found, err := loadResultsCorrection(
 		ctx,
 		transaction.transaction.Client(),
@@ -122,7 +121,7 @@ func (installation *SQLite) LoadResultsCorrection(
 	scopeSessionID int,
 ) (ResultsCorrection, error) {
 	found, _, err := loadResultsCorrection(
-		systemContext(ctx),
+		ctx,
 		installation.client,
 		eventID,
 		scope,
@@ -145,7 +144,7 @@ func (installation *SQLite) ListResultsCorrectionHistory(
 			resultscorrection.ScopeSessionIDEQ(scopeSessionID),
 		).
 		Order(ent.Asc(resultscorrection.FieldRevision)).
-		All(systemContext(ctx))
+		All(ctx)
 	if err != nil {
 		return nil, opaqueError("list Results Correction history", err)
 	}
@@ -164,7 +163,7 @@ func (transaction *CommandTx) LoadResultsCorrection(
 	scopeSessionID int,
 ) (ResultsCorrection, error) {
 	found, _, err := loadResultsCorrection(
-		systemContext(ctx),
+		ctx,
 		transaction.transaction.Client(),
 		eventID,
 		scope,

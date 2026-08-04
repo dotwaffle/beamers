@@ -19,6 +19,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/rundown"
 	"github.com/dotwaffle/beamers/internal/sessioncontrol"
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 	"github.com/dotwaffle/beamers/internal/viewer"
 	"github.com/dotwaffle/beamers/internal/voting"
 )
@@ -440,10 +441,10 @@ func TestProgramEntryTakeSelectsDisplayProgramAndVotingNotifications(t *testing.
 func openNotificationTest(t *testing.T) (*store.SQLite, auth.Account, int) {
 	t.Helper()
 	dataDir := t.TempDir()
-	if err := store.Initialize(t.Context(), dataDir); err != nil {
+	if err := store.Initialize(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir); err != nil {
 		t.Fatalf("initialize Competition storage: %v", err)
 	}
-	storage, err := store.Open(t.Context(), dataDir)
+	storage, err := store.Open(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir)
 	if err != nil {
 		t.Fatalf("open Competition storage: %v", err)
 	}
@@ -454,11 +455,11 @@ func openNotificationTest(t *testing.T) (*store.SQLite, auth.Account, int) {
 	})
 	now := time.Date(2026, 8, 20, 9, 0, 0, 0, time.UTC)
 	bootstrapHash := strings.Repeat("b", 64)
-	if err = storage.IssueBootstrap(t.Context(), bootstrapHash, now, now.Add(time.Hour)); err != nil {
+	if err = storage.IssueBootstrap(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), bootstrapHash, now, now.Add(time.Hour)); err != nil {
 		t.Fatalf("issue Competition bootstrap: %v", err)
 	}
 	created, err := storage.BootstrapAdministrator(
-		t.Context(),
+		systemactor.NewContext(t.Context(), systemactor.HostMaintenance),
 		store.BootstrapAdministratorParams{
 			BootstrapHash: bootstrapHash, Name: "Administrator",
 			NormalizedName: "administrator", PasswordHash: "password-hash",

@@ -19,6 +19,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/displayviews"
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 )
 
 var (
@@ -220,7 +221,8 @@ func (service *Service) Create(
 		ActorAccountID: actor.ID, CommandID: input.CommandID, PayloadHash: payloadHash,
 		Action: "CreateEvent", TargetType: "Event", TargetID: "unidentified", Now: service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[Event]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[Event]{
 		Storage: service.storage, Identity: identity, Replay: replayEvent,
 		Authorization: command.Authorization{
 			Facts: authz.Installation(), Refusals: eventRejections,
@@ -289,6 +291,7 @@ func (service *Service) List(
 
 // PublicListing returns only Events a Producer has placed in the Public Event Listing.
 func (service *Service) PublicListing(ctx context.Context) ([]PublicEvent, error) {
+	ctx = systemactor.NewContext(ctx, systemactor.PublicVisitor)
 	found, activeEventID, err := service.storage.ListPublicEvents(ctx)
 	if err != nil {
 		return nil, err
@@ -305,6 +308,7 @@ func (service *Service) PublicEvent(
 	ctx context.Context,
 	slug string,
 ) (PublicEvent, bool, error) {
+	ctx = systemactor.NewContext(ctx, systemactor.PublicVisitor)
 	found, alias, err := service.storage.FindPublicEvent(ctx, slug)
 	if err != nil {
 		return PublicEvent{}, false, err
@@ -348,7 +352,8 @@ func (service *Service) PruneEventSlugAlias(
 		Action:      "PruneEventSlugAlias", TargetType: "EventSlugAlias",
 		TargetID: strconv.Itoa(aliasID), Now: service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[EventSlugAlias]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[EventSlugAlias]{
 		Storage: service.storage, Identity: identity, Replay: replayEventSlugAlias,
 		Authorization: command.Authorization{
 			Facts: authz.Installation(), Refusals: eventRejections,
@@ -432,7 +437,8 @@ func (service *Service) GrantScopedEventAccess(
 		ActorAccountID: actor.ID, CommandID: input.CommandID, PayloadHash: payloadHash,
 		Action: "CreateEventGrant", TargetType: "EventGrant", TargetID: targetID, Now: service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[Grant]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[Grant]{
 		Storage: service.storage, Identity: identity, Replay: replayGrant,
 		Authorization: command.Authorization{
 			Facts: authz.Installation(), Refusals: eventRejections,
@@ -526,7 +532,8 @@ func (service *Service) Update(
 		ActorAccountID: actor.ID, CommandID: input.CommandID, PayloadHash: payloadHash,
 		Action: "UpdateEvent", TargetType: "Event", TargetID: targetID, Now: service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[Event]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[Event]{
 		Storage: service.storage, Identity: identity, Replay: replayEvent,
 		Notify: service.notifyEventChange,
 		Authorization: command.Authorization{
@@ -631,7 +638,8 @@ func (service *Service) ConfigureDisplays(
 		TargetID:       strconv.Itoa(eventID),
 		Now:            service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[DisplayConfiguration]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[DisplayConfiguration]{
 		Storage:  service.storage,
 		Identity: identity,
 		Replay:   replayDisplayConfiguration,

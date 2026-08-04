@@ -60,29 +60,28 @@ func loadActivationPreflight(
 	client *ent.Client,
 	eventID int,
 ) (ActivationPreflightState, error) {
-	internalContext := systemContext(ctx)
 	routing, err := client.Installation.Query().Only(ctx)
 	if err != nil {
 		return ActivationPreflightState{}, opaqueError("load installation activation generation", err)
 	}
-	found, err := client.Event.Get(internalContext, eventID)
+	found, err := client.Event.Get(ctx, eventID)
 	if ent.IsNotFound(err) {
 		return ActivationPreflightState{}, ErrEventNotFound
 	}
 	if err != nil {
 		return ActivationPreflightState{}, opaqueError("load Event for Activation Preflight", err)
 	}
-	published, err := loadCrewRundown(internalContext, client, eventID)
+	published, err := loadCrewRundown(ctx, client, eventID)
 	if err != nil {
 		return ActivationPreflightState{}, err
 	}
-	assignments, unassigned, err := loadDisplayAssignments(internalContext, client, eventID)
+	assignments, unassigned, err := loadDisplayAssignments(ctx, client, eventID)
 	if err != nil {
 		return ActivationPreflightState{}, err
 	}
 	baselineCaptured, err := client.PublicScheduleBaseline.Query().
 		Where(publicschedulebaseline.EventIDEQ(eventID)).
-		Exist(internalContext)
+		Exist(ctx)
 	if err != nil {
 		return ActivationPreflightState{}, opaqueError(
 			"load Public Schedule Baseline for Activation Preflight",
@@ -143,10 +142,9 @@ func (transaction *CommandTx) ActivateEvent(
 	expectedPublishedRevision int,
 	expectedActivationGeneration int,
 ) (ActiveEventState, error) {
-	internalContext := systemContext(ctx)
 	exists, err := transaction.transaction.Event.Query().
 		Where(event.IDEQ(eventID), event.RevisionEQ(expectedEventRevision)).
-		Exist(internalContext)
+		Exist(ctx)
 	if err != nil {
 		return ActiveEventState{}, opaqueError("verify Event activation revision", err)
 	}
@@ -155,7 +153,7 @@ func (transaction *CommandTx) ActivateEvent(
 	}
 	exists, err = transaction.transaction.Rundown.Query().
 		Where(rundown.EventIDEQ(eventID), rundown.PublishedRevisionEQ(expectedPublishedRevision)).
-		Exist(internalContext)
+		Exist(ctx)
 	if err != nil {
 		return ActiveEventState{}, opaqueError("verify Published Rundown activation revision", err)
 	}
