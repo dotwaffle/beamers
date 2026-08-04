@@ -733,16 +733,19 @@ type DisplayTheme struct {
 	Branding        string                 `protobuf:"bytes,1,opt,name=branding,proto3" json:"branding,omitempty"`
 	ForegroundColor string                 `protobuf:"bytes,2,opt,name=foreground_color,json=foregroundColor,proto3" json:"foreground_color,omitempty"`
 	BackgroundColor string                 `protobuf:"bytes,3,opt,name=background_color,json=backgroundColor,proto3" json:"background_color,omitempty"`
-	AccentColor     string                 `protobuf:"bytes,4,opt,name=accent_color,json=accentColor,proto3" json:"accent_color,omitempty"`
-	Background      string                 `protobuf:"bytes,5,opt,name=background,proto3" json:"background,omitempty"`
-	ScrimColor      string                 `protobuf:"bytes,6,opt,name=scrim_color,json=scrimColor,proto3" json:"scrim_color,omitempty"`
-	ScrimOpacity    uint32                 `protobuf:"varint,7,opt,name=scrim_opacity,json=scrimOpacity,proto3" json:"scrim_opacity,omitempty"`
-	Font            string                 `protobuf:"bytes,8,opt,name=font,proto3" json:"font,omitempty"`
-	Transition      string                 `protobuf:"bytes,9,opt,name=transition,proto3" json:"transition,omitempty"`
-	LiveColor       string                 `protobuf:"bytes,10,opt,name=live_color,json=liveColor,proto3" json:"live_color,omitempty"`
-	DangerColor     string                 `protobuf:"bytes,11,opt,name=danger_color,json=dangerColor,proto3" json:"danger_color,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// surface_color carries the Theme's surface color, used for Display
+	// Region fills and the Nebula backdrop's color-mix base.
+	SurfaceColor  string `protobuf:"bytes,4,opt,name=surface_color,json=surfaceColor,proto3" json:"surface_color,omitempty"`
+	Background    string `protobuf:"bytes,5,opt,name=background,proto3" json:"background,omitempty"`
+	ScrimColor    string `protobuf:"bytes,6,opt,name=scrim_color,json=scrimColor,proto3" json:"scrim_color,omitempty"`
+	ScrimOpacity  uint32 `protobuf:"varint,7,opt,name=scrim_opacity,json=scrimOpacity,proto3" json:"scrim_opacity,omitempty"`
+	Font          string `protobuf:"bytes,8,opt,name=font,proto3" json:"font,omitempty"`
+	Transition    string `protobuf:"bytes,9,opt,name=transition,proto3" json:"transition,omitempty"`
+	LiveColor     string `protobuf:"bytes,10,opt,name=live_color,json=liveColor,proto3" json:"live_color,omitempty"`
+	DangerColor   string `protobuf:"bytes,11,opt,name=danger_color,json=dangerColor,proto3" json:"danger_color,omitempty"`
+	SignalColor   string `protobuf:"bytes,12,opt,name=signal_color,json=signalColor,proto3" json:"signal_color,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *DisplayTheme) Reset() {
@@ -796,9 +799,9 @@ func (x *DisplayTheme) GetBackgroundColor() string {
 	return ""
 }
 
-func (x *DisplayTheme) GetAccentColor() string {
+func (x *DisplayTheme) GetSurfaceColor() string {
 	if x != nil {
-		return x.AccentColor
+		return x.SurfaceColor
 	}
 	return ""
 }
@@ -848,6 +851,13 @@ func (x *DisplayTheme) GetLiveColor() string {
 func (x *DisplayTheme) GetDangerColor() string {
 	if x != nil {
 		return x.DangerColor
+	}
+	return ""
+}
+
+func (x *DisplayTheme) GetSignalColor() string {
+	if x != nil {
+		return x.SignalColor
 	}
 	return ""
 }
@@ -1761,12 +1771,12 @@ const file_beamers_display_v1_display_proto_rawDesc = "" +
 	"\x06widget\x18\x02 \x01(\tR\x06widget\x12\x1e\n" +
 	"\n" +
 	"persistent\x18\x03 \x01(\bR\n" +
-	"persistent\"\xff\x02\n" +
+	"persistent\"\xa4\x03\n" +
 	"\fDisplayTheme\x12\x1a\n" +
 	"\bbranding\x18\x01 \x01(\tR\bbranding\x12)\n" +
 	"\x10foreground_color\x18\x02 \x01(\tR\x0fforegroundColor\x12)\n" +
-	"\x10background_color\x18\x03 \x01(\tR\x0fbackgroundColor\x12!\n" +
-	"\faccent_color\x18\x04 \x01(\tR\vaccentColor\x12\x1e\n" +
+	"\x10background_color\x18\x03 \x01(\tR\x0fbackgroundColor\x12#\n" +
+	"\rsurface_color\x18\x04 \x01(\tR\fsurfaceColor\x12\x1e\n" +
 	"\n" +
 	"background\x18\x05 \x01(\tR\n" +
 	"background\x12\x1f\n" +
@@ -1780,7 +1790,8 @@ const file_beamers_display_v1_display_proto_rawDesc = "" +
 	"\n" +
 	"live_color\x18\n" +
 	" \x01(\tR\tliveColor\x12!\n" +
-	"\fdanger_color\x18\v \x01(\tR\vdangerColor\"\xa3\b\n" +
+	"\fdanger_color\x18\v \x01(\tR\vdangerColor\x12!\n" +
+	"\fsignal_color\x18\f \x01(\tR\vsignalColor\"\xa3\b\n" +
 	"\x0eDisplaySession\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x18\n" +

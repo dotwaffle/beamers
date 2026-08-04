@@ -289,11 +289,12 @@ func compositionMessage(found displayviews.Composition) *displayv1.DisplayCompos
 		Layout: layout,
 		Theme: &displayv1.DisplayTheme{
 			Branding: theme.Branding, ForegroundColor: theme.ForegroundColor,
-			BackgroundColor: theme.BackgroundColor, AccentColor: theme.AccentColor,
+			BackgroundColor: theme.BackgroundColor, SurfaceColor: theme.SurfaceColor,
 			Background: theme.Background, ScrimColor: theme.ScrimColor,
 			ScrimOpacity: uint32(theme.ScrimOpacity), //nolint:gosec // Validated as 0..100.
 			Font:         theme.Font, Transition: theme.Transition,
 			LiveColor: theme.LiveColor, DangerColor: theme.DangerColor,
+			SignalColor: theme.SignalColor,
 		},
 	}
 }

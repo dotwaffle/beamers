@@ -45,7 +45,7 @@ body {
 	border: clamp(0.5rem, 1vw, 1.25rem) double #fff;
 }
 .urgent-notice-replace {
-	border: clamp(0.4rem, 0.8vw, 1rem) solid var(--display-accent, #ffd400);
+	border: clamp(0.4rem, 0.8vw, 1rem) solid var(--display-surface, #ffd400);
 }
 .urgent-notice-overlay {
 	position: fixed;
@@ -101,7 +101,7 @@ body {
 	padding: clamp(0.75rem, 1.5vw, 2rem);
 	border-block-start: 0.25rem solid var(--display-signal, #62ebcb);
 	border-radius: clamp(0.5rem, 1vw, 1.5rem);
-	background: var(--display-accent, #1d4ed8);
+	background: var(--display-surface, #1d4ed8);
 	overflow: hidden;
 }
 .display-background-variable-media .display-region {
@@ -110,10 +110,18 @@ body {
 			var(--display-scrim-layer, #000000d9),
 			var(--display-scrim-layer, #000000d9)
 		),
-		var(--display-accent, #1d4ed8);
+		var(--display-surface, #1d4ed8);
 }
+/* Nebula mixes the active Theme's surface color into black rather than a
+   fixed navy, so a bright Theme Preset still reads as a nebula tint instead
+   of a foreign accent. Theme Effects (the starfield ambient animation) do
+   not apply to Display surfaces: see docs/adr/0060. */
 .display-background-nebula {
-	background-image: radial-gradient(circle at 15% 10%, #172755 0, transparent 32rem);
+	background-image: radial-gradient(
+		circle at 15% 10%,
+		color-mix(in srgb, var(--display-surface, #1d4ed8) 60%, black) 0,
+		transparent 32rem
+	);
 }
 .display-layout-standby {
 	grid-template-rows: auto 1fr;

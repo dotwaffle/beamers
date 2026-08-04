@@ -381,12 +381,12 @@ func displayThemeStyle(snapshot Snapshot) templ.SafeCSS {
 	// Snapshot was created. Keeping the complete declaration here prevents
 	// Event content from becoming CSS syntax.
 	return templ.SafeCSS(fmt.Sprintf(
-		"--display-foreground:%s;--display-background:%s;--display-accent:%s;"+
+		"--display-foreground:%s;--display-background:%s;--display-surface:%s;"+
 			"--display-signal:%s;--display-live:%s;--display-danger:%s;"+
 			"--display-scrim-layer:%s%02x",
 		theme.ForegroundColor,
 		theme.BackgroundColor,
-		theme.AccentColor,
+		theme.SurfaceColor,
 		theme.SignalColor,
 		theme.LiveColor,
 		theme.DangerColor,
@@ -411,7 +411,7 @@ func eventDisplayTheme(config themevalue.Config, branding string) displayviews.T
 	return displayviews.Theme{
 		Branding: branding, BrandAsset: config.BrandAsset,
 		ForegroundColor: config.TextColor, BackgroundColor: config.BackgroundColor,
-		AccentColor: config.SurfaceColor, Background: background,
+		SurfaceColor: config.SurfaceColor, Background: background,
 		SignalColor: config.AccentColor,
 		LiveColor:   config.LiveColor, DangerColor: config.DangerColor,
 		ScrimColor: "#000000", ScrimOpacity: 85,

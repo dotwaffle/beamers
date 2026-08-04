@@ -962,6 +962,25 @@ test("Event Theme variants survive Display snapshot rendering", async () => {
     browser.document.main.style.properties.get("--display-signal"),
     "#ffdf6e",
   );
+  // The display variable that carries the Theme's surface color is named
+  // for what it carries, and the Nebula backdrop mixes it in rather than a
+  // hardcoded navy, so a bright Theme Preset still tints the backdrop.
+  assert.equal(
+    browser.document.main.style.properties.get("--display-surface"),
+    "#1d4ed8",
+  );
+});
+
+test("Nebula backdrop mixes the Theme's surface color instead of a fixed navy", () => {
+  const stylesheet = fs.readFileSync(
+    new URL("./display.css", `file://${__filename}`),
+    "utf8",
+  );
+  assert.match(
+    stylesheet,
+    /\.display-background-nebula\s*\{[^}]*color-mix\(in srgb, var\(--display-surface/,
+  );
+  assert.doesNotMatch(stylesheet, /#172755/);
 });
 
 async function startBrowser(options = {}) {
@@ -1214,7 +1233,7 @@ function displayComposition(overrides = {}) {
       branding: "",
       foregroundColor: "#ffffff",
       backgroundColor: "#101828",
-      accentColor: "#1d4ed8",
+      surfaceColor: "#1d4ed8",
       signalColor: "#62ebcb",
       liveColor: "#ff7b72",
       dangerColor: "#ff8fa3",

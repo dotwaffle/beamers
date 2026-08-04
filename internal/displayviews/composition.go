@@ -110,15 +110,17 @@ type Theme struct {
 	BrandAsset      string `json:"brand_asset,omitempty"`
 	ForegroundColor string `json:"foreground_color"`
 	BackgroundColor string `json:"background_color"`
-	AccentColor     string `json:"accent_color"`
-	SignalColor     string `json:"signal_color"`
-	LiveColor       string `json:"live_color"`
-	DangerColor     string `json:"danger_color"`
-	Background      string `json:"background"`
-	ScrimColor      string `json:"scrim_color"`
-	ScrimOpacity    int    `json:"scrim_opacity"`
-	Font            string `json:"font"`
-	Transition      string `json:"transition"`
+	// SurfaceColor carries the Theme's surface color for Display Region
+	// fills and the Nebula backdrop's color-mix base.
+	SurfaceColor string `json:"surface_color"`
+	SignalColor  string `json:"signal_color"`
+	LiveColor    string `json:"live_color"`
+	DangerColor  string `json:"danger_color"`
+	Background   string `json:"background"`
+	ScrimColor   string `json:"scrim_color"`
+	ScrimOpacity int    `json:"scrim_opacity"`
+	Font         string `json:"font"`
+	Transition   string `json:"transition"`
 }
 
 // TimerThreshold changes Stage Timer emphasis at one remaining duration.
@@ -168,7 +170,7 @@ func DefaultConfiguration() Configuration {
 		Theme: Theme{
 			ForegroundColor: "#ffffff",
 			BackgroundColor: "#101828",
-			AccentColor:     "#1d4ed8",
+			SurfaceColor:    "#1d4ed8",
 			SignalColor:     "#62ebcb",
 			LiveColor:       "#ff7b72",
 			DangerColor:     "#ff8fa3",
@@ -269,7 +271,7 @@ func ValidateConfiguration(configuration Configuration) error {
 	if err != nil {
 		return err
 	}
-	accent, err := parseColor("theme.accent_color", configuration.Theme.AccentColor)
+	accent, err := parseColor("theme.accent_color", configuration.Theme.SurfaceColor)
 	if err != nil {
 		return err
 	}

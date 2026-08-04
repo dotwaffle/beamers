@@ -35,7 +35,7 @@ func TestDisplayThemeUsesResolvedEventTheme(t *testing.T) {
 		theme.BrandAsset != themevalue.BrandAssetSignal ||
 		theme.ForegroundColor != "#ffffff" ||
 		theme.BackgroundColor != "#112233" ||
-		theme.AccentColor != "#223344" ||
+		theme.SurfaceColor != "#223344" ||
 		theme.SignalColor != "#ffdf6e" ||
 		theme.LiveColor != "#ff7b72" ||
 		theme.DangerColor != "#ff8fa3" ||

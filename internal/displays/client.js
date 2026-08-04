@@ -355,10 +355,10 @@ function renderSnapshot(snapshot, offset) {
   ].join(" ");
   main.style.setProperty("--display-foreground", composition.theme.foregroundColor);
   main.style.setProperty("--display-background", composition.theme.backgroundColor);
-  main.style.setProperty("--display-accent", composition.theme.accentColor);
+  main.style.setProperty("--display-surface", composition.theme.surfaceColor);
   main.style.setProperty(
     "--display-signal",
-    composition.theme.signalColor || composition.theme.accentColor,
+    composition.theme.signalColor || composition.theme.surfaceColor,
   );
   main.style.setProperty("--display-live", composition.theme.liveColor);
   main.style.setProperty("--display-danger", composition.theme.dangerColor);
