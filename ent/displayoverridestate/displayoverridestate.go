@@ -77,8 +77,9 @@ func ValidColumn(column string) bool {
 //
 //	import _ "github.com/dotwaffle/beamers/ent/runtime"
 var (
-	Hooks  [1]ent.Hook
-	Policy ent.Policy
+	Hooks        [2]ent.Hook
+	Interceptors [1]ent.Interceptor
+	Policy       ent.Policy
 	// DefaultRevision holds the default value on creation for the "revision" field.
 	DefaultRevision int
 	// RevisionValidator is a validator for the "revision" field. It is called by the builders before save.

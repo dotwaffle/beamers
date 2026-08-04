@@ -74,8 +74,9 @@ func ValidColumn(column string) bool {
 //
 //	import _ "github.com/dotwaffle/beamers/ent/runtime"
 var (
-	Hooks  [1]ent.Hook
-	Policy ent.Policy
+	Hooks        [2]ent.Hook
+	Interceptors [1]ent.Interceptor
+	Policy       ent.Policy
 	// PrizegivingIDValidator is a validator for the "prizegiving_id" field. It is called by the builders before save.
 	PrizegivingIDValidator func(int) error
 	// CompetitionSessionIDValidator is a validator for the "competition_session_id" field. It is called by the builders before save.

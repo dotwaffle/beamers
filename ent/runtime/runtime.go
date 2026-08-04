@@ -91,6 +91,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	accountMixinHooks0 := accountMixin[0].Hooks()
+
+	account.Hooks[1] = accountMixinHooks0[0]
+	accountMixinInters0 := accountMixin[0].Interceptors()
+	account.Interceptors[0] = accountMixinInters0[0]
 	accountFields := schema.Account{}.Fields()
 	_ = accountFields
 	// accountDescName is the schema descriptor for name field.
@@ -143,6 +148,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	accountpreferenceMixinHooks0 := accountpreferenceMixin[0].Hooks()
+
+	accountpreference.Hooks[1] = accountpreferenceMixinHooks0[0]
+	accountpreferenceMixinInters0 := accountpreferenceMixin[0].Interceptors()
+	accountpreference.Interceptors[0] = accountpreferenceMixinInters0[0]
 	accountpreferenceFields := schema.AccountPreference{}.Fields()
 	_ = accountpreferenceFields
 	// accountpreferenceDescReducedEffects is the schema descriptor for reduced_effects field.
@@ -159,6 +169,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	accountprofileMixinHooks0 := accountprofileMixin[0].Hooks()
+
+	accountprofile.Hooks[1] = accountprofileMixinHooks0[0]
+	accountprofileMixinInters0 := accountprofileMixin[0].Interceptors()
+	accountprofile.Interceptors[0] = accountprofileMixinInters0[0]
 	accountprofileFields := schema.AccountProfile{}.Fields()
 	_ = accountprofileFields
 	// accountprofileDescNormalizedHandle is the schema descriptor for normalized_handle field.
@@ -211,6 +226,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	accountsessionMixinHooks0 := accountsessionMixin[0].Hooks()
+
+	accountsession.Hooks[1] = accountsessionMixinHooks0[0]
+	accountsessionMixinInters0 := accountsessionMixin[0].Interceptors()
+	accountsession.Interceptors[0] = accountsessionMixinInters0[0]
 	accountsessionFields := schema.AccountSession{}.Fields()
 	_ = accountsessionFields
 	// accountsessionDescTokenHash is the schema descriptor for token_hash field.
@@ -245,6 +265,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	attachmentMixinHooks0 := attachmentMixin[0].Hooks()
+
+	attachment.Hooks[1] = attachmentMixinHooks0[0]
+	attachmentMixinInters0 := attachmentMixin[0].Interceptors()
+	attachment.Interceptors[0] = attachmentMixinInters0[0]
 	attachmentFields := schema.Attachment{}.Fields()
 	_ = attachmentFields
 	// attachmentDescOwnerID is the schema descriptor for owner_id field.
@@ -283,6 +308,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	attachmentversionMixinHooks0 := attachmentversionMixin[0].Hooks()
+
+	attachmentversion.Hooks[1] = attachmentversionMixinHooks0[0]
+	attachmentversionMixinInters0 := attachmentversionMixin[0].Interceptors()
+	attachmentversion.Interceptors[0] = attachmentversionMixinInters0[0]
 	attachmentversionFields := schema.AttachmentVersion{}.Fields()
 	_ = attachmentversionFields
 	// attachmentversionDescVersion is the schema descriptor for version field.
@@ -393,6 +423,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	auditentryMixinHooks0 := auditentryMixin[0].Hooks()
+
+	auditentry.Hooks[1] = auditentryMixinHooks0[0]
+	auditentryMixinInters0 := auditentryMixin[0].Interceptors()
+	auditentry.Interceptors[0] = auditentryMixinInters0[0]
 	auditentryFields := schema.AuditEntry{}.Fields()
 	_ = auditentryFields
 	// auditentryDescCreatedAt is the schema descriptor for created_at field.
@@ -471,6 +506,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	bootstrapcredentialMixinHooks0 := bootstrapcredentialMixin[0].Hooks()
+
+	bootstrapcredential.Hooks[1] = bootstrapcredentialMixinHooks0[0]
+	bootstrapcredentialMixinInters0 := bootstrapcredentialMixin[0].Interceptors()
+	bootstrapcredential.Interceptors[0] = bootstrapcredentialMixinInters0[0]
 	bootstrapcredentialFields := schema.BootstrapCredential{}.Fields()
 	_ = bootstrapcredentialFields
 	// bootstrapcredentialDescTokenHash is the schema descriptor for token_hash field.
@@ -505,6 +545,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	commandreceiptMixinHooks0 := commandreceiptMixin[0].Hooks()
+
+	commandreceipt.Hooks[1] = commandreceiptMixinHooks0[0]
+	commandreceiptMixinInters0 := commandreceiptMixin[0].Interceptors()
+	commandreceipt.Interceptors[0] = commandreceiptMixinInters0[0]
 	commandreceiptFields := schema.CommandReceipt{}.Fields()
 	_ = commandreceiptFields
 	// commandreceiptDescCommandID is the schema descriptor for command_id field.
@@ -615,6 +660,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	competitionentryMixinHooks0 := competitionentryMixin[0].Hooks()
+
+	competitionentry.Hooks[1] = competitionentryMixinHooks0[0]
+	competitionentryMixinInters0 := competitionentryMixin[0].Interceptors()
+	competitionentry.Interceptors[0] = competitionentryMixinInters0[0]
 	competitionentryFields := schema.CompetitionEntry{}.Fields()
 	_ = competitionentryFields
 	// competitionentryDescSubmitterAccountID is the schema descriptor for submitter_account_id field.
@@ -705,6 +755,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	competitionresultstandingMixinHooks0 := competitionresultstandingMixin[0].Hooks()
+
+	competitionresultstanding.Hooks[1] = competitionresultstandingMixinHooks0[0]
+	competitionresultstandingMixinInters0 := competitionresultstandingMixin[0].Interceptors()
+	competitionresultstanding.Interceptors[0] = competitionresultstandingMixinInters0[0]
 	competitionresultstandingFields := schema.CompetitionResultStanding{}.Fields()
 	_ = competitionresultstandingFields
 	// competitionresultstandingDescPlacement is the schema descriptor for placement field.
@@ -733,6 +788,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	competitionresultsdraftMixinHooks0 := competitionresultsdraftMixin[0].Hooks()
+
+	competitionresultsdraft.Hooks[1] = competitionresultsdraftMixinHooks0[0]
+	competitionresultsdraftMixinInters0 := competitionresultsdraftMixin[0].Interceptors()
+	competitionresultsdraft.Interceptors[0] = competitionresultsdraftMixinInters0[0]
 	competitionresultsdraftFields := schema.CompetitionResultsDraft{}.Fields()
 	_ = competitionresultsdraftFields
 	// competitionresultsdraftDescRevision is the schema descriptor for revision field.
@@ -787,6 +847,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	displayMixinHooks0 := displayMixin[0].Hooks()
+
+	display.Hooks[1] = displayMixinHooks0[0]
+	displayMixinInters0 := displayMixin[0].Interceptors()
+	display.Interceptors[0] = displayMixinInters0[0]
 	displayFields := schema.Display{}.Fields()
 	_ = displayFields
 	// displayDescName is the schema descriptor for name field.
@@ -897,6 +962,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	displayassignmentMixinHooks0 := displayassignmentMixin[0].Hooks()
+
+	displayassignment.Hooks[1] = displayassignmentMixinHooks0[0]
+	displayassignmentMixinInters0 := displayassignmentMixin[0].Interceptors()
+	displayassignment.Interceptors[0] = displayassignmentMixinInters0[0]
 	displayassignmentFields := schema.DisplayAssignment{}.Fields()
 	_ = displayassignmentFields
 	// displayassignmentDescViewKey is the schema descriptor for view_key field.
@@ -935,6 +1005,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	displaycredentialMixinHooks0 := displaycredentialMixin[0].Hooks()
+
+	displaycredential.Hooks[1] = displaycredentialMixinHooks0[0]
+	displaycredentialMixinInters0 := displaycredentialMixin[0].Interceptors()
+	displaycredential.Interceptors[0] = displaycredentialMixinInters0[0]
 	displaycredentialFields := schema.DisplayCredential{}.Fields()
 	_ = displaycredentialFields
 	// displaycredentialDescTokenHash is the schema descriptor for token_hash field.
@@ -969,6 +1044,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	displayenrollmentMixinHooks0 := displayenrollmentMixin[0].Hooks()
+
+	displayenrollment.Hooks[1] = displayenrollmentMixinHooks0[0]
+	displayenrollmentMixinInters0 := displayenrollmentMixin[0].Interceptors()
+	displayenrollment.Interceptors[0] = displayenrollmentMixinInters0[0]
 	displayenrollmentFields := schema.DisplayEnrollment{}.Fields()
 	_ = displayenrollmentFields
 	// displayenrollmentDescCodeHash is the schema descriptor for code_hash field.
@@ -1021,6 +1101,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	displayoverrideMixinHooks0 := displayoverrideMixin[0].Hooks()
+
+	displayoverride.Hooks[1] = displayoverrideMixinHooks0[0]
+	displayoverrideMixinInters0 := displayoverrideMixin[0].Interceptors()
+	displayoverride.Interceptors[0] = displayoverrideMixinInters0[0]
 	displayoverrideFields := schema.DisplayOverride{}.Fields()
 	_ = displayoverrideFields
 	// displayoverrideDescTargetGroupKey is the schema descriptor for target_group_key field.
@@ -1095,6 +1180,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	displayoverridestateMixinHooks0 := displayoverridestateMixin[0].Hooks()
+
+	displayoverridestate.Hooks[1] = displayoverridestateMixinHooks0[0]
+	displayoverridestateMixinInters0 := displayoverridestateMixin[0].Interceptors()
+	displayoverridestate.Interceptors[0] = displayoverridestateMixinInters0[0]
 	displayoverridestateFields := schema.DisplayOverrideState{}.Fields()
 	_ = displayoverridestateFields
 	// displayoverridestateDescRevision is the schema descriptor for revision field.
@@ -1117,6 +1207,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	draftchangeMixinHooks0 := draftchangeMixin[0].Hooks()
+
+	draftchange.Hooks[1] = draftchangeMixinHooks0[0]
+	draftchangeMixinInters0 := draftchangeMixin[0].Interceptors()
+	draftchange.Interceptors[0] = draftchangeMixinInters0[0]
 	draftchangeFields := schema.DraftChange{}.Fields()
 	_ = draftchangeFields
 	// draftchangeDescRevision is the schema descriptor for revision field.
@@ -1199,6 +1294,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	draftchangedependencyMixinHooks0 := draftchangedependencyMixin[0].Hooks()
+
+	draftchangedependency.Hooks[1] = draftchangedependencyMixinHooks0[0]
+	draftchangedependencyMixinInters0 := draftchangedependencyMixin[0].Interceptors()
+	draftchangedependency.Interceptors[0] = draftchangedependencyMixinInters0[0]
 	drafteditMixin := schema.DraftEdit{}.Mixin()
 	draftedit.Policy = privacy.NewPolicies(drafteditMixin[0], schema.DraftEdit{})
 	draftedit.Hooks[0] = func(next ent.Mutator) ent.Mutator {
@@ -1209,6 +1309,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	drafteditMixinHooks0 := drafteditMixin[0].Hooks()
+
+	draftedit.Hooks[1] = drafteditMixinHooks0[0]
+	drafteditMixinInters0 := drafteditMixin[0].Interceptors()
+	draftedit.Interceptors[0] = drafteditMixinInters0[0]
 	drafteditFields := schema.DraftEdit{}.Fields()
 	_ = drafteditFields
 	// drafteditDescRevision is the schema descriptor for revision field.
@@ -1229,6 +1334,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	eventMixinHooks0 := eventMixin[0].Hooks()
+
+	event.Hooks[1] = eventMixinHooks0[0]
+	eventMixinInters0 := eventMixin[0].Interceptors()
+	event.Interceptors[0] = eventMixinInters0[0]
 	eventFields := schema.Event{}.Fields()
 	_ = eventFields
 	// eventDescName is the schema descriptor for name field.
@@ -1441,6 +1551,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	eventawardsdraftMixinHooks0 := eventawardsdraftMixin[0].Hooks()
+
+	eventawardsdraft.Hooks[1] = eventawardsdraftMixinHooks0[0]
+	eventawardsdraftMixinInters0 := eventawardsdraftMixin[0].Interceptors()
+	eventawardsdraft.Interceptors[0] = eventawardsdraftMixinInters0[0]
 	eventawardsdraftFields := schema.EventAwardsDraft{}.Fields()
 	_ = eventawardsdraftFields
 	// eventawardsdraftDescRevision is the schema descriptor for revision field.
@@ -1465,6 +1580,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	eventgrantMixinHooks0 := eventgrantMixin[0].Hooks()
+
+	eventgrant.Hooks[1] = eventgrantMixinHooks0[0]
+	eventgrantMixinInters0 := eventgrantMixin[0].Interceptors()
+	eventgrant.Interceptors[0] = eventgrantMixinInters0[0]
 	eventgrantFields := schema.EventGrant{}.Fields()
 	_ = eventgrantFields
 	// eventgrantDescCreatedAt is the schema descriptor for created_at field.
@@ -1481,6 +1601,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	eventslugMixinHooks0 := eventslugMixin[0].Hooks()
+
+	eventslug.Hooks[1] = eventslugMixinHooks0[0]
+	eventslugMixinInters0 := eventslugMixin[0].Interceptors()
+	eventslug.Interceptors[0] = eventslugMixinInters0[0]
 	eventslugFields := schema.EventSlug{}.Fields()
 	_ = eventslugFields
 	// eventslugDescSlug is the schema descriptor for slug field.
@@ -1519,6 +1644,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	eventthemerevisionMixinHooks0 := eventthemerevisionMixin[0].Hooks()
+
+	eventthemerevision.Hooks[1] = eventthemerevisionMixinHooks0[0]
+	eventthemerevisionMixinInters0 := eventthemerevisionMixin[0].Interceptors()
+	eventthemerevision.Interceptors[0] = eventthemerevisionMixinInters0[0]
 	eventthemerevisionFields := schema.EventThemeRevision{}.Fields()
 	_ = eventthemerevisionFields
 	// eventthemerevisionDescEventID is the schema descriptor for event_id field.
@@ -1543,6 +1673,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	favoritesessionMixinHooks0 := favoritesessionMixin[0].Hooks()
+
+	favoritesession.Hooks[1] = favoritesessionMixinHooks0[0]
+	favoritesessionMixinInters0 := favoritesessionMixin[0].Interceptors()
+	favoritesession.Interceptors[0] = favoritesessionMixinInters0[0]
 	federatedidentityMixin := schema.FederatedIdentity{}.Mixin()
 	federatedidentity.Policy = privacy.NewPolicies(federatedidentityMixin[0], schema.FederatedIdentity{})
 	federatedidentity.Hooks[0] = func(next ent.Mutator) ent.Mutator {
@@ -1553,6 +1688,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	federatedidentityMixinHooks0 := federatedidentityMixin[0].Hooks()
+
+	federatedidentity.Hooks[1] = federatedidentityMixinHooks0[0]
+	federatedidentityMixinInters0 := federatedidentityMixin[0].Interceptors()
+	federatedidentity.Interceptors[0] = federatedidentityMixinInters0[0]
 	federatedidentityFields := schema.FederatedIdentity{}.Fields()
 	_ = federatedidentityFields
 	// federatedidentityDescProvider is the schema descriptor for provider field.
@@ -1605,6 +1745,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	importreferenceMixinHooks0 := importreferenceMixin[0].Hooks()
+
+	importreference.Hooks[1] = importreferenceMixinHooks0[0]
+	importreferenceMixinInters0 := importreferenceMixin[0].Interceptors()
+	importreference.Interceptors[0] = importreferenceMixinInters0[0]
 	importreferenceFields := schema.ImportReference{}.Fields()
 	_ = importreferenceFields
 	// importreferenceDescExternalKey is the schema descriptor for external_key field.
@@ -1661,6 +1806,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	installationMixinHooks0 := installationMixin[0].Hooks()
+
+	installation.Hooks[1] = installationMixinHooks0[0]
+	installationMixinInters0 := installationMixin[0].Interceptors()
+	installation.Interceptors[0] = installationMixinInters0[0]
 	installationFields := schema.Installation{}.Fields()
 	_ = installationFields
 	// installationDescCreatedAt is the schema descriptor for created_at field.
@@ -1683,6 +1833,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	installationthemerevisionMixinHooks0 := installationthemerevisionMixin[0].Hooks()
+
+	installationthemerevision.Hooks[1] = installationthemerevisionMixinHooks0[0]
+	installationthemerevisionMixinInters0 := installationthemerevisionMixin[0].Interceptors()
+	installationthemerevision.Interceptors[0] = installationthemerevisionMixinInters0[0]
 	installationthemerevisionFields := schema.InstallationThemeRevision{}.Fields()
 	_ = installationthemerevisionFields
 	// installationthemerevisionDescCreatedByAccountID is the schema descriptor for created_by_account_id field.
@@ -1703,6 +1858,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	laneMixinHooks0 := laneMixin[0].Hooks()
+
+	lane.Hooks[1] = laneMixinHooks0[0]
+	laneMixinInters0 := laneMixin[0].Interceptors()
+	lane.Interceptors[0] = laneMixinInters0[0]
 	laneFields := schema.Lane{}.Fields()
 	_ = laneFields
 	// laneDescCreatedAt is the schema descriptor for created_at field.
@@ -1719,9 +1879,14 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	lanedraftMixinHooks0 := lanedraftMixin[0].Hooks()
 	lanedraftHooks := schema.LaneDraft{}.Hooks()
 
-	lanedraft.Hooks[1] = lanedraftHooks[0]
+	lanedraft.Hooks[1] = lanedraftMixinHooks0[0]
+
+	lanedraft.Hooks[2] = lanedraftHooks[0]
+	lanedraftMixinInters0 := lanedraftMixin[0].Interceptors()
+	lanedraft.Interceptors[0] = lanedraftMixinInters0[0]
 	lanedraftFields := schema.LaneDraft{}.Fields()
 	_ = lanedraftFields
 	// lanedraftDescName is the schema descriptor for name field.
@@ -1756,12 +1921,17 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	lanepublishedversionMixinHooks0 := lanepublishedversionMixin[0].Hooks()
 	lanepublishedversionMixinHooks1 := lanepublishedversionMixin[1].Hooks()
 	lanepublishedversionHooks := schema.LanePublishedVersion{}.Hooks()
 
-	lanepublishedversion.Hooks[1] = lanepublishedversionMixinHooks1[0]
+	lanepublishedversion.Hooks[1] = lanepublishedversionMixinHooks0[0]
 
-	lanepublishedversion.Hooks[2] = lanepublishedversionHooks[0]
+	lanepublishedversion.Hooks[2] = lanepublishedversionMixinHooks1[0]
+
+	lanepublishedversion.Hooks[3] = lanepublishedversionHooks[0]
+	lanepublishedversionMixinInters0 := lanepublishedversionMixin[0].Interceptors()
+	lanepublishedversion.Interceptors[0] = lanepublishedversionMixinInters0[0]
 	lanepublishedversionFields := schema.LanePublishedVersion{}.Fields()
 	_ = lanepublishedversionFields
 	// lanepublishedversionDescPublishedRevision is the schema descriptor for published_revision field.
@@ -1804,6 +1974,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	locationMixinHooks0 := locationMixin[0].Hooks()
+
+	location.Hooks[1] = locationMixinHooks0[0]
+	locationMixinInters0 := locationMixin[0].Interceptors()
+	location.Interceptors[0] = locationMixinInters0[0]
 	locationFields := schema.Location{}.Fields()
 	_ = locationFields
 	// locationDescCreatedAt is the schema descriptor for created_at field.
@@ -1820,6 +1995,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	locationdraftMixinHooks0 := locationdraftMixin[0].Hooks()
+
+	locationdraft.Hooks[1] = locationdraftMixinHooks0[0]
+	locationdraftMixinInters0 := locationdraftMixin[0].Interceptors()
+	locationdraft.Interceptors[0] = locationdraftMixinInters0[0]
 	locationdraftFields := schema.LocationDraft{}.Fields()
 	_ = locationdraftFields
 	// locationdraftDescName is the schema descriptor for name field.
@@ -1854,9 +2034,14 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	locationpublishedversionMixinHooks0 := locationpublishedversionMixin[0].Hooks()
 	locationpublishedversionMixinHooks1 := locationpublishedversionMixin[1].Hooks()
 
-	locationpublishedversion.Hooks[1] = locationpublishedversionMixinHooks1[0]
+	locationpublishedversion.Hooks[1] = locationpublishedversionMixinHooks0[0]
+
+	locationpublishedversion.Hooks[2] = locationpublishedversionMixinHooks1[0]
+	locationpublishedversionMixinInters0 := locationpublishedversionMixin[0].Interceptors()
+	locationpublishedversion.Interceptors[0] = locationpublishedversionMixinInters0[0]
 	locationpublishedversionFields := schema.LocationPublishedVersion{}.Fields()
 	_ = locationpublishedversionFields
 	// locationpublishedversionDescPublishedRevision is the schema descriptor for published_revision field.
@@ -1899,6 +2084,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	migrationMixinHooks0 := migrationMixin[0].Hooks()
+
+	migration.Hooks[1] = migrationMixinHooks0[0]
+	migrationMixinInters0 := migrationMixin[0].Interceptors()
+	migration.Interceptors[0] = migrationMixinInters0[0]
 	migrationFields := schema.Migration{}.Fields()
 	_ = migrationFields
 	// migrationDescVersion is the schema descriptor for version field.
@@ -1953,6 +2143,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	passwordcredentialMixinHooks0 := passwordcredentialMixin[0].Hooks()
+
+	passwordcredential.Hooks[1] = passwordcredentialMixinHooks0[0]
+	passwordcredentialMixinInters0 := passwordcredentialMixin[0].Interceptors()
+	passwordcredential.Interceptors[0] = passwordcredentialMixinInters0[0]
 	passwordcredentialFields := schema.PasswordCredential{}.Fields()
 	_ = passwordcredentialFields
 	// passwordcredentialDescPasswordHash is the schema descriptor for password_hash field.
@@ -1973,6 +2168,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	prizegivingMixinHooks0 := prizegivingMixin[0].Hooks()
+
+	prizegiving.Hooks[1] = prizegivingMixinHooks0[0]
+	prizegivingMixinInters0 := prizegivingMixin[0].Interceptors()
+	prizegiving.Interceptors[0] = prizegivingMixinInters0[0]
 	prizegivingFields := schema.Prizegiving{}.Fields()
 	_ = prizegivingFields
 	// prizegivingDescRevision is the schema descriptor for revision field.
@@ -2013,6 +2213,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	prizegivingcompetitionMixinHooks0 := prizegivingcompetitionMixin[0].Hooks()
+
+	prizegivingcompetition.Hooks[1] = prizegivingcompetitionMixinHooks0[0]
+	prizegivingcompetitionMixinInters0 := prizegivingcompetitionMixin[0].Interceptors()
+	prizegivingcompetition.Interceptors[0] = prizegivingcompetitionMixinInters0[0]
 	prizegivingcompetitionFields := schema.PrizegivingCompetition{}.Fields()
 	_ = prizegivingcompetitionFields
 	// prizegivingcompetitionDescPrizegivingID is the schema descriptor for prizegiving_id field.
@@ -2033,6 +2238,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	publicschedulebaselineMixinHooks0 := publicschedulebaselineMixin[0].Hooks()
+
+	publicschedulebaseline.Hooks[1] = publicschedulebaselineMixinHooks0[0]
+	publicschedulebaselineMixinInters0 := publicschedulebaselineMixin[0].Interceptors()
+	publicschedulebaseline.Interceptors[0] = publicschedulebaselineMixinInters0[0]
 	publicschedulebaselineFields := schema.PublicScheduleBaseline{}.Fields()
 	_ = publicschedulebaselineFields
 	// publicschedulebaselineDescSourcePublishedRevision is the schema descriptor for source_published_revision field.
@@ -2053,6 +2263,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	publicschedulebaselineentryMixinHooks0 := publicschedulebaselineentryMixin[0].Hooks()
+
+	publicschedulebaselineentry.Hooks[1] = publicschedulebaselineentryMixinHooks0[0]
+	publicschedulebaselineentryMixinInters0 := publicschedulebaselineentryMixin[0].Interceptors()
+	publicschedulebaselineentry.Interceptors[0] = publicschedulebaselineentryMixinInters0[0]
 	publicschedulebaselineentryFields := schema.PublicScheduleBaselineEntry{}.Fields()
 	_ = publicschedulebaselineentryFields
 	// publicschedulebaselineentryDescSourcePublishedRevision is the schema descriptor for source_published_revision field.
@@ -2073,6 +2288,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	recoverycodeMixinHooks0 := recoverycodeMixin[0].Hooks()
+
+	recoverycode.Hooks[1] = recoverycodeMixinHooks0[0]
+	recoverycodeMixinInters0 := recoverycodeMixin[0].Interceptors()
+	recoverycode.Interceptors[0] = recoverycodeMixinInters0[0]
 	recoverycodeFields := schema.RecoveryCode{}.Fields()
 	_ = recoverycodeFields
 	// recoverycodeDescCodeHash is the schema descriptor for code_hash field.
@@ -2107,6 +2327,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	recoverytokenMixinHooks0 := recoverytokenMixin[0].Hooks()
+
+	recoverytoken.Hooks[1] = recoverytokenMixinHooks0[0]
+	recoverytokenMixinInters0 := recoverytokenMixin[0].Interceptors()
+	recoverytoken.Interceptors[0] = recoverytokenMixinInters0[0]
 	recoverytokenFields := schema.RecoveryToken{}.Fields()
 	_ = recoverytokenFields
 	// recoverytokenDescTokenHash is the schema descriptor for token_hash field.
@@ -2141,6 +2366,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	registrationpolicyMixinHooks0 := registrationpolicyMixin[0].Hooks()
+
+	registrationpolicy.Hooks[1] = registrationpolicyMixinHooks0[0]
+	registrationpolicyMixinInters0 := registrationpolicyMixin[0].Interceptors()
+	registrationpolicy.Interceptors[0] = registrationpolicyMixinInters0[0]
 	registrationpolicyFields := schema.RegistrationPolicy{}.Fields()
 	_ = registrationpolicyFields
 	// registrationpolicyDescRegistrationOpen is the schema descriptor for registration_open field.
@@ -2157,6 +2387,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	releasedprofileentryMixinHooks0 := releasedprofileentryMixin[0].Hooks()
+
+	releasedprofileentry.Hooks[1] = releasedprofileentryMixinHooks0[0]
+	releasedprofileentryMixinInters0 := releasedprofileentryMixin[0].Interceptors()
+	releasedprofileentry.Interceptors[0] = releasedprofileentryMixinInters0[0]
 	releasedprofileentryFields := schema.ReleasedProfileEntry{}.Fields()
 	_ = releasedprofileentryFields
 	// releasedprofileentryDescEntryID is the schema descriptor for entry_id field.
@@ -2177,6 +2412,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	reopenwindowMixinHooks0 := reopenwindowMixin[0].Hooks()
+
+	reopenwindow.Hooks[1] = reopenwindowMixinHooks0[0]
+	reopenwindowMixinInters0 := reopenwindowMixin[0].Interceptors()
+	reopenwindow.Interceptors[0] = reopenwindowMixinInters0[0]
 	reopenwindowFields := schema.ReopenWindow{}.Fields()
 	_ = reopenwindowFields
 	// reopenwindowDescTargetID is the schema descriptor for target_id field.
@@ -2229,9 +2469,14 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	resultscorrectionMixinHooks0 := resultscorrectionMixin[0].Hooks()
 	resultscorrectionMixinHooks1 := resultscorrectionMixin[1].Hooks()
 
-	resultscorrection.Hooks[1] = resultscorrectionMixinHooks1[0]
+	resultscorrection.Hooks[1] = resultscorrectionMixinHooks0[0]
+
+	resultscorrection.Hooks[2] = resultscorrectionMixinHooks1[0]
+	resultscorrectionMixinInters0 := resultscorrectionMixin[0].Interceptors()
+	resultscorrection.Interceptors[0] = resultscorrectionMixinInters0[0]
 	resultscorrectionFields := schema.ResultsCorrection{}.Fields()
 	_ = resultscorrectionFields
 	// resultscorrectionDescScopeSessionID is the schema descriptor for scope_session_id field.
@@ -2294,9 +2539,14 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	resultspublicationMixinHooks0 := resultspublicationMixin[0].Hooks()
 	resultspublicationMixinHooks1 := resultspublicationMixin[1].Hooks()
 
-	resultspublication.Hooks[1] = resultspublicationMixinHooks1[0]
+	resultspublication.Hooks[1] = resultspublicationMixinHooks0[0]
+
+	resultspublication.Hooks[2] = resultspublicationMixinHooks1[0]
+	resultspublicationMixinInters0 := resultspublicationMixin[0].Interceptors()
+	resultspublication.Interceptors[0] = resultspublicationMixinInters0[0]
 	resultspublicationFields := schema.ResultsPublication{}.Fields()
 	_ = resultspublicationFields
 	// resultspublicationDescScopeSessionID is the schema descriptor for scope_session_id field.
@@ -2329,6 +2579,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	rundownMixinHooks0 := rundownMixin[0].Hooks()
+
+	rundown.Hooks[1] = rundownMixinHooks0[0]
+	rundownMixinInters0 := rundownMixin[0].Interceptors()
+	rundown.Interceptors[0] = rundownMixinInters0[0]
 	rundownFields := schema.Rundown{}.Fields()
 	_ = rundownFields
 	// rundownDescDraftRevision is the schema descriptor for draft_revision field.
@@ -2353,6 +2608,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	sessionMixinHooks0 := sessionMixin[0].Hooks()
+
+	session.Hooks[1] = sessionMixinHooks0[0]
+	sessionMixinInters0 := sessionMixin[0].Interceptors()
+	session.Interceptors[0] = sessionMixinInters0[0]
 	sessionFields := schema.Session{}.Fields()
 	_ = sessionFields
 	// sessionDescLiveStateRevision is the schema descriptor for live_state_revision field.
@@ -2459,6 +2719,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	sessioncancellationMixinHooks0 := sessioncancellationMixin[0].Hooks()
+
+	sessioncancellation.Hooks[1] = sessioncancellationMixinHooks0[0]
+	sessioncancellationMixinInters0 := sessioncancellationMixin[0].Interceptors()
+	sessioncancellation.Interceptors[0] = sessioncancellationMixinInters0[0]
 	sessioncancellationFields := schema.SessionCancellation{}.Fields()
 	_ = sessioncancellationFields
 	// sessioncancellationDescPublicMessage is the schema descriptor for public_message field.
@@ -2483,9 +2748,14 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	sessiondraftMixinHooks0 := sessiondraftMixin[0].Hooks()
 	sessiondraftHooks := schema.SessionDraft{}.Hooks()
 
-	sessiondraft.Hooks[1] = sessiondraftHooks[0]
+	sessiondraft.Hooks[1] = sessiondraftMixinHooks0[0]
+
+	sessiondraft.Hooks[2] = sessiondraftHooks[0]
+	sessiondraftMixinInters0 := sessiondraftMixin[0].Interceptors()
+	sessiondraft.Interceptors[0] = sessiondraftMixinInters0[0]
 	sessiondraftFields := schema.SessionDraft{}.Fields()
 	_ = sessiondraftFields
 	// sessiondraftDescTitle is the schema descriptor for title field.
@@ -2532,12 +2802,17 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	sessionpublishedversionMixinHooks0 := sessionpublishedversionMixin[0].Hooks()
 	sessionpublishedversionMixinHooks1 := sessionpublishedversionMixin[1].Hooks()
 	sessionpublishedversionHooks := schema.SessionPublishedVersion{}.Hooks()
 
-	sessionpublishedversion.Hooks[1] = sessionpublishedversionMixinHooks1[0]
+	sessionpublishedversion.Hooks[1] = sessionpublishedversionMixinHooks0[0]
 
-	sessionpublishedversion.Hooks[2] = sessionpublishedversionHooks[0]
+	sessionpublishedversion.Hooks[2] = sessionpublishedversionMixinHooks1[0]
+
+	sessionpublishedversion.Hooks[3] = sessionpublishedversionHooks[0]
+	sessionpublishedversionMixinInters0 := sessionpublishedversionMixin[0].Interceptors()
+	sessionpublishedversion.Interceptors[0] = sessionpublishedversionMixinInters0[0]
 	sessionpublishedversionFields := schema.SessionPublishedVersion{}.Fields()
 	_ = sessionpublishedversionFields
 	// sessionpublishedversionDescPublishedRevision is the schema descriptor for published_revision field.
@@ -2592,6 +2867,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	sessionrunMixinHooks0 := sessionrunMixin[0].Hooks()
+
+	sessionrun.Hooks[1] = sessionrunMixinHooks0[0]
+	sessionrunMixinInters0 := sessionrunMixin[0].Interceptors()
+	sessionrun.Interceptors[0] = sessionrunMixinInters0[0]
 	sessionrunFields := schema.SessionRun{}.Fields()
 	_ = sessionrunFields
 	// sessionrunDescTargetAdjustmentSeconds is the schema descriptor for target_adjustment_seconds field.
@@ -2616,6 +2896,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	sessionrunamendmentMixinHooks0 := sessionrunamendmentMixin[0].Hooks()
+
+	sessionrunamendment.Hooks[1] = sessionrunamendmentMixinHooks0[0]
+	sessionrunamendmentMixinInters0 := sessionrunamendmentMixin[0].Interceptors()
+	sessionrunamendment.Interceptors[0] = sessionrunamendmentMixinInters0[0]
 	sessionrunamendmentFields := schema.SessionRunAmendment{}.Fields()
 	_ = sessionrunamendmentFields
 	// sessionrunamendmentDescActorAccountID is the schema descriptor for actor_account_id field.
@@ -2640,6 +2925,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	trackMixinHooks0 := trackMixin[0].Hooks()
+
+	track.Hooks[1] = trackMixinHooks0[0]
+	trackMixinInters0 := trackMixin[0].Interceptors()
+	track.Interceptors[0] = trackMixinInters0[0]
 	trackFields := schema.Track{}.Fields()
 	_ = trackFields
 	// trackDescCreatedAt is the schema descriptor for created_at field.
@@ -2656,6 +2946,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	trackdraftMixinHooks0 := trackdraftMixin[0].Hooks()
+
+	trackdraft.Hooks[1] = trackdraftMixinHooks0[0]
+	trackdraftMixinInters0 := trackdraftMixin[0].Interceptors()
+	trackdraft.Interceptors[0] = trackdraftMixinInters0[0]
 	trackdraftFields := schema.TrackDraft{}.Fields()
 	_ = trackdraftFields
 	// trackdraftDescName is the schema descriptor for name field.
@@ -2690,9 +2985,14 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	trackpublishedversionMixinHooks0 := trackpublishedversionMixin[0].Hooks()
 	trackpublishedversionMixinHooks1 := trackpublishedversionMixin[1].Hooks()
 
-	trackpublishedversion.Hooks[1] = trackpublishedversionMixinHooks1[0]
+	trackpublishedversion.Hooks[1] = trackpublishedversionMixinHooks0[0]
+
+	trackpublishedversion.Hooks[2] = trackpublishedversionMixinHooks1[0]
+	trackpublishedversionMixinInters0 := trackpublishedversionMixin[0].Interceptors()
+	trackpublishedversion.Interceptors[0] = trackpublishedversionMixinInters0[0]
 	trackpublishedversionFields := schema.TrackPublishedVersion{}.Fields()
 	_ = trackpublishedversionFields
 	// trackpublishedversionDescPublishedRevision is the schema descriptor for published_revision field.
@@ -2735,6 +3035,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	voteMixinHooks0 := voteMixin[0].Hooks()
+
+	vote.Hooks[1] = voteMixinHooks0[0]
+	voteMixinInters0 := voteMixin[0].Interceptors()
+	vote.Interceptors[0] = voteMixinInters0[0]
 	voteFields := schema.Vote{}.Fields()
 	_ = voteFields
 	// voteDescValue is the schema descriptor for value field.
@@ -2773,6 +3078,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	votingeligibilityMixinHooks0 := votingeligibilityMixin[0].Hooks()
+
+	votingeligibility.Hooks[1] = votingeligibilityMixinHooks0[0]
+	votingeligibilityMixinInters0 := votingeligibilityMixin[0].Interceptors()
+	votingeligibility.Interceptors[0] = votingeligibilityMixinInters0[0]
 	votingeligibilityFields := schema.VotingEligibility{}.Fields()
 	_ = votingeligibilityFields
 	// votingeligibilityDescCreatedAt is the schema descriptor for created_at field.
@@ -2789,6 +3099,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	votingkeyMixinHooks0 := votingkeyMixin[0].Hooks()
+
+	votingkey.Hooks[1] = votingkeyMixinHooks0[0]
+	votingkeyMixinInters0 := votingkeyMixin[0].Interceptors()
+	votingkey.Interceptors[0] = votingkeyMixinInters0[0]
 	votingkeyFields := schema.VotingKey{}.Fields()
 	_ = votingkeyFields
 	// votingkeyDescTokenHash is the schema descriptor for token_hash field.
@@ -2823,6 +3138,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	votingtallyMixinHooks0 := votingtallyMixin[0].Hooks()
+
+	votingtally.Hooks[1] = votingtallyMixinHooks0[0]
+	votingtallyMixinInters0 := votingtallyMixin[0].Interceptors()
+	votingtally.Interceptors[0] = votingtallyMixinInters0[0]
 	votingtallyFields := schema.VotingTally{}.Fields()
 	_ = votingtallyFields
 	// votingtallyDescParticipating is the schema descriptor for participating field.
@@ -2847,6 +3167,11 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	webauthncredentialMixinHooks0 := webauthncredentialMixin[0].Hooks()
+
+	webauthncredential.Hooks[1] = webauthncredentialMixinHooks0[0]
+	webauthncredentialMixinInters0 := webauthncredentialMixin[0].Interceptors()
+	webauthncredential.Interceptors[0] = webauthncredentialMixinInters0[0]
 	webauthncredentialFields := schema.WebAuthnCredential{}.Fields()
 	_ = webauthncredentialFields
 	// webauthncredentialDescCredentialID is the schema descriptor for credential_id field.

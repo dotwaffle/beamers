@@ -97,8 +97,9 @@ func ValidColumn(column string) bool {
 //
 //	import _ "github.com/dotwaffle/beamers/ent/runtime"
 var (
-	Hooks  [1]ent.Hook
-	Policy ent.Policy
+	Hooks        [2]ent.Hook
+	Interceptors [1]ent.Interceptor
+	Policy       ent.Policy
 	// ValueValidator is a validator for the "value" field. It is called by the builders before save.
 	ValueValidator func(int) error
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.

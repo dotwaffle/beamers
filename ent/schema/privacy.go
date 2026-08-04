@@ -28,16 +28,62 @@ func (AuthorizationTripwire) Policy() ent.Policy {
 	}
 }
 
+// Hooks denies every mutation that names no authorization. Ent evaluates an
+// explicit decision carried in the context before it reaches any policy rule,
+// so the policy alone can be waved through by a bare allow decision. The hook
+// runs unconditionally, like the AppendOnly schema invariant, which is what
+// makes naming the actor the only way past the tripwire.
+func (AuthorizationTripwire) Hooks() []ent.Hook {
+	return []ent.Hook{denyUnnamedMutation}
+}
+
+// Interceptors denies every query that names no authorization, for the same
+// reason Hooks exists: interceptors run ahead of, and independently of, the
+// privacy policy the context can short-circuit.
+func (AuthorizationTripwire) Interceptors() []ent.Interceptor {
+	return []ent.Interceptor{denyUnnamedQuery()}
+}
+
+func denyUnnamedMutation(next ent.Mutator) ent.Mutator {
+	return ent.MutateFunc(func(ctx context.Context, mutation ent.Mutation) (ent.Value, error) {
+		if !authorizationNamed(ctx) {
+			return nil, errUnnamedAuthorization(mutation.Type())
+		}
+		return next.Mutate(ctx, mutation)
+	})
+}
+
+func denyUnnamedQuery() ent.Interceptor {
+	return ent.InterceptFunc(func(next ent.Querier) ent.Querier {
+		return ent.QuerierFunc(func(ctx context.Context, query ent.Query) (ent.Value, error) {
+			if !authorizationNamed(ctx) {
+				return nil, errUnnamedAuthorization("query")
+			}
+			return next.Query(ctx, query)
+		})
+	})
+}
+
 func denyUnnamedAuthorization() privacy.QueryMutationRule {
 	return privacy.ContextQueryMutationRule(func(ctx context.Context) error {
 		if authorizationNamed(ctx) {
 			return privacy.Skip
 		}
-		return privacy.Denyf(
-			"authorization was never named: the context carries neither a " +
-				"viewer identity nor a named System Actor",
-		)
+		return errUnnamedAuthorization("")
 	})
+}
+
+// errUnnamedAuthorization names the refusal every tripwire path returns, so a
+// denial reads the same whether the policy, the hook, or the interceptor
+// caught it.
+func errUnnamedAuthorization(subject string) error {
+	if subject != "" {
+		subject = " " + subject
+	}
+	return privacy.Denyf(
+		"authorization was never named: the%s context carries neither a "+
+			"viewer identity nor a named System Actor", subject,
+	)
 }
 
 // authorizationNamed reports whether the context says who is acting.

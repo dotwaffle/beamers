@@ -62,8 +62,9 @@ func ValidColumn(column string) bool {
 //
 //	import _ "github.com/dotwaffle/beamers/ent/runtime"
 var (
-	Hooks  [1]ent.Hook
-	Policy ent.Policy
+	Hooks        [2]ent.Hook
+	Interceptors [1]ent.Interceptor
+	Policy       ent.Policy
 	// NormalizedHandleValidator is a validator for the "normalized_handle" field. It is called by the builders before save.
 	NormalizedHandleValidator func(string) error
 	// DisplayNameValidator is a validator for the "display_name" field. It is called by the builders before save.

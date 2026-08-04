@@ -137,8 +137,9 @@ func ValidColumn(column string) bool {
 //
 //	import _ "github.com/dotwaffle/beamers/ent/runtime"
 var (
-	Hooks  [3]ent.Hook
-	Policy ent.Policy
+	Hooks        [4]ent.Hook
+	Interceptors [1]ent.Interceptor
+	Policy       ent.Policy
 	// PublishedRevisionValidator is a validator for the "published_revision" field. It is called by the builders before save.
 	PublishedRevisionValidator func(int) error
 	// TitleValidator is a validator for the "title" field. It is called by the builders before save.

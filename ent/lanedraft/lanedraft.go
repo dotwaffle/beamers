@@ -68,8 +68,9 @@ func ValidColumn(column string) bool {
 //
 //	import _ "github.com/dotwaffle/beamers/ent/runtime"
 var (
-	Hooks  [2]ent.Hook
-	Policy ent.Policy
+	Hooks        [3]ent.Hook
+	Interceptors [1]ent.Interceptor
+	Policy       ent.Policy
 	// NameValidator is a validator for the "name" field. It is called by the builders before save.
 	NameValidator func(string) error
 	// DefaultRetired holds the default value on creation for the "retired" field.

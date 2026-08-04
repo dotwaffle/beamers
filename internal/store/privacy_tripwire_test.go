@@ -39,6 +39,16 @@ func TestPrivacyTripwire(t *testing.T) {
 			wantDeny: true,
 		},
 		{
+			// An Ent allow decision short-circuits the privacy policy, so this
+			// case pins the hook and interceptor that refuse it anyway: naming
+			// the actor is the only way past the tripwire.
+			name: "unnamed Ent allow decision",
+			named: func(ctx context.Context) context.Context {
+				return privacy.DecisionContext(ctx, privacy.Allow)
+			},
+			wantDeny: true,
+		},
+		{
 			name: "viewer identity",
 			named: func(ctx context.Context) context.Context {
 				return viewer.NewContext(ctx, viewer.Identity{AccountID: 1})

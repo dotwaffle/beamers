@@ -73,8 +73,9 @@ func ValidColumn(column string) bool {
 //
 //	import _ "github.com/dotwaffle/beamers/ent/runtime"
 var (
-	Hooks  [1]ent.Hook
-	Policy ent.Policy
+	Hooks        [2]ent.Hook
+	Interceptors [1]ent.Interceptor
+	Policy       ent.Policy
 	// SourcePublishedRevisionValidator is a validator for the "source_published_revision" field. It is called by the builders before save.
 	SourcePublishedRevisionValidator func(int) error
 	// DefaultRecordedAt holds the default value on creation for the "recorded_at" field.

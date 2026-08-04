@@ -54,8 +54,9 @@ func ValidColumn(column string) bool {
 //
 //	import _ "github.com/dotwaffle/beamers/ent/runtime"
 var (
-	Hooks  [1]ent.Hook
-	Policy ent.Policy
+	Hooks        [2]ent.Hook
+	Interceptors [1]ent.Interceptor
+	Policy       ent.Policy
 	// CodeHashValidator is a validator for the "code_hash" field. It is called by the builders before save.
 	CodeHashValidator func(string) error
 	// CredentialHashValidator is a validator for the "credential_hash" field. It is called by the builders before save.
