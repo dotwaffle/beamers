@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/dotwaffle/beamers/internal/auth"
@@ -71,11 +72,16 @@ type PublishResult struct {
 // moves a revision; live change moves the stream cursor the Displays already
 // resume from.
 type crewRundownKey struct {
-	eventID           int
 	draftRevision     int
 	publishedRevision int
 	streamPosition    uint64
 }
+
+// crewRundownCacheEvents bounds how many Events keep a memoized build. Crew
+// work concentrates on the live Event and the one being planned next, so a
+// small allowance covers real use; an installation that exceeds it starts over
+// rather than retaining a projection per Event it has ever served.
+const crewRundownCacheEvents = 8
 
 // Queries owns side-effect-free Rundown projections.
 type Queries struct {
@@ -83,7 +89,31 @@ type Queries struct {
 	// streamPosition reports the cursor that advances on every live change
 	// visible in the Crew Rundown. A nil streamPosition disables memoization.
 	streamPosition func() uint64
-	crewRundown    revisioncache.Cache[crewRundownKey, CrewRundown]
+	// crewRundowns memoizes one build per Event. Separate Events get separate
+	// caches so a Producer planning next year's Event neither evicts nor waits
+	// behind the live Event's rebuild.
+	crewRundownMutex sync.Mutex
+	crewRundowns     map[int]*revisioncache.Cache[crewRundownKey, CrewRundown]
+}
+
+// crewRundownCache returns the memo for one Event, creating it on first use.
+func (queries *Queries) crewRundownCache(
+	eventID int,
+) *revisioncache.Cache[crewRundownKey, CrewRundown] {
+	queries.crewRundownMutex.Lock()
+	defer queries.crewRundownMutex.Unlock()
+	if queries.crewRundowns == nil || len(queries.crewRundowns) >= crewRundownCacheEvents {
+		queries.crewRundowns = make(
+			map[int]*revisioncache.Cache[crewRundownKey, CrewRundown],
+			crewRundownCacheEvents,
+		)
+	}
+	found, ok := queries.crewRundowns[eventID]
+	if !ok {
+		found = &revisioncache.Cache[crewRundownKey, CrewRundown]{}
+		queries.crewRundowns[eventID] = found
+	}
+	return found
 }
 
 // NewQueries creates Rundown Queries with explicit persistence.
@@ -682,12 +712,12 @@ func (queries *Queries) CrewRundown(
 		return CrewRundown{}, err
 	}
 	key := crewRundownKey{
-		eventID:           eventID,
 		draftRevision:     revisions.DraftRevision,
 		publishedRevision: revisions.PublishedRevision,
 		streamPosition:    queries.streamPosition(),
 	}
-	return queries.crewRundown.Load(scoped, key, func(ctx context.Context) (CrewRundown, error) {
+	cache := queries.crewRundownCache(eventID)
+	return cache.Load(scoped, key, func(ctx context.Context) (CrewRundown, error) {
 		return queries.buildCrewRundown(ctx, eventID)
 	})
 }

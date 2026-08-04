@@ -614,6 +614,12 @@ func TestRealisticCapacityFixtureBuildsMixedLifecycleSessions(t *testing.T) {
 // Schedule build against the origin route directly - no coalescing cache
 // front, unlike the load-generator's capacityScheduleCache - against a
 // realistic Session count.
+//
+// Each iteration advances the Schedule stream first, which is what a Publish
+// or a live transition does, so every measured request is a cold build no
+// matter what benchtime the run chooses. Without that the benchmark would
+// measure one build followed by memo hits and quietly stop guarding the
+// build it names.
 func BenchmarkCapacityRealisticPublicScheduleDirect(b *testing.B) {
 	fixture := prepareRealisticCapacityFixture(b)
 	application := newCapacityApplicationTB(b, fixture)
@@ -623,6 +629,7 @@ func BenchmarkCapacityRealisticPublicScheduleDirect(b *testing.B) {
 	scheduleURL := origin.URL + "/events/" + realisticEventSlug + "/schedule"
 
 	for b.Loop() {
+		fixture.scheduleStream.Notify()
 		request, err := http.NewRequestWithContext(b.Context(), http.MethodGet, scheduleURL, http.NoBody)
 		if err != nil {
 			b.Fatal(err)
@@ -688,11 +695,10 @@ func BenchmarkCapacityRealisticPublicScheduleRepeat(b *testing.B) {
 // realistic Session count, through the same Connect RPC the crew console
 // load generator exercises.
 //
-// At the recorded -benchtime=1x this is a cold build: the fixture is rebuilt
-// per sample, so the single measured request is the first one at that Event's
-// revision. Raising benchtime measures the memoized steady state between
-// changes instead, which is a different and much smaller number; keep the two
-// regimes apart when comparing runs.
+// Each iteration advances the Display stream first, so every measured request
+// rebuilds the projection rather than reusing the memo. The memoized steady
+// state between changes is a different and much smaller number, and belongs in
+// its own benchmark rather than appearing here whenever benchtime rises.
 func BenchmarkCapacityRealisticCrewRundownLoad(b *testing.B) {
 	fixture := prepareRealisticCapacityFixture(b)
 	application := newCapacityApplicationTB(b, fixture)
@@ -710,6 +716,7 @@ func BenchmarkCapacityRealisticCrewRundownLoad(b *testing.B) {
 	rundownClient := rundownv1connect.NewRundownServiceClient(client, origin.URL)
 
 	for b.Loop() {
+		fixture.displayStream.Notify()
 		if _, err := rundownClient.GetCrewRundown(
 			b.Context(),
 			connect.NewRequest(&rundownv1.GetCrewRundownRequest{
