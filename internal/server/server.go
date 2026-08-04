@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/netip"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -433,10 +434,21 @@ func Run(ctx context.Context, config Config) error {
 	}
 }
 
-// instrumentInboundHTTP wraps a listener's handler with otelhttp so inbound
-// requests get request metrics and a server span, giving downstream otelsql
-// database spans a parent. operation names the span/metric per listener
-// (private vs. public) so the two are distinguishable in exported data.
+// connectRoutePathPrefix is the fixed prefix connect-go gives every
+// generated RPC path (e.g. "/beamers.competition.v1.CompetitionService/...",
+// from the ServiceName constants under gen/*/*connect). Connect routes
+// already get their own span and metrics from otelconnect's interceptor
+// (see registerConnectRoute); instrumenting them again here would record
+// duplicate HTTP and RPC spans and duplicate, redundant metric families,
+// which ADR 0035 explicitly calls out as something to avoid.
+const connectRoutePathPrefix = "/beamers."
+
+// instrumentInboundHTTP wraps a listener's handler with otelhttp so plain
+// HTTP requests get request metrics and a server span, giving downstream
+// otelsql database spans a parent. operation names the span/metric per
+// listener (private vs. public) so the two are distinguishable in exported
+// data. Connect RPC requests are excluded via WithFilter, since otelconnect
+// already instruments them end to end.
 func instrumentInboundHTTP(config Config, operation string, next http.Handler) http.Handler {
 	return otelhttp.NewHandler(
 		next,
@@ -444,6 +456,9 @@ func instrumentInboundHTTP(config Config, operation string, next http.Handler) h
 		otelhttp.WithTracerProvider(config.TracerProvider),
 		otelhttp.WithMeterProvider(config.MeterProvider),
 		otelhttp.WithPropagators(config.Propagator),
+		otelhttp.WithFilter(func(request *http.Request) bool {
+			return !strings.HasPrefix(request.URL.Path, connectRoutePathPrefix)
+		}),
 	)
 }
 
