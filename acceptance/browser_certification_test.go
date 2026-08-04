@@ -2678,34 +2678,31 @@ func certifyScheduleCardLayout(t *testing.T, driver *webDriver, origin string) {
 	if err := driver.setWindowSize(t.Context(), 1440); err != nil {
 		t.Fatalf("set desktop Schedule width: %v", err)
 	}
-	wide, err := driver.evaluateBool(
-		t.Context(),
-		`const card = document.querySelector(".schedule-card"); `+
-			`const heading = document.querySelector(".schedule-day-heading"); `+
-			`const time = document.querySelector(".schedule-card-time"); `+
-			`if (!card || !heading || !time) return false; `+
-			`const cardStyle = getComputedStyle(card); `+
-			`const headingStyle = getComputedStyle(heading); `+
-			`const timeStyle = getComputedStyle(time); `+
-			`return cardStyle.display === "grid" && `+
-			`cardStyle.gridTemplateColumns.trim().split(" ").length >= 2 && `+
-			`headingStyle.position === "sticky" && `+
-			`timeStyle.fontVariantNumeric.includes("tabular-nums");`,
-	)
-	if err != nil || !wide {
-		t.Fatalf("certify desktop Schedule card layout = %t, %v", wide, err)
+	// waitFor rather than a single evaluateBool: a window resize is applied
+	// asynchronously, and Firefox in particular can still be reflowing to
+	// the new width at the instant the very next command runs.
+	wideScript := `const card = document.querySelector(".schedule-card"); ` +
+		`const heading = document.querySelector(".schedule-day-heading"); ` +
+		`const time = document.querySelector(".schedule-card-time"); ` +
+		`if (!card || !heading || !time) return false; ` +
+		`const cardStyle = getComputedStyle(card); ` +
+		`const headingStyle = getComputedStyle(heading); ` +
+		`const timeStyle = getComputedStyle(time); ` +
+		`return cardStyle.display === "grid" && ` +
+		`cardStyle.gridTemplateColumns.trim().split(" ").length >= 2 && ` +
+		`headingStyle.position === "sticky" && ` +
+		`timeStyle.fontVariantNumeric.includes("tabular-nums");`
+	if err := driver.waitFor(t.Context(), 5*time.Second, wideScript); err != nil {
+		t.Fatalf("certify desktop Schedule card layout: %v", err)
 	}
 	if setErr := driver.setWindowSize(t.Context(), 320); setErr != nil {
 		t.Fatalf("set phone Schedule width: %v", setErr)
 	}
-	narrow, err := driver.evaluateBool(
-		t.Context(),
-		`const card = document.querySelector(".schedule-card"); `+
-			`if (!card) return false; `+
-			`return getComputedStyle(card).gridTemplateColumns.trim().split(" ").length === 1;`,
-	)
-	if err != nil || !narrow {
-		t.Fatalf("certify phone Schedule card layout = %t, %v", narrow, err)
+	narrowScript := `const card = document.querySelector(".schedule-card"); ` +
+		`if (!card) return false; ` +
+		`return getComputedStyle(card).gridTemplateColumns.trim().split(" ").length === 1;`
+	if err := driver.waitFor(t.Context(), 5*time.Second, narrowScript); err != nil {
+		t.Fatalf("certify phone Schedule card layout: %v", err)
 	}
 }
 
