@@ -1096,6 +1096,10 @@ func displaySession(
 	// Every other View reports only that the span is taken and until when.
 	if found.AudienceVisibility != "Public" && snapshot.ViewKey != displayviews.CrewOverview {
 		return Session{
+			// ID stays the zero value: a suppressed Session's real ID is
+			// redacted along with its title and speaker (see
+			// SessionRotationKey for the distinct, non-leaking identity a
+			// rotation-widget View uses instead).
 			Unavailable: true,
 			AvailabilityMessage: "Location unavailable until " +
 				publictime.FormatDisplayDateTime(found.ForecastEnd, zone),

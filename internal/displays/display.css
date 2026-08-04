@@ -453,7 +453,9 @@ body {
 	inset-block-start: -1.1em;
 	inset-inline-start: 0.2rem;
 	font-size: var(--display-text-caption);
-	color: color-mix(in srgb, var(--display-foreground, #fff) 45%, transparent);
+	/* Matches the lane label's mix: faint enough to read as a secondary
+	 * mark, not so faint that the hour itself falls below legible contrast. */
+	color: color-mix(in srgb, var(--display-foreground, #fff) 70%, transparent);
 	white-space: nowrap;
 }
 

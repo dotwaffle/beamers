@@ -282,6 +282,9 @@ templ displayTimelineBlock(snapshot Snapshot, session Session) {
 			<p>{ session.AvailabilityMessage }</p>
 		} else {
 			<h3>{ session.Title }</h3>
+			if displayLifecycleBadge(session) {
+				<span class="display-badge" data-lifecycle={ session.Lifecycle }>{ session.Lifecycle }</span>
+			}
 			<p>
 				<time datetime={ session.PresentedStart.Format("2006-01-02T15:04:05Z07:00") }>{ session.DisplayPresentedStart }</time>
 			</p>

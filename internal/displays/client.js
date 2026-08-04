@@ -612,7 +612,11 @@ function renderWidget(region, widget, snapshot, theme, candidateClockReference) 
       const article = document.createElement("article");
       article.dataset.rotationPage = "true";
       article.dataset.slot = "rotation";
-      article.dataset.sessionId = String(session.id ?? "");
+      // rotationKey, not the redacted id, is the stable per-Session identity:
+      // a suppressed Session sends id as 0 like every other suppressed
+      // Session on the same View, which would collapse them all to one
+      // rotation slot.
+      article.dataset.sessionId = String(session.rotationKey ?? "");
       // Left hidden here: startRotation chooses which page opens, carrying
       // the outgoing frame's rotation position forward when it can.
       article.hidden = true;
@@ -934,6 +938,10 @@ function renderTimelineBlock(snapshot, session) {
     return block;
   }
   appendHeading(block, session.title, 3);
+  // A Live block's signal-color fill is a color-only cue, and forced-colors
+  // mode strips it entirely; the badge repeats the same proven-contrast
+  // text and border treatment the Now/Next and rotation views already use.
+  appendLifecycleBadge(block, session);
   const start = document.createElement("time");
   start.dateTime = String(session.presentedStart ?? "");
   start.textContent = formatScheduleTime(snapshot, session.presentedStart);

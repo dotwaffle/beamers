@@ -337,6 +337,22 @@ func displaySessionKicker(session Session) string {
 // the client renderer can match it against the outgoing DOM on reconnect,
 // preserving rotation position across a repaint.
 func displaySessionID(session Session) string {
+	return SessionRotationKey(session)
+}
+
+// SessionRotationKey is a Session's identity for the client's
+// rotation-carry-over, distinct across every Session a rotation-widget View
+// presents even when Unavailable. A suppressed Session's real ID is
+// redacted along with its title and speaker, so this falls back to its
+// ForecastStart, which the suppressed span already sends unredacted to size
+// itself: keying on it reveals nothing new. Two suppressed Sessions with
+// the exact same ForecastStart on the same View, an edge case the shared
+// Location must itself prevent by not double-booking, are the only
+// remaining collision.
+func SessionRotationKey(session Session) string {
+	if session.Unavailable {
+		return "unavailable-" + strconv.FormatInt(session.ForecastStart.Unix(), 10)
+	}
 	return strconv.Itoa(session.ID)
 }
 

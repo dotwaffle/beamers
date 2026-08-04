@@ -179,8 +179,8 @@ test("rotation position survives a snapshot re-render, carried from the outgoing
     viewKey: "event-overview",
     composition,
     sessions: [
-      displaySession("Opening Keynote", {id: "1"}),
-      displaySession("Closing Keynote", {id: "2"}),
+      displaySession("Opening Keynote", {rotationKey: "1"}),
+      displaySession("Closing Keynote", {rotationKey: "2"}),
     ],
   });
   // A forecast nudge changes Session content (and so the render key) without
@@ -191,8 +191,8 @@ test("rotation position survives a snapshot re-render, carried from the outgoing
     composition,
     publishedRevision: "2",
     sessions: [
-      displaySession("Opening Keynote", {id: "1"}),
-      displaySession("Closing Keynote", {id: "2", forecastEnd: "2099-08-21T09:15:00Z"}),
+      displaySession("Opening Keynote", {rotationKey: "1"}),
+      displaySession("Closing Keynote", {rotationKey: "2", forecastEnd: "2099-08-21T09:15:00Z"}),
     ],
   });
   const browser = await startBrowser({snapshots: [firstSnapshot, nudgedSnapshot]});
@@ -219,6 +219,38 @@ test("rotation position survives a snapshot re-render, carried from the outgoing
   assert.equal(rotation.children[1].dataset.sessionId, "2");
   assert.equal(rotation.children[0].hidden, true);
   assert.equal(rotation.children[1].hidden, false);
+});
+
+test("rotation carry-over keys suppressed pages by rotationKey, not the shared redacted id", async () => {
+  // Every suppressed Session reports id 0 (the server redacts it); without a
+  // separate identity, both pages below would collapse to the same
+  // rotation slot and a viewer's position could never survive a re-render.
+  const composition = displayComposition({
+    key: "location-signage",
+    rotationSeconds: 30,
+    regions: [
+      {name: "event-content", widget: "rotation", persistent: false},
+    ],
+  });
+  const suppressed = (rotationKey) => ({
+    unavailable: true,
+    availabilityMessage: "Location unavailable until Aug 21, 2099 10:15 UTC",
+    forecastStart: "2099-08-21T09:45:00Z",
+    forecastEnd: "2099-08-21T10:15:00Z",
+    rotationKey,
+  });
+  const browser = await startBrowser({
+    snapshot: displaySnapshot({
+      standby: false,
+      viewKey: "location-signage",
+      composition,
+      sessions: [suppressed("unavailable-1"), suppressed("unavailable-2")],
+    }),
+  });
+
+  const rotation = browser.document.main.children[0];
+  assert.equal(rotation.children[0].dataset.sessionId, "unavailable-1");
+  assert.equal(rotation.children[1].dataset.sessionId, "unavailable-2");
 });
 
 test("Override firing hard-cuts rather than crossfading the incoming frame", () => {
@@ -343,6 +375,13 @@ test("Timeline draws the now-line, hour gridlines, and Live signal-color fill", 
 
   const block = timeline.children.find((child) => child.className === "display-timeline-block");
   assert.equal(block.dataset.lifecycle, "Live");
+  // The signal-color fill is a color-only cue; a Live block also carries the
+  // same proven-contrast text badge the Now/Next and rotation views use, so
+  // forced-colors mode and low-vision viewers still get the state.
+  const badge = block.children.find((child) => child.className === "display-badge");
+  assert.ok(badge, "Live Timeline block missing its lifecycle badge");
+  assert.equal(badge.dataset.lifecycle, "Live");
+  assert.equal(badge.textContent, "Live");
 });
 
 test("Timeline now-line tracks the synchronized clock between snapshots", async () => {

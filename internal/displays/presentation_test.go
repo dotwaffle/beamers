@@ -552,6 +552,15 @@ func TestTimelineRendersNowLineGridlinesLaneLabelsAndLiveFill(t *testing.T) {
 	if !strings.Contains(page, `data-lifecycle="Live"`) {
 		t.Errorf("Live Timeline block missing data-lifecycle: %s", page)
 	}
+	// The signal-color fill is a color-only cue, so the Live block also
+	// carries the same proven-contrast text badge used elsewhere, or a
+	// forced-colors viewer would have no way to tell it apart.
+	if !strings.Contains(page, `<span class="display-badge" data-lifecycle="Live">Live</span>`) {
+		t.Errorf("Live Timeline block missing its lifecycle badge: %s", page)
+	}
+	if strings.Contains(page, `<span class="display-badge" data-lifecycle="Scheduled">`) {
+		t.Errorf("Scheduled Timeline block should not carry a lifecycle badge: %s", page)
+	}
 }
 
 func TestTimelineProjectionUsesEventDaysAndOverlapLanes(t *testing.T) {

@@ -134,6 +134,11 @@ message DisplaySession {
   // between snapshots instead of freezing it at timeline_now_offset.
   google.protobuf.Timestamp timeline_day_start = 27;
   google.protobuf.Timestamp timeline_day_end = 28;
+  // rotation_key is a stable identity for a rotation-widget View's
+  // client-side rotation-carry-over, distinct across every Session even
+  // when unavailable is true, without exposing id, which stays redacted
+  // for a suppressed Session along with title and speaker.
+  string rotation_key = 29;
 }
 
 message DisplayTimelineGridline {

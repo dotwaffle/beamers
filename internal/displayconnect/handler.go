@@ -326,6 +326,7 @@ func sessionMessage(found displays.Session) *displayv1.DisplaySession {
 		LocationIds: ints64(found.LocationIDs), LaneIds: ints64(found.LaneIDs),
 		TrackIds: ints64(found.TrackIDs), Unavailable: found.Unavailable,
 		AvailabilityMessage: found.AvailabilityMessage,
+		RotationKey:         displays.SessionRotationKey(found),
 		PresentedStartLabel: string(found.PresentedStartLabel),
 		PresentedEndLabel:   string(found.PresentedEndLabel),
 		TimelineDay:         found.Timeline.Day,

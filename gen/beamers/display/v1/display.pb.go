@@ -904,8 +904,13 @@ type DisplaySession struct {
 	// between snapshots instead of freezing it at timeline_now_offset.
 	TimelineDayStart *timestamppb.Timestamp `protobuf:"bytes,27,opt,name=timeline_day_start,json=timelineDayStart,proto3" json:"timeline_day_start,omitempty"`
 	TimelineDayEnd   *timestamppb.Timestamp `protobuf:"bytes,28,opt,name=timeline_day_end,json=timelineDayEnd,proto3" json:"timeline_day_end,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// rotation_key is a stable identity for a rotation-widget View's
+	// client-side rotation-carry-over, distinct across every Session even
+	// when unavailable is true, without exposing id, which stays redacted
+	// for a suppressed Session along with title and speaker.
+	RotationKey   string `protobuf:"bytes,29,opt,name=rotation_key,json=rotationKey,proto3" json:"rotation_key,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *DisplaySession) Reset() {
@@ -1132,6 +1137,13 @@ func (x *DisplaySession) GetTimelineDayEnd() *timestamppb.Timestamp {
 		return x.TimelineDayEnd
 	}
 	return nil
+}
+
+func (x *DisplaySession) GetRotationKey() string {
+	if x != nil {
+		return x.RotationKey
+	}
+	return ""
 }
 
 type DisplayTimelineGridline struct {
@@ -1887,7 +1899,7 @@ const file_beamers_display_v1_display_proto_rawDesc = "" +
 	"live_color\x18\n" +
 	" \x01(\tR\tliveColor\x12!\n" +
 	"\fdanger_color\x18\v \x01(\tR\vdangerColor\x12!\n" +
-	"\fsignal_color\x18\f \x01(\tR\vsignalColor\"\xdc\n" +
+	"\fsignal_color\x18\f \x01(\tR\vsignalColor\"\xff\n" +
 	"\n" +
 	"\x0eDisplaySession\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x14\n" +
@@ -1919,7 +1931,8 @@ const file_beamers_display_v1_display_proto_rawDesc = "" +
 	"\x13timeline_now_offset\x18\x19 \x01(\rH\x00R\x11timelineNowOffset\x88\x01\x01\x12Z\n" +
 	"\x12timeline_gridlines\x18\x1a \x03(\v2+.beamers.display.v1.DisplayTimelineGridlineR\x11timelineGridlines\x12H\n" +
 	"\x12timeline_day_start\x18\x1b \x01(\v2\x1a.google.protobuf.TimestampR\x10timelineDayStart\x12D\n" +
-	"\x10timeline_day_end\x18\x1c \x01(\v2\x1a.google.protobuf.TimestampR\x0etimelineDayEndB\x16\n" +
+	"\x10timeline_day_end\x18\x1c \x01(\v2\x1a.google.protobuf.TimestampR\x0etimelineDayEnd\x12!\n" +
+	"\frotation_key\x18\x1d \x01(\tR\vrotationKeyB\x16\n" +
 	"\x14_timeline_now_offset\"G\n" +
 	"\x17DisplayTimelineGridline\x12\x16\n" +
 	"\x06offset\x18\x01 \x01(\rR\x06offset\x12\x14\n" +

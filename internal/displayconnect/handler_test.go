@@ -82,6 +82,27 @@ func TestSessionMessageCarriesTimelineNowLineOnlyWhenProjected(t *testing.T) {
 	}
 }
 
+func TestSessionMessageRotationKeyNeverExposesARedactedID(t *testing.T) {
+	t.Parallel()
+
+	forecastStart := time.Date(2026, 2, 7, 12, 30, 0, 0, time.UTC)
+	suppressed := sessionMessage(displays.Session{
+		Unavailable:   true,
+		ForecastStart: forecastStart,
+	})
+	if suppressed.GetId() != 0 {
+		t.Errorf("suppressed Session Id = %d, want 0 (redacted)", suppressed.GetId())
+	}
+	if suppressed.GetRotationKey() == "" || suppressed.GetRotationKey() == "0" {
+		t.Errorf("suppressed Session RotationKey = %q, want a non-empty key distinct from a redacted ID's", suppressed.GetRotationKey())
+	}
+
+	visible := sessionMessage(displays.Session{ID: 7})
+	if visible.GetRotationKey() != "7" {
+		t.Errorf("visible Session RotationKey = %q, want its ID", visible.GetRotationKey())
+	}
+}
+
 func TestSnapshotMessageCarriesStageTimerContract(t *testing.T) {
 	t.Parallel()
 
