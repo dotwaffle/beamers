@@ -84,5 +84,25 @@ go test ./internal/server -run '^TestCapacityEnvelope$' -count=1 -timeout 15m
 `GET /diagnostics` and authenticated `GET /admin/diagnostics` expose bounded capacity counts.
 Crossing the tested Location or Lane, Session, Entry, or Display count changes capacity status to `warning`; Beamers still commits valid data.
 The Session and Entry tested maxima are reported separately (`sessions` and `entries` warning codes) because the certified profiles above represent nearly all of their `SessionsAndEntries` envelope as Competition Entries under two real Sessions; a combined figure would otherwise imply Sessions themselves were exercised at Entry scale.
-The Session tested maximum instead reflects a realistic Session fixture, not the certified profiles' Entry-heavy envelope.
+The Session tested maximum instead reflects the realistic Session fixture below.
 Crew and downstream public-reader concurrency are delivery-topology measurements verified by the workload, not installation counts the origin can infer through a coalescing cache.
+
+## Realistic Session soak fixture
+
+The profiles above calibrate Locations, Lanes, Displays, Crew, and public-reader concurrency, but represent almost their entire `SessionsAndEntries` envelope as Competition Entries under two Sessions, so no soak scenario measured the read paths that scale with the number of *Sessions*: public Schedule build, Display Snapshot fan-out after a Publish, and Crew Rundown load.
+
+`internal/server/capacity_realistic_test.go` adds a Session-heavy fixture instead: 200 individually published Sessions across 20 Lanes (20 Locations, one Lane apiece), grouped into 8 Tracks, moved through mixed lifecycles (Ended, Live, Canceled, and Scheduled) via the same `sessioncontrol` commands crew issue live, with a captured Public Schedule Baseline and 30 connected Displays.
+
+```sh
+go test ./internal/server -run '^TestRealisticCapacityFixtureBuildsMixedLifecycleSessions$' -v
+go test ./internal/server -run '^$' \
+  -bench 'BenchmarkCapacityRealistic' -benchtime=5x -benchmem
+```
+
+Three benchmarks exercise this fixture:
+
+- `BenchmarkCapacityRealisticPublicScheduleDirect` fetches the public Schedule route directly from the origin, bypassing the load generator's `capacityScheduleCache` front, so batching work in the Schedule build itself is what gets measured.
+- `BenchmarkCapacityRealisticCrewRundownLoad` calls the same `RundownService.GetCrewRundown` RPC the Planning, Control, and Entries pages load, through the Connect wire path.
+- `BenchmarkCapacityRealisticDisplaySnapshotFanoutAfterPublish` re-Publishes one incremental change each iteration and fans a Display Snapshot fetch out to every connected Display, measuring the batched Session Run lookups the rebuilt Snapshot depends on.
+
+`internal/server/testdata/capacity_realistic_baseline.txt` records a `benchstat`-comparable baseline from before any of these paths were optimized; a later optimization ticket re-runs the same command and compares with `benchstat` rather than reasoning about the change from memory.

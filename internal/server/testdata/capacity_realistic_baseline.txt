@@ -1,0 +1,29 @@
+Baseline for the realistic capacity soak fixture (issue #195), captured
+before any optimization ticket touches these read paths. Reproduce with:
+
+  go test ./internal/server -run '^$' \
+    -bench 'BenchmarkCapacityRealistic' -benchtime=5x -benchmem
+
+Compare a later run against this file with benchstat:
+
+  go test ./internal/server -run '^$' \
+    -bench 'BenchmarkCapacityRealistic' -benchtime=5x -benchmem \
+    | tee internal/server/testdata/capacity_realistic_after.txt
+  benchstat internal/server/testdata/capacity_realistic_baseline.txt \
+    internal/server/testdata/capacity_realistic_after.txt
+
+Machine: local development workstation (not a certification runner);
+this baseline is for regression comparison, not a certified objective.
+Fixture: 200 published Sessions across 20 Lanes / 20 Locations / 8
+Tracks, mixed lifecycles (Ended/Live/Canceled/Scheduled), one captured
+Public Schedule Baseline, 30 Displays.
+
+goos: linux
+goarch: amd64
+pkg: github.com/dotwaffle/beamers/internal/server
+cpu: AMD Ryzen 5 3600 6-Core Processor
+BenchmarkCapacityRealisticPublicScheduleDirect-12                 	       5	 105911248 ns/op	16279259 B/op	  268189 allocs/op
+BenchmarkCapacityRealisticCrewRundownLoad-12                      	       5	   8824174 ns/op	 3116753 B/op	   35522 allocs/op
+BenchmarkCapacityRealisticDisplaySnapshotFanoutAfterPublish-12    	       5	 133979813 ns/op	        30.00 snapshots/op	93439158 B/op	 1093105 allocs/op
+PASS
+ok  	github.com/dotwaffle/beamers/internal/server	3.727s
