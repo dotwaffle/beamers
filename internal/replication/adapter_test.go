@@ -4,15 +4,20 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"io/fs"
 	"log/slog"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/benbjohnson/litestream"
 	"github.com/benbjohnson/litestream/file"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 )
 
 func TestAdapterReplicatesFullFidelity(t *testing.T) {
@@ -172,6 +177,190 @@ func TestAdapterNeverRestoresMissingAuthoritativeDatabase(t *testing.T) {
 	if status := adapter.Status(); status.ErrorClass != "source_unavailable" {
 		t.Fatalf("replication status = %+v", status)
 	}
+}
+
+func TestAdapterRewarnsWhileDegradationPersists(t *testing.T) {
+	t.Parallel()
+	base := time.Date(2026, 8, 4, 9, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name     string
+		elapsed  time.Duration
+		err      error
+		wantWarn bool
+	}{
+		{name: "same class immediately", elapsed: time.Second, err: fs.ErrPermission},
+		{
+			name:    "same class within the interval",
+			elapsed: degradedWarnInterval - time.Second, err: fs.ErrPermission,
+		},
+		{
+			name: "same class after the interval", elapsed: degradedWarnInterval,
+			err: fs.ErrPermission, wantWarn: true,
+		},
+		{
+			name: "different class immediately", elapsed: time.Second,
+			err: fs.ErrNotExist, wantWarn: true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			warnings := &countingHandler{}
+			adapter := New(Config{Logger: slog.New(warnings)})
+			now := base
+			adapter.now = func() time.Time { return now }
+			adapter.recordError(t.Context(), fs.ErrPermission)
+			if warnings.count() != 1 {
+				t.Fatalf("first degradation warnings = %d, want 1", warnings.count())
+			}
+			now = base.Add(test.elapsed)
+			adapter.recordError(t.Context(), test.err)
+			want := 1
+			if test.wantWarn {
+				want = 2
+			}
+			if warnings.count() != want {
+				t.Fatalf("warnings = %d, want %d", warnings.count(), want)
+			}
+		})
+	}
+}
+
+func TestAdapterStopsObservingMetricsAfterFinalize(t *testing.T) {
+	databasePath := filepath.Join(t.TempDir(), "beamers.db")
+	database := openTestDatabase(t, databasePath)
+	if _, err := database.ExecContext(
+		t.Context(),
+		`CREATE TABLE event (id INTEGER)`,
+	); err != nil {
+		t.Fatalf("create event table: %v", err)
+	}
+	defer func() {
+		if closeErr := database.Close(); closeErr != nil {
+			t.Errorf("close database: %v", closeErr)
+		}
+	}()
+	reader := sdkmetric.NewManualReader()
+	adapter := New(Config{
+		DatabasePath:  databasePath,
+		Destination:   fileURL(filepath.Join(t.TempDir(), "replica")),
+		Logger:        slog.New(slog.DiscardHandler),
+		MeterProvider: sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader)),
+	})
+	if err := adapter.Start(t.Context()); err != nil {
+		t.Fatalf("start replication: %v", err)
+	}
+	if replicationMetrics(t, reader) == 0 {
+		t.Fatal("started replication published no metrics")
+	}
+	if err := adapter.Finalize(t.Context()); err != nil {
+		t.Fatalf("finalize replication: %v", err)
+	}
+	if observed := replicationMetrics(t, reader); observed != 0 {
+		t.Fatalf("finalized replication still published %d metrics", observed)
+	}
+}
+
+func TestAdapterRestoresMetricsWhenReplicationRestarts(t *testing.T) {
+	databasePath := filepath.Join(t.TempDir(), "beamers.db")
+	database := openTestDatabase(t, databasePath)
+	if _, err := database.ExecContext(
+		t.Context(),
+		`CREATE TABLE event (id INTEGER)`,
+	); err != nil {
+		t.Fatalf("create event table: %v", err)
+	}
+	defer func() {
+		if closeErr := database.Close(); closeErr != nil {
+			t.Errorf("close database: %v", closeErr)
+		}
+	}()
+	reader := sdkmetric.NewManualReader()
+	adapter := New(Config{
+		DatabasePath:  databasePath,
+		Destination:   fileURL(filepath.Join(t.TempDir(), "replica")),
+		Logger:        slog.New(slog.DiscardHandler),
+		MeterProvider: sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader)),
+	})
+	if err := adapter.Start(t.Context()); err != nil {
+		t.Fatalf("start replication: %v", err)
+	}
+	if err := adapter.Finalize(t.Context()); err != nil {
+		t.Fatalf("finalize replication: %v", err)
+	}
+	if err := adapter.Start(t.Context()); err != nil {
+		t.Fatalf("restart replication: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := adapter.Finalize(context.Background()); err != nil {
+			t.Errorf("clean up replication: %v", err)
+		}
+	})
+	if replicationMetrics(t, reader) == 0 {
+		t.Fatal("restarted replication published no metrics")
+	}
+}
+
+func TestAdapterKeepsStoppedStatusAfterLateObservation(t *testing.T) {
+	t.Parallel()
+	adapter := New(Config{Logger: slog.New(slog.DiscardHandler)})
+	stale := litestream.NewDB(filepath.Join(t.TempDir(), "stale.db"))
+	adapter.status = "stopped"
+	found := adapter.recordSuccessfulSync(Status{Status: "replicating"}, syncObservation{
+		database: stale,
+		last:     time.Date(2026, 8, 4, 9, 0, 0, 0, time.UTC),
+	})
+	if found.Status != "stopped" || adapter.status != "stopped" {
+		t.Fatalf("status after late observation = %q, adapter %q", found.Status, adapter.status)
+	}
+	if !adapter.lastSync.IsZero() {
+		t.Fatalf("late observation published last sync %s", adapter.lastSync)
+	}
+}
+
+func replicationMetrics(t *testing.T, reader *sdkmetric.ManualReader) int {
+	t.Helper()
+	var collected metricdata.ResourceMetrics
+	if err := reader.Collect(t.Context(), &collected); err != nil {
+		t.Fatalf("collect replication metrics: %v", err)
+	}
+	observed := 0
+	for _, scope := range collected.ScopeMetrics {
+		for _, found := range scope.Metrics {
+			if strings.HasPrefix(found.Name, "beamers.replication.") &&
+				found.Name != "beamers.replication.errors" {
+				observed++
+			}
+		}
+	}
+	return observed
+}
+
+type countingHandler struct {
+	mu       sync.Mutex
+	warnings int
+}
+
+func (handler *countingHandler) Enabled(_ context.Context, level slog.Level) bool {
+	return level >= slog.LevelWarn
+}
+
+func (handler *countingHandler) Handle(_ context.Context, _ slog.Record) error {
+	handler.mu.Lock()
+	defer handler.mu.Unlock()
+	handler.warnings++
+	return nil
+}
+
+func (handler *countingHandler) WithAttrs([]slog.Attr) slog.Handler { return handler }
+
+func (handler *countingHandler) WithGroup(string) slog.Handler { return handler }
+
+func (handler *countingHandler) count() int {
+	handler.mu.Lock()
+	defer handler.mu.Unlock()
+	return handler.warnings
 }
 
 func openTestDatabase(t *testing.T, path string) *sql.DB {

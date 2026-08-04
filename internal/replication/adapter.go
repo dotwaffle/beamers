@@ -25,6 +25,10 @@ import (
 var errInvalidDestination = errors.New("replica destination must be an absolute file URL without credentials, query, or fragment")
 var errMetricsUnavailable = errors.New("replication metrics unavailable")
 
+// degradedWarnInterval bounds how often a persistent degradation re-warns, so
+// an operator who missed the first warning still sees replication is broken.
+const degradedWarnInterval = 5 * time.Minute
+
 // Config identifies the authoritative database and full-fidelity destination.
 type Config struct {
 	DatabasePath  string
@@ -47,6 +51,7 @@ type Status struct {
 // Adapter owns one optional Litestream store without owning process lifecycle.
 type Adapter struct {
 	config Config
+	now    func() time.Time
 
 	lifecycle     chan struct{}
 	mu            sync.Mutex
@@ -57,6 +62,7 @@ type Adapter struct {
 	synchronizing bool
 	errorClass    string
 	errorAt       time.Time
+	warnedAt      time.Time
 	errors        uint64
 	lastSync      time.Time
 	setupErr      error
@@ -72,6 +78,7 @@ func New(config Config) *Adapter {
 	}
 	found := &Adapter{
 		config:    config,
+		now:       time.Now,
 		lifecycle: make(chan struct{}, 1),
 		status:    "configured",
 	}
@@ -144,6 +151,7 @@ func (adapter *Adapter) start(ctx context.Context) error {
 	}
 	adapter.status = "starting"
 	adapter.mu.Unlock()
+	adapter.ensureMetrics(ctx)
 
 	destination, err := replicaPath(adapter.config.Destination)
 	if err != nil {
@@ -197,6 +205,7 @@ func (adapter *Adapter) Finalize(ctx context.Context) error {
 		return err
 	}
 	defer adapter.release()
+	defer adapter.unregisterMetrics(ctx)
 
 	adapter.mu.Lock()
 	store := adapter.store
@@ -232,6 +241,43 @@ func (adapter *Adapter) Finalize(ctx context.Context) error {
 	return err
 }
 
+// ensureMetrics restores the observable callback that the stop path detaches.
+// An installation that finalizes replication for Restore maintenance and then
+// starts it again must not lose its replication gauges for the rest of the
+// process lifetime.
+func (adapter *Adapter) ensureMetrics(ctx context.Context) {
+	adapter.mu.Lock()
+	registered := adapter.metrics != nil
+	adapter.mu.Unlock()
+	if registered {
+		return
+	}
+	if err := adapter.registerMetrics(); err != nil {
+		adapter.recordError(ctx, errors.Join(errMetricsUnavailable, err))
+	}
+}
+
+// unregisterMetrics detaches the observable callback so a finalized adapter
+// stops being polled. Unregister waits for in-flight callbacks, which call
+// Status, so the adapter mutex is released before the call.
+func (adapter *Adapter) unregisterMetrics(ctx context.Context) {
+	adapter.mu.Lock()
+	registration := adapter.metrics
+	adapter.metrics = nil
+	adapter.mu.Unlock()
+	if registration == nil {
+		return
+	}
+	if err := registration.Unregister(); err != nil {
+		adapter.config.Logger.WarnContext(
+			ctx,
+			"unregister replication metrics",
+			slog.String("component", "replication"),
+			slog.String("error", err.Error()),
+		)
+	}
+}
+
 func (adapter *Adapter) acquire(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
@@ -246,10 +292,47 @@ func (adapter *Adapter) release() {
 }
 
 // Status returns bounded state without exposing the destination or raw errors.
+// The Litestream calls run without the adapter mutex held: the library logs
+// through a handler that records adapter errors, so holding the mutex across
+// them would deadlock the caller against itself.
 func (adapter *Adapter) Status() Status {
+	found, database, replica := adapter.statusSnapshot()
+	if database == nil || replica == nil {
+		return found
+	}
+	local, err := database.Pos()
+	if err != nil {
+		found.Status = "degraded"
+		found.ErrorClass = classifyError(err)
+		return found
+	}
+	replicated := replica.Pos()
+	if !replicated.IsZero() {
+		found.Position = replicated.TXID.String()
+	}
+	if local.TXID > replicated.TXID {
+		found.LagTransactions = uint64(local.TXID - replicated.TXID)
+	}
+	last := database.LastSuccessfulSyncAt()
+	if last.IsZero() {
+		return found
+	}
+	return adapter.recordSuccessfulSync(found, syncObservation{
+		database: database,
+		last:     last.UTC(),
+	})
+}
+
+// syncObservation is one sync timestamp read outside the adapter mutex,
+// together with the database it came from.
+type syncObservation struct {
+	database *litestream.DB
+	last     time.Time
+}
+
+func (adapter *Adapter) statusSnapshot() (Status, *litestream.DB, *litestream.Replica) {
 	adapter.mu.Lock()
 	defer adapter.mu.Unlock()
-
 	found := Status{
 		Status:        adapter.status,
 		Synchronizing: adapter.synchronizing,
@@ -260,55 +343,62 @@ func (adapter *Adapter) Status() Status {
 		last := adapter.lastSync
 		found.LastSuccessfulSync = &last
 	}
-	if adapter.database == nil || adapter.replica == nil {
+	return found, adapter.database, adapter.replica
+}
+
+// recordSuccessfulSync publishes an observation only while it still describes
+// the database the adapter is replicating. A Finalize that lands between the
+// snapshot and this call must not be overwritten with a stale success.
+func (adapter *Adapter) recordSuccessfulSync(
+	found Status,
+	observed syncObservation,
+) Status {
+	adapter.mu.Lock()
+	defer adapter.mu.Unlock()
+	last := observed.last
+	found.LastSuccessfulSync = &last
+	if adapter.database != observed.database {
+		found.Status = adapter.status
+		found.ErrorClass = adapter.errorClass
 		return found
 	}
-	local, err := adapter.database.Pos()
-	if err != nil {
-		found.Status = "degraded"
-		found.ErrorClass = classifyError(err)
-		return found
-	}
-	replicated := adapter.replica.Pos()
-	if !replicated.IsZero() {
-		found.Position = replicated.TXID.String()
-	}
-	if local.TXID > replicated.TXID {
-		found.LagTransactions = uint64(local.TXID - replicated.TXID)
-	}
-	if last := adapter.database.LastSuccessfulSyncAt(); !last.IsZero() {
-		last = last.UTC()
-		adapter.lastSync = last
-		found.LastSuccessfulSync = &last
-		if last.After(adapter.errorAt) {
-			adapter.status = "replicating"
-			adapter.errorClass = ""
-			adapter.errorAt = time.Time{}
-			found.Status = "replicating"
-			found.ErrorClass = ""
-		}
+	adapter.lastSync = last
+	if last.After(adapter.errorAt) {
+		adapter.status = "replicating"
+		adapter.errorClass = ""
+		adapter.errorAt = time.Time{}
+		found.Status = "replicating"
+		found.ErrorClass = ""
 	}
 	return found
 }
 
 func (adapter *Adapter) recordError(ctx context.Context, err error) {
 	class := classifyError(err)
+	now := adapter.now()
 	adapter.mu.Lock()
-	changed := adapter.errorClass != class
+	warn := adapter.errorClass != class ||
+		now.Sub(adapter.warnedAt) >= degradedWarnInterval
 	adapter.status = "degraded"
 	adapter.errorClass = class
-	adapter.errorAt = time.Now()
+	adapter.errorAt = now
 	adapter.errors++
-	adapter.mu.Unlock()
-	if adapter.errorCounter != nil {
-		adapter.errorCounter.Add(ctx, 1, metric.WithAttributes(attribute.String("class", class)))
+	if warn {
+		adapter.warnedAt = now
 	}
-	if changed {
+	errorCount := adapter.errors
+	errorCounter := adapter.errorCounter
+	adapter.mu.Unlock()
+	if errorCounter != nil {
+		errorCounter.Add(ctx, 1, metric.WithAttributes(attribute.String("class", class)))
+	}
+	if warn {
 		adapter.config.Logger.WarnContext(
 			ctx,
 			"replication degraded",
-			"component", "replication",
-			"status", class,
+			slog.String("component", "replication"),
+			slog.String("status", class),
+			slog.Uint64("errors", errorCount),
 		)
 	}
 }
@@ -407,6 +497,8 @@ func (adapter *Adapter) registerMetrics() error {
 	if err != nil {
 		return fmt.Errorf("register replication metrics: %w", err)
 	}
+	adapter.mu.Lock()
+	defer adapter.mu.Unlock()
 	adapter.errorCounter = errorCounter
 	adapter.metrics = registration
 	return nil
