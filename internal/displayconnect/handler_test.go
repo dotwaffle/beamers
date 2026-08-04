@@ -74,10 +74,10 @@ func TestSessionMessageCarriesTimelineNowLineOnlyWhenProjected(t *testing.T) {
 	if withoutNow.TimelineNowOffset != nil {
 		t.Errorf("TimelineNowOffset = %v, want nil", withoutNow.TimelineNowOffset)
 	}
-	if withoutNow.TimelineDayStart != nil || withoutNow.TimelineDayEnd != nil {
+	if withoutNow.GetTimelineDayStart() != nil || withoutNow.GetTimelineDayEnd() != nil {
 		t.Errorf(
 			"Timeline day bounds = [%v, %v), want unset",
-			withoutNow.TimelineDayStart, withoutNow.TimelineDayEnd,
+			withoutNow.GetTimelineDayStart(), withoutNow.GetTimelineDayEnd(),
 		)
 	}
 }
