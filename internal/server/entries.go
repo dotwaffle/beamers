@@ -152,7 +152,7 @@ func (handlers entryHandlers) submit(
 		err = handlers.submitEntryAction(request, actor, eventID, sessionID)
 	}
 	if err == nil {
-		http.Redirect( //nolint:gosec // Target has fixed segments and validated integer IDs.
+		http.Redirect(
 			response,
 			request,
 			competitionEntriesPath(eventID, sessionID),
@@ -724,7 +724,7 @@ func (handlers entryHandlers) upload(response http.ResponseWriter, request *http
 		)
 		return
 	}
-	http.Redirect( //nolint:gosec // Target has fixed segments and validated integer IDs.
+	http.Redirect(
 		response,
 		request,
 		competitionEntriesPath(eventID, sessionID),

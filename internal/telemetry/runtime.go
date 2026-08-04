@@ -321,7 +321,7 @@ func boundedLogAttribute(attr slog.Attr) (slog.Attr, bool) {
 // string by an intermediate slog.Handler.
 func errorAttributeMessage(value slog.Value) string {
 	resolved := value.Resolve()
-	switch resolved.Kind() {
+	switch resolved.Kind() { //nolint:exhaustive // Only string and error-bearing kinds carry error text.
 	case slog.KindString:
 		return resolved.String()
 	case slog.KindAny:
@@ -332,10 +332,10 @@ func errorAttributeMessage(value slog.Value) string {
 	return ""
 }
 
-func truncateRunes(value string, max int) string {
+func truncateRunes(value string, maxRunes int) string {
 	runes := []rune(value)
-	if len(runes) <= max {
+	if len(runes) <= maxRunes {
 		return value
 	}
-	return string(runes[:max]) + "…(truncated)"
+	return string(runes[:maxRunes]) + "…(truncated)"
 }

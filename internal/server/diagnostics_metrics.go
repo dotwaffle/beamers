@@ -86,7 +86,7 @@ func registerStorageGauges(
 		return
 	}
 	_, err = meter.RegisterCallback(
-		func(ctx context.Context, observer metric.Observer) error {
+		func(_ context.Context, observer metric.Observer) error {
 			stats, statsErr := collectStorageStats(dataDir, attachmentsDir)
 			if statsErr != nil {
 				return fmt.Errorf("observe storage gauges: %w", statsErr)
@@ -108,5 +108,5 @@ func saturatingInt64(value uint64) int64 {
 	if value > maxInt64 {
 		return maxInt64
 	}
-	return int64(value) //nolint:gosec // Bounded above by maxInt64.
+	return int64(value)
 }

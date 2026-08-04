@@ -1497,7 +1497,7 @@ func (handlers frontendHandlers) effects(response http.ResponseWriter, request *
 		}
 	}
 	setReducedEffectsCookie(response, request, enabled)
-	http.Redirect( //nolint:gosec // safeFrontendReturnTo restricts redirects to local absolute paths.
+	http.Redirect(
 		response,
 		request,
 		returnTo,
@@ -1587,7 +1587,7 @@ func (handlers frontendHandlers) validMultipartForm(
 	mediaType, _, err := mime.ParseMediaType(request.Header.Get("Content-Type"))
 	if err != nil || mediaType != "multipart/form-data" ||
 		!sameOrigin(request) ||
-		request.ParseMultipartForm(64<<20) != nil { //nolint:gosec // Route bytes are bounded.
+		request.ParseMultipartForm(64<<20) != nil {
 		http.Error(response, "invalid form submission", http.StatusBadRequest)
 		return false
 	}

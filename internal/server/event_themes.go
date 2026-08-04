@@ -97,7 +97,7 @@ func (handlers eventThemeHandlers) submit(
 			handlers.render(response, request, actor, eventID, csrfToken, 0, status, message)
 			return
 		}
-		http.Redirect( //nolint:gosec // The redirect path contains parsed positive integer IDs only.
+		http.Redirect(
 			response,
 			request,
 			eventThemeAdministrationPath(eventID, created.ID),

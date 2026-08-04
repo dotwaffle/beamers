@@ -26,7 +26,7 @@ func Stat(path string) (Usage, error) {
 	if err := unix.Statfs(path, &stat); err != nil {
 		return Usage{}, fmt.Errorf("stat filesystem for %s: %w", path, err)
 	}
-	blockSize := uint64(stat.Bsize) //nolint:unconvert // Bsize is platform-dependent (int32 or int64).
+	blockSize := uint64(stat.Bsize) //nolint:gosec // Bsize is a positive block size reported by the kernel.
 	return Usage{
 		FreeBytes:  stat.Bavail * blockSize,
 		TotalBytes: stat.Blocks * blockSize,
@@ -54,7 +54,7 @@ func DirSize(root string) (uint64, error) {
 			if infoErr != nil {
 				return infoErr
 			}
-			total += uint64(max(info.Size(), 0)) //nolint:gosec // Size() is clamped nonnegative above.
+			total += uint64(max(info.Size(), 0))
 		}
 		return nil
 	})
@@ -80,7 +80,7 @@ func FileSize(path string) (uint64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("stat %s: %w", path, err)
 	}
-	return uint64(max(info.Size(), 0)), nil //nolint:gosec // Size() is clamped nonnegative above.
+	return uint64(max(info.Size(), 0)), nil
 }
 
 // ErrInsufficientSpace reports that a filesystem lacks the required headroom.
