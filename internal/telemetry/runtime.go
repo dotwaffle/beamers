@@ -243,8 +243,8 @@ func (handler boundedLogHandler) Enabled(ctx context.Context, level slog.Level) 
 func (handler boundedLogHandler) Handle(ctx context.Context, record slog.Record) error {
 	filtered := slog.NewRecord(record.Time, record.Level, record.Message, record.PC)
 	record.Attrs(func(attribute slog.Attr) bool {
-		if boundedLogAttribute(attribute) {
-			filtered.AddAttrs(attribute)
+		if bounded, ok := boundedLogAttribute(attribute); ok {
+			filtered.AddAttrs(bounded)
 		}
 		return true
 	})
@@ -254,8 +254,8 @@ func (handler boundedLogHandler) Handle(ctx context.Context, record slog.Record)
 func (handler boundedLogHandler) WithAttrs(attributes []slog.Attr) slog.Handler {
 	filtered := make([]slog.Attr, 0, len(attributes))
 	for _, attribute := range attributes {
-		if boundedLogAttribute(attribute) {
-			filtered = append(filtered, attribute)
+		if bounded, ok := boundedLogAttribute(attribute); ok {
+			filtered = append(filtered, bounded)
 		}
 	}
 	return boundedLogHandler{next: handler.next.WithAttrs(filtered)}
@@ -265,14 +265,63 @@ func (handler boundedLogHandler) WithGroup(string) slog.Handler {
 	return handler
 }
 
-func boundedLogAttribute(attr slog.Attr) bool {
+// maxBoundedAttributeRunes caps the length of exported free-text attributes
+// (error detail and the rollback Backup path) so one oversized value cannot
+// inflate an OTLP export batch.
+const maxBoundedAttributeRunes = 1024
+
+// boundedLogAttribute reports whether attr may leave the process boundary
+// and, when it may, the exact value to export. Free-text attributes are
+// truncated rather than rejected outright so operators still see the start
+// of an overlong error or path.
+func boundedLogAttribute(attr slog.Attr) (slog.Attr, bool) {
 	switch attr.Key {
 	case "component", "mode", "phase", "status", "finalizer", "command":
-		return attr.Value.Kind() == slog.KindString
+		if attr.Value.Kind() != slog.KindString {
+			return slog.Attr{}, false
+		}
+		return attr, true
 	case "budget_ms", "elapsed_ms", "remaining_ms":
-		return attr.Value.Kind() == slog.KindInt64 ||
-			attr.Value.Kind() == slog.KindUint64
+		if attr.Value.Kind() != slog.KindInt64 && attr.Value.Kind() != slog.KindUint64 {
+			return slog.Attr{}, false
+		}
+		return attr, true
+	case "rollback_backup":
+		if attr.Value.Kind() != slog.KindString {
+			return slog.Attr{}, false
+		}
+		return slog.String(attr.Key, truncateRunes(attr.Value.String(), maxBoundedAttributeRunes)), true
+	case "error":
+		message := errorAttributeMessage(attr.Value)
+		if message == "" {
+			return slog.Attr{}, false
+		}
+		return slog.String(attr.Key, truncateRunes(message, maxBoundedAttributeRunes)), true
 	default:
-		return false
+		return slog.Attr{}, false
 	}
+}
+
+// errorAttributeMessage extracts free text from an "error" attribute value,
+// which is ordinarily an error but may already have been reduced to a
+// string by an intermediate slog.Handler.
+func errorAttributeMessage(value slog.Value) string {
+	resolved := value.Resolve()
+	switch resolved.Kind() {
+	case slog.KindString:
+		return resolved.String()
+	case slog.KindAny:
+		if err, ok := resolved.Any().(error); ok && err != nil {
+			return err.Error()
+		}
+	}
+	return ""
+}
+
+func truncateRunes(value string, max int) string {
+	runes := []rune(value)
+	if len(runes) <= max {
+		return value
+	}
+	return string(runes[:max]) + "…(truncated)"
 }
