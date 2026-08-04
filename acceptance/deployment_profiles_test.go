@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -49,6 +50,23 @@ func TestShippedProfilesUseAlignedShutdownBudgets(t *testing.T) {
 				t.Errorf("%s platform grace period = %s, want 35s", test.name, grace)
 			}
 		})
+	}
+}
+
+// TestSystemdUnitDoesNotSilentlySkipStartOnMissingDatabase pins the removal
+// of ConditionPathExists on the database file. That condition made a
+// missing database a silent no-op start (systemd reports the unit inactive,
+// not failed) instead of letting serve enter its documented local recovery
+// mode where /readyz and diagnostics report the problem loudly.
+func TestSystemdUnitDoesNotSilentlySkipStartOnMissingDatabase(t *testing.T) {
+	t.Parallel()
+
+	unit := readShippedProfile(t, "..", "deploy", "systemd", "beamers.service")
+	if strings.Contains(unit, "ConditionPathExists=") &&
+		strings.Contains(unit, "beamers.db") {
+		t.Error("beamers.service still gates startup on the database file existing; " +
+			"remove the condition so serve can enter recovery mode instead of " +
+			"silently skipping start")
 	}
 }
 

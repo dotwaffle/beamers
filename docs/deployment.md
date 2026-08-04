@@ -131,7 +131,8 @@ systemctl daemon-reload
 systemctl enable --now beamers.service
 ```
 
-The unit starts only when `/var/lib/beamers/data/beamers.db` exists.
+The unit always attempts to start; it does not gate on the database file existing.
+A missing or damaged database makes `serve` enter its documented local recovery mode instead of the unit silently staying inactive, so the problem is visible at `/readyz` and in diagnostics rather than presenting as a service that never came up.
 It sends `SIGTERM` to the Beamers process and gives it the 30-second budget configured with `--shutdown-timeout`, with `TimeoutStopSec=35s` as the platform kill deadline that budget must fit inside.
 
 ## Run with Docker Compose

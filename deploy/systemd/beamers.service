@@ -2,7 +2,6 @@
 Description=Beamers venue operations
 Documentation=https://github.com/dotwaffle/beamers
 After=network.target
-ConditionPathExists=/var/lib/beamers/data/beamers.db
 RequiresMountsFor=/var/lib/beamers /etc/beamers
 
 [Service]
