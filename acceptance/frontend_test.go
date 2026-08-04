@@ -9096,7 +9096,7 @@ func TestBrowserPublishesAndCorrectsStandaloneResults(t *testing.T) {
 
 	scopePath := "/results/events/1/standalone/" + strconv.FormatInt(competitionID, 10)
 	htmlPath := "/events/beamconf-2099/results"
-	html := getFrontendPage(t, authenticatedClient(t), server.publicAddress, htmlPath)
+	htmlResults := getFrontendPage(t, authenticatedClient(t), server.publicAddress, htmlPath)
 	text := getFrontendPage(t, authenticatedClient(t), server.publicAddress, scopePath+"/results.txt")
 	jsonRevisionOne := getFrontendPage(
 		t,
@@ -9105,7 +9105,7 @@ func TestBrowserPublishesAndCorrectsStandaloneResults(t *testing.T) {
 		scopePath+"/revisions/1/results.json",
 	)
 	for label, response := range map[string]frontendResponse{
-		"HTML": html, "text": text, "JSON": jsonRevisionOne,
+		"HTML": htmlResults, "text": text, "JSON": jsonRevisionOne,
 	} {
 		if response.status != http.StatusOK ||
 			!strings.Contains(response.body, "Standalone Winner") {
@@ -9126,8 +9126,8 @@ func TestBrowserPublishesAndCorrectsStandaloneResults(t *testing.T) {
 		t, authenticatedClient(t), server.publicAddress, htmlPath,
 	)
 	if htmlAfterRestart.status != http.StatusOK ||
-		htmlAfterRestart.body != html.body ||
-		htmlAfterRestart.header.Get("ETag") != html.header.Get("ETag") {
+		htmlAfterRestart.body != htmlResults.body ||
+		htmlAfterRestart.header.Get("ETag") != htmlResults.header.Get("ETag") {
 		t.Fatalf(
 			"standalone Results after restart = %d %q %q",
 			htmlAfterRestart.status,
