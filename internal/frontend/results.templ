@@ -653,7 +653,7 @@ templ Results(page ResultsPage) {
 								<p>Standalone Event Awards Preflight passed without changing release state.</p>
 							} else {
 								for _, finding := range page.EventAwardsPreflight.Findings {
-									<p class="error" role="alert">{ finding.Code }: { finding.Message }</p>
+									@ErrorFlash(finding.Code + ": " + finding.Message)
 								}
 							}
 						}

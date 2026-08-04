@@ -578,7 +578,7 @@ templ Planning(page PlanningPage) {
 					<section>
 						<h2>Draft review</h2>
 						for _, failure := range page.CurrentPreview.ValidationFailures {
-							<p class="error" role="alert">{ failure }</p>
+							@ErrorFlash(failure)
 						}
 						if len(page.CurrentPreview.Changes) == 0 {
 							<p>No effective Draft changes.</p>
@@ -622,7 +622,7 @@ templ Planning(page PlanningPage) {
 								Published revision { strconv.Itoa(page.PublishPreview.PublishedRevision) }.
 							</p>
 							for _, failure := range page.PublishPreview.ValidationFailures {
-								<p class="error" role="alert">{ failure }</p>
+								@ErrorFlash(failure)
 							}
 							<ul>
 								for _, change := range page.PublishPreview.Changes {
@@ -834,7 +834,7 @@ templ BackstageSessions(page BackstageSessionsPage) {
 
 templ ImportProposals(proposals []rundown.CSVImportProposal, failures []string) {
 	for _, failure := range failures {
-		<p class="error" role="alert">{ failure }</p>
+		@ErrorFlash(failure)
 	}
 	<ul>
 		for _, proposal := range proposals {
@@ -863,7 +863,7 @@ templ NewEvent(page NewEventPage) {
 				<main id="main-content" tabindex="-1">
 					<h1>Create Event</h1>
 					if page.Error != "" {
-						<p class="error" role="alert">{ page.Error }</p>
+						@ErrorFlash(page.Error)
 					}
 					<form class="stack" method="post">
 						<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>

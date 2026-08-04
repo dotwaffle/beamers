@@ -44,6 +44,20 @@ templ EmptyState(message string) {
 	<p class="empty">{ message }</p>
 }
 
+// SuccessFlash reports a completed action. It pairs with ErrorFlash: a filled
+// signal bar announced through role="status" rather than the role="alert" a
+// failure uses, so a completed action does not interrupt the same way a
+// failure does.
+templ SuccessFlash(message string) {
+	<p class="success" role="status">{ message }</p>
+}
+
+// ErrorFlash reports a failed action inline, matching the signal-bar
+// treatment of ErrorSummary without repeating its list-and-heading structure.
+templ ErrorFlash(message string) {
+	<p class="error" role="alert">{ message }</p>
+}
+
 // publicationLabel names the publication axis. Published is stated explicitly
 // rather than implied by the absence of a Draft badge.
 func publicationLabel(published bool) string {

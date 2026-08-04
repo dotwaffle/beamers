@@ -121,7 +121,7 @@ templ Administration(page AdministrationPage) {
 					<h1>Accounts, Event Grants, and activation</h1>
 					@ErrorSummary(page.Errors)
 					if page.RecoveryToken != nil {
-						<section role="status">
+						<section class="success" role="status">
 							<h2>Administrator Recovery Token</h2>
 							<p>Give this token to the verified Account owner now. It will not be shown again.</p>
 							<p><code data-recovery-token>{ page.RecoveryToken.Token }</code></p>

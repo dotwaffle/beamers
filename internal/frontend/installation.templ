@@ -59,7 +59,7 @@ templ Installation(page InstallationPage) {
 					<h1>Installation health</h1>
 					@ErrorSummary(page.Errors)
 					if page.Message != "" {
-						<p role="status">{ page.Message }</p>
+						@SuccessFlash(page.Message)
 					}
 					<section>
 						<h2>Diagnostics</h2>

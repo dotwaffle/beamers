@@ -73,9 +73,9 @@ templ VotingRedemption(page VotingRedemptionPage) {
 				@ErrorSummary(page.Errors)
 				if page.Message != "" {
 					if page.Success {
-						<p role="status">{ page.Message }</p>
+						@SuccessFlash(page.Message)
 					} else if len(page.Errors) == 0 {
-						<p class="error" role="alert">{ page.Message }</p>
+						@ErrorFlash(page.Message)
 					}
 				}
 				<form class="stack" method="post" action="/voting">
@@ -237,7 +237,7 @@ templ CompetitionVoting(page CompetitionVotingPage) {
 				<main id="main-content" tabindex="-1">
 					<h1>{ page.Window.Title } Voting</h1>
 					if page.Message != "" {
-						<p class="error" role="alert">{ page.Message }</p>
+						@ErrorFlash(page.Message)
 					}
 					<p>Window: { page.Window.State }. Method: { page.Window.Method }. Self-Vote Policy: { page.Window.SelfVotePolicy }.</p>
 					<p>
@@ -305,7 +305,7 @@ templ VotingKeys(page VotingKeyPage) {
 					<h1>{ page.Event.Name } Voting Keys</h1>
 					<p>Event #{ strconv.Itoa(page.Event.ID) }</p>
 					if page.Message != "" {
-						<p class="error" role="alert">{ page.Message }</p>
+						@ErrorFlash(page.Message)
 					}
 					<form class="stack" method="post">
 						<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
