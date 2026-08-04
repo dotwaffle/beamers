@@ -16,12 +16,14 @@ import (
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/events"
 	"github.com/dotwaffle/beamers/internal/frontend"
+	"github.com/dotwaffle/beamers/internal/rundown"
 )
 
 type administrationHandlers struct {
 	browser    frontendHandlers
 	events     *events.Service
 	activation *activation.Service
+	rundown    *rundown.Queries
 }
 
 var (
@@ -34,6 +36,7 @@ func registerAdministrationRoutes(
 	authentication *auth.Service,
 	eventService *events.Service,
 	activationService *activation.Service,
+	rundownQueries *rundown.Queries,
 	logger *slog.Logger,
 ) {
 	handlers := administrationHandlers{
@@ -44,6 +47,7 @@ func registerAdministrationRoutes(
 		},
 		events:     eventService,
 		activation: activationService,
+		rundown:    rundownQueries,
 	}
 	route := backstagePageRoute()
 	route.maxBodyBytes = maxAuthBodyBytes
@@ -212,9 +216,7 @@ func (handlers administrationHandlers) createGrant(
 	if err != nil {
 		return err
 	}
-	laneIDs, err := positiveFormIDs(
-		commaSeparatedValues(request.Form.Get("lane_ids")),
-	)
+	laneIDs, err := positiveFormIDs(request.Form["lane_ids"])
 	if err != nil {
 		return errInvalidAdministrationInput
 	}
@@ -418,6 +420,15 @@ func (handlers administrationHandlers) render(
 		handlers.browser.frontendError(response, request, "create Activate Event command identity", err)
 		return
 	}
+	eventLanes := make(map[int][]rundown.CrewLane, len(foundEvents))
+	for _, event := range foundEvents {
+		lanes, laneErr := handlers.rundown.AdministrationLanes(request.Context(), actor, event.ID)
+		if laneErr != nil {
+			handlers.browser.frontendError(response, request, "list Event Lanes", laneErr)
+			return
+		}
+		eventLanes[event.ID] = lanes
+	}
 	handlers.browser.render(
 		response,
 		request,
@@ -428,6 +439,7 @@ func (handlers administrationHandlers) render(
 			Navigation:           backstageNavigation(actor, request.URL.Path),
 			Accounts:             accounts,
 			Events:               foundEvents,
+			EventLanes:           eventLanes,
 			Grants:               grants,
 			AccountCommandID:     accountCommandID,
 			GrantCommandID:       grantCommandID,
@@ -501,6 +513,9 @@ func administrationFormErrors(
 		field, label = "account_handle", "Account Handle"
 	case errors.Is(err, events.ErrGrantRoleRequired):
 		field, label = "role", "Role"
+	case errors.Is(err, events.ErrEventGrantLaneMismatch):
+		field, label, fieldMessage = "lane_ids", "Lane IDs",
+			"Checked Lanes must belong to the selected Event."
 	case errors.Is(err, auth.ErrDisableReasonRequired):
 		field, label = "reason", "Reason"
 	case errors.Is(err, auth.ErrRecoveryReasonRequired):
@@ -662,6 +677,8 @@ func administrationError(err error) (int, string, bool) {
 		return http.StatusUnprocessableEntity, "Choose a valid Event role.", true
 	case errors.Is(err, events.ErrAccountNotFound), errors.Is(err, events.ErrEventNotFound):
 		return http.StatusNotFound, "The Account or Event was not found.", true
+	case errors.Is(err, events.ErrEventGrantLaneMismatch):
+		return http.StatusUnprocessableEntity, "Checked Lanes must belong to the selected Event.", true
 	case errors.Is(err, activation.ErrPreflightBlocked):
 		return http.StatusConflict, "Activation Preflight is blocked.", true
 	case errors.Is(err, activation.ErrStalePreflight):

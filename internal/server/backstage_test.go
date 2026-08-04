@@ -136,7 +136,7 @@ func TestBackstageNavigationRejectsAttendeeAndSeparatesRouteInterfaces(t *testin
 		t.Fatalf("register Frontend routes: %v", err)
 	}
 	registerPlanningRoutes(routes, nil, nil, nil, nil, nil, nil)
-	registerAdministrationRoutes(routes, nil, nil, nil, nil)
+	registerAdministrationRoutes(routes, nil, nil, nil, nil, nil)
 	registerOperationRoutes(routes, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	registerControlRoutes(routes, nil, nil, nil, nil, nil, "", nil)
 	registerVotingRoutes(routes, nil, nil, nil, nil, nil, nil)

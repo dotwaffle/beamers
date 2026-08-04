@@ -33,6 +33,9 @@ var (
 	ErrEventSlugUnavailable = errors.New("Event Slug is already in use")
 	// ErrEventSlugAliasNotFound means the requested retained alias does not exist.
 	ErrEventSlugAliasNotFound = errors.New("Event Slug Alias not found")
+	// ErrEventGrantLaneMismatch means an Event Grant named a Lane that does
+	// not belong to the Grant's target Event.
+	ErrEventGrantLaneMismatch = errors.New("lane does not belong to the granted Event")
 )
 
 // Event is the persistence projection of an Event's core configuration.
@@ -402,7 +405,7 @@ func (transaction *CommandTx) GrantEventAccess(
 			return EventGrant{}, opaqueError("validate Event Grant Lanes", countErr)
 		}
 		if laneCount != len(params.LaneIDs) {
-			return EventGrant{}, ErrEventNotFound
+			return EventGrant{}, ErrEventGrantLaneMismatch
 		}
 	}
 	created, err := transaction.transaction.EventGrant.Create().

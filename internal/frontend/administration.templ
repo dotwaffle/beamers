@@ -10,6 +10,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/activation"
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/events"
+	"github.com/dotwaffle/beamers/internal/rundown"
 )
 
 func commaSeparatedIDs(values []int) string {
@@ -27,6 +28,7 @@ type AdministrationPage struct {
 	Navigation     BackstageNavigation
 	Accounts       []auth.Account
 	Events         []events.Event
+	EventLanes     map[int][]rundown.CrewLane
 	Grants         []events.Grant
 	AccountCommandID string
 	GrantCommandID string
@@ -347,17 +349,30 @@ templ Administration(page AdministrationPage) {
 								</select>
 							</label>
 							@FieldError(page.Errors, AdministrationFieldID("grant", 0, "role"))
-							<label>
-								Lane IDs
-								<input
-									id={ AdministrationFieldID("grant", 0, "lane_ids") }
-									name="lane_ids"
-									value={ page.value("grant", 0, "lane_ids", "") }
-									inputmode="numeric"
-									placeholder="1, 2"
-									{ page.Errors.Attributes(AdministrationFieldID("grant", 0, "lane_ids"))... }
-								/>
-							</label>
+							<fieldset
+								id={ AdministrationFieldID("grant", 0, "lane_ids") }
+								{ page.Errors.Attributes(AdministrationFieldID("grant", 0, "lane_ids"))... }
+							>
+								<legend>Lanes (leave unchecked for whole-Event access)</legend>
+								for _, event := range page.Events {
+									if len(page.EventLanes[event.ID]) > 0 {
+										<fieldset>
+											<legend>{ event.Name }</legend>
+											for _, lane := range page.EventLanes[event.ID] {
+												<label>
+													<input
+														type="checkbox"
+														name="lane_ids"
+														value={ strconv.Itoa(lane.ID) }
+														checked?={ page.checked("grant", 0, "lane_ids", strconv.Itoa(lane.ID)) }
+													/>
+													{ lane.Name }
+												</label>
+											}
+										</fieldset>
+									}
+								}
+							</fieldset>
 							@FieldError(page.Errors, AdministrationFieldID("grant", 0, "lane_ids"))
 							<label>
 								Display group keys

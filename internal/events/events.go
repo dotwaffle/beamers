@@ -44,6 +44,9 @@ var (
 	ErrEventSlugAliasNotFound = store.ErrEventSlugAliasNotFound
 	// ErrEventSlugPruneConfirmationRequired means an Administrator omitted the destructive warning.
 	ErrEventSlugPruneConfirmationRequired = errors.New("Event Slug Alias pruning confirmation required")
+	// ErrEventGrantLaneMismatch means an Event Grant named a Lane that does
+	// not belong to the Grant's target Event.
+	ErrEventGrantLaneMismatch = store.ErrEventGrantLaneMismatch
 )
 
 // ValidationError describes one actionable invalid Event field.
@@ -445,7 +448,8 @@ func (service *Service) GrantScopedEventAccess(
 				PayloadHash:      payloadHash,
 			})
 			if createErr != nil {
-				if errors.Is(createErr, ErrEventNotFound) || errors.Is(createErr, ErrAccountNotFound) || errors.Is(createErr, ErrEventGrantExists) {
+				if errors.Is(createErr, ErrEventNotFound) || errors.Is(createErr, ErrAccountNotFound) ||
+					errors.Is(createErr, ErrEventGrantExists) || errors.Is(createErr, ErrEventGrantLaneMismatch) {
 					return eventRejection[Grant](createErr), nil
 				}
 				return command.Execution[Grant]{}, createErr
@@ -1080,6 +1084,7 @@ var eventRejections = command.RejectionTable{
 		{Err: ErrEventNotFound, Code: "event_not_found"},
 		{Err: ErrAccountNotFound, Code: "account_not_found"},
 		{Err: ErrEventGrantExists, Code: "event_grant_exists"},
+		{Err: ErrEventGrantLaneMismatch, Code: "event_grant_lane_mismatch"},
 		{Err: ErrEventAccessDenied, Code: "event_access_denied"},
 		{Err: ErrRevisionConflict, Code: "revision_conflict"},
 		{Err: ErrEventSlugUnavailable, Code: "event_slug_unavailable"},
