@@ -351,30 +351,8 @@ func ownerMessage(found programcontrol.Owner) *programv1.ControlOwner {
 }
 
 // ErrorInterceptor translates Program control errors into stable codes.
-func ErrorInterceptor() connect.Interceptor { return errorInterceptor{} }
-
-type errorInterceptor struct{}
-
-func (errorInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
-	return func(ctx context.Context, request connect.AnyRequest) (connect.AnyResponse, error) {
-		response, err := next(ctx, request)
-		if err == nil {
-			return response, nil
-		}
-		var connectErr *connect.Error
-		if errors.As(err, &connectErr) {
-			return response, err
-		}
-		return response, connectError(err)
-	}
-}
-
-func (errorInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
-	return next
-}
-
-func (errorInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
-	return next
+func ErrorInterceptor() connect.Interceptor {
+	return connectapi.ErrorInterceptor(connectError)
 }
 
 func connectError(err error) error {

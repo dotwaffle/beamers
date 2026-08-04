@@ -34,52 +34,13 @@ func NewHandler(service *sessioncontrol.Service) (*Handler, error) {
 }
 
 // ErrorInterceptor translates Session control failures into stable Connect codes.
-func ErrorInterceptor() connect.Interceptor { return errorInterceptor{} }
-
-type errorInterceptor struct{}
-
-func (errorInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
-	return func(ctx context.Context, request connect.AnyRequest) (connect.AnyResponse, error) {
-		response, err := next(ctx, request)
-		if err == nil {
-			return response, nil
-		}
-		var connectErr *connect.Error
-		if errors.As(err, &connectErr) {
-			return response, err
-		}
-		return response, connectError(err)
-	}
-}
-
-func (errorInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
-	return next
-}
-
-func (errorInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
-	return next
+func ErrorInterceptor() connect.Interceptor {
+	return connectapi.ErrorInterceptor(connectError)
 }
 
 // ValidationInterceptor rejects malformed protobuf requests before dispatch.
-func ValidationInterceptor() connect.Interceptor { return validationInterceptor{} }
-
-type validationInterceptor struct{}
-
-func (validationInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
-	return func(ctx context.Context, request connect.AnyRequest) (connect.AnyResponse, error) {
-		if err := validateRequest(request.Any()); err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, err)
-		}
-		return next(ctx, request)
-	}
-}
-
-func (validationInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
-	return next
-}
-
-func (validationInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
-	return next
+func ValidationInterceptor() connect.Interceptor {
+	return connectapi.ValidationInterceptor(validateRequest)
 }
 
 // StartSession starts one Published Session explicitly.

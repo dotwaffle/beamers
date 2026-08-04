@@ -34,55 +34,12 @@ func NewHandler(commands *rundown.Commands, queries *rundown.Queries) (*Handler,
 
 // ErrorInterceptor translates domain classifications into stable Connect codes.
 func ErrorInterceptor() connect.Interceptor {
-	return errorInterceptor{}
-}
-
-type errorInterceptor struct{}
-
-func (errorInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
-	return func(ctx context.Context, request connect.AnyRequest) (connect.AnyResponse, error) {
-		response, err := next(ctx, request)
-		if err == nil {
-			return response, nil
-		}
-		var connectErr *connect.Error
-		if errors.As(err, &connectErr) {
-			return response, err
-		}
-		return response, connectError(err)
-	}
-}
-
-func (errorInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
-	return next
-}
-
-func (errorInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
-	return next
+	return connectapi.ErrorInterceptor(connectError)
 }
 
 // ValidationInterceptor rejects malformed protobuf shapes before application dispatch.
 func ValidationInterceptor() connect.Interceptor {
-	return validationInterceptor{}
-}
-
-type validationInterceptor struct{}
-
-func (validationInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
-	return func(ctx context.Context, request connect.AnyRequest) (connect.AnyResponse, error) {
-		if err := validateTransportRequest(request.Any()); err != nil {
-			return nil, invalidArgument(err)
-		}
-		return next(ctx, request)
-	}
-}
-
-func (validationInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
-	return next
-}
-
-func (validationInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
-	return next
+	return connectapi.ValidationInterceptor(validateTransportRequest)
 }
 
 func validateTransportRequest(message any) error {
