@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
 )
@@ -54,6 +55,9 @@ func (commands *Commands) changeDraftHistory(
 		TargetID: strconv.Itoa(input.EventID), Now: commands.now().UTC()}
 	return command.Execute(actor.Context(ctx), command.Plan[EditDraftResult]{
 		Storage: commands.storage, Identity: identity,
+		Authorization: command.Authorization{
+			Facts: authz.Event(input.EventID), Refusals: rundownAuthorizationRejections,
+		},
 		Replay: func(original string) (EditDraftResult, error) {
 			var result EditDraftResult
 			if decodeErr := json.Unmarshal([]byte(original), &result); decodeErr != nil {

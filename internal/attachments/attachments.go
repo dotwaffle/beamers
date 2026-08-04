@@ -21,6 +21,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
 )
@@ -421,6 +422,12 @@ func (service *Service) storeVersion(
 	}
 	created, executeErr := command.Execute(ctx, command.Plan[Version]{
 		Storage: service.storage, Identity: identity,
+		Authorization: command.Authorization{
+			// UploadAttachment names no Capability: the Crew guard that gates
+			// this call stays in place ahead of Execute, so this row only
+			// needs an Installation-scoped Facts to satisfy the required field.
+			Facts: authz.Installation(),
+		},
 		Replay: func(outcome string) (Version, error) {
 			var stored Version
 			if err := decodeAttachmentUploadReceipt(outcome, &stored); err != nil {
@@ -764,6 +771,9 @@ func (service *Service) ConfigureEventRelease(
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[store.AttachmentReleaseConfiguration]{
 		Storage: service.storage, Identity: identity,
+		Authorization: command.Authorization{
+			Facts: authz.Event(input.EventID), Refusals: attachmentReleaseRejections,
+		},
 		Replay: decodeReleaseReceipt[store.AttachmentReleaseConfiguration],
 		Notify: service.notifySchedule,
 		Apply: auditReleaseRejections(func(transaction *store.CommandTx) (
@@ -810,6 +820,9 @@ func (service *Service) ConfigureCompetitionRelease(
 		actor.Context(ctx),
 		command.Plan[store.CompetitionAttachmentReleaseConfiguration]{
 			Storage: service.storage, Identity: identity,
+			Authorization: command.Authorization{
+				Facts: authz.Event(input.EventID), Refusals: attachmentReleaseRejections,
+			},
 			Replay: decodeReleaseReceipt[store.CompetitionAttachmentReleaseConfiguration],
 			Notify: service.notifySchedule,
 			Apply: auditReleaseRejections(func(transaction *store.CommandTx) (
@@ -856,6 +869,9 @@ func (service *Service) SetVersionRelease(
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[Version]{
 		Storage: service.storage, Identity: identity,
+		Authorization: command.Authorization{
+			Facts: authz.Event(input.EventID), Refusals: attachmentReleaseRejections,
+		},
 		Replay: decodeReleaseReceipt[Version],
 		Notify: service.notifySchedule,
 		Apply: auditReleaseRejections(func(
@@ -924,6 +940,9 @@ func (service *Service) FireReleaseCue(
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[store.AttachmentReleaseConfiguration]{
 		Storage: service.storage, Identity: identity,
+		Authorization: command.Authorization{
+			Facts: authz.Event(input.EventID), Refusals: attachmentReleaseRejections,
+		},
 		Replay: decodeReleaseReceipt[store.AttachmentReleaseConfiguration],
 		Notify: service.notifySchedule,
 		Apply: auditReleaseRejections(func(transaction *store.CommandTx) (
@@ -1062,6 +1081,9 @@ func (service *Service) CreateReopenWindow(
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[store.ReopenWindow]{
 		Storage: service.storage, Identity: identity,
+		Authorization: command.Authorization{
+			Facts: authz.Event(input.EventID), Refusals: attachmentReleaseRejections,
+		},
 		Replay: func(outcome string) (store.ReopenWindow, error) {
 			var window store.ReopenWindow
 			decodeErr := store.DecodeCommandReceipt(outcome, &window)
@@ -1124,6 +1146,9 @@ func (service *Service) UpdateReopenWindow(
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[store.ReopenWindow]{
 		Storage: service.storage, Identity: identity,
+		Authorization: command.Authorization{
+			Facts: authz.Event(input.EventID), Refusals: attachmentReleaseRejections,
+		},
 		Replay: func(outcome string) (store.ReopenWindow, error) {
 			var window store.ReopenWindow
 			decodeErr := store.DecodeCommandReceipt(outcome, &window)

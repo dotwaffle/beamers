@@ -15,6 +15,7 @@ import (
 	"golang.org/x/text/language"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/displayviews"
 	"github.com/dotwaffle/beamers/internal/store"
@@ -221,6 +222,9 @@ func (service *Service) Create(
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[Event]{
 		Storage: service.storage, Identity: identity, Replay: replayEvent,
+		Authorization: command.Authorization{
+			Facts: authz.Installation(), Refusals: eventRejections,
+		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[Event], error) {
 			if !actor.Administrator {
 				return eventRejection[Event](ErrAdministratorRequired), nil
@@ -346,6 +350,9 @@ func (service *Service) PruneEventSlugAlias(
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[EventSlugAlias]{
 		Storage: service.storage, Identity: identity, Replay: replayEventSlugAlias,
+		Authorization: command.Authorization{
+			Facts: authz.Installation(), Refusals: eventRejections,
+		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[EventSlugAlias], error) {
 			if !actor.Administrator {
 				return eventRejection[EventSlugAlias](ErrAdministratorRequired), nil
@@ -427,6 +434,9 @@ func (service *Service) GrantScopedEventAccess(
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[Grant]{
 		Storage: service.storage, Identity: identity, Replay: replayGrant,
+		Authorization: command.Authorization{
+			Facts: authz.Installation(), Refusals: eventRejections,
+		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[Grant], error) {
 			if !actor.Administrator {
 				return eventRejection[Grant](ErrAdministratorRequired), nil
@@ -519,6 +529,9 @@ func (service *Service) Update(
 	return command.Execute(actor.Context(ctx), command.Plan[Event]{
 		Storage: service.storage, Identity: identity, Replay: replayEvent,
 		Notify: service.notifyEventChange,
+		Authorization: command.Authorization{
+			Facts: authz.Event(eventID), Refusals: eventRejections,
+		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[Event], error) {
 			if !actor.CanProduceEvent(eventID) {
 				return eventRejection[Event](ErrEventAccessDenied), nil
@@ -623,6 +636,9 @@ func (service *Service) ConfigureDisplays(
 		Identity: identity,
 		Replay:   replayDisplayConfiguration,
 		Notify:   service.notifyDisplays,
+		Authorization: command.Authorization{
+			Facts: authz.Event(eventID), Refusals: eventRejections,
+		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[DisplayConfiguration], error) {
 			if !actor.CanProduceEvent(eventID) {
 				return eventRejection[DisplayConfiguration](ErrEventAccessDenied), nil

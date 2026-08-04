@@ -17,6 +17,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/events"
 	"github.com/dotwaffle/beamers/internal/rundown"
@@ -137,6 +138,9 @@ func (service *Service) Export(
 		Storage:  service.storage,
 		Identity: identity,
 		Replay:   replayExport,
+		Authorization: command.Authorization{
+			Facts: authz.Event(input.EventID), Refusals: interchangeAuthorizationRejections,
+		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[Artifact], error) {
 			if !actor.CanProduceEvent(input.EventID) {
 				return rejectArtifact(ErrEventAccessDenied)
@@ -219,6 +223,9 @@ func (service *Service) Import(
 		Storage:  service.storage,
 		Identity: identity,
 		Replay:   replayImport,
+		Authorization: command.Authorization{
+			Facts: authz.Installation(), Refusals: interchangeAuthorizationRejections,
+		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[ImportResult], error) {
 			if !actor.Administrator {
 				return rejectImport("administrator_required", ErrAdministratorRequired)
@@ -917,4 +924,15 @@ func importPayloadHash(document []byte, reviewFingerprint string) string {
 
 func invalid(field, message string) error {
 	return &ValidationError{Field: field, Message: message}
+}
+
+// interchangeAuthorizationRejections maps the Capability Table's refusals for
+// both Import (installation authority) and Export (Event authority) actions
+// back to this package's sentinels, so an evaluated refusal returns the
+// error the imperative check returns today.
+var interchangeAuthorizationRejections = command.RejectionTable{
+	Rejections: []command.Rejection{
+		{Err: ErrAdministratorRequired, Code: "administrator_required"},
+		{Err: ErrEventAccessDenied, Code: "event_access_denied"},
+	},
 }

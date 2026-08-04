@@ -16,6 +16,7 @@ import (
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
 
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
 )
@@ -160,8 +161,9 @@ func (service *Service) FinishWebAuthnRegistration(
 		Now:        service.now().UTC(),
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[WebAuthnCredential]{
-		Storage:  service.storage,
-		Identity: identity,
+		Storage:       service.storage,
+		Authorization: command.Authorization{Facts: authz.Installation(), Refusals: accountRejections},
+		Identity:      identity,
 		Replay: func(outcome string) (WebAuthnCredential, error) {
 			var original WebAuthnCredential
 			if decodeErr := store.DecodeCommandReceipt(outcome, &original); decodeErr != nil {
@@ -365,8 +367,9 @@ func (service *Service) RemovePassword(
 		Now:            service.now().UTC(),
 	}
 	_, err := command.Execute(actor.Context(ctx), command.Plan[struct{}]{
-		Storage:  service.storage,
-		Identity: identity,
+		Storage:       service.storage,
+		Authorization: command.Authorization{Facts: authz.Installation(), Refusals: accountRejections},
+		Identity:      identity,
 		Replay: func(outcome string) (struct{}, error) {
 			var original struct{}
 			decodeErr := store.DecodeCommandReceipt(outcome, &original)
@@ -421,8 +424,9 @@ func (service *Service) RevokeWebAuthnCredential(
 		Now:        service.now().UTC(),
 	}
 	_, err := command.Execute(actor.Context(ctx), command.Plan[struct{}]{
-		Storage:  service.storage,
-		Identity: identity,
+		Storage:       service.storage,
+		Authorization: command.Authorization{Facts: authz.Installation(), Refusals: accountRejections},
+		Identity:      identity,
 		Replay: func(outcome string) (struct{}, error) {
 			var original struct{}
 			decodeErr := store.DecodeCommandReceipt(outcome, &original)

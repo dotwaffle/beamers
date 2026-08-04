@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
 )
@@ -218,6 +219,12 @@ func (service *Service) ConfigureStageMessages(
 	return execute(
 		ctx, service, actor, input.EventID, input.CommandID,
 		"ConfigureStageMessages", "Event", strconv.Itoa(input.EventID), input,
+		func(context.Context, *store.CommandTx) (authz.Facts, error) {
+			if validationErr != nil {
+				return authz.Facts{}, validationErr
+			}
+			return authz.Event(input.EventID), nil
+		},
 		func(transaction *store.CommandTx, _ time.Time) (StageMessageConfiguration, error) {
 			if validationErr != nil {
 				return StageMessageConfiguration{}, validationErr
@@ -251,23 +258,29 @@ func (service *Service) SendStageMessage(
 	if targetID == "" {
 		targetID = "preset:" + input.PresetKey
 	}
+	params := store.ActivateStageMessageParams{
+		EventID: input.EventID, PresetKey: input.PresetKey, Text: input.Text,
+		TargetGroupKey:  input.TargetGroupKey,
+		DurationSeconds: input.DurationSeconds, Emphasis: input.Emphasis,
+		UntilCleared: input.UntilCleared,
+	}
 	return service.activateDurably(func() (Override, error) {
 		return execute(
 			ctx, service, actor, input.EventID, input.CommandID,
 			"SendStageMessage", "DisplayGroup", targetID, input,
+			func(ctx context.Context, transaction *store.CommandTx) (authz.Facts, error) {
+				if validationErr != nil {
+					return authz.Facts{}, validationErr
+				}
+				return transaction.StageMessageScope(ctx, params)
+			},
 			func(transaction *store.CommandTx, now time.Time) (Override, error) {
 				if validationErr != nil {
 					return Override{}, validationErr
 				}
-				return transaction.ActivateStageMessage(
-					actor.Context(ctx),
-					store.ActivateStageMessageParams{
-						EventID: input.EventID, PresetKey: input.PresetKey, Text: input.Text,
-						TargetGroupKey:  input.TargetGroupKey,
-						DurationSeconds: input.DurationSeconds, Emphasis: input.Emphasis,
-						UntilCleared: input.UntilCleared, Now: now,
-					},
-				)
+				activation := params
+				activation.Now = now
+				return transaction.ActivateStageMessage(actor.Context(ctx), activation)
 			},
 		)
 	})
@@ -287,22 +300,28 @@ func (service *Service) ActivateTechnicalDifficulties(
 	if targetID == "" {
 		targetID = "unresolved"
 	}
+	params := store.ActivateTechnicalDifficultiesParams{
+		EventID: input.EventID, TargetGroupKey: input.TargetGroupKey,
+		Text: input.Text, UntilCleared: input.UntilCleared,
+		Duration: time.Duration(input.DurationSeconds) * time.Second,
+	}
 	return service.activateDurably(func() (Override, error) {
 		return execute(
 			ctx, service, actor, input.EventID, input.CommandID,
 			"ActivateTechnicalDifficulties", "DisplayGroup", targetID, input,
+			func(ctx context.Context, transaction *store.CommandTx) (authz.Facts, error) {
+				if validationErr != nil {
+					return authz.Facts{}, validationErr
+				}
+				return transaction.TechnicalDifficultiesScope(ctx, params)
+			},
 			func(transaction *store.CommandTx, now time.Time) (Override, error) {
 				if validationErr != nil {
 					return Override{}, validationErr
 				}
-				return transaction.ActivateTechnicalDifficulties(
-					actor.Context(ctx),
-					store.ActivateTechnicalDifficultiesParams{
-						EventID: input.EventID, TargetGroupKey: input.TargetGroupKey,
-						Text: input.Text, UntilCleared: input.UntilCleared,
-						Duration: time.Duration(input.DurationSeconds) * time.Second, Now: now,
-					},
-				)
+				activation := params
+				activation.Now = now
+				return transaction.ActivateTechnicalDifficulties(actor.Context(ctx), activation)
 			},
 		)
 	})
@@ -382,6 +401,14 @@ func (service *Service) activatePriority(
 		return execute(
 			ctx, service, actor, input.EventID, input.CommandID,
 			"Activate"+string(kind), string(input.Target.Type), displayTargetID(input.Target), input,
+			func(ctx context.Context, transaction *store.CommandTx) (authz.Facts, error) {
+				if validationErr != nil {
+					return authz.Facts{}, validationErr
+				}
+				return transaction.PriorityOverrideScope(
+					ctx, priorityParams(input, kind, time.Time{}),
+				)
+			},
 			func(transaction *store.CommandTx, now time.Time) (Override, error) {
 				if validationErr != nil {
 					return Override{}, validationErr
@@ -440,6 +467,12 @@ func (service *Service) Clear(
 	cleared, err := execute(
 		ctx, service, actor, input.EventID, input.CommandID,
 		"ClearDisplayOverride", "DisplayOverride", strconv.Itoa(input.OverrideID), input,
+		func(ctx context.Context, transaction *store.CommandTx) (authz.Facts, error) {
+			if validationErr != nil {
+				return authz.Facts{}, validationErr
+			}
+			return transaction.ClearDisplayOverrideScope(ctx, input.EventID, input.OverrideID)
+		},
 		func(transaction *store.CommandTx, now time.Time) (Override, error) {
 			if validationErr != nil {
 				return Override{}, validationErr
@@ -490,6 +523,11 @@ func validPriorityTarget(target Target) bool {
 	}
 }
 
+// execute runs one Display Override command. scope resolves the target the
+// Capability Table judges, inside the transaction and before the application
+// runs. It returns the command's validation error where the application would
+// have returned it first, so judging the target early cannot reorder a
+// validation refusal behind a scope refusal.
 func execute[T any](
 	ctx context.Context,
 	service *Service,
@@ -497,6 +535,7 @@ func execute[T any](
 	eventID int,
 	commandID, action, targetType, targetID string,
 	payload any,
+	scope func(context.Context, *store.CommandTx) (authz.Facts, error),
 	apply func(*store.CommandTx, time.Time) (T, error),
 ) (T, error) {
 	var zero T
@@ -517,6 +556,9 @@ func execute[T any](
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[T]{
 		Storage: service.storage, Identity: identity, Notify: service.notifyDisplays,
+		Authorization: command.Authorization{
+			EventID: eventID, LoadFacts: scope, Refusals: overrideRejections,
+		},
 		Replay: func(outcome string) (T, error) {
 			var replayed T
 			if decodeErr := store.DecodeCommandReceipt(outcome, &replayed); decodeErr != nil {

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/prizegivingvalue"
 	"github.com/dotwaffle/beamers/internal/results"
@@ -434,10 +435,15 @@ func programItemIdentity(item Item) []string {
 
 func (service *Service) auditOperatorRejection(
 	ctx context.Context,
+	eventID int,
 	identity store.CommandIdentity,
 ) error {
 	_, err := command.Execute(ctx, command.Plan[struct{}]{
 		Storage: service.storage, Identity: identity,
+		Authorization: command.Authorization{
+			Facts:    authz.Event(eventID),
+			Refusals: programRejections,
+		},
 		Replay: func(outcome string) (struct{}, error) {
 			var receipt struct{}
 			err := store.DecodeCommandReceipt(outcome, &receipt)
@@ -568,6 +574,10 @@ func (service *Service) reconcileProgressivePublication(
 			actor.Context(ctx),
 			command.Plan[results.Publication]{
 				Storage: service.storage, Identity: identity,
+				Authorization: command.Authorization{
+					Facts:    authz.Event(eventID),
+					Refusals: programRejections,
+				},
 				Replay: func(outcome string) (results.Publication, error) {
 					var publication results.Publication
 					if decodeErr := store.DecodeCommandReceipt(
@@ -655,7 +665,7 @@ func (service *Service) runControlCommand(
 	}
 	if !actor.CanOperateEvent(channelCommand.eventID) {
 		return State{}, service.auditOperatorRejection(
-			actor.Context(ctx), channelCommand.identity,
+			actor.Context(ctx), channelCommand.eventID, channelCommand.identity,
 		)
 	}
 	if _, err := service.storage.LoadProgramChannelAt(
@@ -678,6 +688,10 @@ func (service *Service) runControlCommand(
 	var executionState controlState
 	next, err := command.Execute(actor.Context(ctx), command.Plan[controlState]{
 		Storage: service.storage, Identity: channelCommand.identity,
+		Authorization: command.Authorization{
+			Facts:    authz.Event(channelCommand.eventID),
+			Refusals: programRejections,
+		},
 		Applied: func() { owned.state = executionState },
 		Notify: func() {
 			if service.notifyProgram != nil {
@@ -960,7 +974,7 @@ func (service *Service) runChannelCommand(
 	}
 	if !actor.CanOperateEvent(durableCommand.eventID) {
 		return TakeResult{}, service.auditOperatorRejection(
-			actor.Context(ctx), durableCommand.identity,
+			actor.Context(ctx), durableCommand.eventID, durableCommand.identity,
 		)
 	}
 	if _, err := service.storage.LoadProgramChannelAt(
@@ -978,6 +992,10 @@ func (service *Service) runChannelCommand(
 	outcome, err := command.Execute(actor.Context(ctx), command.Plan[takeReceipt]{
 		Storage:  service.storage,
 		Identity: durableCommand.identity,
+		Authorization: command.Authorization{
+			Facts:    authz.Event(durableCommand.eventID),
+			Refusals: programRejections,
+		},
 		Applied: func() {
 			owned.state = receipt.Control.control()
 			committed = true

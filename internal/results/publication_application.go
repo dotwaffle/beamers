@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
 )
@@ -96,7 +97,10 @@ func (service *Service) FirePrizegivingResultsCue(
 	return command.Execute(actor.Context(ctx), command.Plan[Publication]{
 		Storage:  service.storage,
 		Identity: identity,
-		Replay:   decodeResultsCommandReceipt[Publication],
+		Authorization: command.Authorization{
+			Facts: authz.Event(input.EventID), Refusals: resultsRejections,
+		},
+		Replay: decodeResultsCommandReceipt[Publication],
 		Apply: auditResultsRejections(func(
 			transaction *store.CommandTx,
 		) (command.Execution[Publication], error) {
@@ -154,7 +158,10 @@ func (service *Service) ReleaseStandaloneResults(
 	return command.Execute(actor.Context(ctx), command.Plan[Publication]{
 		Storage:  service.storage,
 		Identity: identity,
-		Replay:   decodeResultsCommandReceipt[Publication],
+		Authorization: command.Authorization{
+			Facts: authz.Event(input.EventID), Refusals: resultsRejections,
+		},
+		Replay: decodeResultsCommandReceipt[Publication],
 		Apply: auditResultsRejections(func(
 			transaction *store.CommandTx,
 		) (command.Execution[Publication], error) {
@@ -308,7 +315,10 @@ func (service *Service) ReleaseStandaloneEventAwards(
 	return command.Execute(actor.Context(ctx), command.Plan[Publication]{
 		Storage:  service.storage,
 		Identity: identity,
-		Replay:   decodeResultsCommandReceipt[Publication],
+		Authorization: command.Authorization{
+			Facts: authz.Event(input.EventID), Refusals: resultsRejections,
+		},
+		Replay: decodeResultsCommandReceipt[Publication],
 		Apply: auditResultsRejections(func(
 			transaction *store.CommandTx,
 		) (command.Execution[Publication], error) {

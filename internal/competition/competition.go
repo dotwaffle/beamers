@@ -14,6 +14,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
 )
@@ -583,6 +584,9 @@ func (service *Service) executeEntryOrderCommand(
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[EntryOrder]{
 		Storage: service.storage, Identity: identity, Notify: service.notifyEntries,
+		Authorization: command.Authorization{
+			Facts: authz.Event(eventID), Refusals: competitionRejections,
+		},
 		Replay: func(outcome string) (EntryOrder, error) {
 			var stored store.EntryOrderState
 			if err := store.DecodeCommandReceipt(outcome, &stored); err != nil {
@@ -637,6 +641,9 @@ func (service *Service) ConfigureReadiness(
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[Readiness]{
 		Storage: service.storage, Identity: identity,
+		Authorization: command.Authorization{
+			Facts: authz.Event(input.EventID), Refusals: competitionRejections,
+		},
 		Replay: func(outcome string) (Readiness, error) {
 			var stored store.CompetitionReadiness
 			if err := store.DecodeCommandReceipt(outcome, &stored); err != nil {
@@ -695,6 +702,9 @@ func (service *Service) ConfigureSubmissionEligibility(
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[SubmissionEligibilityState]{
 		Storage: service.storage, Identity: identity,
+		Authorization: command.Authorization{
+			Facts: authz.Event(input.EventID), Refusals: competitionRejections,
+		},
 		Replay: func(outcome string) (SubmissionEligibilityState, error) {
 			var stored store.SubmissionEligibility
 			if err := decodeCompetitionReceipt(outcome, &stored); err != nil {
@@ -782,6 +792,7 @@ func (service *Service) CreateSubmission(
 		input,
 		func(int) bool { return actor.ID > 0 },
 		ErrSubmitterRequired,
+		authz.Installation(),
 		service.notifyEntries,
 		func(transaction *store.CommandTx, now time.Time) (store.CompetitionEntry, error) {
 			return transaction.CreateSubmittedCompetitionEntry(
@@ -845,6 +856,7 @@ func (service *Service) UpdateSubmission(
 		input,
 		func(int) bool { return actor.ID > 0 },
 		ErrSubmitterRequired,
+		authz.Installation(),
 		service.notifyEntries,
 		func(transaction *store.CommandTx, now time.Time) (store.CompetitionEntry, error) {
 			return transaction.UpdateSubmittedCompetitionEntry(
@@ -1100,6 +1112,9 @@ func (service *Service) SetEntryAttachmentReadiness(
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[AttachmentReadiness]{
 		Storage: service.storage, Identity: identity, Notify: service.notifySchedule,
+		Authorization: command.Authorization{
+			Facts: authz.Event(input.EventID), Refusals: competitionRejections,
+		},
 		Replay: func(outcome string) (AttachmentReadiness, error) {
 			var stored store.AttachmentReadiness
 			if err := store.DecodeCommandReceipt(outcome, &stored); err != nil {
@@ -1151,7 +1166,7 @@ func (service *Service) execute(
 ) (Entry, error) {
 	return service.executeEntryCommand(
 		ctx, actor, eventID, commandID, action, targetID, payload,
-		actor.CanProduceEvent, ErrProducerRequired, notify, apply,
+		actor.CanProduceEvent, ErrProducerRequired, authz.Event(eventID), notify, apply,
 	)
 }
 
@@ -1166,7 +1181,7 @@ func (service *Service) executeOperator(
 ) (Entry, error) {
 	return service.executeEntryCommand(
 		ctx, actor, eventID, commandID, action, targetID, payload,
-		actor.CanOperateEvent, ErrOperatorRequired, notify, apply,
+		actor.CanOperateEvent, ErrOperatorRequired, authz.Event(eventID), notify, apply,
 	)
 }
 
@@ -1178,6 +1193,7 @@ func (service *Service) executeEntryCommand(
 	payload any,
 	authorized func(int) bool,
 	authorizationError error,
+	facts authz.Facts,
 	notify func(),
 	apply func(*store.CommandTx, time.Time) (store.CompetitionEntry, error),
 ) (Entry, error) {
@@ -1191,6 +1207,9 @@ func (service *Service) executeEntryCommand(
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[Entry]{
 		Storage: service.storage, Identity: identity, Notify: notify,
+		Authorization: command.Authorization{
+			Facts: facts, Refusals: competitionRejections,
+		},
 		Replay: func(outcome string) (Entry, error) {
 			var stored store.CompetitionEntry
 			if err := decodeCompetitionReceipt(outcome, &stored); err != nil {

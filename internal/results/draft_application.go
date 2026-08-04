@@ -11,6 +11,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
 	"github.com/dotwaffle/beamers/internal/viewer"
@@ -68,6 +69,9 @@ func (service *Service) Save(
 	return command.Execute(actor.Context(ctx), command.Plan[Draft]{
 		Storage:  service.storage,
 		Identity: identity,
+		Authorization: command.Authorization{
+			Facts: authz.Event(input.EventID), Refusals: resultsRejections,
+		},
 		Replay: func(outcome string) (Draft, error) {
 			var stored store.CompetitionResultsDraft
 			if err := store.DecodeCommandReceipt(outcome, &stored); err != nil {
@@ -155,6 +159,9 @@ func (service *Service) MarkReady(
 	return command.Execute(actor.Context(ctx), command.Plan[Draft]{
 		Storage:  service.storage,
 		Identity: identity,
+		Authorization: command.Authorization{
+			Facts: authz.Event(input.EventID), Refusals: resultsRejections,
+		},
 		Replay: func(outcome string) (Draft, error) {
 			var stored store.CompetitionResultsDraft
 			if err := store.DecodeCommandReceipt(outcome, &stored); err != nil {

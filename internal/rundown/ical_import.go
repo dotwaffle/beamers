@@ -13,6 +13,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
 )
@@ -103,6 +104,9 @@ func (commands *Commands) ImportICalendar(
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[CSVImportResult]{
 		Storage: commands.storage, Identity: identity, Replay: decodeICalendarImportOutcome,
+		Authorization: command.Authorization{
+			Facts: authz.Event(input.EventID), Refusals: rundownAuthorizationRejections,
+		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[CSVImportResult], error) {
 			if !actor.CanProduceEvent(input.EventID) {
 				return rejectICalendarImport(rejection{Code: "event_access_denied", Message: ErrEventAccessDenied.Error()})

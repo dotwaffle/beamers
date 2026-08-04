@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
 	"github.com/dotwaffle/beamers/internal/viewer"
@@ -174,6 +175,13 @@ func (service *Service) persistDegradedCommand(
 		command.Plan[store.DisplayOverride]{
 			Storage:  service.storage,
 			Identity: pending.identity,
+			// The degraded path decided this command's authority in process
+			// memory at capture time and is persisting that decision, so the
+			// table is not applied to it again.
+			Authorization: command.Authorization{
+				Facts:    authz.Replayed(),
+				Refusals: overrideRejections,
+			},
 			Replay: func(outcome string) (store.DisplayOverride, error) {
 				var replayed store.DisplayOverride
 				err := store.DecodeCommandReceipt(outcome, &replayed)

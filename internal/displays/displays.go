@@ -22,6 +22,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/displaystream"
 	"github.com/dotwaffle/beamers/internal/displayviews"
@@ -768,6 +769,9 @@ func (service *Service) Assign(
 	}
 	result, err := command.Execute(actor.Context(ctx), command.Plan[Assignment]{
 		Storage: service.storage, Identity: identity, Notify: service.notifyDisplays,
+		Authorization: command.Authorization{
+			Facts: authz.Installation(), Refusals: displayRejections,
+		},
 		Replay: replayAssignment,
 		Apply: func(transaction *store.CommandTx) (command.Execution[Assignment], error) {
 			if !actor.Administrator {
@@ -827,6 +831,9 @@ func (service *Service) ClaimEnrollment(
 	}
 	result, err := command.Execute(actor.Context(ctx), command.Plan[Display]{
 		Storage: service.storage, Identity: identity, Notify: service.notifyDisplays,
+		Authorization: command.Authorization{
+			Facts: authz.Installation(), Refusals: displayRejections,
+		},
 		Replay: replayDisplay,
 		Apply: func(transaction *store.CommandTx) (command.Execution[Display], error) {
 			if !actor.Administrator {

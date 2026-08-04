@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
 )
@@ -58,6 +59,9 @@ func (service *Service) DesignatePrizegiving(
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[Prizegiving]{
 		Storage: service.storage, Identity: identity,
+		Authorization: command.Authorization{
+			Facts: authz.Event(input.EventID), Refusals: resultsRejections,
+		},
 		Replay: func(outcome string) (Prizegiving, error) {
 			var stored store.Prizegiving
 			if err := store.DecodeCommandReceipt(outcome, &stored); err != nil {

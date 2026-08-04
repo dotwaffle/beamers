@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
 )
@@ -60,6 +61,9 @@ func (commands *Commands) DeleteDraftSession(
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[DeleteDraftSessionResult]{
 		Storage: commands.storage, Identity: identity, Replay: decodeDeleteDraftSessionOutcome,
+		Authorization: command.Authorization{
+			Facts: authz.Event(input.EventID), Refusals: rundownAuthorizationRejections,
+		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[DeleteDraftSessionResult], error) {
 			if !actor.CanProduceEvent(input.EventID) {
 				return deleteDraftSessionRejection(rejection{Code: "event_access_denied", Message: ErrEventAccessDenied.Error()})

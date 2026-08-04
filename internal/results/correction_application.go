@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
 	"github.com/dotwaffle/beamers/internal/viewer"
@@ -224,6 +225,9 @@ func (service *Service) SaveCorrection(
 	)
 	return command.Execute(actor.Context(ctx), command.Plan[Correction]{
 		Storage: service.storage, Identity: identity,
+		Authorization: command.Authorization{
+			Facts: authz.Event(input.EventID), Refusals: resultsRejections,
+		},
 		Replay: decodeResultsCommandReceipt[Correction],
 		Apply: auditResultsRejections(func(
 			transaction *store.CommandTx,
@@ -326,6 +330,9 @@ func (service *Service) PublishCorrection(
 	)
 	return command.Execute(actor.Context(ctx), command.Plan[PublishCorrectionResult]{
 		Storage: service.storage, Identity: identity,
+		Authorization: command.Authorization{
+			Facts: authz.Event(input.EventID), Refusals: resultsRejections,
+		},
 		Replay: decodeResultsCommandReceipt[PublishCorrectionResult],
 		Apply: auditResultsRejections(func(
 			transaction *store.CommandTx,
@@ -458,6 +465,9 @@ func (service *Service) advanceCorrectionReview(
 	)
 	return command.Execute(actor.Context(ctx), command.Plan[Correction]{
 		Storage: service.storage, Identity: identity,
+		Authorization: command.Authorization{
+			Facts: authz.Event(input.EventID), Refusals: resultsRejections,
+		},
 		Replay: decodeResultsCommandReceipt[Correction],
 		Apply: auditResultsRejections(func(
 			transaction *store.CommandTx,

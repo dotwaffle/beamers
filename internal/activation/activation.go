@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/displayviews"
 	"github.com/dotwaffle/beamers/internal/events"
@@ -131,6 +132,9 @@ func (service *Service) Activate(
 	return command.Execute(actor.Context(ctx), command.Plan[ActiveEvent]{
 		Storage: service.storage, Identity: identity,
 		Notify: service.notifyProjections,
+		Authorization: command.Authorization{
+			Facts: authz.Installation(), Refusals: activationRejections,
+		},
 		Replay: func(original string) (ActiveEvent, error) {
 			var result ActiveEvent
 			if decodeErr := store.DecodeCommandReceipt(original, &result); decodeErr != nil {

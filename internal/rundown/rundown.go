@@ -13,6 +13,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
 )
@@ -25,6 +26,13 @@ var (
 	// ErrDraftRevisionConflict means the proposed Draft base is no longer valid.
 	ErrDraftRevisionConflict = store.ErrDraftRevisionConflict
 )
+
+// rundownAuthorizationRejections maps the Capability Table's refusal back
+// to this package's sentinel, so an evaluated refusal returns the error the
+// imperative check returns.
+var rundownAuthorizationRejections = command.RejectionTable{
+	Rejections: []command.Rejection{{Err: ErrEventAccessDenied, Code: "event_access_denied"}},
+}
 
 // DraftRevisionConflictError describes current overlapping facts for a stale edit.
 type DraftRevisionConflictError = store.DraftRevisionConflictError
@@ -282,6 +290,9 @@ func (commands *Commands) EditDraft(
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[EditDraftResult]{
 		Storage: commands.storage, Identity: identity, Replay: decodeEditDraftOutcome,
+		Authorization: command.Authorization{
+			Facts: authz.Event(input.EventID), Refusals: rundownAuthorizationRejections,
+		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[EditDraftResult], error) {
 			if !actor.CanProduceEvent(input.EventID) {
 				return editDraftRejection(rejection{Code: "event_access_denied", Message: ErrEventAccessDenied.Error()})

@@ -12,6 +12,7 @@ import (
 
 	_ "github.com/dotwaffle/beamers/ent/runtime"
 
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/store"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
@@ -21,12 +22,13 @@ func TestExecuteOwnsRetryConflictRejectionAndAuditOrdering(t *testing.T) {
 	now := time.Date(2026, time.July, 22, 12, 0, 0, 0, time.UTC)
 	identity := store.CommandIdentity{
 		ActorAccountID: actorID, CommandID: "executor-success", PayloadHash: strings.Repeat("a", 64),
-		Action: "TestCommand", TargetType: "Account", TargetID: "1", Now: now,
+		Action: "UpdateAccountProfile", TargetType: "Account", TargetID: "1", Now: now,
 	}
 	applications := 0
 	plan := Plan[string]{
 		Storage: storage, Identity: identity,
-		Replay: func(outcome string) (string, error) { return outcome, nil },
+		Authorization: Authorization{Facts: authz.Installation()},
+		Replay:        func(outcome string) (string, error) { return outcome, nil },
 		Apply: func(*store.CommandTx) (Execution[string], error) {
 			applications++
 			return Success("first", `"first"`), nil
@@ -49,10 +51,11 @@ func TestExecuteOwnsRetryConflictRejectionAndAuditOrdering(t *testing.T) {
 
 	rejectedReason := errors.New("not allowed")
 	rejectedPlan := Plan[struct{}]{
-		Storage: storage,
+		Storage:       storage,
+		Authorization: Authorization{Facts: authz.Installation()},
 		Identity: store.CommandIdentity{
 			ActorAccountID: actorID, CommandID: "executor-rejected", PayloadHash: strings.Repeat("c", 64),
-			Action: "TestRejectedCommand", TargetType: "Account", TargetID: "1", Now: now,
+			Action: "RecoverAccount", TargetType: "Account", TargetID: "1", Now: now,
 		},
 		Replay: func(outcome string) (struct{}, error) {
 			var result struct{}
@@ -85,13 +88,14 @@ func TestExecuteNotifiesOnlyAfterSuccess(t *testing.T) {
 	identity := func(commandID string) store.CommandIdentity {
 		return store.CommandIdentity{
 			ActorAccountID: actorID, CommandID: commandID, PayloadHash: strings.Repeat("a", 64),
-			Action: "TestCommand", TargetType: "Account", TargetID: "1", Now: now,
+			Action: "UpdateAccountProfile", TargetType: "Account", TargetID: "1", Now: now,
 		}
 	}
 
 	var sequence []string
 	plan := Plan[string]{
 		Storage: storage, Identity: identity("executor-notification-order"),
+		Authorization: Authorization{Facts: authz.Installation()},
 		Replay: func(outcome string) (string, error) {
 			sequence = append(sequence, "replay")
 			return outcome, nil
@@ -138,7 +142,8 @@ func TestExecuteNotifiesOnlyAfterSuccess(t *testing.T) {
 	rejectionErr := errors.New("not allowed")
 	rejection := Plan[string]{
 		Storage: storage, Identity: identity("executor-notification-rejection"),
-		Replay: func(string) (string, error) { return "", rejectionErr },
+		Authorization: Authorization{Facts: authz.Installation()},
+		Replay:        func(string) (string, error) { return "", rejectionErr },
 		Apply: func(*store.CommandTx) (Execution[string], error) {
 			return Reject("", store.CommandRejection{Code: "not_allowed"}, rejectionErr), nil
 		},
@@ -201,14 +206,15 @@ func TestExecuteSignalsApplicationSeparatelyFromReplay(t *testing.T) {
 	identity := func(commandID string) store.CommandIdentity {
 		return store.CommandIdentity{
 			ActorAccountID: actorID, CommandID: commandID, PayloadHash: strings.Repeat("a", 64),
-			Action: "TestCommand", TargetType: "Account", TargetID: "1", Now: now,
+			Action: "UpdateAccountProfile", TargetType: "Account", TargetID: "1", Now: now,
 		}
 	}
 
 	var sequence []string
 	plan := Plan[string]{
 		Storage: storage, Identity: identity("executor-applied-signal"),
-		Replay: func(outcome string) (string, error) { return outcome, nil },
+		Authorization: Authorization{Facts: authz.Installation()},
+		Replay:        func(outcome string) (string, error) { return outcome, nil },
 		Apply: func(*store.CommandTx) (Execution[string], error) {
 			return Success("first", `"first"`), nil
 		},
@@ -310,5 +316,51 @@ BEGIN
 END;`
 	if _, err := database.ExecContext(t.Context(), schema); err != nil {
 		t.Fatalf("install command failures: %v", err)
+	}
+}
+
+// TestCapabilityRefusalPrecedesLoadingTheTarget states the order the imperative
+// checks keep today and the table has to keep as well.
+//
+// A scoped command has to load its target before its scope can be judged, but
+// an actor with no authority over the Event must never be the reason that
+// lookup happens. Loading first would answer with what the lookup found, so a
+// Crew Member with no grant at all would be told a Session does not exist, or
+// have that fact recorded against them, instead of being refused for the
+// authority they lack.
+func TestCapabilityRefusalPrecedesLoadingTheTarget(t *testing.T) {
+	storage, actorID, _, _ := openExecutionTestStore(t)
+	now := time.Date(2026, time.July, 22, 12, 0, 0, 0, time.UTC)
+	stranger := viewer.NewContext(t.Context(), viewer.Identity{AccountID: actorID})
+	refused := errors.New("operator required")
+	loads := 0
+
+	plan := Plan[string]{
+		Storage: storage,
+		Identity: store.CommandIdentity{
+			ActorAccountID: actorID, CommandID: "scoped-refusal",
+			PayloadHash: strings.Repeat("f", 64), Action: "StartSession",
+			TargetType: "Session", TargetID: "1", Now: now,
+		},
+		Authorization: Authorization{
+			EventID: 1,
+			LoadFacts: func(context.Context, *store.CommandTx) (authz.Facts, error) {
+				loads++
+				return authz.Facts{}, errors.New("target lookup must not happen")
+			},
+			Refusals: RejectionTable{
+				Rejections: []Rejection{{Err: refused, Code: "operator_required"}},
+			},
+		},
+		Replay: func(string) (string, error) { return "", nil },
+		Apply: func(*store.CommandTx) (Execution[string], error) {
+			return Execution[string]{}, errors.New("application must not run")
+		},
+	}
+	if _, err := Execute(stranger, plan); !errors.Is(err, refused) {
+		t.Fatalf("refusal for an actor with no grant = %v, want %v", err, refused)
+	}
+	if loads != 0 {
+		t.Errorf("target was loaded %d times for a command the table already refused", loads)
 	}
 }

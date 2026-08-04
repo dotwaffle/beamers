@@ -95,6 +95,7 @@ func (service *Service) Get(
 var resultsRejections = command.RejectionTable{
 	Rejections: []command.Rejection{
 		{Err: ErrProducerRequired, Code: "producer_required"},
+		{Err: ErrManageRequired, Code: "manage_results_required"},
 		{Err: ErrRevisionConflict, Code: "results_revision"},
 		{Err: ErrEventAwardsRevision, Code: "event_awards_revision"},
 		{Err: store.ErrResultsPublicationRevision, Code: "publication_revision"},
