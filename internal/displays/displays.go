@@ -246,12 +246,25 @@ type Session struct {
 // 10000, and Lane is an index below LaneCount. The values are meaningful only
 // on a Timeline View, and Lane is a visual overlap column there, not a
 // Rundown Lane.
+//
+// NowOffset and Gridlines describe the whole Event day rather than this one
+// Session, and so carry the same value on every Session sharing a Day, the
+// same way LaneCount already does. NowOffset is nil when the server time
+// falls outside this Event day.
 type TimelineGeometry struct {
 	Day       string
 	Offset    int
 	Width     int
 	Lane      int
 	LaneCount int
+	NowOffset *int
+	Gridlines []TimelineGridline
+}
+
+// TimelineGridline is one faint labeled hour mark on a Timeline Event day.
+type TimelineGridline struct {
+	Offset int
+	Label  string
 }
 
 // StageTimer is one authoritative live Session clock for a Display.
@@ -463,7 +476,7 @@ func (service *Service) Current(ctx context.Context, credential string) (Snapsho
 		return result.Sessions[first].orderAt.Before(result.Sessions[second].orderAt)
 	})
 	if result.ViewKey == displayviews.Timeline {
-		if err := projectTimeline(result.Sessions, zone, found.EventDayBoundary); err != nil {
+		if err := projectTimeline(result.Sessions, now, zone, found.EventDayBoundary); err != nil {
 			return Snapshot{}, errors.Join(errors.New("project Timeline"), err)
 		}
 	}

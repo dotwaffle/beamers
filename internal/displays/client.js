@@ -634,6 +634,9 @@ function renderWidget(region, widget, snapshot, theme, candidateClockReference) 
         timeline = document.createElement("ol");
         timeline.className = "display-timeline";
         timeline.style.setProperty("--display-lanes", String(session.timelineLaneCount));
+        appendTimelineLaneLabels(timeline, session.timelineLaneCount);
+        appendTimelineGridlines(timeline, session.timelineGridlines);
+        appendTimelineNow(timeline, session.timelineNowOffset);
         day.append(timeline);
         days.append(day);
         timelines.set(session.timelineDay, timeline);
@@ -827,6 +830,51 @@ function timerEmphasis(thresholds, remainingMilliseconds) {
 
 // renderTimelineBlock consumes server-projected Event-day geometry so the entry
 // document and browser renderer cannot disagree.
+// appendTimelineLaneLabels adds one small chip per visual overlap lane. It
+// is purely decorative -- the lane number is not domain identity -- so
+// every chip is aria-hidden.
+function appendTimelineLaneLabels(timeline, laneCount) {
+  const lanes = Math.max(1, Number(laneCount) || 1);
+  for (let lane = 0; lane < lanes; lane++) {
+    const label = document.createElement("li");
+    label.className = "display-timeline-lane-label";
+    label.style.setProperty("--display-lane", String(lane));
+    label.setAttribute("aria-hidden", "true");
+    label.textContent = `Lane ${lane + 1}`;
+    timeline.append(label);
+  }
+}
+
+// appendTimelineGridlines draws the server-projected faint hour marks for
+// one Event day. Offsets already share the block's coordinate space, so no
+// further computation happens client-side.
+function appendTimelineGridlines(timeline, gridlines) {
+  for (const gridline of gridlines ?? []) {
+    const mark = document.createElement("li");
+    mark.className = "display-timeline-gridline";
+    mark.style.setProperty("--display-offset", String(gridline.offset));
+    mark.setAttribute("aria-hidden", "true");
+    const label = document.createElement("span");
+    label.textContent = gridline.label;
+    mark.append(label);
+    timeline.append(mark);
+  }
+}
+
+// appendTimelineNow draws the now-line only when the server projected one
+// for this Event day; nowOffset is absent (not zero) when the server time
+// falls outside it, so an absent value must never draw a stray line at 0%.
+function appendTimelineNow(timeline, nowOffset) {
+  if (nowOffset === undefined || nowOffset === null) {
+    return;
+  }
+  const now = document.createElement("li");
+  now.className = "display-timeline-now";
+  now.style.setProperty("--display-offset", String(nowOffset));
+  now.setAttribute("aria-hidden", "true");
+  timeline.append(now);
+}
+
 function renderTimelineBlock(snapshot, session) {
   const block = document.createElement("li");
   block.className = "display-timeline-block";
@@ -834,6 +882,7 @@ function renderTimelineBlock(snapshot, session) {
   block.style.setProperty("--display-width", String(session.timelineWidth));
   block.style.setProperty("--display-lane", String(session.timelineLane));
   block.style.setProperty("--display-lanes", String(session.timelineLaneCount));
+  block.dataset.lifecycle = session.lifecycle ?? "";
   if (session.unavailable) {
     block.dataset.unavailable = "true";
     appendParagraph(block, session.availabilityMessage);

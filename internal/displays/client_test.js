@@ -277,14 +277,104 @@ test("timeline renderer uses the projected Event-day geometry", async () => {
   assert.match(nodeText(day), /2099-08-21/);
   const timeline = day.children[1];
   assert.equal(timeline.className, "display-timeline");
-  assert.equal(timeline.children[0].style.properties.get("--display-offset"), "1042");
-  assert.equal(timeline.children[0].style.properties.get("--display-width"), "6250");
-  assert.equal(timeline.children[1].style.properties.get("--display-offset"), "7292");
-  assert.equal(timeline.children[1].style.properties.get("--display-width"), "2083");
+  // The single visual overlap lane gets one small label, drawn before any
+  // block so it never depends on which Session happens to render first.
+  const laneLabels = timeline.children.filter(
+    (child) => child.className === "display-timeline-lane-label",
+  );
+  assert.equal(laneLabels.length, 1);
+  assert.equal(laneLabels[0].textContent, "Lane 1");
+  const blocks = timeline.children.filter(
+    (child) => child.className === "display-timeline-block",
+  );
+  assert.equal(blocks[0].style.properties.get("--display-offset"), "1042");
+  assert.equal(blocks[0].style.properties.get("--display-width"), "6250");
+  assert.equal(blocks[1].style.properties.get("--display-offset"), "7292");
+  assert.equal(blocks[1].style.properties.get("--display-width"), "2083");
   // A suppressed span reports that it is taken, never the Session in it.
-  assert.equal(timeline.children[1].dataset.unavailable, "true");
-  assert.match(nodeText(timeline.children[1]), /Location unavailable until/);
+  assert.equal(blocks[1].dataset.unavailable, "true");
+  assert.match(nodeText(blocks[1]), /Location unavailable until/);
   assert.doesNotMatch(nodeText(timeline), /Private/);
+});
+
+test("Timeline draws the now-line, hour gridlines, and Live signal-color fill", async () => {
+  const browser = await startBrowser({
+    snapshot: displaySnapshot({
+      standby: false,
+      viewKey: "timeline",
+      composition: displayComposition({
+        key: "timeline",
+        regions: [
+          {name: "timeline", widget: "timeline", persistent: true},
+        ],
+      }),
+      sessions: [
+        {
+          ...displaySession("Opening Keynote"),
+          lifecycle: "Live",
+          timelineDay: "2099-08-21",
+          timelineOffset: 0,
+          timelineWidth: 5000,
+          timelineLane: 0,
+          timelineLaneCount: 1,
+          timelineNowOffset: 2500,
+          timelineGridlines: [
+            {offset: 417, label: "07:00"},
+            {offset: 833, label: "08:00"},
+          ],
+        },
+      ],
+    }),
+  });
+
+  const day = browser.document.main.children[0].children[0].children[0];
+  const timeline = day.children[1];
+
+  const now = timeline.children.find((child) => child.className === "display-timeline-now");
+  assert.ok(now, "now-line missing from the Timeline");
+  assert.equal(now.style.properties.get("--display-offset"), "2500");
+
+  const gridlines = timeline.children.filter(
+    (child) => child.className === "display-timeline-gridline",
+  );
+  assert.equal(gridlines.length, 2);
+  assert.equal(gridlines[0].style.properties.get("--display-offset"), "417");
+  assert.equal(gridlines[0].children[0].textContent, "07:00");
+
+  const block = timeline.children.find((child) => child.className === "display-timeline-block");
+  assert.equal(block.dataset.lifecycle, "Live");
+});
+
+test("Timeline omits the now-line when the server projected no NowOffset for the Event day", async () => {
+  const browser = await startBrowser({
+    snapshot: displaySnapshot({
+      standby: false,
+      viewKey: "timeline",
+      composition: displayComposition({
+        key: "timeline",
+        regions: [
+          {name: "timeline", widget: "timeline", persistent: true},
+        ],
+      }),
+      sessions: [
+        {
+          ...displaySession("Opening Keynote"),
+          timelineDay: "2099-08-21",
+          timelineOffset: 0,
+          timelineWidth: 5000,
+          timelineLane: 0,
+          timelineLaneCount: 1,
+        },
+      ],
+    }),
+  });
+
+  const day = browser.document.main.children[0].children[0].children[0];
+  const timeline = day.children[1];
+  assert.equal(
+    timeline.children.some((child) => child.className === "display-timeline-now"),
+    false,
+  );
 });
 
 test("live renderer uses server-selected public time labels", async () => {

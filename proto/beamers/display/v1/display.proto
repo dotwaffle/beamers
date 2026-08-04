@@ -118,6 +118,18 @@ message DisplaySession {
   uint32 timeline_width = 22;
   uint32 timeline_lane = 23;
   uint32 timeline_lane_count = 24;
+  // timeline_now_offset is basis points of the day, matching offset/width,
+  // and unset when the server time falls outside this Event day.
+  optional uint32 timeline_now_offset = 25;
+  // timeline_gridlines carries this Event day's faint labeled hour marks;
+  // it is repeated per Session (as the other Timeline geometry is) so the
+  // Timeline widget needs only the Session list to render one day.
+  repeated DisplayTimelineGridline timeline_gridlines = 26;
+}
+
+message DisplayTimelineGridline {
+  uint32 offset = 1;
+  string label = 2;
 }
 
 enum StageTimerMode {

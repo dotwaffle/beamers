@@ -414,6 +414,61 @@ body {
 	font-size: var(--display-text-body);
 }
 
+/* Live gets a partial signal-color fill rather than a full-saturation
+ * background, so the existing validated foreground/background pairing
+ * stays legible over it instead of needing its own contrast check. */
+.display-timeline-block[data-lifecycle="Live"] {
+	background: color-mix(in srgb, var(--display-signal, #62ebcb) 35%, rgb(255 255 255 / 8%));
+	border-block-start-width: 0.4rem;
+}
+
+/* A small chip per visual overlap lane, pinned to the Timeline's own left
+ * edge rather than a reserved column, so it reads without narrowing every
+ * block's available width. */
+.display-timeline-lane-label {
+	position: absolute;
+	z-index: 2;
+	inset-inline-start: 0.25rem;
+	inset-block-start: calc(var(--display-lane, 0) * 100% / var(--display-lanes, 1) + 0.15rem);
+	padding: 0.05rem 0.4rem;
+	border-radius: 999px;
+	background: rgb(0 0 0 / 45%);
+	font-size: var(--display-text-caption);
+	color: color-mix(in srgb, var(--display-foreground, #fff) 70%, transparent);
+	white-space: nowrap;
+	pointer-events: none;
+}
+
+/* Faint hour marks derived from the same projected offsets as the blocks
+ * they sit behind, so they line up exactly without a separate axis. */
+.display-timeline-gridline {
+	position: absolute;
+	inset-block: 0;
+	inset-inline-start: calc(var(--display-offset, 0) * 0.01%);
+	border-inline-start: 1px solid color-mix(in srgb, var(--display-foreground, #fff) 16%, transparent);
+	pointer-events: none;
+}
+.display-timeline-gridline span {
+	position: absolute;
+	inset-block-start: -1.1em;
+	inset-inline-start: 0.2rem;
+	font-size: var(--display-text-caption);
+	color: color-mix(in srgb, var(--display-foreground, #fff) 45%, transparent);
+	white-space: nowrap;
+}
+
+/* The now-line sits above blocks and gridlines and is omitted entirely
+ * (never rendered with a stray offset) when the server time falls outside
+ * this Event day. */
+.display-timeline-now {
+	position: absolute;
+	z-index: 3;
+	inset-block: 0;
+	inset-inline-start: calc(var(--display-offset, 0) * 0.01%);
+	border-inline-start: 0.15rem solid var(--display-signal, #62ebcb);
+	pointer-events: none;
+}
+
 /* A suppressed span is visibly a placeholder, not a Session whose title failed
  * to load. The hatching reads as unavailable without relying on color. */
 .display-timeline-block[data-unavailable] {

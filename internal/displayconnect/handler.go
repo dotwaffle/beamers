@@ -352,6 +352,16 @@ func sessionMessage(found displays.Session) *displayv1.DisplaySession {
 	if !found.PresentedEnd.IsZero() {
 		result.PresentedEnd = timestamppb.New(found.PresentedEnd)
 	}
+	if found.Timeline.NowOffset != nil {
+		nowOffset := uint32(*found.Timeline.NowOffset) //nolint:gosec // Projection is bounded to 0..10000.
+		result.TimelineNowOffset = &nowOffset
+	}
+	for _, gridline := range found.Timeline.Gridlines {
+		result.TimelineGridlines = append(result.TimelineGridlines, &displayv1.DisplayTimelineGridline{
+			Offset: uint32(gridline.Offset), //nolint:gosec // Projection is bounded to 0..10000.
+			Label:  gridline.Label,
+		})
+	}
 	return result
 }
 
