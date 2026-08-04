@@ -2,18 +2,26 @@ Baseline for the realistic capacity soak fixture (issue #195), captured
 before any optimization ticket touches these read paths. Reproduce with:
 
   go test ./internal/server -run '^$' \
-    -bench 'BenchmarkCapacityRealistic' -benchtime=5x -benchmem
+    -bench 'BenchmarkCapacityRealistic' -benchtime=1x -benchmem -count=8
+
+-count=8 is required, not -benchtime=Nx: benchtime controls iterations
+within one sample line, while benchstat needs multiple independent
+sample lines (conventionally 6 or more) to report a confidence
+interval at all.
 
 Compare a later run against this file with benchstat:
 
   go test ./internal/server -run '^$' \
-    -bench 'BenchmarkCapacityRealistic' -benchtime=5x -benchmem \
+    -bench 'BenchmarkCapacityRealistic' -benchtime=1x -benchmem -count=8 \
     | tee internal/server/testdata/capacity_realistic_after.txt
-  benchstat internal/server/testdata/capacity_realistic_baseline.txt \
+  go run golang.org/x/perf/cmd/benchstat@latest \
+    internal/server/testdata/capacity_realistic_baseline.txt \
     internal/server/testdata/capacity_realistic_after.txt
 
-Machine: local development workstation (not a certification runner);
-this baseline is for regression comparison, not a certified objective.
+Machine: local development workstation (not a certification runner),
+under ordinary background load, so variance is high (see benchstat's
+own ± figures); this baseline is for regression comparison on the
+same machine, not a certified objective.
 Fixture: 200 published Sessions across 20 Lanes / 20 Locations / 8
 Tracks, mixed lifecycles (Ended/Live/Canceled/Scheduled), one captured
 Public Schedule Baseline, 30 Displays.
@@ -22,8 +30,29 @@ goos: linux
 goarch: amd64
 pkg: github.com/dotwaffle/beamers/internal/server
 cpu: AMD Ryzen 5 3600 6-Core Processor
-BenchmarkCapacityRealisticPublicScheduleDirect-12                 	       5	 105911248 ns/op	16279259 B/op	  268189 allocs/op
-BenchmarkCapacityRealisticCrewRundownLoad-12                      	       5	   8824174 ns/op	 3116753 B/op	   35522 allocs/op
-BenchmarkCapacityRealisticDisplaySnapshotFanoutAfterPublish-12    	       5	 133979813 ns/op	        30.00 snapshots/op	93439158 B/op	 1093105 allocs/op
+BenchmarkCapacityRealisticPublicScheduleDirect-12                 	       1	 593628949 ns/op	16353920 B/op	  268751 allocs/op
+BenchmarkCapacityRealisticPublicScheduleDirect-12                 	       1	 265480361 ns/op	16285024 B/op	  268141 allocs/op
+BenchmarkCapacityRealisticPublicScheduleDirect-12                 	       1	 123081556 ns/op	16277264 B/op	  268137 allocs/op
+BenchmarkCapacityRealisticPublicScheduleDirect-12                 	       1	 153365379 ns/op	16275008 B/op	  268118 allocs/op
+BenchmarkCapacityRealisticPublicScheduleDirect-12                 	       1	 262515204 ns/op	16269160 B/op	  268058 allocs/op
+BenchmarkCapacityRealisticPublicScheduleDirect-12                 	       1	 436833936 ns/op	16265096 B/op	  268022 allocs/op
+BenchmarkCapacityRealisticPublicScheduleDirect-12                 	       1	 277594036 ns/op	16264616 B/op	  268017 allocs/op
+BenchmarkCapacityRealisticPublicScheduleDirect-12                 	       1	 209760416 ns/op	16268144 B/op	  268054 allocs/op
+BenchmarkCapacityRealisticCrewRundownLoad-12                      	       1	  20701508 ns/op	 3289616 B/op	   36158 allocs/op
+BenchmarkCapacityRealisticCrewRundownLoad-12                      	       1	  13630444 ns/op	 3188336 B/op	   35460 allocs/op
+BenchmarkCapacityRealisticCrewRundownLoad-12                      	       1	  17922011 ns/op	 3199848 B/op	   35470 allocs/op
+BenchmarkCapacityRealisticCrewRundownLoad-12                      	       1	  15772891 ns/op	 3197432 B/op	   35463 allocs/op
+BenchmarkCapacityRealisticCrewRundownLoad-12                      	       1	  36047736 ns/op	 3198904 B/op	   35490 allocs/op
+BenchmarkCapacityRealisticCrewRundownLoad-12                      	       1	  14742049 ns/op	 3189960 B/op	   35476 allocs/op
+BenchmarkCapacityRealisticCrewRundownLoad-12                      	       1	  16611863 ns/op	 3197448 B/op	   35463 allocs/op
+BenchmarkCapacityRealisticCrewRundownLoad-12                      	       1	  34655603 ns/op	 3197440 B/op	   35464 allocs/op
+BenchmarkCapacityRealisticDisplaySnapshotFanoutAfterPublish-12    	       1	 631286142 ns/op	        30.00 snapshots/op	90140128 B/op	 1096774 allocs/op
+BenchmarkCapacityRealisticDisplaySnapshotFanoutAfterPublish-12    	       1	 316093721 ns/op	        30.00 snapshots/op	89410968 B/op	 1094958 allocs/op
+BenchmarkCapacityRealisticDisplaySnapshotFanoutAfterPublish-12    	       1	 265091686 ns/op	        30.00 snapshots/op	89833544 B/op	 1094958 allocs/op
+BenchmarkCapacityRealisticDisplaySnapshotFanoutAfterPublish-12    	       1	 394567789 ns/op	        30.00 snapshots/op	89617288 B/op	 1094835 allocs/op
+BenchmarkCapacityRealisticDisplaySnapshotFanoutAfterPublish-12    	       1	 234696171 ns/op	        30.00 snapshots/op	91405208 B/op	 1095035 allocs/op
+BenchmarkCapacityRealisticDisplaySnapshotFanoutAfterPublish-12    	       1	 291404427 ns/op	        30.00 snapshots/op	90116160 B/op	 1095001 allocs/op
+BenchmarkCapacityRealisticDisplaySnapshotFanoutAfterPublish-12    	       1	 168385390 ns/op	        30.00 snapshots/op	93880848 B/op	 1095484 allocs/op
+BenchmarkCapacityRealisticDisplaySnapshotFanoutAfterPublish-12    	       1	 170089081 ns/op	        30.00 snapshots/op	95597360 B/op	 1095407 allocs/op
 PASS
-ok  	github.com/dotwaffle/beamers/internal/server	3.727s
+ok  	github.com/dotwaffle/beamers/internal/server	46.279s

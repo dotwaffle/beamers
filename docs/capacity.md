@@ -96,7 +96,7 @@ The profiles above calibrate Locations, Lanes, Displays, Crew, and public-reader
 ```sh
 go test ./internal/server -run '^TestRealisticCapacityFixtureBuildsMixedLifecycleSessions$' -v
 go test ./internal/server -run '^$' \
-  -bench 'BenchmarkCapacityRealistic' -benchtime=5x -benchmem
+  -bench 'BenchmarkCapacityRealistic' -benchtime=1x -benchmem -count=8
 ```
 
 Three benchmarks exercise this fixture:
