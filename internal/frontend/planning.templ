@@ -251,7 +251,7 @@ templ planningEditSelect(
 				if option == "" {
 					Unchanged or unambiguous
 				} else {
-					{ option }
+					{ humanizeIdentifier(option) }
 				}
 			</option>
 		}
@@ -269,10 +269,10 @@ templ Planning(page PlanningPage) {
 				@BackstageNavigationViews(page.Navigation)
 				<main id="main-content" tabindex="-1">
 					<h1>Plan and publish</h1>
-					<p>
-						Draft revision { strconv.Itoa(page.CurrentPreview.DraftRevision) }.
-						Published revision { strconv.Itoa(page.CurrentPreview.PublishedRevision) }.
-					</p>
+					<div class="tiles">
+						@Metric("Draft revision", strconv.Itoa(page.CurrentPreview.DraftRevision))
+						@Metric("Published revision", strconv.Itoa(page.CurrentPreview.PublishedRevision))
+					</div>
 					@ErrorSummary(page.Errors)
 					<section>
 						<h2>Published Rundown</h2>
@@ -617,10 +617,10 @@ templ Planning(page PlanningPage) {
 						}
 						if page.PublishPreview != nil {
 							<h3>Confirm publish</h3>
-							<p>
-								Draft revision { strconv.Itoa(page.PublishPreview.DraftRevision) }.
-								Published revision { strconv.Itoa(page.PublishPreview.PublishedRevision) }.
-							</p>
+							<div class="tiles">
+								@Metric("Draft revision", strconv.Itoa(page.PublishPreview.DraftRevision))
+								@Metric("Published revision", strconv.Itoa(page.PublishPreview.PublishedRevision))
+							</div>
 							for _, failure := range page.PublishPreview.ValidationFailures {
 								@ErrorFlash(failure)
 							}
@@ -807,7 +807,10 @@ templ BackstageSessions(page BackstageSessionsPage) {
 					for _, session := range page.Sessions {
 						<article>
 							<h2>{ session.Title }</h2>
-							<p>{ string(session.Type) } · { string(session.Lifecycle) }</p>
+							<p class="cluster">
+								<span>{ humanizeIdentifier(string(session.Type)) }</span>
+								@Badge(lifecycleTone(session.Lifecycle), string(session.Lifecycle))
+							</p>
 							if session.Type == rundown.SessionCompetition {
 								if page.Manage[session.ID] {
 									<a href={ templ.SafeURL(

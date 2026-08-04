@@ -32,6 +32,21 @@ type CompetitionEntriesPage struct {
 	Errors          FormErrors
 }
 
+// entryDispositionTone maps an Entry Disposition onto a badge tone. Pending is
+// deliberately neutral: it is the ordinary condition before a Crew Member has
+// acted, and toning it would leave Included with no remaining emphasis to
+// claim.
+func entryDispositionTone(disposition competition.Disposition) string {
+	switch disposition {
+	case competition.DispositionIncluded:
+		return "success"
+	case competition.DispositionRejected:
+		return "danger"
+	default:
+		return "neutral"
+	}
+}
+
 func WorkflowFieldID(action string, targetID, versionID, windowID int, field string) string {
 	result := action
 	for _, id := range []int{targetID, versionID, windowID} {
@@ -298,7 +313,7 @@ templ workflowSelect(
 	>
 		for _, option := range options {
 			<option value={ option } selected?={ page.value(action, entryID, versionID, 0, field, fallback) == option }>
-				{ option }
+				{ humanizeIdentifier(option) }
 			</option>
 		}
 	</select>
@@ -317,7 +332,7 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 					<h1>Competition Entries and Attachments</h1>
 					<p><a href={ "/backstage/events/" + strconv.Itoa(page.Event.ID) + "/competitions/" + strconv.Itoa(page.State.SessionID) + "/voting" }>Competition Voting</a></p>
 					<p><strong>Submission Deadline:</strong> @EventTime(page.State.SubmissionDeadline, page.Event.Timezone, page.Event.EventLocale)</p>
-					<p><strong>Submission Eligibility:</strong> { string(page.State.EffectiveSubmissionEligibility) }</p>
+					<p><strong>Submission Eligibility:</strong> { humanizeIdentifier(string(page.State.EffectiveSubmissionEligibility)) }</p>
 					<p>Forecast Time is managed independently in Program Control.</p>
 					@ErrorSummary(page.Errors)
 					<section aria-labelledby="start-preflight">
@@ -394,7 +409,7 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 					<section>
 						<h2>Entry order</h2>
 						<p>
-							Policy: { string(page.State.EntryOrder.Policy) }.
+							Policy: { humanizeIdentifier(string(page.State.EntryOrder.Policy)) }.
 							Canonical order:
 							if len(page.State.EntryOrder.EntryIDs) == 0 {
 								{ "none" }
@@ -437,14 +452,14 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 						<p>
 							Current: { page.Program.Channel.Current.Title };
 							Next: { page.Program.Channel.Next.Title };
-							Program revision { strconv.Itoa(page.Program.Channel.Revision) }
+							Program revision <code>{ strconv.Itoa(page.Program.Channel.Revision) }</code>
 						</p>
 					</section>
 					<section>
 						<h2>Attachment Release Policy</h2>
-						<p>Event default: { string(page.Attachments.EventRelease.Policy) }</p>
+						<p>Event default: { humanizeIdentifier(string(page.Attachments.EventRelease.Policy)) }</p>
 						if page.Attachments.CompetitionRelease.Override {
-							<p>Competition override: { string(page.Attachments.CompetitionRelease.Policy) }</p>
+							<p>Competition override: { humanizeIdentifier(string(page.Attachments.CompetitionRelease.Policy)) }</p>
 						} else {
 							<p>Competition override: none</p>
 						}
@@ -495,20 +510,24 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 								<h3>{ entry.Name }</h3>
 								<p>{ entry.PublicDetails }</p>
 								<p><strong>Crew notes:</strong> { entry.CrewNotes }</p>
-								<p>
-									Disposition: { string(entry.Disposition) };
-									revision { strconv.Itoa(entry.Revision) };
-									review current: { strconv.FormatBool(entry.ReviewCurrent) }
+								<p class="cluster">
+									@Badge(entryDispositionTone(entry.Disposition), string(entry.Disposition))
+									if !entry.ReviewCurrent {
+										@Badge("warning", "Review Outdated")
+									}
+									<span>revision <code>{ strconv.Itoa(entry.Revision) }</code></span>
 								</p>
 								if entry.SubmitterAccountID == 0 {
 									<p><strong>Submitter:</strong> Crew Managed</p>
 								} else {
 									<p><strong>Submitter Account:</strong> #{ strconv.Itoa(entry.SubmitterAccountID) }</p>
 								}
-								<p>
-									Presentation: { entry.PresentationStatus };
-									Result: { entry.ResultDisposition };
-									Entry Release Hold: { strconv.FormatBool(entry.ReleaseHold) }
+								<p class="cluster">
+									<span>Presentation: { entry.PresentationStatus }</span>
+									<span>Result: { entry.ResultDisposition }</span>
+									if entry.ReleaseHold {
+										@Badge("warning", "Release Held")
+									}
 								</p>
 								if entry.TechnicalFailureReason != "" {
 									<p><strong>Technical Failure:</strong> { entry.TechnicalFailureReason }</p>
@@ -676,12 +695,18 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 												{ version.OriginalFilename }
 											</a>
 										</p>
-										<p>SHA-256: { version.SHA256 }</p>
-										<p>
-											Final: { strconv.FormatBool(version.Final) };
-											Primary: { strconv.FormatBool(version.Primary) };
-											Release Eligibility: { string(version.ReleaseEligibility) };
-											Release Hold: { strconv.FormatBool(version.ReleaseHold) }
+										<p>SHA-256: <code>{ version.SHA256 }</code></p>
+										<p class="cluster">
+											if version.Final {
+												@Badge("success", "Final")
+											}
+											if version.Primary {
+												@Badge("success", "Primary")
+											}
+											if version.ReleaseHold {
+												@Badge("warning", "Release Held")
+											}
+											<span>Release Eligibility: { humanizeIdentifier(string(version.ReleaseEligibility)) }</span>
 										</p>
 										if page.Producer {
 											<form method="post">
