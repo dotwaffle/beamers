@@ -36,6 +36,30 @@ func loadPublicTimeFacts(
 	return publicTimeFacts(params, baselineStart), nil
 }
 
+// sessionBaselineStarts returns the captured attendee Baseline start per
+// requested Session in one query. Sessions captured before the Baseline
+// existed, or excluded from it, are absent from the result.
+func sessionBaselineStarts(
+	ctx context.Context,
+	client *ent.Client,
+	sessionIDs []int,
+) (map[int]time.Time, error) {
+	if len(sessionIDs) == 0 {
+		return map[int]time.Time{}, nil
+	}
+	entries, err := client.PublicScheduleBaselineEntry.Query().
+		Where(publicschedulebaselineentry.SessionIDIn(sessionIDs...)).
+		All(ctx)
+	if err != nil {
+		return nil, opaqueError("load Public Schedule Baseline entries", err)
+	}
+	result := make(map[int]time.Time, len(entries))
+	for _, entry := range entries {
+		result[entry.SessionID] = entry.ForecastStart
+	}
+	return result, nil
+}
+
 func publicTimeFacts(
 	params publicTimeFactsParams,
 	baselineStart *time.Time,

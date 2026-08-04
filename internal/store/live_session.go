@@ -7,6 +7,7 @@ import (
 	"slices"
 	"time"
 
+	entsql "entgo.io/ent/dialect/sql"
 	"entgo.io/ent/privacy"
 
 	"github.com/dotwaffle/beamers/ent"
@@ -810,4 +811,44 @@ func loadLiveSessionState(
 		state.ActualEnd = &actualEnd
 	}
 	return state, nil
+}
+
+// latestSessionRuns returns the newest Session Run per requested Session in one
+// query, so read paths that project many Sessions never issue a Run lookup per
+// Session. Sessions without a Run are absent from the result.
+func latestSessionRuns(
+	ctx context.Context,
+	client *ent.Client,
+	sessionIDs []int,
+) (map[int]*ent.SessionRun, error) {
+	if len(sessionIDs) == 0 {
+		return map[int]*ent.SessionRun{}, nil
+	}
+	runs, err := client.SessionRun.Query().
+		Where(
+			sessionrun.SessionIDIn(sessionIDs...),
+			latestSessionRun(),
+		).
+		All(ctx)
+	if err != nil {
+		return nil, opaqueError("load current Session Runs", err)
+	}
+	result := make(map[int]*ent.SessionRun, len(runs))
+	for _, run := range runs {
+		result[run.SessionID] = run
+	}
+	return result, nil
+}
+
+func latestSessionRun() func(*entsql.Selector) {
+	return func(selector *entsql.Selector) {
+		candidate := entsql.Table(sessionrun.Table).As("candidate_run")
+		latest := entsql.Select(entsql.Max(candidate.C(sessionrun.FieldID))).
+			From(candidate).
+			Where(entsql.ColumnsEQ(
+				candidate.C(sessionrun.FieldSessionID),
+				selector.C(sessionrun.FieldSessionID),
+			))
+		selector.Where(entsql.EQ(selector.C(sessionrun.FieldID), latest))
+	}
 }
