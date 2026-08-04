@@ -765,24 +765,7 @@ func rejectArtifact(err error) (command.Execution[Artifact], error) {
 	return command.RejectEncoded(Artifact{}, string(encoded), err), nil
 }
 
-// restoreEvaluatedRefusal restores the sentinel behind a refusal the Capability
-// Table committed. The evaluator refuses before this package's application
-// runs, so its receipt carries the shared rejection envelope rather than the
-// Export or Import outcome envelope this package writes for itself.
-func restoreEvaluatedRefusal(encoded string) error {
-	var ignored struct{}
-	err := store.DecodeCommandReceipt(encoded, &ignored)
-	var rejected *store.RejectedCommandError
-	if !errors.As(err, &rejected) {
-		return nil
-	}
-	return interchangeAuthorizationRejections.Restore(err)
-}
-
 func replayExport(encoded string) (Artifact, error) {
-	if refusal := restoreEvaluatedRefusal(encoded); refusal != nil {
-		return Artifact{}, refusal
-	}
 	var outcome exportOutcome
 	if err := json.Unmarshal([]byte(encoded), &outcome); err != nil {
 		return Artifact{}, errors.New("decode Event interchange Export receipt")
@@ -816,9 +799,6 @@ func rejectImport(code string, err error) (command.Execution[ImportResult], erro
 }
 
 func replayImport(encoded string) (ImportResult, error) {
-	if refusal := restoreEvaluatedRefusal(encoded); refusal != nil {
-		return ImportResult{}, refusal
-	}
 	var outcome importOutcome
 	if err := json.Unmarshal([]byte(encoded), &outcome); err != nil {
 		return ImportResult{}, errors.New("decode Event interchange Import receipt")

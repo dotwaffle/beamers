@@ -144,6 +144,10 @@ func Execute[T any](ctx context.Context, plan Plan[T]) (T, error) {
 		return zero, err
 	}
 	if retry {
+		if refusal := plan.replayRefusal(original); refusal != nil {
+			_ = transaction.Rollback()
+			return zero, refusal
+		}
 		value, replayErr := plan.Replay(original)
 		if replayErr != nil {
 			return zero, replayErr
@@ -196,6 +200,28 @@ func Execute[T any](ctx context.Context, plan Plan[T]) (T, error) {
 		}
 	}
 	return execution.value, execution.returnError
+}
+
+// replayRefusal returns the domain error behind a refusal the Capability Table
+// committed for this command, or nil if this plan does not recognize the
+// receipt as one of its own refusals.
+//
+// Execute replays a table refusal rather than the plan, because the plan never
+// saw it: the evaluator refuses before the application runs, so the receipt
+// carries the shared rejection envelope rather than whatever outcome this
+// command records for itself. Without this a retry would decode the envelope as
+// an empty outcome and report success for a command that was refused.
+//
+// A rejection this plan's table does not name is left to the plan, which is the
+// only thing that knows what its own rejection envelopes mean.
+func (plan Plan[T]) replayRefusal(original string) error {
+	var ignored struct{}
+	err := store.DecodeCommandReceipt(original, &ignored)
+	var rejected *store.RejectedCommandError
+	if !errors.As(err, &rejected) {
+		return nil
+	}
+	return plan.Authorization.Refusals.Sentinel(rejected.Rejection.Code)
 }
 
 // authorize applies this command's Capability Table row, inside the transaction
