@@ -5052,10 +5052,11 @@ func TestBrowserOperatesSessionDurably(t *testing.T) {
 		t.Fatalf("browser Start Session = %d %q", started.status, started.body)
 	}
 	page = getFrontendPage(t, operator, server.address, path)
-	if !strings.Contains(page.body, "Live") ||
-		!strings.Contains(page.body, `name="action" value="end-session"`) ||
-		!strings.Contains(page.body, `name="expected_live_state_revision" value="1"`) {
-		t.Fatalf("started browser Session = %d %q", page.status, page.body)
+	startedArticle := frontendSessionArticle(t, page.body, sessionID)
+	if !strings.Contains(startedArticle, "Live") ||
+		!strings.Contains(startedArticle, `name="action" value="end-session"`) ||
+		!strings.Contains(startedArticle, `name="expected_live_state_revision" value="1"`) {
+		t.Fatalf("started browser Session = %d %q", page.status, startedArticle)
 	}
 	stale := postFrontendForm(t, operator, server.address, path, url.Values{
 		"csrf_token":                   {requireFrontendCSRF(t, page)},
@@ -5075,10 +5076,11 @@ func TestBrowserOperatesSessionDurably(t *testing.T) {
 	server.stop(t)
 	server = startBeamersWithPublicListener(t, bin, dataDir)
 	page = getFrontendPage(t, operator, server.address, path)
+	restartedArticle := frontendSessionArticle(t, page.body, sessionID)
 	if page.status != http.StatusOK ||
-		!strings.Contains(page.body, "Opening Keynote") ||
-		!strings.Contains(page.body, "Live") {
-		t.Fatalf("restarted browser Session = %d %q", page.status, page.body)
+		!strings.Contains(restartedArticle, "Opening Keynote") ||
+		!strings.Contains(restartedArticle, "Live") {
+		t.Fatalf("restarted browser Session = %d %q", page.status, restartedArticle)
 	}
 	ended := postFrontendForm(t, operator, server.address, path, url.Values{
 		"csrf_token":                   {requireFrontendCSRF(t, page)},
@@ -7019,7 +7021,7 @@ func TestBrowserManagesCompetitionEntries(t *testing.T) {
 		t.Fatalf("first browser Attachment upload = %d %q", firstUpload.status, firstUpload.body)
 	}
 	page = getFrontendPage(t, administrator, server.address, path)
-	if !strings.Contains(page.body, "Review Outdated") {
+	if !strings.Contains(frontendEntryArticle(t, page.body, 1), "Review Outdated") {
 		t.Fatalf("Attachment replacement did not invalidate Entry review: %q", page.body)
 	}
 	foreignVersion := postFrontendForm(t, administrator, server.address, path, url.Values{
@@ -8170,7 +8172,7 @@ func TestAccountSubmissionsHonorPolicyOwnershipAndReopenWindows(t *testing.T) {
 		t.Fatalf("Account review invalidation = %d %q", invalidated.status, invalidated.body)
 	}
 	entriesPage = getFrontendPage(t, administrator, server.address, entriesPath)
-	if !strings.Contains(entriesPage.body, "Review Outdated") {
+	if !strings.Contains(frontendEntryArticle(t, entriesPage.body, 1), "Review Outdated") {
 		t.Fatalf("Account update retained stale review: %q", entriesPage.body)
 	}
 
@@ -8328,7 +8330,7 @@ func TestAccountSubmissionsHonorPolicyOwnershipAndReopenWindows(t *testing.T) {
 		t.Fatalf("Account upload integrity metadata missing: %q", alexPage.body)
 	}
 	entriesPage = getFrontendPage(t, administrator, server.address, entriesPath)
-	if !strings.Contains(entriesPage.body, "Review Outdated") {
+	if !strings.Contains(frontendEntryArticle(t, entriesPage.body, 1), "Review Outdated") {
 		t.Fatalf("Account upload retained stale review: %q", entriesPage.body)
 	}
 	closedWindow := postFrontendForm(t, administrator, server.address, entriesPath, url.Values{
