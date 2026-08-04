@@ -27,9 +27,10 @@ var (
 
 // SessionTargetPreview is one authoritative target-adjustment preview.
 type SessionTargetPreview struct {
-	Result    sessiontarget.Result
-	Presets   []time.Duration
-	Revisions map[int]int
+	Result          sessiontarget.Result
+	Presets         []time.Duration
+	Revisions       map[int]int
+	AffectedLaneIDs []int
 }
 
 // AdjustSessionTargetParams identifies one confirmed target adjustment.
@@ -217,9 +218,6 @@ func previewSessionTarget(
 	if decodeErr := json.Unmarshal([]byte(run.SnapshotJSON), &snapshot); decodeErr != nil {
 		return SessionTargetPreview{}, opaqueError("decode Adjust Target Run Snapshot", decodeErr)
 	}
-	if scopeErr := requireSessionLaneScope(ctx, eventID, snapshot.LaneIDs); scopeErr != nil {
-		return SessionTargetPreview{}, scopeErr
-	}
 	currentTarget := identity.ForecastEnd
 	if currentTarget.IsZero() {
 		currentTarget = initialForecastEnd(snapshot, run.ActualStart)
@@ -246,14 +244,14 @@ func previewSessionTarget(
 		TimingPolicy: snapshot.TimingPolicy,
 		Presets:      presets, Timing: timing.Sessions,
 	}, adjustment, now)
+	var affectedLaneIDs []int
 	if err == nil {
-		if scopeErr := requireSessionLaneScope(
-			ctx, eventID, timing.affectedLaneIDs(result.Changes),
-		); scopeErr != nil {
-			return SessionTargetPreview{}, scopeErr
-		}
+		affectedLaneIDs = timing.affectedLaneIDs(result.Changes)
 	}
-	return SessionTargetPreview{Result: result, Presets: presets, Revisions: timing.Revisions}, err
+	return SessionTargetPreview{
+		Result: result, Presets: presets, Revisions: timing.Revisions,
+		AffectedLaneIDs: affectedLaneIDs,
+	}, err
 }
 
 func initialForecastEnd(snapshot SessionRunSnapshot, actualStart time.Time) time.Time {

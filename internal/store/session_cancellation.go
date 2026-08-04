@@ -47,9 +47,6 @@ func (transaction *CommandTx) CancelSession(
 	if err != nil {
 		return LiveSessionState{}, opaqueError("load Session for cancellation", err)
 	}
-	if scopeErr := requireSessionControlScope(ctx, identity); scopeErr != nil {
-		return LiveSessionState{}, scopeErr
-	}
 	if identity.LiveStateRevision != params.ExpectedLiveStateRevision {
 		return liveSessionState(ctx, transaction.transaction.SessionRun, identity)
 	}

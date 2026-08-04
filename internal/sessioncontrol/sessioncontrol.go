@@ -533,7 +533,14 @@ func (service *Service) AdjustTarget(
 		Authorization: command.Authorization{
 			EventID: input.EventID,
 			LoadFacts: func(ctx context.Context, transaction *store.CommandTx) (authz.Facts, error) {
-				return transaction.LiveSessionLaneScope(ctx, input.EventID, input.SessionID)
+				return transaction.AdjustSessionTargetLaneScope(
+					ctx, input.EventID, input.SessionID,
+					sessiontarget.Adjustment{
+						Duration: input.Adjustment.Duration,
+						Preset:   input.Adjustment.Preset,
+					},
+					identity.Now,
+				)
 			},
 			Refusals: sessionAuthorizationRejections,
 		},
@@ -627,14 +634,10 @@ func (service *Service) PullForward(
 		Storage: service.storage, Identity: identity, Notify: service.notifyLive,
 		Authorization: command.Authorization{
 			EventID: input.EventID,
-			// D14: the imperative guard is judged against the Lanes of every
-			// Session the timing ripple moves, which are known only once the
-			// ripple has been computed, and not against the anchor Session's
-			// own Lanes. The table states the anchor here, which is narrower
-			// than the rippled set, so the guard still decides the wider
-			// question until that discrepancy is resolved.
+			// The full ripple-Lanes semantics this row is judged against live
+			// in PullForwardLaneScope's doc comment.
 			LoadFacts: func(ctx context.Context, transaction *store.CommandTx) (authz.Facts, error) {
-				return transaction.SessionLaneScope(ctx, input.EventID, input.SessionID)
+				return transaction.PullForwardLaneScope(ctx, input.EventID, input.SessionID)
 			},
 			Refusals: sessionAuthorizationRejections,
 		},
