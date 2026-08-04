@@ -710,12 +710,23 @@ func runServe(
 		false,
 		"allow SceneID to create Accounts while registration is open",
 	)
+	logLevel := flags.String(
+		"log-level",
+		"info",
+		"log verbosity (debug, info, warn, error); SIGHUP toggles debug logging",
+	)
 	if err := flags.Parse(args); err != nil {
 		return fail(err)
 	}
 	if flags.NArg() != 0 {
 		return fail(errors.New("serve accepts no positional arguments"))
 	}
+	configuredLevel, err := parseLogLevel(*logLevel)
+	if err != nil {
+		return fail(err)
+	}
+	var level slog.LevelVar
+	level.Set(configuredLevel)
 	sceneID, err := loadSceneIDConfig(
 		*sceneIDClientID,
 		*sceneIDClientSecretFile,
@@ -731,6 +742,7 @@ func runServe(
 		Stderr:         stderr,
 		SampleRatio:    *sampleRatio,
 		ExportTimeout:  *exportTimeout,
+		Level:          &level,
 	})
 	if err != nil {
 		return fail(err)
@@ -741,6 +753,8 @@ func runServe(
 		defer cancel()
 		_ = telemetryRuntime.Shutdown(shutdownContext)
 	}()
+	stopLevelToggle := watchLogLevelSIGHUP(ctx, &level, configuredLevel, logger)
+	defer stopLevelToggle()
 	err = server.Run(ctx, server.Config{
 		DataDir:         *dataDir,
 		AttachmentsDir:  *attachmentsDir,
@@ -766,6 +780,66 @@ func runServe(
 		return fail(err)
 	}
 	return 0
+}
+
+func parseLogLevel(value string) (slog.Level, error) {
+	switch strings.ToLower(value) {
+	case "debug":
+		return slog.LevelDebug, nil
+	case "info":
+		return slog.LevelInfo, nil
+	case "warn":
+		return slog.LevelWarn, nil
+	case "error":
+		return slog.LevelError, nil
+	default:
+		return 0, fmt.Errorf("log level %q must be debug, info, warn, or error", value)
+	}
+}
+
+// watchLogLevelSIGHUP toggles the running log level between configuredLevel
+// and slog.LevelDebug each time the process receives SIGHUP, so an
+// operator can raise verbosity mid-show without restarting the process
+// feeding stage screens, then lower it again with a second SIGHUP. The
+// returned stop function releases the signal handler; call it once the
+// caller no longer wants toggling to occur.
+func watchLogLevelSIGHUP(
+	ctx context.Context,
+	level *slog.LevelVar,
+	configuredLevel slog.Level,
+	logger *slog.Logger,
+) func() {
+	watchContext, cancel := context.WithCancel(ctx)
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, syscall.SIGHUP)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		debug := false
+		for {
+			select {
+			case <-watchContext.Done():
+				return
+			case <-signals:
+				debug = !debug
+				if debug {
+					level.Set(slog.LevelDebug)
+				} else {
+					level.Set(configuredLevel)
+				}
+				logger.Info(
+					"log level toggled",
+					"component", "logging",
+					"status", level.Level().String(),
+				)
+			}
+		}
+	}()
+	return func() {
+		cancel()
+		signal.Stop(signals)
+		<-done
+	}
 }
 
 func loadSceneIDConfig(

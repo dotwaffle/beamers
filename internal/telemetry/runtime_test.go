@@ -144,6 +144,27 @@ func TestBoundedLogAttributeDropsUnknownKeys(t *testing.T) {
 	}
 }
 
+func TestRuntimeLevelVarGatesStderrAtRuntime(t *testing.T) {
+	var level slog.LevelVar
+	level.Set(slog.LevelInfo)
+	var stderr bytes.Buffer
+	runtime, err := New(t.Context(), Config{
+		Stderr: &stderr, Level: &level,
+	})
+	if err != nil {
+		t.Fatalf("create telemetry runtime: %v", err)
+	}
+	runtime.Logger().Debug("hidden below Info", "component", "test")
+	if strings.Contains(stderr.String(), "hidden below Info") {
+		t.Fatalf("debug log unexpectedly emitted at Info level: %q", stderr.String())
+	}
+	level.Set(slog.LevelDebug)
+	runtime.Logger().Debug("visible after SIGHUP-style toggle", "component", "test")
+	if !strings.Contains(stderr.String(), "visible after SIGHUP-style toggle") {
+		t.Fatalf("debug log unexpectedly suppressed after raising level: %q", stderr.String())
+	}
+}
+
 func TestRuntimeRejectsUnsafeEndpoint(t *testing.T) {
 	for _, endpoint := range []string{
 		"collector.example.test",

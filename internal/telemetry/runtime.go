@@ -41,6 +41,9 @@ type Config struct {
 	Stderr         io.Writer
 	SampleRatio    float64
 	ExportTimeout  time.Duration
+	// Level gates both the stderr and OTLP-exported log sinks. A nil Level
+	// keeps the historical fixed slog.LevelInfo behavior.
+	Level *slog.LevelVar
 }
 
 // Runtime supplies one stderr-first logger and shared signal providers.
@@ -61,7 +64,11 @@ func New(ctx context.Context, config Config) (*Runtime, error) {
 	if config.Stderr == nil {
 		return nil, errors.New("telemetry stderr is required")
 	}
-	stderrHandler := slog.NewJSONHandler(config.Stderr, nil)
+	level := config.Level
+	if level == nil {
+		level = &slog.LevelVar{}
+	}
+	stderrHandler := slog.NewJSONHandler(config.Stderr, &slog.HandlerOptions{Level: level})
 	if config.Endpoint == "" {
 		return &Runtime{
 			logger:         slog.New(stderrHandler),
@@ -151,10 +158,13 @@ func New(ctx context.Context, config Config) (*Runtime, error) {
 	return &Runtime{
 		logger: slog.New(slog.NewMultiHandler(
 			stderrHandler,
-			boundedLogHandler{next: otelslog.NewHandler(
-				"github.com/dotwaffle/beamers",
-				otelslog.WithLoggerProvider(logProvider),
-			)},
+			boundedLogHandler{
+				level: level,
+				next: otelslog.NewHandler(
+					"github.com/dotwaffle/beamers",
+					otelslog.WithLoggerProvider(logProvider),
+				),
+			},
 		)),
 		tracerProvider:  traceProvider,
 		meterProvider:   metricProvider,
@@ -233,10 +243,14 @@ func signalEndpoints(raw string) (endpoints, error) {
 }
 
 type boundedLogHandler struct {
-	next slog.Handler
+	next  slog.Handler
+	level slog.Leveler
 }
 
 func (handler boundedLogHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	if handler.level != nil && level < handler.level.Level() {
+		return false
+	}
 	return handler.next.Enabled(ctx, level)
 }
 
@@ -258,7 +272,7 @@ func (handler boundedLogHandler) WithAttrs(attributes []slog.Attr) slog.Handler 
 			filtered = append(filtered, bounded)
 		}
 	}
-	return boundedLogHandler{next: handler.next.WithAttrs(filtered)}
+	return boundedLogHandler{next: handler.next.WithAttrs(filtered), level: handler.level}
 }
 
 func (handler boundedLogHandler) WithGroup(string) slog.Handler {
