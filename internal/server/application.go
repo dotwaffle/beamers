@@ -635,6 +635,12 @@ func (application *application) buildHandler(
 		application.config.Logger,
 		application.config.ListenerAddress,
 	)
+	registerPprofRoutes(
+		mux,
+		installation.Authentication(),
+		application.config.Logger,
+		application.config.ListenerAddress,
+	)
 	authenticationLimiter := newAuthFailureLimiter(time.Now, application.config.Logger)
 	registerAuthenticationRoutes(
 		mux,
