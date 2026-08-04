@@ -64,7 +64,7 @@ func ValidColumn(column string) bool {
 //
 //	import _ "github.com/dotwaffle/beamers/ent/runtime"
 var (
-	Hooks  [1]ent.Hook
+	Hooks  [2]ent.Hook
 	Policy ent.Policy
 	// PublishedRevisionValidator is a validator for the "published_revision" field. It is called by the builders before save.
 	PublishedRevisionValidator func(int) error

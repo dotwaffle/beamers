@@ -1756,9 +1756,12 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	lanepublishedversionMixinHooks1 := lanepublishedversionMixin[1].Hooks()
 	lanepublishedversionHooks := schema.LanePublishedVersion{}.Hooks()
 
-	lanepublishedversion.Hooks[1] = lanepublishedversionHooks[0]
+	lanepublishedversion.Hooks[1] = lanepublishedversionMixinHooks1[0]
+
+	lanepublishedversion.Hooks[2] = lanepublishedversionHooks[0]
 	lanepublishedversionFields := schema.LanePublishedVersion{}.Fields()
 	_ = lanepublishedversionFields
 	// lanepublishedversionDescPublishedRevision is the schema descriptor for published_revision field.
@@ -1851,6 +1854,9 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	locationpublishedversionMixinHooks1 := locationpublishedversionMixin[1].Hooks()
+
+	locationpublishedversion.Hooks[1] = locationpublishedversionMixinHooks1[0]
 	locationpublishedversionFields := schema.LocationPublishedVersion{}.Fields()
 	_ = locationpublishedversionFields
 	// locationpublishedversionDescPublishedRevision is the schema descriptor for published_revision field.
@@ -2223,6 +2229,9 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	resultscorrectionMixinHooks1 := resultscorrectionMixin[1].Hooks()
+
+	resultscorrection.Hooks[1] = resultscorrectionMixinHooks1[0]
 	resultscorrectionFields := schema.ResultsCorrection{}.Fields()
 	_ = resultscorrectionFields
 	// resultscorrectionDescScopeSessionID is the schema descriptor for scope_session_id field.
@@ -2285,6 +2294,9 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	resultspublicationMixinHooks1 := resultspublicationMixin[1].Hooks()
+
+	resultspublication.Hooks[1] = resultspublicationMixinHooks1[0]
 	resultspublicationFields := schema.ResultsPublication{}.Fields()
 	_ = resultspublicationFields
 	// resultspublicationDescScopeSessionID is the schema descriptor for scope_session_id field.
@@ -2520,9 +2532,12 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	sessionpublishedversionMixinHooks1 := sessionpublishedversionMixin[1].Hooks()
 	sessionpublishedversionHooks := schema.SessionPublishedVersion{}.Hooks()
 
-	sessionpublishedversion.Hooks[1] = sessionpublishedversionHooks[0]
+	sessionpublishedversion.Hooks[1] = sessionpublishedversionMixinHooks1[0]
+
+	sessionpublishedversion.Hooks[2] = sessionpublishedversionHooks[0]
 	sessionpublishedversionFields := schema.SessionPublishedVersion{}.Fields()
 	_ = sessionpublishedversionFields
 	// sessionpublishedversionDescPublishedRevision is the schema descriptor for published_revision field.
@@ -2675,6 +2690,9 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
+	trackpublishedversionMixinHooks1 := trackpublishedversionMixin[1].Hooks()
+
+	trackpublishedversion.Hooks[1] = trackpublishedversionMixinHooks1[0]
 	trackpublishedversionFields := schema.TrackPublishedVersion{}.Fields()
 	_ = trackpublishedversionFields
 	// trackpublishedversionDescPublishedRevision is the schema descriptor for published_revision field.

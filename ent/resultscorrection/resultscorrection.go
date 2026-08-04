@@ -92,7 +92,7 @@ func ValidColumn(column string) bool {
 //
 //	import _ "github.com/dotwaffle/beamers/ent/runtime"
 var (
-	Hooks  [1]ent.Hook
+	Hooks  [2]ent.Hook
 	Policy ent.Policy
 	// ScopeSessionIDValidator is a validator for the "scope_session_id" field. It is called by the builders before save.
 	ScopeSessionIDValidator func(int) error

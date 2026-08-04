@@ -16,9 +16,10 @@ type ResultsCorrection struct {
 	ent.Schema
 }
 
-// Mixin applies the fail-closed authorization tripwire to ResultsCorrection.
+// Mixin applies the fail-closed authorization tripwire and the append-only
+// invariant to ResultsCorrection.
 func (ResultsCorrection) Mixin() []ent.Mixin {
-	return []ent.Mixin{AuthorizationTripwire{}}
+	return []ent.Mixin{AuthorizationTripwire{}, AppendOnly{}}
 }
 
 // Fields define one immutable correction lifecycle revision.
