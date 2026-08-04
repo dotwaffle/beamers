@@ -254,6 +254,7 @@ func Run(ctx context.Context, config Config) error {
 	)
 
 	serveResult := make(chan error, 2)
+	serving := 1
 	go func() {
 		if config.TLSCertificate != "" {
 			serveResult <- httpServer.ServeTLS(
@@ -272,6 +273,7 @@ func Run(ctx context.Context, config Config) error {
 			"mode", mode,
 			"scheme", "http",
 		)
+		serving++
 		go func() {
 			serveResult <- publicServer.Serve(publicListener)
 		}()
@@ -306,10 +308,15 @@ func Run(ctx context.Context, config Config) error {
 		if replicationSync != nil {
 			replicationErr = replicationSync(closeContext)
 		}
+		closeErr := errors.Join(httpServer.Close(), closeHTTPServer(publicServer))
 		return errors.Join(
 			normalizeServeError(err),
-			httpServer.Close(),
-			closeHTTPServer(publicServer),
+			closeErr,
+			drainServeResults(closeContext, drainInput{
+				logger:  config.Logger,
+				results: serveResult,
+				count:   serving - 1,
+			}),
 			replicationErr,
 			application.Close(),
 		)
@@ -396,7 +403,11 @@ func Run(ctx context.Context, config Config) error {
 				)
 			},
 		)
-		serveErr := normalizeServeError(<-serveResult)
+		serveErr := drainServeResults(shutdownContext, drainInput{
+			logger:  config.Logger,
+			results: serveResult,
+			count:   serving,
+		})
 		finalErr := errors.Join(shutdownErr, serveErr)
 		logShutdown(
 			config.Logger,
@@ -691,6 +702,42 @@ func probeMethodAllowed(response http.ResponseWriter, request *http.Request) boo
 func setProbeHeaders(response http.ResponseWriter) {
 	response.Header().Set("Cache-Control", "no-store")
 	response.Header().Set("Content-Type", "text/plain; charset=utf-8")
+}
+
+type drainInput struct {
+	logger  *slog.Logger
+	results <-chan error
+	count   int
+}
+
+// drainServeResults collects the result of every serve goroutine. A listener
+// that stopped for its own reason, rather than because shutdown closed it, is
+// reported instead of being left unread behind the first result.
+func drainServeResults(ctx context.Context, input drainInput) error {
+	var found error
+	for range input.count {
+		select {
+		case result := <-input.results:
+			err := normalizeServeError(result)
+			if err == nil {
+				continue
+			}
+			input.logger.ErrorContext(
+				ctx,
+				"server stopped serving",
+				slog.String("component", "server"),
+				slog.String("error", err.Error()),
+			)
+			found = errors.Join(found, err)
+		case <-ctx.Done():
+			input.logger.Warn(
+				"server shutdown ended before every listener stopped",
+				slog.String("component", "server"),
+			)
+			return found
+		}
+	}
+	return found
 }
 
 func normalizeServeError(err error) error {
