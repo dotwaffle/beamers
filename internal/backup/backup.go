@@ -223,7 +223,52 @@ func CreateWithStorage(
 	if err := installArchive(stagedArchive, input.OutputPath, syncDirectory); err != nil {
 		return Manifest{}, err
 	}
+	if err := recordCompletion(input.DataDir, manifest.CreatedAt); err != nil {
+		return Manifest{}, err
+	}
 	return manifest, nil
+}
+
+// completionMarkerName holds the timestamp of the most recently completed
+// Backup, so diagnostics can report Backup age without scanning for
+// archives (which may live outside DataDir, or be rotated away).
+const completionMarkerName = ".beamers-last-backup"
+
+// recordCompletion best-effort records that a Backup completed at
+// completedAt. A caller without a DataDir (CreateWithStorage may run
+// against an installation opened without one) has nowhere durable to
+// record completion, so it is skipped rather than treated as an error.
+func recordCompletion(dataDir string, completedAt time.Time) error {
+	if dataDir == "" {
+		return nil
+	}
+	marker := filepath.Join(dataDir, completionMarkerName)
+	content := completedAt.UTC().Format(time.RFC3339Nano) + "\n"
+	if err := os.WriteFile(marker, []byte(content), 0o600); err != nil {
+		return fmt.Errorf("record Backup completion marker: %w", err)
+	}
+	return nil
+}
+
+// LastCompletedAt reports when the most recent Backup completed for the
+// installation at dataDir. The second return value is false when no
+// Backup has completed since the marker was introduced.
+func LastCompletedAt(dataDir string) (time.Time, bool, error) {
+	if dataDir == "" {
+		return time.Time{}, false, nil
+	}
+	content, err := os.ReadFile(filepath.Join(dataDir, completionMarkerName)) //nolint:gosec // Fixed marker name under the configured data directory.
+	if errors.Is(err, os.ErrNotExist) {
+		return time.Time{}, false, nil
+	}
+	if err != nil {
+		return time.Time{}, false, fmt.Errorf("read Backup completion marker: %w", err)
+	}
+	completedAt, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(string(content)))
+	if err != nil {
+		return time.Time{}, false, fmt.Errorf("parse Backup completion marker: %w", err)
+	}
+	return completedAt, true, nil
 }
 
 func installArchive(staged, output string, syncParent func(string) error) error {

@@ -160,6 +160,43 @@ func TestSanitizedBackupIncludesConfiguredAttachmentsAndRemovesCredentials(t *te
 	}
 }
 
+func TestCreateRecordsCompletionMarkerForDiagnosticsAge(t *testing.T) {
+	ctx := t.Context()
+	dataDir := filepath.Join(t.TempDir(), "installation")
+	if err := store.Initialize(ctx, dataDir); err != nil {
+		t.Fatalf("initialize installation: %v", err)
+	}
+	if _, _, err := LastCompletedAt(dataDir); err != nil {
+		t.Fatalf("LastCompletedAt before any Backup: %v", err)
+	}
+	if _, found, err := LastCompletedAt(dataDir); err != nil || found {
+		t.Fatalf("LastCompletedAt before any Backup = (found %v, err %v), want (false, nil)", found, err)
+	}
+
+	completedAt := time.Date(2026, 8, 4, 9, 0, 0, 0, time.UTC)
+	archivePath := filepath.Join(t.TempDir(), "backup.zip")
+	if _, err := Create(ctx, CreateInput{
+		DataDir:       dataDir,
+		OutputPath:    archivePath,
+		Mode:          Sanitized,
+		Now:           completedAt,
+		Configuration: testConfiguration(t, dataDir, ""),
+	}); err != nil {
+		t.Fatalf("create Backup: %v", err)
+	}
+
+	found, ok, err := LastCompletedAt(dataDir)
+	if err != nil {
+		t.Fatalf("LastCompletedAt after Backup: %v", err)
+	}
+	if !ok {
+		t.Fatal("LastCompletedAt after Backup unexpectedly reported no completion")
+	}
+	if !found.Equal(completedAt) {
+		t.Fatalf("Backup completion time = %s, want %s", found, completedAt)
+	}
+}
+
 func TestInstallArchiveSyncsPublishedFilenameBeforeSuccess(t *testing.T) {
 	directory := t.TempDir()
 	staged := filepath.Join(directory, "staged")
