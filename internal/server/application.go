@@ -635,7 +635,7 @@ func (application *application) buildHandler(
 		application.config.Logger,
 		application.config.ListenerAddress,
 	)
-	authenticationLimiter := newAuthFailureLimiter(time.Now)
+	authenticationLimiter := newAuthFailureLimiter(time.Now, application.config.Logger)
 	registerAuthenticationRoutes(
 		mux,
 		installation.Authentication(),

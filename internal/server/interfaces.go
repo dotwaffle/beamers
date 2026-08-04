@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"log/slog"
 	"mime"
 	"net"
 	"net/http"
@@ -34,6 +35,7 @@ const (
 )
 
 type interfacePolicy struct {
+	logger               *slog.Logger
 	listenerAddress      net.Addr
 	trustedProxies       []netip.Prefix
 	allowInsecureCrew    bool
@@ -150,7 +152,7 @@ func protectInterfaces(
 	next routeHandler,
 	policy interfacePolicy,
 ) http.Handler {
-	recoveryLimiter := newAuthFailureLimiter(time.Now)
+	recoveryLimiter := newAuthFailureLimiter(time.Now, policy.logger)
 	return http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 		peer := remoteAddress(request.RemoteAddr)
 		trustedPeer := addressInPrefixes(peer, policy.trustedProxies)

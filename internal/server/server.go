@@ -201,6 +201,7 @@ func Run(ctx context.Context, config Config) error {
 		}
 	}
 	privateHandler := protectInterfaces(application, interfacePolicy{
+		logger:          config.Logger,
 		listenerAddress: listener.Addr(), trustedProxies: config.TrustedProxies,
 		allowInsecureCrew: config.InsecureCrew, allowInsecureDisplay: config.InsecureDisplay,
 		demo: config.Demo,
@@ -215,6 +216,7 @@ func Run(ctx context.Context, config Config) error {
 	if publicListener != nil {
 		publicServer = &http.Server{
 			Handler: protectInterfaces(application, interfacePolicy{
+				logger:          config.Logger,
 				listenerAddress: publicListener.Addr(),
 				trustedProxies:  config.TrustedProxies,
 				publicOnly:      true,

@@ -3,6 +3,7 @@ package server
 import (
 	"crypto/sha256"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"sync"
@@ -14,6 +15,10 @@ const (
 	principalFailureLimit = 5
 	clientFailureLimit    = 20
 	maxAuthFailureEntries = 10_000
+	// authSaturationWarnInterval bounds how often saturation is reported. A
+	// saturated limiter denies principals it has never seen, which operators
+	// must hear about without the log itself becoming the flood.
+	authSaturationWarnInterval = time.Minute
 )
 
 type authFailureKey struct {
@@ -29,12 +34,21 @@ type authFailureState struct {
 type authFailureLimiter struct {
 	mutex     sync.Mutex
 	now       func() time.Time
+	logger    *slog.Logger
 	failures  map[string]authFailureState
 	lastPrune time.Time
+	warnedAt  time.Time
 }
 
-func newAuthFailureLimiter(now func() time.Time) *authFailureLimiter {
-	return &authFailureLimiter{now: now, failures: make(map[string]authFailureState)}
+func newAuthFailureLimiter(now func() time.Time, logger *slog.Logger) *authFailureLimiter {
+	if logger == nil {
+		logger = slog.New(slog.DiscardHandler)
+	}
+	return &authFailureLimiter{
+		now:      now,
+		logger:   logger,
+		failures: make(map[string]authFailureState),
+	}
 }
 
 func (limiter *authFailureLimiter) reserve(keys ...authFailureKey) (time.Duration, bool) {
@@ -46,17 +60,55 @@ func (limiter *authFailureLimiter) reserve(keys ...authFailureKey) (time.Duratio
 	if retryAfter, blocked := limiter.blockedLocked(now, keys...); blocked {
 		return retryAfter, true
 	}
+	if !limiter.roomForLocked(now, keys...) {
+		limiter.warnSaturatedLocked(now)
+		return authFailureWindow, true
+	}
+	limiter.recordLocked(now, keys...)
+	return 0, false
+}
+
+// roomForLocked reports whether the requested keys fit. Entries whose window
+// has elapsed are evicted first, so a principal the limiter has never seen is
+// only denied once the live entries alone fill the table.
+func (limiter *authFailureLimiter) roomForLocked(
+	now time.Time,
+	keys ...authFailureKey,
+) bool {
+	if limiter.fitsLocked(keys...) {
+		return true
+	}
+	if limiter.lastPrune.Equal(now) {
+		// The periodic sweep already ran for this instant. Scanning the whole
+		// table again would only hand an attacker a second pass to pay for.
+		return false
+	}
+	limiter.evictExpiredLocked(now)
+	return limiter.fitsLocked(keys...)
+}
+
+func (limiter *authFailureLimiter) fitsLocked(keys ...authFailureKey) bool {
 	newKeys := 0
 	for _, key := range keys {
 		if _, found := limiter.failures[key.value]; !found {
 			newKeys++
 		}
 	}
-	if len(limiter.failures)+newKeys > maxAuthFailureEntries {
-		return authFailureWindow, true
+	return len(limiter.failures)+newKeys <= maxAuthFailureEntries
+}
+
+func (limiter *authFailureLimiter) warnSaturatedLocked(now time.Time) {
+	if !limiter.warnedAt.IsZero() &&
+		now.Sub(limiter.warnedAt) < authSaturationWarnInterval {
+		return
 	}
-	limiter.recordLocked(now, keys...)
-	return 0, false
+	limiter.warnedAt = now
+	limiter.logger.Warn(
+		"authentication failure limiter saturated; unseen principals are being denied",
+		slog.String("component", "auth"),
+		slog.Int("entries", len(limiter.failures)),
+		slog.Int("capacity", maxAuthFailureEntries),
+	)
 }
 
 func (limiter *authFailureLimiter) blockedLocked(
@@ -127,6 +179,10 @@ func (limiter *authFailureLimiter) prune(now time.Time) {
 		now.Sub(limiter.lastPrune) < time.Minute {
 		return
 	}
+	limiter.evictExpiredLocked(now)
+}
+
+func (limiter *authFailureLimiter) evictExpiredLocked(now time.Time) {
 	for key, state := range limiter.failures {
 		if !now.Before(state.started.Add(authFailureWindow)) {
 			delete(limiter.failures, key)

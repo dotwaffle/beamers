@@ -49,7 +49,7 @@ func registerDisplayRoutes(
 		authentication: authentication, service: service, stream: stream, logger: logger,
 		allowPlaintextDisplay: listenerIsLoopback(listenerAddress),
 		buildVersion:          buildVersion,
-		enrollmentLimiter:     newAuthFailureLimiter(time.Now),
+		enrollmentLimiter:     newAuthFailureLimiter(time.Now, logger),
 		invalidations:         &displayInvalidationCache{},
 	}
 	mux.HandleFunc(
