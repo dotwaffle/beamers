@@ -285,7 +285,7 @@ func TestEvaluateAppliesTargetDemandedCapabilities(t *testing.T) {
 func assertRefusal(t *testing.T, err error, wantCode string) {
 	t.Helper()
 
-	var refusal *authz.Refusal
+	var refusal *authz.RefusalError
 	switch {
 	case wantCode == "" && err != nil:
 		t.Fatalf("Evaluate = %v, want admitted", err)

@@ -248,7 +248,7 @@ func (plan Plan[T]) authorize(
 	if evaluation == nil {
 		return false, nil
 	}
-	var refusal *authz.Refusal
+	var refusal *authz.RefusalError
 	if !errors.As(evaluation, &refusal) {
 		return true, evaluation
 	}

@@ -3,6 +3,7 @@ package authz
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
@@ -22,9 +23,9 @@ var (
 	ErrUndeclaredDemand = errors.New("command demanded a Capability its Capability Table row does not declare")
 )
 
-// Refusal is one authorization refusal the Capability Table produced. Code is
+// RefusalError is one authorization refusal the Capability Table produced. Code is
 // the durable rejection code recorded in the Command Receipt.
-type Refusal struct {
+type RefusalError struct {
 	Action     string
 	Capability Capability
 	Code       string
@@ -32,7 +33,7 @@ type Refusal struct {
 
 // Error describes the refusal for logs and for callers that do not translate it
 // into a domain sentinel.
-func (refusal *Refusal) Error() string {
+func (refusal *RefusalError) Error() string {
 	if refusal.Capability == "" {
 		return fmt.Sprintf("%s refused: out of scope", refusal.Action)
 	}
@@ -55,7 +56,7 @@ type Request struct {
 
 // Evaluate applies the Capability Table row for request.Action.
 //
-// It returns nil when the action is admitted, a *Refusal when the table refuses
+// It returns nil when the action is admitted, a *RefusalError when the table refuses
 // it, and one of the package sentinels when the declaration itself is wrong. It
 // never returns nil for a question it could not answer.
 func Evaluate(request Request) error {
@@ -72,7 +73,7 @@ func Evaluate(request Request) error {
 		)
 	}
 	for _, demanded := range request.Facts.demanded {
-		if !containsCapability(row.TargetCapabilities, demanded) {
+		if !slices.Contains(row.TargetCapabilities, demanded) {
 			return fmt.Errorf("%w: %s demanded %s", ErrUndeclaredDemand, request.Action, demanded)
 		}
 	}
@@ -85,17 +86,17 @@ func Evaluate(request Request) error {
 		if len(required) == 0 {
 			return nil
 		}
-		return &Refusal{Action: request.Action, Capability: required[0], Code: row.Code}
+		return &RefusalError{Action: request.Action, Capability: required[0], Code: row.Code}
 	}
 	for _, capability := range required {
 		if !holds(request.Identity, request.Facts.eventID, capability) {
-			return &Refusal{Action: request.Action, Capability: capability, Code: row.Code}
+			return &RefusalError{Action: request.Action, Capability: capability, Code: row.Code}
 		}
 	}
 	if inScope(request.Identity, request.Facts) {
 		return nil
 	}
-	return &Refusal{Action: request.Action, Code: row.ScopeCode}
+	return &RefusalError{Action: request.Action, Code: row.ScopeCode}
 }
 
 // inScope applies the row's scope dimension to the facts the plan loaded. Each
@@ -150,13 +151,4 @@ func inScope(identity viewer.Identity, facts Facts) bool {
 	default:
 		return false
 	}
-}
-
-func containsCapability(known []Capability, wanted Capability) bool {
-	for _, capability := range known {
-		if capability == wanted {
-			return true
-		}
-	}
-	return false
 }

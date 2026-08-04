@@ -54,11 +54,11 @@ func TestEveryCommandPlanDeclaresItsAuthorization(t *testing.T) {
 			}
 			relative := relativePath(t, root, path)
 			ast.Inspect(parsed, func(node ast.Node) bool {
-				if !isCommandPlan(node) {
+				literal, isPlan := commandPlan(node)
+				if !isPlan {
 					return true
 				}
 				plans++
-				literal := node.(*ast.CompositeLit)
 				if hasField(literal, "Authorization") {
 					return true
 				}
@@ -132,17 +132,17 @@ func scanCallSites(t *testing.T, function string) []string {
 	return found
 }
 
-// isCommandPlan reports whether the node is a command.Plan composite literal.
-func isCommandPlan(node ast.Node) bool {
+// commandPlan returns the node as a command.Plan composite literal.
+func commandPlan(node ast.Node) (*ast.CompositeLit, bool) {
 	literal, isLiteral := node.(*ast.CompositeLit)
 	if !isLiteral {
-		return false
+		return nil, false
 	}
 	index, isIndex := literal.Type.(*ast.IndexExpr)
 	if !isIndex {
-		return false
+		return nil, false
 	}
-	return isPackageSelector(index.X, "command", "Plan")
+	return literal, isPackageSelector(index.X, "command", "Plan")
 }
 
 func isPackageSelector(expr ast.Expr, pkg, name string) bool {
