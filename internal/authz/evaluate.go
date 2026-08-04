@@ -88,15 +88,73 @@ func Evaluate(request Request) error {
 		}
 		return &RefusalError{Action: request.Action, Capability: required[0], Code: row.Code}
 	}
-	for _, capability := range required {
-		if !holds(request.Identity, request.Facts.eventID, capability) {
-			return &RefusalError{Action: request.Action, Capability: capability, Code: row.Code}
-		}
+	if refusal := requireCapabilities(request, row, required, request.Facts.eventID); refusal != nil {
+		return refusal
 	}
 	if inScope(request.Identity, request.Facts) {
 		return nil
 	}
 	return &RefusalError{Action: request.Action, Code: row.ScopeCode}
+}
+
+// CapabilityRequest is the capability half of an authorization question, asked
+// before the command's target has been loaded.
+type CapabilityRequest struct {
+	// Identity is the authenticated Crew Member acting, when there is one.
+	Identity viewer.Identity
+	// Authenticated distinguishes an absent identity from a zero one.
+	Authenticated bool
+	// Action is the name recorded in the Command Receipt.
+	Action string
+	// EventID is the Event the command names, which is known from its input
+	// before anything is loaded.
+	EventID int
+}
+
+// EvaluateCapabilities applies only the unconditional Capabilities of an
+// action's row, without its scope.
+//
+// A command whose scope facts come from its target has to look that target up
+// before the table can judge its scope. Asking the capability question first
+// keeps the order the imperative checks have today: an actor with no authority
+// over the Event is refused for that, and never learns whether the target
+// exists by being told something else instead.
+//
+// It answers only what it can answer without the target, so a nil result is not
+// an admission. Evaluate still decides the command.
+func EvaluateCapabilities(request CapabilityRequest) error {
+	row, found := Lookup(request.Action)
+	if !found {
+		return fmt.Errorf("%w: %s", ErrUnknownAction, request.Action)
+	}
+	plain := Request{
+		Identity:      request.Identity,
+		Authenticated: request.Authenticated,
+		Action:        request.Action,
+	}
+	return requireCapabilities(plain, row, row.Capabilities, request.EventID)
+}
+
+// requireCapabilities refuses the first required Capability the identity does
+// not hold for this Event.
+func requireCapabilities(
+	request Request,
+	row Row,
+	required []Capability,
+	eventID int,
+) error {
+	if len(required) == 0 {
+		return nil
+	}
+	if !request.Authenticated {
+		return &RefusalError{Action: request.Action, Capability: required[0], Code: row.Code}
+	}
+	for _, capability := range required {
+		if !holds(request.Identity, eventID, capability) {
+			return &RefusalError{Action: request.Action, Capability: capability, Code: row.Code}
+		}
+	}
+	return nil
 }
 
 // inScope applies the row's scope dimension to the facts the plan loaded. Each

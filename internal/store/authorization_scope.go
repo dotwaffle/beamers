@@ -2,10 +2,12 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/dotwaffle/beamers/ent"
 	"github.com/dotwaffle/beamers/ent/displayoverride"
 	"github.com/dotwaffle/beamers/ent/session"
+	"github.com/dotwaffle/beamers/ent/sessionrun"
 	"github.com/dotwaffle/beamers/internal/authz"
 )
 
@@ -35,6 +37,49 @@ func (transaction *CommandTx) SessionLaneScope(
 		return authz.Facts{}, err
 	}
 	return authz.Lanes(eventID, laneIDs), nil
+}
+
+// LiveSessionLaneScope resolves the Lanes a running Session occupies from its
+// open Run Snapshot, for the rows whose imperative guard is judged against that
+// snapshot rather than against current placement.
+//
+// A Run Snapshot is frozen when the Session starts and is never rewritten, so
+// after a republish or a forecast Lane change it names different Lanes than the
+// Session's current placement does. Judging current placement would refuse an
+// Operator who holds the Lanes the running Session was started in, which is
+// authority they have today, so the snapshot is what the table is judged
+// against too.
+//
+// A Session with no open Run has no snapshot to judge, and is refused rather
+// than judged against something else.
+func (transaction *CommandTx) LiveSessionLaneScope(
+	ctx context.Context,
+	eventID, sessionID int,
+) (authz.Facts, error) {
+	found, err := transaction.transaction.Session.Query().
+		Where(session.IDEQ(sessionID), session.EventIDEQ(eventID)).
+		Only(systemContext(ctx))
+	if ent.IsNotFound(err) {
+		return authz.Facts{}, ErrSessionNotFound
+	}
+	if err != nil {
+		return authz.Facts{}, opaqueError("load live Session scope", err)
+	}
+	if found.Lifecycle != session.LifecycleLive {
+		return authz.Facts{}, ErrSessionLifecycleTransition
+	}
+	run, err := transaction.transaction.SessionRun.Query().
+		Where(sessionrun.SessionIDEQ(sessionID), sessionrun.ActualEndIsNil()).
+		Order(ent.Desc(sessionrun.FieldID)).
+		First(systemContext(ctx))
+	if err != nil {
+		return authz.Facts{}, opaqueError("load live Session Run scope", err)
+	}
+	var snapshot SessionRunSnapshot
+	if decodeErr := json.Unmarshal([]byte(run.SnapshotJSON), &snapshot); decodeErr != nil {
+		return authz.Facts{}, opaqueError("decode live Session Run Snapshot scope", decodeErr)
+	}
+	return authz.Lanes(eventID, snapshot.LaneIDs), nil
 }
 
 // StageMessageScope resolves the Display Group key a Stage Message will

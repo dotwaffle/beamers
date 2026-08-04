@@ -556,7 +556,9 @@ func execute[T any](
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[T]{
 		Storage: service.storage, Identity: identity, Notify: service.notifyDisplays,
-		Authorization: command.Authorization{LoadFacts: scope, Refusals: overrideRejections},
+		Authorization: command.Authorization{
+			EventID: eventID, LoadFacts: scope, Refusals: overrideRejections,
+		},
 		Replay: func(outcome string) (T, error) {
 			var replayed T
 			if decodeErr := store.DecodeCommandReceipt(outcome, &replayed); decodeErr != nil {

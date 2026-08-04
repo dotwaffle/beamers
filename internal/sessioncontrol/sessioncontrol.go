@@ -530,8 +530,9 @@ func (service *Service) AdjustTarget(
 	return command.Execute(actor.Context(ctx), command.Plan[TargetAdjustmentResult]{
 		Storage: service.storage, Identity: identity, Notify: service.notifyLive,
 		Authorization: command.Authorization{
+			EventID: input.EventID,
 			LoadFacts: func(ctx context.Context, transaction *store.CommandTx) (authz.Facts, error) {
-				return transaction.SessionLaneScope(ctx, input.EventID, input.SessionID)
+				return transaction.LiveSessionLaneScope(ctx, input.EventID, input.SessionID)
 			},
 			Refusals: sessionAuthorizationRejections,
 		},
@@ -623,6 +624,13 @@ func (service *Service) PullForward(
 	return command.Execute(actor.Context(ctx), command.Plan[PullForwardResult]{
 		Storage: service.storage, Identity: identity, Notify: service.notifyLive,
 		Authorization: command.Authorization{
+			EventID: input.EventID,
+			// D14: the imperative guard is judged against the Lanes of every
+			// Session the timing ripple moves, which are known only once the
+			// ripple has been computed, and not against the anchor Session's
+			// own Lanes. The table states the anchor here, which is narrower
+			// than the rippled set, so the guard still decides the wider
+			// question until that discrepancy is resolved.
 			LoadFacts: func(ctx context.Context, transaction *store.CommandTx) (authz.Facts, error) {
 				return transaction.SessionLaneScope(ctx, input.EventID, input.SessionID)
 			},
@@ -782,6 +790,7 @@ func (service *Service) CorrectLiveDetails(
 	return command.Execute(actor.Context(ctx), command.Plan[Correction]{
 		Storage: service.storage, Identity: identity, Notify: service.notifyLive,
 		Authorization: command.Authorization{
+			EventID: input.EventID,
 			LoadFacts: func(ctx context.Context, transaction *store.CommandTx) (authz.Facts, error) {
 				return transaction.SessionLaneScope(ctx, input.EventID, input.SessionID)
 			},
@@ -1121,6 +1130,7 @@ func (service *Service) execute(
 	return command.Execute(actor.Context(ctx), command.Plan[State]{
 		Storage: service.storage, Identity: identity, Notify: service.notifyLive,
 		Authorization: command.Authorization{
+			EventID: input.EventID,
 			LoadFacts: func(ctx context.Context, transaction *store.CommandTx) (authz.Facts, error) {
 				return transaction.SessionLaneScope(ctx, input.EventID, input.SessionID)
 			},

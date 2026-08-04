@@ -87,6 +87,11 @@ type Authorization struct {
 	// loading the target early does not change what a failure to load
 	// produces.
 	LoadFacts func(context.Context, *store.CommandTx) (authz.Facts, error)
+	// EventID names the Event a LoadFacts command acts within, which its input
+	// states before anything is loaded. It lets the capability half of the row
+	// be judged before the target is looked up, so an actor with no authority
+	// over the Event is refused for that rather than for what the lookup found.
+	EventID int
 	// Refusals translates a table refusal code into the domain error this
 	// package's callers expect, so a refusal the evaluator raises is
 	// indistinguishable from the imperative refusal it mirrors.
@@ -233,12 +238,24 @@ func (plan Plan[T]) authorize(
 	ctx context.Context,
 	transaction *store.CommandTx,
 ) (handled bool, err error) {
+	identity, authenticated := viewer.FromContext(ctx)
+	if plan.Authorization.LoadFacts != nil {
+		capabilities := authz.EvaluateCapabilities(authz.CapabilityRequest{
+			Identity:      identity,
+			Authenticated: authenticated,
+			Action:        plan.Identity.Action,
+			EventID:       plan.Authorization.EventID,
+		})
+		if capabilities != nil {
+			return plan.refuse(ctx, transaction, capabilities)
+		}
+	}
+
 	facts, factsErr := plan.loadFacts(ctx, transaction)
 	if factsErr != nil {
 		return plan.commitClassified(ctx, transaction, factsErr)
 	}
 
-	identity, authenticated := viewer.FromContext(ctx)
 	evaluation := authz.Evaluate(authz.Request{
 		Identity:      identity,
 		Authenticated: authenticated,
@@ -248,6 +265,17 @@ func (plan Plan[T]) authorize(
 	if evaluation == nil {
 		return false, nil
 	}
+	return plan.refuse(ctx, transaction, evaluation)
+}
+
+// refuse commits the table's refusal and returns the domain error this
+// package's callers expect. An evaluation that is not a refusal is a wrong
+// declaration rather than a decision, and fails the command outright.
+func (plan Plan[T]) refuse(
+	ctx context.Context,
+	transaction *store.CommandTx,
+	evaluation error,
+) (handled bool, err error) {
 	var refusal *authz.RefusalError
 	if !errors.As(evaluation, &refusal) {
 		return true, evaluation
