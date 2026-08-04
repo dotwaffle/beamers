@@ -151,9 +151,12 @@ func CreateWithStorage(
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return Manifest{}, fmt.Errorf("inspect Backup output: %w", err)
 	}
-	if err := preflightDiskSpace(
-		input.DataDir, input.AttachmentsDir, input.OutputPath, diskspace.RequireFree,
-	); err != nil {
+	if err := preflightDiskSpace(preflightDiskSpaceInput{
+		DataDir:        input.DataDir,
+		AttachmentsDir: input.AttachmentsDir,
+		OutputPath:     input.OutputPath,
+		RequireFree:    diskspace.RequireFree,
+	}); err != nil {
 		return Manifest{}, err
 	}
 
@@ -282,32 +285,38 @@ func LastCompletedAt(dataDir string) (time.Time, bool, error) {
 // itself account for.
 const backupDiskSpaceMarginBytes = 64 << 20
 
+// preflightDiskSpaceInput names the inputs preflightDiskSpace estimates a
+// Backup's disk requirement from. RequireFree is an explicit dependency
+// (rather than calling diskspace.RequireFree directly) so tests can
+// exercise the refusal path without needing a filesystem that is
+// actually full.
+type preflightDiskSpaceInput struct {
+	DataDir        string
+	AttachmentsDir string
+	OutputPath     string
+	RequireFree    func(path string, neededBytes uint64) error
+}
+
 // preflightDiskSpace refuses to start a Backup when the filesystem holding
 // its output cannot plausibly hold one. The estimate sums the current
 // database and Attachment Store sizes: Sanitized mode never grows the
 // database, and Store compression is not counted, so this is
-// conservative rather than exact. requireFree is an explicit dependency
-// (rather than calling diskspace.RequireFree directly) so tests can
-// exercise the refusal path without needing a filesystem that is
-// actually full.
-func preflightDiskSpace(
-	dataDir, attachmentsDir, outputPath string,
-	requireFree func(path string, neededBytes uint64) error,
-) error {
+// conservative rather than exact.
+func preflightDiskSpace(input preflightDiskSpaceInput) error {
 	var databasePath string
-	if dataDir != "" {
-		databasePath = filepath.Join(dataDir, "beamers.db")
+	if input.DataDir != "" {
+		databasePath = filepath.Join(input.DataDir, "beamers.db")
 	}
 	databaseBytes, err := diskspace.FileSize(databasePath)
 	if err != nil {
 		return err
 	}
-	attachmentsBytes, err := diskspace.DirSize(attachmentsDir)
+	attachmentsBytes, err := diskspace.DirSize(input.AttachmentsDir)
 	if err != nil {
 		return err
 	}
 	needed := databaseBytes + attachmentsBytes + backupDiskSpaceMarginBytes
-	if err := requireFree(filepath.Dir(outputPath), needed); err != nil {
+	if err := input.RequireFree(filepath.Dir(input.OutputPath), needed); err != nil {
 		return fmt.Errorf("preflight Backup disk space: %w", err)
 	}
 	return nil

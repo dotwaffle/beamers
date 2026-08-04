@@ -50,7 +50,11 @@ func TestWatchLogLevelSIGHUPTogglesDebug(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(&logged, nil))
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-	stop := watchLogLevelSIGHUP(ctx, &level, slog.LevelWarn, logger)
+	stop := watchLogLevelSIGHUP(ctx, watchLogLevelSIGHUPInput{
+		Level:           &level,
+		ConfiguredLevel: slog.LevelWarn,
+		Logger:          logger,
+	})
 	defer stop()
 
 	if err := syscall.Kill(syscall.Getpid(), syscall.SIGHUP); err != nil {

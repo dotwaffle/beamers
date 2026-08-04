@@ -74,7 +74,12 @@ func registerDiagnosticsRoutes(
 		dataDir:            dataDir,
 		attachmentsDir:     attachmentsDir,
 	}
-	registerStorageGauges(meterProvider, dataDir, attachmentsDir, logger)
+	registerStorageGauges(registerStorageGaugesInput{
+		MeterProvider:  meterProvider,
+		DataDir:        dataDir,
+		AttachmentsDir: attachmentsDir,
+		Logger:         logger,
+	})
 	serve := func(response http.ResponseWriter, request *http.Request, actor auth.Account) {
 		found := handlers.collect(request.Context(), actor)
 		response.Header().Set("Cache-Control", "no-store")

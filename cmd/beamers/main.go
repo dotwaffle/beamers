@@ -753,7 +753,11 @@ func runServe(
 		defer cancel()
 		_ = telemetryRuntime.Shutdown(shutdownContext)
 	}()
-	stopLevelToggle := watchLogLevelSIGHUP(ctx, &level, configuredLevel, logger)
+	stopLevelToggle := watchLogLevelSIGHUP(ctx, watchLogLevelSIGHUPInput{
+		Level:           &level,
+		ConfiguredLevel: configuredLevel,
+		Logger:          logger,
+	})
 	defer stopLevelToggle()
 	err = server.Run(ctx, server.Config{
 		DataDir:         *dataDir,
@@ -797,18 +801,21 @@ func parseLogLevel(value string) (slog.Level, error) {
 	}
 }
 
-// watchLogLevelSIGHUP toggles the running log level between configuredLevel
-// and slog.LevelDebug each time the process receives SIGHUP, so an
-// operator can raise verbosity mid-show without restarting the process
-// feeding stage screens, then lower it again with a second SIGHUP. The
-// returned stop function releases the signal handler; call it once the
-// caller no longer wants toggling to occur.
-func watchLogLevelSIGHUP(
-	ctx context.Context,
-	level *slog.LevelVar,
-	configuredLevel slog.Level,
-	logger *slog.Logger,
-) func() {
+// watchLogLevelSIGHUPInput names the inputs watchLogLevelSIGHUP toggles the
+// running log level with.
+type watchLogLevelSIGHUPInput struct {
+	Level           *slog.LevelVar
+	ConfiguredLevel slog.Level
+	Logger          *slog.Logger
+}
+
+// watchLogLevelSIGHUP toggles the running log level between
+// input.ConfiguredLevel and slog.LevelDebug each time the process receives
+// SIGHUP, so an operator can raise verbosity mid-show without restarting
+// the process feeding stage screens, then lower it again with a second
+// SIGHUP. The returned stop function releases the signal handler; call it
+// once the caller no longer wants toggling to occur.
+func watchLogLevelSIGHUP(ctx context.Context, input watchLogLevelSIGHUPInput) func() {
 	watchContext, cancel := context.WithCancel(ctx)
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGHUP)
@@ -823,14 +830,14 @@ func watchLogLevelSIGHUP(
 			case <-signals:
 				debug = !debug
 				if debug {
-					level.Set(slog.LevelDebug)
+					input.Level.Set(slog.LevelDebug)
 				} else {
-					level.Set(configuredLevel)
+					input.Level.Set(input.ConfiguredLevel)
 				}
-				logger.Info(
+				input.Logger.Info(
 					"log level toggled",
 					"component", "logging",
-					"status", level.Level().String(),
+					"status", input.Level.Level().String(),
 				)
 			}
 		}

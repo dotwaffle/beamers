@@ -168,8 +168,12 @@ func TestPreflightDiskSpaceRefusesWhenInsufficient(t *testing.T) {
 	}
 	outputPath := filepath.Join(t.TempDir(), "backup.zip")
 
-	err := preflightDiskSpace(dataDir, "", outputPath, func(string, uint64) error {
-		return fmt.Errorf("stub: %w", diskspace.ErrInsufficientSpace)
+	err := preflightDiskSpace(preflightDiskSpaceInput{
+		DataDir:    dataDir,
+		OutputPath: outputPath,
+		RequireFree: func(string, uint64) error {
+			return fmt.Errorf("stub: %w", diskspace.ErrInsufficientSpace)
+		},
 	})
 	if !errors.Is(err, diskspace.ErrInsufficientSpace) {
 		t.Fatalf("preflightDiskSpace error = %v, want ErrInsufficientSpace", err)
@@ -185,9 +189,13 @@ func TestPreflightDiskSpaceAllowsSufficientCapacity(t *testing.T) {
 
 	var observedPath string
 	var observedNeeded uint64
-	err := preflightDiskSpace(dataDir, "", outputPath, func(path string, needed uint64) error {
-		observedPath, observedNeeded = path, needed
-		return nil
+	err := preflightDiskSpace(preflightDiskSpaceInput{
+		DataDir:    dataDir,
+		OutputPath: outputPath,
+		RequireFree: func(path string, needed uint64) error {
+			observedPath, observedNeeded = path, needed
+			return nil
+		},
 	})
 	if err != nil {
 		t.Fatalf("preflightDiskSpace: %v", err)

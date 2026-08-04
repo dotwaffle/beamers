@@ -47,16 +47,21 @@ func collectStorageStats(dataDir, attachmentsDir string) (storageStats, error) {
 	}, nil
 }
 
+// registerStorageGaugesInput names the inputs registerStorageGauges needs
+// to export storage footprint gauges.
+type registerStorageGaugesInput struct {
+	MeterProvider  metric.MeterProvider
+	DataDir        string
+	AttachmentsDir string
+	Logger         *slog.Logger
+}
+
 // registerStorageGauges exports the same free-disk, database, and
 // Attachment Store sizes diagnostics reports as OTel gauges, sampled on
 // each collection interval rather than only when an Administrator happens
 // to poll /diagnostics.
-func registerStorageGauges(
-	meterProvider metric.MeterProvider,
-	dataDir string,
-	attachmentsDir string,
-	logger *slog.Logger,
-) {
+func registerStorageGauges(input registerStorageGaugesInput) {
+	meterProvider := input.MeterProvider
 	if meterProvider == nil {
 		meterProvider = metricnoop.NewMeterProvider()
 	}
@@ -66,7 +71,7 @@ func registerStorageGauges(
 		metric.WithUnit("By"),
 	)
 	if err != nil {
-		logger.Error("create disk free bytes gauge", "component", "diagnostics", "error", err)
+		input.Logger.Error("create disk free bytes gauge", "component", "diagnostics", "error", err)
 		return
 	}
 	databaseBytes, err := meter.Int64ObservableGauge(
@@ -74,7 +79,7 @@ func registerStorageGauges(
 		metric.WithUnit("By"),
 	)
 	if err != nil {
-		logger.Error("create database bytes gauge", "component", "diagnostics", "error", err)
+		input.Logger.Error("create database bytes gauge", "component", "diagnostics", "error", err)
 		return
 	}
 	attachmentBytes, err := meter.Int64ObservableGauge(
@@ -82,12 +87,14 @@ func registerStorageGauges(
 		metric.WithUnit("By"),
 	)
 	if err != nil {
-		logger.Error("create Attachment Store bytes gauge", "component", "diagnostics", "error", err)
+		input.Logger.Error(
+			"create Attachment Store bytes gauge", "component", "diagnostics", "error", err,
+		)
 		return
 	}
 	_, err = meter.RegisterCallback(
 		func(_ context.Context, observer metric.Observer) error {
-			stats, statsErr := collectStorageStats(dataDir, attachmentsDir)
+			stats, statsErr := collectStorageStats(input.DataDir, input.AttachmentsDir)
 			if statsErr != nil {
 				return fmt.Errorf("observe storage gauges: %w", statsErr)
 			}
@@ -99,7 +106,7 @@ func registerStorageGauges(
 		freeDisk, databaseBytes, attachmentBytes,
 	)
 	if err != nil {
-		logger.Error("register storage gauges", "component", "diagnostics", "error", err)
+		input.Logger.Error("register storage gauges", "component", "diagnostics", "error", err)
 	}
 }
 
