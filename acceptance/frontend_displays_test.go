@@ -80,11 +80,7 @@ func TestBrowserConfiguresEventDisplays(t *testing.T) {
 		)
 	}
 
-	sessionClient := sessionv1connect.NewSessionControlServiceClient(
-		administrator,
-		"http://"+server.address,
-		connect.WithProtoJSON(),
-	)
+	sessionClient := connectClient(sessionv1connect.NewSessionControlServiceClient, administrator, server.address)
 	if _, err := sessionClient.StartSession(t.Context(), connect.NewRequest(
 		&sessionv1.StartSessionRequest{
 			EventId: 1, SessionId: sessionID,

@@ -29,9 +29,7 @@ import (
 func TestConcurrentDraftEditsConflictOnlyOnChangedFacts(t *testing.T) {
 	producer, server := startAuthenticatedAdministrator(t)
 	sessionID := prepareActiveSchedule(t, producer, server)
-	client := rundownv1connect.NewRundownServiceClient(
-		producer, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	client := connectClient(rundownv1connect.NewRundownServiceClient, producer, server.address)
 	current, err := client.GetCrewRundown(t.Context(), connect.NewRequest(
 		&rundownv1.GetCrewRundownRequest{EventId: 1},
 	))
@@ -195,7 +193,7 @@ func TestConcurrentDraftEditsConflictOnlyOnChangedFacts(t *testing.T) {
 func TestConcurrentSessionMembershipEditsUsePerMemberFacts(t *testing.T) {
 	producer, server := startAuthenticatedAdministrator(t)
 	sessionID := prepareActiveSchedule(t, producer, server)
-	client := rundownv1connect.NewRundownServiceClient(producer, "http://"+server.address, connect.WithProtoJSON())
+	client := connectClient(rundownv1connect.NewRundownServiceClient, producer, server.address)
 	current, err := client.GetCrewRundown(t.Context(), connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}))
 	if err != nil {
 		t.Fatalf("read current Rundown: %v", err)
@@ -286,9 +284,7 @@ func TestOperatorStartsPublishedSessionDurably(t *testing.T) {
 	administrator, server := startAuthenticatedAdministrator(t)
 	sessionID := prepareActiveSchedule(t, administrator, server)
 	operator := provisionOperator(t, administrator, server)
-	client := sessionv1connect.NewSessionControlServiceClient(
-		operator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	client := connectClient(sessionv1connect.NewSessionControlServiceClient, operator, server.address)
 
 	started, err := client.StartSession(t.Context(), connect.NewRequest(&sessionv1.StartSessionRequest{
 		EventId: 1, SessionId: sessionID, CommandId: "start-keynote",
@@ -337,9 +333,7 @@ func TestOperatorCancelsScheduledSessionWithPublicMessage(t *testing.T) {
 	administrator, server := startAuthenticatedAdministrator(t)
 	sessionID := prepareActiveSchedule(t, administrator, server)
 	operator := provisionOperator(t, administrator, server)
-	client := sessionv1connect.NewSessionControlServiceClient(
-		operator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	client := connectClient(sessionv1connect.NewSessionControlServiceClient, operator, server.address)
 	crewNotes := strings.Repeat("n", 1001)
 	request := &sessionv1.CancelSessionRequest{
 		EventId: 1, SessionId: sessionID, CommandId: "cancel-keynote",
@@ -443,9 +437,7 @@ func TestProducerReinstatesCanceledLiveSessionFromPlacementPreview(t *testing.T)
 	sessionID := prepareActiveSchedule(t, producer, server)
 	locationID, laneID := addPlacementLane(t, producer, server)
 	operator := provisionOperator(t, producer, server)
-	operatorClient := sessionv1connect.NewSessionControlServiceClient(
-		operator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	operatorClient := connectClient(sessionv1connect.NewSessionControlServiceClient, operator, server.address)
 	started, err := operatorClient.StartSession(t.Context(), connect.NewRequest(
 		&sessionv1.StartSessionRequest{
 			EventId: 1, SessionId: sessionID, CommandId: "start-before-cancel",
@@ -486,9 +478,7 @@ func TestProducerReinstatesCanceledLiveSessionFromPlacementPreview(t *testing.T)
 		)
 	}
 
-	producerClient := sessionv1connect.NewSessionControlServiceClient(
-		producer, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	producerClient := connectClient(sessionv1connect.NewSessionControlServiceClient, producer, server.address)
 	proposedStart := time.Date(2099, 8, 21, 9, 30, 0, 0, time.UTC)
 	hardPreview, err := producerClient.PreviewReinstateSession(
 		t.Context(), connect.NewRequest(&sessionv1.PreviewReinstateSessionRequest{
@@ -648,9 +638,7 @@ func TestOperatorPreviewsAndAdjustsLiveSessionTarget(t *testing.T) {
 	sessionID := prepareActiveSchedule(t, administrator, server)
 	rippleSessionID := addSoftRippleSession(t, administrator, server)
 	operator := provisionOperator(t, administrator, server)
-	client := sessionv1connect.NewSessionControlServiceClient(
-		operator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	client := connectClient(sessionv1connect.NewSessionControlServiceClient, operator, server.address)
 	started, err := client.StartSession(t.Context(), connect.NewRequest(&sessionv1.StartSessionRequest{
 		EventId: 1, SessionId: sessionID, CommandId: "start-before-target-adjustment",
 		ExpectedLiveStateRevision: proto.Int64(0),
@@ -820,9 +808,7 @@ func TestOperatorPullsForwardOnlyAfterExplicitEndAndPreview(t *testing.T) {
 	sessionID := prepareActiveSchedule(t, administrator, server)
 	rippleSessionID := addSoftRippleSession(t, administrator, server)
 	operator := provisionOperator(t, administrator, server)
-	client := sessionv1connect.NewSessionControlServiceClient(
-		operator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	client := connectClient(sessionv1connect.NewSessionControlServiceClient, operator, server.address)
 	started, err := client.StartSession(t.Context(), connect.NewRequest(&sessionv1.StartSessionRequest{
 		EventId: 1, SessionId: sessionID, CommandId: "start-before-pull-forward",
 		ExpectedLiveStateRevision: proto.Int64(0),
@@ -916,9 +902,7 @@ func TestOperatorCorrectsLiveDetailsWithoutRewritingRunSnapshot(t *testing.T) {
 	administrator, server := startAuthenticatedAdministrator(t)
 	sessionID := prepareActiveSchedule(t, administrator, server)
 	operator := provisionOperator(t, administrator, server)
-	client := sessionv1connect.NewSessionControlServiceClient(
-		operator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	client := connectClient(sessionv1connect.NewSessionControlServiceClient, operator, server.address)
 	started, err := client.StartSession(t.Context(), connect.NewRequest(&sessionv1.StartSessionRequest{
 		EventId: 1, SessionId: sessionID, CommandId: "start-before-detail-correction",
 		ExpectedLiveStateRevision: proto.Int64(0),
@@ -926,9 +910,7 @@ func TestOperatorCorrectsLiveDetailsWithoutRewritingRunSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Start Session before Live Detail Correction: %v", err)
 	}
-	rundownClient := rundownv1connect.NewRundownServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	rundownClient := connectClient(rundownv1connect.NewRundownServiceClient, administrator, server.address)
 	current, err := rundownClient.GetCrewRundown(t.Context(), connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}))
 	if err != nil {
 		t.Fatalf("Get Rundown before conflicting Draft edit: %v", err)
@@ -1126,18 +1108,14 @@ func TestOrdinaryPublishDoesNotAlterLiveSession(t *testing.T) {
 	administrator, server := startAuthenticatedAdministrator(t)
 	sessionID := prepareActiveSchedule(t, administrator, server)
 	operator := provisionOperator(t, administrator, server)
-	sessionClient := sessionv1connect.NewSessionControlServiceClient(
-		operator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	sessionClient := connectClient(sessionv1connect.NewSessionControlServiceClient, operator, server.address)
 	if _, err := sessionClient.StartSession(t.Context(), connect.NewRequest(&sessionv1.StartSessionRequest{
 		EventId: 1, SessionId: sessionID, CommandId: "start-before-blocked-publish",
 		ExpectedLiveStateRevision: proto.Int64(0),
 	})); err != nil {
 		t.Fatalf("Start Session before blocked Publish: %v", err)
 	}
-	rundownClient := rundownv1connect.NewRundownServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	rundownClient := connectClient(rundownv1connect.NewRundownServiceClient, administrator, server.address)
 	current, err := rundownClient.GetCrewRundown(t.Context(), connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}))
 	if err != nil {
 		t.Fatalf("Get current Rundown before Live edit: %v", err)
@@ -1197,9 +1175,7 @@ func TestOrdinaryPublishDoesNotAlterLiveSession(t *testing.T) {
 func TestProducerDeletesOnlyNeverPublishedDraftSession(t *testing.T) {
 	administrator, server := startAuthenticatedAdministrator(t)
 	publishedSessionID := prepareActiveSchedule(t, administrator, server)
-	client := rundownv1connect.NewRundownServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	client := connectClient(rundownv1connect.NewRundownServiceClient, administrator, server.address)
 	current, err := client.GetCrewRundown(t.Context(), connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}))
 	if err != nil || len(current.Msg.GetLanes()) == 0 || len(current.Msg.GetLocations()) == 0 {
 		t.Fatalf("Get Rundown for Draft Session deletion = %+v, %v", current, err)
@@ -1254,9 +1230,7 @@ func TestProducerDeletesOnlyNeverPublishedDraftSession(t *testing.T) {
 func TestProducerImportsCSVAsReviewedDraftProposals(t *testing.T) {
 	administrator, server := startAuthenticatedAdministrator(t)
 	prepareActiveSchedule(t, administrator, server)
-	client := rundownv1connect.NewRundownServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	client := connectClient(rundownv1connect.NewRundownServiceClient, administrator, server.address)
 	mappings := []*rundownv1.CSVFieldMapping{
 		{SourceColumn: "key", TargetField: "external_key"},
 		{SourceColumn: "title", TargetField: "title"},
@@ -1366,9 +1340,7 @@ func TestProducerImportsCSVAsReviewedDraftProposals(t *testing.T) {
 func TestProducerImportsICalendarWithEventTimeReview(t *testing.T) {
 	administrator, server := startAuthenticatedAdministrator(t)
 	prepareActiveSchedule(t, administrator, server)
-	client := rundownv1connect.NewRundownServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	client := connectClient(rundownv1connect.NewRundownServiceClient, administrator, server.address)
 	calendar := []byte("BEGIN:VCALENDAR\r\n" +
 		"VERSION:2.0\r\n" +
 		"X-WR-TIMEZONE:Europe/Berlin\r\n" +
@@ -1453,9 +1425,7 @@ func TestOperatorEndsLiveSessionWithoutMovingLaterSessions(t *testing.T) {
 	administrator, server := startAuthenticatedAdministrator(t)
 	sessionID := prepareActiveSchedule(t, administrator, server)
 	operator := provisionOperator(t, administrator, server)
-	client := sessionv1connect.NewSessionControlServiceClient(
-		operator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	client := connectClient(sessionv1connect.NewSessionControlServiceClient, operator, server.address)
 	started, err := client.StartSession(t.Context(), connect.NewRequest(&sessionv1.StartSessionRequest{
 		EventId: 1, SessionId: sessionID, CommandId: "start-keynote-before-end",
 		ExpectedLiveStateRevision: proto.Int64(0),
@@ -1506,9 +1476,7 @@ func TestSessionCommandsRejectStaleAndConflictingRetries(t *testing.T) {
 	administrator, server := startAuthenticatedAdministrator(t)
 	sessionID := prepareActiveSchedule(t, administrator, server)
 	operator := provisionOperator(t, administrator, server)
-	client := sessionv1connect.NewSessionControlServiceClient(
-		operator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	client := connectClient(sessionv1connect.NewSessionControlServiceClient, operator, server.address)
 	_, missingRevisionErr := client.StartSession(t.Context(), connect.NewRequest(&sessionv1.StartSessionRequest{
 		EventId: 1, SessionId: sessionID, CommandId: "missing-live-state-revision",
 	}))

@@ -23,9 +23,7 @@ func TestBrowserStagesAndReviewsCompetitionResults(t *testing.T) {
 	}
 	prepareActiveSchedule(t, administrator, server)
 	competitionID, _ := addCompetitionSession(t, administrator, server)
-	competitionClient := competitionv1connect.NewCompetitionServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	competitionClient := connectClient(competitionv1connect.NewCompetitionServiceClient, administrator, server.address)
 	createEntry := func(commandID, name string) int64 {
 		t.Helper()
 		created, err := competitionClient.CreateEntry(
@@ -558,9 +556,7 @@ func TestBrowserStagesAndReviewsCompetitionResults(t *testing.T) {
 	if started.status != http.StatusSeeOther {
 		t.Fatalf("start browser Prizegiving = %d %q", started.status, started.body)
 	}
-	programClient := programv1connect.NewProgramControlServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	programClient := connectClient(programv1connect.NewProgramControlServiceClient, administrator, server.address)
 	channel, err := programClient.GetProgramChannel(
 		t.Context(),
 		connect.NewRequest(&programv1.GetProgramChannelRequest{
@@ -692,9 +688,7 @@ func TestBrowserPublishesAndCorrectsStandaloneResults(t *testing.T) {
 	}
 	prepareActiveSchedule(t, administrator, server)
 	competitionID, _ := addCompetitionSession(t, administrator, server)
-	competitionClient := competitionv1connect.NewCompetitionServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	competitionClient := connectClient(competitionv1connect.NewCompetitionServiceClient, administrator, server.address)
 	created, err := competitionClient.CreateEntry(
 		t.Context(),
 		connect.NewRequest(&competitionv1.CreateEntryRequest{

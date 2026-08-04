@@ -480,9 +480,7 @@ func TestBrowserControlsProgramOutputAndOverrides(t *testing.T) {
 		t.Fatalf("cleared Emergency Alert remained active: %q", page.body)
 	}
 	prizegivingID := prepareBrowserPrizegiving(t, administrator, server)
-	programClient := programv1connect.NewProgramControlServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	programClient := connectClient(programv1connect.NewProgramControlServiceClient, administrator, server.address)
 	current, err := programClient.GetProgramChannel(
 		t.Context(),
 		connect.NewRequest(&programv1.GetProgramChannelRequest{

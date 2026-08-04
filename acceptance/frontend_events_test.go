@@ -576,11 +576,7 @@ func TestBrowserFollowsCanonicalPublicEventJourney(t *testing.T) {
 	); configured.status != http.StatusOK {
 		t.Fatalf("configure Event Attachment release = %d %q", configured.status, configured.body)
 	}
-	sessionClient := sessionv1connect.NewSessionControlServiceClient(
-		administrator,
-		"http://"+server.address,
-		connect.WithProtoJSON(),
-	)
+	sessionClient := connectClient(sessionv1connect.NewSessionControlServiceClient, administrator, server.address)
 	startedPresentation, err := sessionClient.StartSession(
 		t.Context(),
 		connect.NewRequest(&sessionv1.StartSessionRequest{
@@ -771,11 +767,7 @@ func TestBrowserFollowsCanonicalPublicEventJourney(t *testing.T) {
 		strings.Contains(competition.body, "crew.txt") {
 		t.Fatalf("unreleased Competition Attachment leaked: %q", competition.body)
 	}
-	competitionClient := competitionv1connect.NewCompetitionServiceClient(
-		administrator,
-		"http://"+server.address,
-		connect.WithProtoJSON(),
-	)
+	competitionClient := connectClient(competitionv1connect.NewCompetitionServiceClient, administrator, server.address)
 	for _, version := range []attachmentVersionResponse{publicVersion, crewVersion} {
 		if _, err = competitionClient.SetEntryAttachmentReadiness(
 			t.Context(),
@@ -1093,9 +1085,7 @@ func TestBrowserControlsEventAttachmentRelease(t *testing.T) {
 	administrator.CheckRedirect = func(*http.Request, []*http.Request) error {
 		return http.ErrUseLastResponse
 	}
-	rundownClient := rundownv1connect.NewRundownServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	rundownClient := connectClient(rundownv1connect.NewRundownServiceClient, administrator, server.address)
 	rundown, err := rundownClient.GetCrewRundown(t.Context(), connect.NewRequest(
 		&rundownv1.GetCrewRundownRequest{EventId: 1},
 	))

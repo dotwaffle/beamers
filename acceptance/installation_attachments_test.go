@@ -73,9 +73,7 @@ func TestFinalAttachmentsReleaseByPolicyAndSurviveRestart(t *testing.T) {
 	competitionID, entryID := fixture.competitionID, fixture.entryID
 	competitionClient := fixture.competitionClient
 	publicVersion := fixture.publicVersion
-	sessionClient := sessionv1connect.NewSessionControlServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	sessionClient := connectClient(sessionv1connect.NewSessionControlServiceClient, administrator, server.address)
 
 	override := requestJSONMethod(
 		t.Context(), http.MethodPatch, administrator, server.address,
@@ -115,9 +113,7 @@ func TestFinalAttachmentsReleaseByPolicyAndSurviveRestart(t *testing.T) {
 			staleOverrideRetry.body,
 		)
 	}
-	rundownClient := rundownv1connect.NewRundownServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	rundownClient := connectClient(rundownv1connect.NewRundownServiceClient, administrator, server.address)
 	rundown, err := rundownClient.GetCrewRundown(t.Context(), connect.NewRequest(
 		&rundownv1.GetCrewRundownRequest{EventId: 1},
 	))
@@ -499,9 +495,7 @@ func prepareReleasedEntryAttachments(t *testing.T) releasedEntryAttachments {
 	administrator, server := startAuthenticatedAdministratorWithPublicListener(t)
 	prepareActiveSchedule(t, administrator, server)
 	competitionID, _ := addCompetitionSession(t, administrator, server)
-	competitionClient := competitionv1connect.NewCompetitionServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	competitionClient := connectClient(competitionv1connect.NewCompetitionServiceClient, administrator, server.address)
 	created, err := competitionClient.CreateEntry(t.Context(), connect.NewRequest(
 		&competitionv1.CreateEntryRequest{
 			EventId: 1, SessionId: competitionID, CommandId: "create-release-entry",
@@ -571,9 +565,7 @@ func prepareReleasedEntryAttachments(t *testing.T) releasedEntryAttachments {
 		t.Fatalf("configure Attachment Release Policy = %d: %s", configured.status, configured.body)
 	}
 	assertReleasedAttachmentsOnListeners(t, server)
-	sessionClient := sessionv1connect.NewSessionControlServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	sessionClient := connectClient(sessionv1connect.NewSessionControlServiceClient, administrator, server.address)
 	if _, err = sessionClient.StartSession(t.Context(), connect.NewRequest(&sessionv1.StartSessionRequest{
 		EventId: 1, SessionId: competitionID, CommandId: "start-release-competition",
 		ExpectedLiveStateRevision: proto.Int64(0),
@@ -725,9 +717,7 @@ func addCompetitionSession(
 	server *runningServer,
 ) (int64, time.Time) {
 	t.Helper()
-	rundownClient := rundownv1connect.NewRundownServiceClient(
-		client, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	rundownClient := connectClient(rundownv1connect.NewRundownServiceClient, client, server.address)
 	current, err := rundownClient.GetCrewRundown(
 		t.Context(), connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}),
 	)
@@ -781,9 +771,7 @@ func setCompetitionSubmissionDeadline(
 	deadline time.Time,
 ) {
 	t.Helper()
-	rundownClient := rundownv1connect.NewRundownServiceClient(
-		client, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	rundownClient := connectClient(rundownv1connect.NewRundownServiceClient, client, server.address)
 	current, err := rundownClient.GetCrewRundown(
 		t.Context(), connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}),
 	)
@@ -841,9 +829,7 @@ func prepareCommunicatedTimeSchedule(
 		"UTC",
 		"00:00",
 	)
-	rundownClient := rundownv1connect.NewRundownServiceClient(
-		client, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	rundownClient := connectClient(rundownv1connect.NewRundownServiceClient, client, server.address)
 	edited, err := rundownClient.EditDraft(t.Context(), connect.NewRequest(&rundownv1.EditDraftRequest{
 		EventId: 1, CommandId: "edit-communicated-time", ExpectedDraftRevision: 0,
 		Locations: []*rundownv1.LocationDraft{{Ref: "room", Name: "Room"}},
@@ -895,9 +881,7 @@ func prepareCommunicatedTimeSchedule(
 	})); publishErr != nil {
 		t.Fatalf("publish communicated-time Rundown: %v", publishErr)
 	}
-	activationClient := activationv1connect.NewActivationServiceClient(
-		client, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	activationClient := connectClient(activationv1connect.NewActivationServiceClient, client, server.address)
 	preflight, err := activationClient.Preflight(
 		t.Context(), connect.NewRequest(&activationv1.PreflightRequest{EventId: 1}),
 	)
@@ -942,9 +926,7 @@ func prepareActiveSchedule(t *testing.T, client *http.Client, server *runningSer
 		"06:00",
 	)
 
-	rundownClient := rundownv1connect.NewRundownServiceClient(
-		client, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	rundownClient := connectClient(rundownv1connect.NewRundownServiceClient, client, server.address)
 	plannedStart := time.Date(2099, 8, 21, 8, 0, 0, 0, time.UTC)
 	edited, err := rundownClient.EditDraft(t.Context(), connect.NewRequest(&rundownv1.EditDraftRequest{
 		EventId: 1, CommandId: "edit-schedule", ExpectedDraftRevision: 0,
@@ -1041,9 +1023,7 @@ func prepareActiveSchedule(t *testing.T, client *http.Client, server *runningSer
 		t.Fatalf("Publish public Schedule: %v", publishErr)
 	}
 
-	activationClient := activationv1connect.NewActivationServiceClient(
-		client, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	activationClient := connectClient(activationv1connect.NewActivationServiceClient, client, server.address)
 	preflight, err := activationClient.Preflight(t.Context(), connect.NewRequest(&activationv1.PreflightRequest{EventId: 1}))
 	if err != nil {
 		t.Fatalf("Preflight public Schedule Event: %v", err)
@@ -1058,9 +1038,7 @@ func prepareActiveSchedule(t *testing.T, client *http.Client, server *runningSer
 
 func addSoftRippleSession(t *testing.T, client *http.Client, server *runningServer) int64 {
 	t.Helper()
-	rundownClient := rundownv1connect.NewRundownServiceClient(
-		client, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	rundownClient := connectClient(rundownv1connect.NewRundownServiceClient, client, server.address)
 	current, err := rundownClient.GetCrewRundown(
 		t.Context(), connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}),
 	)
@@ -1154,9 +1132,7 @@ func addPlacementLane(
 	server *runningServer,
 ) (int64, int64) {
 	t.Helper()
-	rundownClient := rundownv1connect.NewRundownServiceClient(
-		client, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	rundownClient := connectClient(rundownv1connect.NewRundownServiceClient, client, server.address)
 	current, err := rundownClient.GetCrewRundown(
 		t.Context(), connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}),
 	)
@@ -1235,9 +1211,7 @@ func prepareAndActivateSecondEvent(t *testing.T, client *http.Client, server *ru
 		map[string]any{"account_id": 1, "role": "Producer", "command_id": "grant-second-display-event"},
 		http.StatusCreated, "{\"event_id\":2,\"account_id\":1,\"role\":\"Producer\"}\n",
 	)
-	rundownClient := rundownv1connect.NewRundownServiceClient(
-		client, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	rundownClient := connectClient(rundownv1connect.NewRundownServiceClient, client, server.address)
 	start := time.Date(2100, 9, 1, 8, 0, 0, 0, time.UTC)
 	edited, err := rundownClient.EditDraft(t.Context(), connect.NewRequest(&rundownv1.EditDraftRequest{
 		EventId: 2, CommandId: "edit-second-display-event", ExpectedDraftRevision: 0,
@@ -1280,9 +1254,7 @@ func prepareAndActivateSecondEvent(t *testing.T, client *http.Client, server *ru
 	})); publishErr != nil {
 		t.Fatalf("Publish second Event: %v", publishErr)
 	}
-	activationClient := activationv1connect.NewActivationServiceClient(
-		client, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	activationClient := connectClient(activationv1connect.NewActivationServiceClient, client, server.address)
 	preflight, err := activationClient.Preflight(t.Context(), connect.NewRequest(&activationv1.PreflightRequest{EventId: 2}))
 	if err != nil {
 		t.Fatalf("Preflight second Event: %v", err)

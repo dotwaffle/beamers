@@ -419,9 +419,7 @@ func TestLiveCompetitionBallotUpdatesAndSurvivesRestart(t *testing.T) {
 	if claimed.status != http.StatusSeeOther {
 		t.Fatalf("claim live Ballot Program control = %d %q", claimed.status, claimed.body)
 	}
-	programClient := programv1connect.NewProgramControlServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	programClient := connectClient(programv1connect.NewProgramControlServiceClient, administrator, server.address)
 	current, err := programClient.GetProgramChannel(t.Context(), connect.NewRequest(
 		&programv1.GetProgramChannelRequest{EventId: 1, SessionId: competitionID},
 	))
@@ -495,9 +493,7 @@ func TestLiveCompetitionBallotUpdatesAndSurvivesRestart(t *testing.T) {
 	go func() {
 		notifications <- readBallotInvalidation(bufio.NewReader(streamResponse.Body))
 	}()
-	order, err := competitionv1connect.NewCompetitionServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	).PreviewEntryOrder(t.Context(), connect.NewRequest(
+	order, err := connectClient(competitionv1connect.NewCompetitionServiceClient, administrator, server.address).PreviewEntryOrder(t.Context(), connect.NewRequest(
 		&competitionv1.PreviewEntryOrderRequest{EventId: 1, SessionId: competitionID},
 	))
 	if err != nil {

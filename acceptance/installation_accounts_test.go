@@ -126,9 +126,7 @@ func TestUnscopedOperatorCannotStartSession(t *testing.T) {
 	administrator, server := startAuthenticatedAdministrator(t)
 	sessionID := prepareActiveSchedule(t, administrator, server)
 	operator := provisionOperatorWithLanes(t, administrator, server, nil)
-	client := sessionv1connect.NewSessionControlServiceClient(
-		operator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	client := connectClient(sessionv1connect.NewSessionControlServiceClient, operator, server.address)
 	_, err := client.StartSession(t.Context(), connect.NewRequest(&sessionv1.StartSessionRequest{
 		EventId: 1, SessionId: sessionID, CommandId: "unscoped-operator-start",
 		ExpectedLiveStateRevision: proto.Int64(0),

@@ -1020,11 +1020,7 @@ func exercisePresentationSubmissionFlow(
 		}
 	}
 
-	rundownClient := rundownv1connect.NewRundownServiceClient(
-		administrator,
-		"http://"+server.address,
-		connect.WithProtoJSON(),
-	)
+	rundownClient := connectClient(rundownv1connect.NewRundownServiceClient, administrator, server.address)
 	current, err := rundownClient.GetCrewRundown(
 		t.Context(),
 		connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}),
@@ -1808,12 +1804,8 @@ func TestBrowserDefersAndResolvesCompetitionEntries(t *testing.T) {
 		t.Fatalf("claim browser Program Control = %d %q", claimed.status, claimed.body)
 	}
 
-	programClient := programv1connect.NewProgramControlServiceClient(
-		operator, "http://"+server.address, connect.WithProtoJSON(),
-	)
-	competitionClient := competitionv1connect.NewCompetitionServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	programClient := connectClient(programv1connect.NewProgramControlServiceClient, operator, server.address)
+	competitionClient := connectClient(competitionv1connect.NewCompetitionServiceClient, administrator, server.address)
 	current, err := programClient.GetProgramChannel(t.Context(), connect.NewRequest(
 		&programv1.GetProgramChannelRequest{EventId: 1, SessionId: competitionID},
 	))

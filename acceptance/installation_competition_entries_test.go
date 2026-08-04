@@ -31,9 +31,7 @@ func TestProducerCreatesIncludedCompetitionEntry(t *testing.T) {
 	administrator, server := startAuthenticatedAdministrator(t)
 	prepareActiveSchedule(t, administrator, server)
 	competitionID, deadline := addCompetitionSession(t, administrator, server)
-	client := competitionv1connect.NewCompetitionServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	client := connectClient(competitionv1connect.NewCompetitionServiceClient, administrator, server.address)
 
 	configured, err := client.GetCompetition(t.Context(), connect.NewRequest(
 		&competitionv1.GetCompetitionRequest{EventId: 1, SessionId: competitionID},
@@ -151,9 +149,7 @@ func TestProducerCreatesIncludedCompetitionEntry(t *testing.T) {
 	)); err != nil {
 		t.Fatalf("disable file delivery for disposition test: %v", err)
 	}
-	sessionClient := sessionv1connect.NewSessionControlServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	sessionClient := connectClient(sessionv1connect.NewSessionControlServiceClient, administrator, server.address)
 	started, err := sessionClient.StartSession(t.Context(), connect.NewRequest(
 		&sessionv1.StartSessionRequest{
 			EventId: 1, SessionId: competitionID, CommandId: "start-competition",
@@ -243,9 +239,7 @@ func TestProducerStagesAndReviewsCompetitionResults(t *testing.T) {
 	administrator, server := startAuthenticatedAdministrator(t)
 	prepareActiveSchedule(t, administrator, server)
 	competitionID, _ := addCompetitionSession(t, administrator, server)
-	competitionClient := competitionv1connect.NewCompetitionServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	competitionClient := connectClient(competitionv1connect.NewCompetitionServiceClient, administrator, server.address)
 	first, err := competitionClient.CreateEntry(t.Context(), connect.NewRequest(
 		&competitionv1.CreateEntryRequest{
 			EventId: 1, SessionId: competitionID, CommandId: "create-results-entry-first",
@@ -264,9 +258,7 @@ func TestProducerStagesAndReviewsCompetitionResults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create second Results Entry: %v", err)
 	}
-	resultsClient := resultsv1connect.NewResultsServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	resultsClient := connectClient(resultsv1connect.NewResultsServiceClient, administrator, server.address)
 	initial, err := resultsClient.GetCompetitionResultsDraft(
 		t.Context(),
 		connect.NewRequest(&resultsv1.GetCompetitionResultsDraftRequest{
@@ -378,9 +370,7 @@ func TestCompetitionStartPreflightRequiresFinalPrimaryDelivery(t *testing.T) {
 	administrator, server := startAuthenticatedAdministrator(t)
 	prepareActiveSchedule(t, administrator, server)
 	competitionID, _ := addCompetitionSession(t, administrator, server)
-	competitionClient := competitionv1connect.NewCompetitionServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	competitionClient := connectClient(competitionv1connect.NewCompetitionServiceClient, administrator, server.address)
 	created, err := competitionClient.CreateEntry(t.Context(), connect.NewRequest(
 		&competitionv1.CreateEntryRequest{
 			EventId: 1, SessionId: competitionID, CommandId: "create-preflight-entry",
@@ -402,9 +392,7 @@ func TestCompetitionStartPreflightRequiresFinalPrimaryDelivery(t *testing.T) {
 		preflight.Msg.GetBlockers()[0].GetEntryId() != created.Msg.GetEntry().GetId() {
 		t.Fatalf("default Competition Preflight = %+v", preflight.Msg)
 	}
-	sessionClient := sessionv1connect.NewSessionControlServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	sessionClient := connectClient(sessionv1connect.NewSessionControlServiceClient, administrator, server.address)
 	_, err = sessionClient.StartSession(t.Context(), connect.NewRequest(&sessionv1.StartSessionRequest{
 		EventId: 1, SessionId: competitionID, CommandId: "start-unready-competition",
 		ExpectedLiveStateRevision: proto.Int64(0),
@@ -476,9 +464,7 @@ func TestEntryReviewFinalizesSoleUploadAndContentChangeInvalidatesIt(t *testing.
 	administrator, server := startAuthenticatedAdministrator(t)
 	prepareActiveSchedule(t, administrator, server)
 	competitionID, _ := addCompetitionSession(t, administrator, server)
-	client := competitionv1connect.NewCompetitionServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	client := connectClient(competitionv1connect.NewCompetitionServiceClient, administrator, server.address)
 	configured, err := client.ConfigureReadiness(t.Context(), connect.NewRequest(
 		&competitionv1.ConfigureReadinessRequest{
 			EventId: 1, SessionId: competitionID, CommandId: "require-entry-review",
@@ -602,9 +588,7 @@ func TestCompetitionPreflightRequiresDispositionAndUnambiguousPrimary(t *testing
 	administrator, server := startAuthenticatedAdministrator(t)
 	prepareActiveSchedule(t, administrator, server)
 	competitionID, _ := addCompetitionSession(t, administrator, server)
-	client := competitionv1connect.NewCompetitionServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	client := connectClient(competitionv1connect.NewCompetitionServiceClient, administrator, server.address)
 	created, err := client.CreateEntry(t.Context(), connect.NewRequest(
 		&competitionv1.CreateEntryRequest{
 			EventId: 1, SessionId: competitionID, CommandId: "create-primary-entry",
@@ -752,9 +736,7 @@ func TestCompetitionEntryOrderPreviewIsDeterministicByDefault(t *testing.T) {
 	administrator, server := startAuthenticatedAdministrator(t)
 	prepareActiveSchedule(t, administrator, server)
 	competitionID, _ := addCompetitionSession(t, administrator, server)
-	client := competitionv1connect.NewCompetitionServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	client := connectClient(competitionv1connect.NewCompetitionServiceClient, administrator, server.address)
 	var entryIDs []int64
 	for index, name := range []string{"Alpha", "Bravo", "Charlie"} {
 		created, err := client.CreateEntry(t.Context(), connect.NewRequest(
@@ -801,9 +783,7 @@ func TestCrewConfiguresCompetitionEntryOrder(t *testing.T) {
 	administrator, server := startAuthenticatedAdministrator(t)
 	prepareActiveSchedule(t, administrator, server)
 	competitionID, _ := addCompetitionSession(t, administrator, server)
-	client := competitionv1connect.NewCompetitionServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	client := connectClient(competitionv1connect.NewCompetitionServiceClient, administrator, server.address)
 	var entries []*competitionv1.Entry
 	for index, name := range []string{"Alpha", "Bravo", "Charlie"} {
 		created, err := client.CreateEntry(t.Context(), connect.NewRequest(
@@ -880,9 +860,7 @@ func TestCrewConfiguresCompetitionEntryOrder(t *testing.T) {
 	)); err != nil {
 		t.Fatalf("disable file delivery for Entry Order test: %v", err)
 	}
-	sessionClient := sessionv1connect.NewSessionControlServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	sessionClient := connectClient(sessionv1connect.NewSessionControlServiceClient, administrator, server.address)
 	if _, err = sessionClient.StartSession(t.Context(), connect.NewRequest(
 		&sessionv1.StartSessionRequest{
 			EventId: 1, SessionId: competitionID, CommandId: "start-ordered-competition",
@@ -904,9 +882,7 @@ func TestCrewConfiguresCompetitionEntryOrder(t *testing.T) {
 	dataDir, bin := server.dataDir, server.bin
 	server.stop(t)
 	restarted := startBeamers(t, bin, dataDir)
-	client = competitionv1connect.NewCompetitionServiceClient(
-		administrator, "http://"+restarted.address, connect.WithProtoJSON(),
-	)
+	client = connectClient(competitionv1connect.NewCompetitionServiceClient, administrator, restarted.address)
 	restored, err := client.PreviewEntryOrder(t.Context(), connect.NewRequest(
 		&competitionv1.PreviewEntryOrderRequest{EventId: 1, SessionId: competitionID},
 	))
@@ -933,9 +909,7 @@ func TestControlOwnerTakesCompetitionEntryToDurableProgramOutput(t *testing.T) {
 		t, administrator, server, "Competition Display", "competition-output",
 	)
 	competitionID, _ := addCompetitionSession(t, administrator, server)
-	competitionClient := competitionv1connect.NewCompetitionServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	competitionClient := connectClient(competitionv1connect.NewCompetitionServiceClient, administrator, server.address)
 	entry, err := competitionClient.CreateEntry(t.Context(), connect.NewRequest(
 		&competitionv1.CreateEntryRequest{
 			EventId: 1, SessionId: competitionID,
@@ -953,9 +927,7 @@ func TestControlOwnerTakesCompetitionEntryToDurableProgramOutput(t *testing.T) {
 	)); err != nil {
 		t.Fatalf("disable Program Competition file delivery: %v", err)
 	}
-	sessionClient := sessionv1connect.NewSessionControlServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	sessionClient := connectClient(sessionv1connect.NewSessionControlServiceClient, administrator, server.address)
 	if _, err = sessionClient.StartSession(t.Context(), connect.NewRequest(
 		&sessionv1.StartSessionRequest{
 			EventId: 1, SessionId: competitionID, CommandId: "start-program-competition",
@@ -970,9 +942,7 @@ func TestControlOwnerTakesCompetitionEntryToDurableProgramOutput(t *testing.T) {
 	if err != nil {
 		t.Fatalf("preview Program Entry Order: %v", err)
 	}
-	programClient := programv1connect.NewProgramControlServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	programClient := connectClient(programv1connect.NewProgramControlServiceClient, administrator, server.address)
 	claimed, err := programClient.ChangeControl(t.Context(), connect.NewRequest(
 		&programv1.ChangeControlRequest{
 			EventId: 1, SessionId: competitionID,
@@ -1083,12 +1053,8 @@ func TestControlOwnerTakesCompetitionEntryToDurableProgramOutput(t *testing.T) {
 	}
 	operator := provisionOperator(t, administrator, server)
 	observer := provisionObserver(t, administrator, server)
-	operatorProgram := programv1connect.NewProgramControlServiceClient(
-		operator, "http://"+server.address, connect.WithProtoJSON(),
-	)
-	observerProgram := programv1connect.NewProgramControlServiceClient(
-		observer, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	operatorProgram := connectClient(programv1connect.NewProgramControlServiceClient, operator, server.address)
+	observerProgram := connectClient(programv1connect.NewProgramControlServiceClient, observer, server.address)
 	unauthorizedCommands := []func() error{
 		func() error {
 			_, commandErr := observerProgram.ChangeControl(t.Context(), connect.NewRequest(
@@ -1313,9 +1279,7 @@ func TestControlOwnerTakesCompetitionEntryToDurableProgramOutput(t *testing.T) {
 	dataDir, bin := server.dataDir, server.bin
 	server.stop(t)
 	restarted := startBeamers(t, bin, dataDir)
-	programClient = programv1connect.NewProgramControlServiceClient(
-		administrator, "http://"+restarted.address, connect.WithProtoJSON(),
-	)
+	programClient = connectClient(programv1connect.NewProgramControlServiceClient, administrator, restarted.address)
 	restored, err := programClient.GetProgramChannel(t.Context(), connect.NewRequest(
 		&programv1.GetProgramChannelRequest{EventId: 1, SessionId: competitionID},
 	))
@@ -1354,9 +1318,7 @@ func TestControlOwnerDefersCompetitionEntry(t *testing.T) {
 	administrator, server := startAuthenticatedAdministrator(t)
 	prepareActiveSchedule(t, administrator, server)
 	competitionID, _ := addCompetitionSession(t, administrator, server)
-	competitionClient := competitionv1connect.NewCompetitionServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	competitionClient := connectClient(competitionv1connect.NewCompetitionServiceClient, administrator, server.address)
 	entries := make([]*competitionv1.Entry, 0, 2)
 	for index, name := range []string{"Aurora", "Beacon"} {
 		created, err := competitionClient.CreateEntry(t.Context(), connect.NewRequest(
@@ -1378,9 +1340,7 @@ func TestControlOwnerDefersCompetitionEntry(t *testing.T) {
 	)); err != nil {
 		t.Fatalf("disable defer Competition file delivery: %v", err)
 	}
-	sessionClient := sessionv1connect.NewSessionControlServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	sessionClient := connectClient(sessionv1connect.NewSessionControlServiceClient, administrator, server.address)
 	if _, err := sessionClient.StartSession(t.Context(), connect.NewRequest(
 		&sessionv1.StartSessionRequest{
 			EventId: 1, SessionId: competitionID, CommandId: "start-defer-competition",
@@ -1401,9 +1361,7 @@ func TestControlOwnerDefersCompetitionEntry(t *testing.T) {
 	}
 	orderedIDs := order.Msg.GetEntryOrder().GetEntryIds()
 	deferredEntry := entryByID[orderedIDs[0]]
-	programClient := programv1connect.NewProgramControlServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	programClient := connectClient(programv1connect.NewProgramControlServiceClient, administrator, server.address)
 	claimed, err := programClient.ChangeControl(t.Context(), connect.NewRequest(
 		&programv1.ChangeControlRequest{
 			EventId: 1, SessionId: competitionID,
@@ -1433,9 +1391,7 @@ func TestControlOwnerDefersCompetitionEntry(t *testing.T) {
 		t.Fatalf("canonical defer Next = %+v", channel.GetNext())
 	}
 	operator := provisionOperator(t, administrator, server)
-	operatorProgram := programv1connect.NewProgramControlServiceClient(
-		operator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	operatorProgram := connectClient(programv1connect.NewProgramControlServiceClient, operator, server.address)
 	deferRequest := &programv1.DeferEntryRequest{
 		EventId: 1, SessionId: competitionID, EntryId: deferredEntry.GetId(),
 		CommandId: "defer-first-entry", ExpectedEntryRevision: deferredEntry.GetRevision(),

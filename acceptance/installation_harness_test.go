@@ -21,6 +21,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"connectrpc.com/connect"
 )
 
 type runningServer struct {
@@ -33,6 +35,19 @@ type runningServer struct {
 }
 
 var beamersTestBinary string
+
+// connectClient builds a Connect RPC client scoped to one already-authenticated
+// http.Client and one address, applying the single connect.WithProtoJSON option
+// every acceptance scenario uses. It replaces the hand-rolled
+// pkg.NewXServiceClient(httpClient, "http://"+address, connect.WithProtoJSON())
+// call that used to appear at each call site.
+func connectClient[Client any](
+	newClient func(httpClient connect.HTTPClient, baseURL string, options ...connect.ClientOption) Client,
+	httpClient *http.Client,
+	address string,
+) Client {
+	return newClient(httpClient, "http://"+address, connect.WithProtoJSON())
+}
 
 func TestMain(m *testing.M) {
 	directory, err := os.MkdirTemp("", "beamers-acceptance-")

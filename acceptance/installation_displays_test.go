@@ -231,9 +231,7 @@ func TestDisplayAssignmentIsDurableAndNeverInheritedAcrossActiveEvents(t *testin
 		t, operator, server.address, "/admin/displays", http.StatusOK,
 		"[{\"id\":1,\"name\":\"Lobby Display\",\"active_event_id\":1,\"standby\":true,\"event_name\":\"BeamConf 2099\",\"delivery_state\":\"offline\",\"applied_active_event_id\":0,\"applied_activation_generation\":0,\"applied_published_revision\":0,\"applied_standby\":true,\"clock_offset_milliseconds\":0,\"clock_uncertainty_milliseconds\":0}]\n",
 	)
-	activationClient := activationv1connect.NewActivationServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	activationClient := connectClient(activationv1connect.NewActivationServiceClient, administrator, server.address)
 	preflight, err := activationClient.Preflight(t.Context(), connect.NewRequest(&activationv1.PreflightRequest{EventId: 1}))
 	if err != nil {
 		t.Fatalf("Preflight Event with unassigned Display: %v", err)
@@ -285,9 +283,7 @@ func TestDisplayAssignmentIsDurableAndNeverInheritedAcrossActiveEvents(t *testin
 		http.StatusOK,
 		"{\"display_id\":1,\"event_id\":1,\"location_id\":1,\"view_key\":\"event-overview\"}\n",
 	)
-	rundownClient := rundownv1connect.NewRundownServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	rundownClient := connectClient(rundownv1connect.NewRundownServiceClient, administrator, server.address)
 	currentRundown, err := rundownClient.GetCrewRundown(
 		t.Context(), connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}),
 	)
@@ -549,11 +545,7 @@ func TestDisplaySSEStreamsRevisionedInvalidationsAfterSnapshot(t *testing.T) {
 		}
 	}
 
-	sessionClient := sessionv1connect.NewSessionControlServiceClient(
-		administrator,
-		"http://"+server.address,
-		connect.WithProtoJSON(),
-	)
+	sessionClient := connectClient(sessionv1connect.NewSessionControlServiceClient, administrator, server.address)
 	if _, err := sessionClient.StartSession(t.Context(), connect.NewRequest(&sessionv1.StartSessionRequest{
 		EventId: 1, SessionId: sessionID, CommandId: "start-streaming-session",
 		ExpectedLiveStateRevision: proto.Int64(0),

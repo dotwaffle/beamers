@@ -1522,11 +1522,7 @@ func prepareReleasedBrowserResults(
 	competitionID int64,
 ) int64 {
 	t.Helper()
-	competitionClient := competitionv1connect.NewCompetitionServiceClient(
-		client,
-		"http://"+server.address,
-		connect.WithProtoJSON(),
-	)
+	competitionClient := connectClient(competitionv1connect.NewCompetitionServiceClient, client, server.address)
 	entry, err := competitionClient.CreateEntry(
 		t.Context(),
 		connect.NewRequest(&competitionv1.CreateEntryRequest{
@@ -1539,11 +1535,7 @@ func prepareReleasedBrowserResults(
 		t.Fatalf("create browser Results Entry: %v", err)
 	}
 	placement := int64(1)
-	resultsClient := resultsv1connect.NewResultsServiceClient(
-		client,
-		"http://"+server.address,
-		connect.WithProtoJSON(),
-	)
+	resultsClient := connectClient(resultsv1connect.NewResultsServiceClient, client, server.address)
 	draft, err := resultsClient.SaveCompetitionResultsDraft(
 		t.Context(),
 		connect.NewRequest(&resultsv1.SaveCompetitionResultsDraftRequest{
@@ -1595,9 +1587,7 @@ func prepareBrowserPrizegiving(
 	server *runningServer,
 ) int64 {
 	t.Helper()
-	rundownClient := rundownv1connect.NewRundownServiceClient(
-		client, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	rundownClient := connectClient(rundownv1connect.NewRundownServiceClient, client, server.address)
 	current, err := rundownClient.GetCrewRundown(
 		t.Context(),
 		connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}),
@@ -1674,9 +1664,7 @@ func prepareBrowserPrizegiving(
 			competitionID, ceremonyID)
 	}
 
-	competitionClient := competitionv1connect.NewCompetitionServiceClient(
-		client, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	competitionClient := connectClient(competitionv1connect.NewCompetitionServiceClient, client, server.address)
 	entry, err := competitionClient.CreateEntry(
 		t.Context(),
 		connect.NewRequest(&competitionv1.CreateEntryRequest{
@@ -1689,9 +1677,7 @@ func prepareBrowserPrizegiving(
 		t.Fatalf("create browser Prizegiving Entry: %v", err)
 	}
 	placement := int64(1)
-	resultsClient := resultsv1connect.NewResultsServiceClient(
-		client, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	resultsClient := connectClient(resultsv1connect.NewResultsServiceClient, client, server.address)
 	draft, err := resultsClient.SaveCompetitionResultsDraft(
 		t.Context(),
 		connect.NewRequest(&resultsv1.SaveCompetitionResultsDraftRequest{
@@ -1767,9 +1753,7 @@ func prepareBrowserPrizegiving(
 	); err != nil {
 		t.Fatalf("lock browser Prizegiving plan: %v", err)
 	}
-	sessionClient := sessionv1connect.NewSessionControlServiceClient(
-		client, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	sessionClient := connectClient(sessionv1connect.NewSessionControlServiceClient, client, server.address)
 	expectedLiveStateRevision := int64(0)
 	if _, err = sessionClient.StartSession(
 		t.Context(),
@@ -1791,9 +1775,7 @@ func beginBrowserReveal(
 	sessionID int64,
 ) programv1connect.ProgramControlServiceClient {
 	t.Helper()
-	client := programv1connect.NewProgramControlServiceClient(
-		httpClient, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	client := connectClient(programv1connect.NewProgramControlServiceClient, httpClient, server.address)
 	current, err := client.GetProgramChannel(
 		t.Context(),
 		connect.NewRequest(&programv1.GetProgramChannelRequest{
@@ -2760,11 +2742,7 @@ func certifyLiveScheduleUpdate(
 	if err != nil || !focused {
 		t.Fatalf("focus live Schedule Session link = %t, %v", focused, err)
 	}
-	client := rundownv1connect.NewRundownServiceClient(
-		administrator,
-		"http://"+server.address,
-		connect.WithProtoJSON(),
-	)
+	client := connectClient(rundownv1connect.NewRundownServiceClient, administrator, server.address)
 	current, err := client.GetCrewRundown(
 		t.Context(),
 		connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}),

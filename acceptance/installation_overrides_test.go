@@ -70,9 +70,7 @@ func TestStageMessagesAndTechnicalDifficultiesOverrideCurrentDisplayView(t *test
 	displayClient := enrollAndAssignDisplay(
 		t, administrator, server, "Stage Display", "stage-timer",
 	)
-	sessionClient := sessionv1connect.NewSessionControlServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	sessionClient := connectClient(sessionv1connect.NewSessionControlServiceClient, administrator, server.address)
 	started, err := sessionClient.StartSession(t.Context(), connect.NewRequest(
 		&sessionv1.StartSessionRequest{
 			EventId: 1, SessionId: sessionID, CommandId: "start-override-session",
@@ -251,9 +249,7 @@ func TestStageMessagesAndTechnicalDifficultiesOverrideCurrentDisplayView(t *test
 	dataDir, bin := server.dataDir, server.bin
 	server.stop(t)
 	server = startBeamers(t, bin, dataDir)
-	sessionClient = sessionv1connect.NewSessionControlServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	sessionClient = connectClient(sessionv1connect.NewSessionControlServiceClient, administrator, server.address)
 	page = readDisplayHTML(t, displayClient, server.address)
 	if !strings.Contains(page, "Technical Difficulties") || !strings.Contains(page, "Stop now") {
 		t.Fatalf("Overrides did not survive restart: %s", page)

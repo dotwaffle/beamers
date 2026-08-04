@@ -67,9 +67,7 @@ func TestAdministratorActivatesPublishedEventAcrossRestart(t *testing.T) {
 		http.StatusCreated, "{\"event_id\":1,\"account_id\":1,\"role\":\"Producer\"}\n",
 	)
 
-	rundownClient := rundownv1connect.NewRundownServiceClient(
-		client, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	rundownClient := connectClient(rundownv1connect.NewRundownServiceClient, client, server.address)
 	plannedStart := time.Date(2026, 8, 21, 8, 0, 0, 0, time.UTC)
 	edited, err := rundownClient.EditDraft(t.Context(), connect.NewRequest(&rundownv1.EditDraftRequest{
 		EventId: int64(created.ID), CommandId: "activation-draft", ExpectedDraftRevision: 0,
@@ -111,9 +109,7 @@ func TestAdministratorActivatesPublishedEventAcrossRestart(t *testing.T) {
 		t.Fatalf("Publish RPC: %v", publishErr)
 	}
 
-	activationClient := activationv1connect.NewActivationServiceClient(
-		client, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	activationClient := connectClient(activationv1connect.NewActivationServiceClient, client, server.address)
 	preflight, err := activationClient.Preflight(t.Context(), connect.NewRequest(&activationv1.PreflightRequest{
 		EventId: int64(created.ID),
 	}))
@@ -137,9 +133,7 @@ func TestAdministratorActivatesPublishedEventAcrossRestart(t *testing.T) {
 	dataDir := server.dataDir
 	server.stop(t)
 	restarted := startBeamers(t, server.bin, dataDir)
-	restartedClient := activationv1connect.NewActivationServiceClient(
-		client, "http://"+restarted.address, connect.WithProtoJSON(),
-	)
+	restartedClient := connectClient(activationv1connect.NewActivationServiceClient, client, restarted.address)
 	active, err := restartedClient.GetActiveEvent(
 		t.Context(), connect.NewRequest(&activationv1.GetActiveEventRequest{}),
 	)
@@ -248,9 +242,7 @@ func TestPublicScheduleSessionHidesCrewOnlyAndUnknownIdentically(t *testing.T) {
 func TestPublicScheduleDeepLinkSurvivesPublishedChanges(t *testing.T) {
 	administrator, server := startAuthenticatedAdministrator(t)
 	sessionID := prepareActiveSchedule(t, administrator, server)
-	client := rundownv1connect.NewRundownServiceClient(
-		administrator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	client := connectClient(rundownv1connect.NewRundownServiceClient, administrator, server.address)
 	current, err := client.GetCrewRundown(
 		t.Context(), connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}),
 	)
@@ -446,9 +438,7 @@ func TestPublicScheduleSupportsCacheableSnapshotsAndLiveInvalidation(t *testing.
 		server.address,
 		streamPath,
 	)
-	rundownClient := rundownv1connect.NewRundownServiceClient(
-		client, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	rundownClient := connectClient(rundownv1connect.NewRundownServiceClient, client, server.address)
 	current, err := rundownClient.GetCrewRundown(
 		t.Context(), connect.NewRequest(&rundownv1.GetCrewRundownRequest{EventId: 1}),
 	)
@@ -644,9 +634,7 @@ func TestPublicScheduleNormalizesActualStartWithoutChangingCrewHistory(t *testin
 	communicatedStart := time.Now().UTC().Add(-time.Minute).Truncate(time.Second)
 	sessionID := prepareCommunicatedTimeSchedule(t, administrator, server, communicatedStart)
 	operator := provisionOperator(t, administrator, server)
-	client := sessionv1connect.NewSessionControlServiceClient(
-		operator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	client := connectClient(sessionv1connect.NewSessionControlServiceClient, operator, server.address)
 	started, err := client.StartSession(t.Context(), connect.NewRequest(&sessionv1.StartSessionRequest{
 		EventId: 1, SessionId: sessionID, CommandId: "start-with-communicated-time",
 		ExpectedLiveStateRevision: proto.Int64(0),
@@ -695,9 +683,7 @@ func TestPublicScheduleNormalizesActualEndWithoutChangingCrewHistory(t *testing.
 		t, administrator, server, communicatedEnd.Add(-30*time.Minute),
 	)
 	operator := provisionOperator(t, administrator, server)
-	client := sessionv1connect.NewSessionControlServiceClient(
-		operator, "http://"+server.address, connect.WithProtoJSON(),
-	)
+	client := connectClient(sessionv1connect.NewSessionControlServiceClient, operator, server.address)
 	if _, err := client.StartSession(t.Context(), connect.NewRequest(&sessionv1.StartSessionRequest{
 		EventId: 1, SessionId: sessionID, CommandId: "start-before-communicated-end",
 		ExpectedLiveStateRevision: proto.Int64(0),
