@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"entgo.io/ent"
-	"entgo.io/ent/privacy"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 )
@@ -17,18 +16,6 @@ type Lane struct {
 // Mixin applies the fail-closed authorization tripwire to Lane.
 func (Lane) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
-}
-
-// Policy confines Lane access to granted Event roles.
-func (Lane) Policy() ent.Policy {
-	return privacy.Policy{
-		Query: privacy.QueryPolicy{
-			denyMissingViewer(), filterGrantedLanes(), privacy.AlwaysAllowRule(),
-		},
-		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowEventOwnedMutation(), privacy.AlwaysDenyRule(),
-		},
-	}
 }
 
 // Fields defines stable Lane identity persistence.

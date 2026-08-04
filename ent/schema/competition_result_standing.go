@@ -2,7 +2,6 @@ package schema
 
 import (
 	"entgo.io/ent"
-	"entgo.io/ent/privacy"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
@@ -16,19 +15,6 @@ type CompetitionResultStanding struct {
 // Mixin applies the fail-closed authorization tripwire to CompetitionResultStanding.
 func (CompetitionResultStanding) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
-}
-
-// Policy enforces separate unreleased Results access.
-func (CompetitionResultStanding) Policy() ent.Policy {
-	return privacy.Policy{
-		Query: privacy.QueryPolicy{
-			denyMissingViewer(), filterViewableCompetitionResultStandings(),
-			privacy.AlwaysAllowRule(),
-		},
-		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowManageResultsMutation(), privacy.AlwaysDenyRule(),
-		},
-	}
 }
 
 // Fields define one explicit Standing and optional exact Score.

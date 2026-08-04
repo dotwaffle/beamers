@@ -18,11 +18,6 @@ func (Display) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
-// Policy keeps Display identity behind the Display application module.
-func (Display) Policy() ent.Policy {
-	return systemOnlyPolicy()
-}
-
 // Fields defines durable Display identity.
 func (Display) Fields() []ent.Field {
 	return []ent.Field{

@@ -19,11 +19,6 @@ func (InstallationThemeRevision) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
-// Policy keeps Theme Revisions behind the application service.
-func (InstallationThemeRevision) Policy() ent.Policy {
-	return systemOnlyPolicy()
-}
-
 // Fields define immutable Theme configuration and authorship.
 func (InstallationThemeRevision) Fields() []ent.Field {
 	return []ent.Field{

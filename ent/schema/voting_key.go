@@ -19,11 +19,6 @@ func (VotingKey) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
-// Policy confines Voting Key secrets to the voting application service.
-func (VotingKey) Policy() ent.Policy {
-	return systemOnlyPolicy()
-}
-
 // Fields defines protected key and consumption state.
 func (VotingKey) Fields() []ent.Field {
 	return []ent.Field{

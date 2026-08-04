@@ -9,6 +9,7 @@ import (
 	"entgo.io/ent/privacy"
 
 	"github.com/dotwaffle/beamers/ent"
+	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
 // TestPrivacyTripwireDeniesUnauthorizedContext proves the fail-closed tripwire
@@ -37,6 +38,20 @@ func TestPrivacyTripwireAllowsDecisionContext(t *testing.T) {
 	for name, entity := range entityClients(t, installation.client) {
 		if err := countEntities(decisionContext, entity); err != nil {
 			t.Errorf("%s query under an allow decision: %v", name, err)
+		}
+	}
+}
+
+// TestPrivacyTripwireAllowsViewerContext proves the tripwire only asks that
+// authorization was decided somewhere: a viewer identity carries every entity
+// past it, because the store and command surface hold the capability checks.
+func TestPrivacyTripwireAllowsViewerContext(t *testing.T) {
+	t.Parallel()
+	installation := openTripwireTestInstallation(t)
+	viewerContext := viewer.NewContext(t.Context(), viewer.Identity{AccountID: 1})
+	for name, entity := range entityClients(t, installation.client) {
+		if err := countEntities(viewerContext, entity); err != nil {
+			t.Errorf("%s query under a viewer identity: %v", name, err)
 		}
 	}
 }

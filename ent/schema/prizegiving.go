@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"entgo.io/ent"
-	"entgo.io/ent/privacy"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
@@ -20,18 +19,6 @@ type Prizegiving struct {
 // Mixin applies the fail-closed authorization tripwire to Prizegiving.
 func (Prizegiving) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
-}
-
-// Policy enforces crew-only Results reads and Producer-only designation.
-func (Prizegiving) Policy() ent.Policy {
-	return privacy.Policy{
-		Query: privacy.QueryPolicy{
-			denyMissingViewer(), filterViewablePrizegivings(), privacy.AlwaysAllowRule(),
-		},
-		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowProducerResultsMutation(), privacy.AlwaysDenyRule(),
-		},
-	}
 }
 
 // Fields define one immutable Ceremony designation.

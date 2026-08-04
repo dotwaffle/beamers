@@ -19,11 +19,6 @@ func (ImportReference) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
-// Policy keeps Import References append-only behind application services.
-func (ImportReference) Policy() ent.Policy {
-	return appendOnlySystemPolicy()
-}
-
 // Fields defines external evidence without making it canonical identity.
 func (ImportReference) Fields() []ent.Field {
 	return []ent.Field{

@@ -19,11 +19,6 @@ func (SessionRunAmendment) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
-// Policy keeps Run Amendment evidence behind application services.
-func (SessionRunAmendment) Policy() ent.Policy {
-	return appendOnlySystemPolicy()
-}
-
 // Indexes supports ordered amendment history lookup by Run.
 func (SessionRunAmendment) Indexes() []ent.Index {
 	return []ent.Index{index.Fields("session_run_id")}

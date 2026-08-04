@@ -2,7 +2,6 @@ package schema
 
 import (
 	"entgo.io/ent"
-	"entgo.io/ent/privacy"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
@@ -16,14 +15,6 @@ type FavoriteSession struct {
 // Mixin applies the fail-closed authorization tripwire to FavoriteSession.
 func (FavoriteSession) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
-}
-
-// Policy confines Favorite Sessions to the store's private Account-scoped methods.
-func (FavoriteSession) Policy() ent.Policy {
-	return privacy.Policy{
-		Query:    privacy.QueryPolicy{privacy.AlwaysDenyRule()},
-		Mutation: privacy.MutationPolicy{privacy.AlwaysDenyRule()},
-	}
 }
 
 // Fields defines Favorite Session persistence.

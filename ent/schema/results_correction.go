@@ -21,11 +21,6 @@ func (ResultsCorrection) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
-// Policy keeps correction persistence behind the Results application module.
-func (ResultsCorrection) Policy() ent.Policy {
-	return appendOnlySystemPolicy()
-}
-
 // Fields define one immutable correction lifecycle revision.
 func (ResultsCorrection) Fields() []ent.Field {
 	return []ent.Field{

@@ -18,11 +18,6 @@ func (PublicScheduleBaselineEntry) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
-// Policy keeps Public Schedule Baseline entries behind application services.
-func (PublicScheduleBaselineEntry) Policy() ent.Policy {
-	return appendOnlySystemPolicy()
-}
-
 // Fields defines one immutable baseline entry.
 func (PublicScheduleBaselineEntry) Fields() []ent.Field {
 	return []ent.Field{

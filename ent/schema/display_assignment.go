@@ -19,11 +19,6 @@ func (DisplayAssignment) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
-// Policy keeps Assignment access behind the Display application module.
-func (DisplayAssignment) Policy() ent.Policy {
-	return systemOnlyPolicy()
-}
-
 // Fields defines Event-specific Display routing.
 func (DisplayAssignment) Fields() []ent.Field {
 	return []ent.Field{

@@ -21,11 +21,6 @@ func (VotingTally) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
-// Policy keeps aggregate evidence behind Crew application services.
-func (VotingTally) Policy() ent.Policy {
-	return systemOnlyPolicy()
-}
-
 // Fields define aggregate evidence without Account-level Vote data.
 func (VotingTally) Fields() []ent.Field {
 	return []ent.Field{

@@ -19,11 +19,6 @@ func (DraftChange) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
-// Policy keeps Draft Change evidence behind the command transaction boundary.
-func (DraftChange) Policy() ent.Policy {
-	return systemOnlyPolicy()
-}
-
 // Fields defines Draft Change persistence.
 func (DraftChange) Fields() []ent.Field {
 	return []ent.Field{

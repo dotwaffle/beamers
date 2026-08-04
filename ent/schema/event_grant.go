@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"entgo.io/ent"
-	"entgo.io/ent/privacy"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
@@ -18,18 +17,6 @@ type EventGrant struct {
 // Mixin applies the fail-closed authorization tripwire to EventGrant.
 func (EventGrant) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
-}
-
-// Policy confines Event Grant access to Administrators and internal authentication.
-func (EventGrant) Policy() ent.Policy {
-	return privacy.Policy{
-		Query: privacy.QueryPolicy{
-			denyMissingViewer(), allowAdministrator(), privacy.AlwaysDenyRule(),
-		},
-		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowAdministrator(), privacy.AlwaysDenyRule(),
-		},
-	}
 }
 
 // Fields defines Event Grant persistence.

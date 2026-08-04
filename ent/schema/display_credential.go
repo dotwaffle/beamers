@@ -18,11 +18,6 @@ func (DisplayCredential) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
-// Policy confines Display credentials to authentication storage paths.
-func (DisplayCredential) Policy() ent.Policy {
-	return systemOnlyPolicy()
-}
-
 // Fields defines a hashed persistent Display credential.
 func (DisplayCredential) Fields() []ent.Field {
 	return []ent.Field{

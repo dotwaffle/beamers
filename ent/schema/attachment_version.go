@@ -19,11 +19,6 @@ func (AttachmentVersion) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
-// Policy keeps Attachment Versions behind application services.
-func (AttachmentVersion) Policy() ent.Policy {
-	return appendOnlySystemPolicy()
-}
-
 // Fields defines immutable file metadata and attribution.
 func (AttachmentVersion) Fields() []ent.Field {
 	return []ent.Field{

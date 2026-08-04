@@ -19,11 +19,6 @@ func (DisplayOverride) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
-// Policy keeps Override state behind the Override application module.
-func (DisplayOverride) Policy() ent.Policy {
-	return systemOnlyPolicy()
-}
-
 // Fields defines one auditable Override activation.
 func (DisplayOverride) Fields() []ent.Field {
 	return []ent.Field{

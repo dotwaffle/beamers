@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"entgo.io/ent"
-	"entgo.io/ent/privacy"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
@@ -18,19 +17,6 @@ type CompetitionEntry struct {
 // Mixin applies the fail-closed authorization tripwire to CompetitionEntry.
 func (CompetitionEntry) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
-}
-
-// Policy confines Competition Entries to granted Event crew.
-func (CompetitionEntry) Policy() ent.Policy {
-	return privacy.Policy{
-		Query: privacy.QueryPolicy{
-			denyMissingViewer(), filterGrantedCompetitionEntries(), privacy.AlwaysAllowRule(),
-		},
-		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowEventOwnedMutation(),
-			allowScopedCompetitionEntryPresentationMutation(), privacy.AlwaysDenyRule(),
-		},
-	}
 }
 
 // Fields defines stable Competition Entry persistence.

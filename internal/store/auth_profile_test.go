@@ -7,12 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"entgo.io/ent/privacy"
-
-	"github.com/dotwaffle/beamers/ent/account"
 	"github.com/dotwaffle/beamers/ent/resultspublication"
 	"github.com/dotwaffle/beamers/internal/prizegivingvalue"
-	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
 // updateAccountProfileForTest exercises UpdateAccountProfile through its
@@ -39,87 +35,6 @@ func updateAccountProfileForTest(
 		t.Fatalf("commit Profile update command: %v", err)
 	}
 	return nil
-}
-
-func TestAccountAndProfilePrivacyMatrix(t *testing.T) {
-	client := openEntTestClient(t)
-	internalContext := systemContext(t.Context())
-	administrator := client.Account.Create().
-		SetName("Administrator").
-		SetNormalizedName("administrator").
-		SetAdministrator(true).
-		SaveX(internalContext)
-	client.PasswordCredential.Create().
-		SetAccountID(administrator.ID).
-		SetPasswordHash("fixture").
-		SaveX(internalContext)
-	registered := client.Account.Create().
-		SetName("Private Person").
-		SetNormalizedName("private-person").
-		SetAdministrator(false).
-		SaveX(internalContext)
-	var err error
-	ownerContext := viewer.NewContext(
-		t.Context(),
-		viewer.Identity{AccountID: registered.ID},
-	)
-	otherContext := viewer.NewContext(t.Context(), viewer.Identity{AccountID: administrator.ID})
-	administratorContext := viewer.NewContext(
-		t.Context(),
-		viewer.Identity{AccountID: administrator.ID, Administrator: true},
-	)
-	profile := client.AccountProfile.Create().
-		SetAccountID(registered.ID).
-		SetNormalizedHandle("private-person").
-		SetDisplayName("Private Person").
-		SaveX(ownerContext)
-
-	if _, err = profile.Update().
-		SetDisplayName("Forbidden").
-		Save(otherContext); !errors.Is(err, privacy.Deny) {
-		t.Fatalf("cross-Account Profile update error = %v, want privacy denial", err)
-	}
-	if _, err = registered.Update().
-		SetName("Mutable Name").
-		Save(ownerContext); err != nil {
-		t.Fatalf("owner Display Name update: %v", err)
-	}
-	if _, err = registered.Update().
-		SetNormalizedName("mutable-handle").
-		Save(ownerContext); !errors.Is(err, privacy.Deny) {
-		t.Fatalf("owner Handle update error = %v, want privacy denial", err)
-	}
-	if _, err = profile.Update().SetPublished(true).Save(ownerContext); err != nil {
-		t.Fatalf("publish owner Profile: %v", err)
-	}
-
-	client.RegistrationPolicy.Create().
-		SetRegistrationOpen(false).
-		SaveX(administratorContext)
-	if _, err = client.RegistrationPolicy.Update().
-		SetRegistrationOpen(true).
-		Save(t.Context()); !errors.Is(err, privacy.Deny) {
-		t.Fatalf("anonymous Registration Policy update error = %v, want privacy denial", err)
-	}
-	if _, err = client.Account.Create().
-		SetName("Closed").
-		SetNormalizedName("closed").
-		SetAdministrator(false).
-		Save(t.Context()); !errors.Is(err, privacy.Deny) {
-		t.Fatalf("closed registration Account error = %v, want privacy denial", err)
-	}
-	if _, err = client.Account.Query().
-		Where(account.IDEQ(registered.ID)).
-		Only(otherContext); !errors.Is(err, privacy.Deny) {
-		t.Fatalf("non-Administrator Account query error = %v, want privacy denial", err)
-	}
-	released := client.ReleasedProfileEntry.Create().
-		SetEntryID(1).
-		SetName("Released").
-		SaveX(internalContext)
-	if _, err = released.Update().SetName("Changed").Save(t.Context()); !errors.Is(err, privacy.Deny) {
-		t.Fatalf("public released Profile Entry mutation error = %v, want privacy denial", err)
-	}
 }
 
 func TestPublicProfileAcceptsOnlyReleasedEntries(t *testing.T) {

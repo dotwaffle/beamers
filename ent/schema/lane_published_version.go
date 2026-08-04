@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"entgo.io/ent"
-	"entgo.io/ent/privacy"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
@@ -23,18 +22,6 @@ func (LanePublishedVersion) Mixin() []ent.Mixin {
 // Hooks enforce Event ownership across the immutable Lane placement.
 func (LanePublishedVersion) Hooks() []ent.Hook {
 	return []ent.Hook{validateLaneLocationOwnership}
-}
-
-// Policy makes Published Lane versions append-only and application-owned.
-func (LanePublishedVersion) Policy() ent.Policy {
-	return privacy.Policy{
-		Query: privacy.QueryPolicy{
-			denyMissingViewer(), filterGrantedLanePublishedVersions(), privacy.AlwaysAllowRule(),
-		},
-		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowLaneOwnedCreation(), privacy.AlwaysDenyRule(),
-		},
-	}
 }
 
 // Fields defines Published Lane version persistence.

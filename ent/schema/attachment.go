@@ -19,11 +19,6 @@ func (Attachment) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
-// Policy keeps Attachment metadata behind application services.
-func (Attachment) Policy() ent.Policy {
-	return appendOnlySystemPolicy()
-}
-
 // Fields defines stable logical Attachment ownership.
 func (Attachment) Fields() []ent.Field {
 	return []ent.Field{

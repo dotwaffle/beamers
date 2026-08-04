@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"entgo.io/ent"
-	"entgo.io/ent/privacy"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 )
@@ -17,18 +16,6 @@ type Track struct {
 // Mixin applies the fail-closed authorization tripwire to Track.
 func (Track) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
-}
-
-// Policy confines Track access to granted Event roles.
-func (Track) Policy() ent.Policy {
-	return privacy.Policy{
-		Query: privacy.QueryPolicy{
-			denyMissingViewer(), filterGrantedTracks(), privacy.AlwaysAllowRule(),
-		},
-		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowEventOwnedMutation(), privacy.AlwaysDenyRule(),
-		},
-	}
 }
 
 // Fields defines stable Track identity persistence.

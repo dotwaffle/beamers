@@ -19,11 +19,6 @@ func (Vote) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
-// Policy keeps Vote values behind Account-scoped voting projections.
-func (Vote) Policy() ent.Policy {
-	return systemOnlyPolicy()
-}
-
 // Fields defines durable Ballot ownership and score.
 func (Vote) Fields() []ent.Field {
 	return []ent.Field{

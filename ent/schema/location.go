@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"entgo.io/ent"
-	"entgo.io/ent/privacy"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 )
@@ -17,18 +16,6 @@ type Location struct {
 // Mixin applies the fail-closed authorization tripwire to Location.
 func (Location) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
-}
-
-// Policy confines Location access to granted Event roles.
-func (Location) Policy() ent.Policy {
-	return privacy.Policy{
-		Query: privacy.QueryPolicy{
-			denyMissingViewer(), filterGrantedLocations(), privacy.AlwaysAllowRule(),
-		},
-		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowEventOwnedMutation(), privacy.AlwaysDenyRule(),
-		},
-	}
 }
 
 // Fields defines stable Location identity persistence.

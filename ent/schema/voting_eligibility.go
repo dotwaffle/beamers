@@ -19,11 +19,6 @@ func (VotingEligibility) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
-// Policy keeps Voting Eligibility behind Account-scoped application services.
-func (VotingEligibility) Policy() ent.Policy {
-	return systemOnlyPolicy()
-}
-
 // Fields defines durable Event and Account ownership.
 func (VotingEligibility) Fields() []ent.Field {
 	return []ent.Field{

@@ -21,11 +21,6 @@ func (ResultsPublication) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
-// Policy keeps publication persistence behind application modules.
-func (ResultsPublication) Policy() ent.Policy {
-	return appendOnlySystemPolicy()
-}
-
 // Fields define one immutable publication manifest.
 func (ResultsPublication) Fields() []ent.Field {
 	return []ent.Field{

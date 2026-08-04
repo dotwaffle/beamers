@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"entgo.io/ent"
-	"entgo.io/ent/privacy"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
@@ -20,19 +19,6 @@ type CompetitionResultsDraft struct {
 // Mixin applies the fail-closed authorization tripwire to CompetitionResultsDraft.
 func (CompetitionResultsDraft) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
-}
-
-// Policy enforces separate unreleased Results access.
-func (CompetitionResultsDraft) Policy() ent.Policy {
-	return privacy.Policy{
-		Query: privacy.QueryPolicy{
-			denyMissingViewer(), filterViewableCompetitionResultsDrafts(),
-			privacy.AlwaysAllowRule(),
-		},
-		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowCompetitionResultsMutation(), privacy.AlwaysDenyRule(),
-		},
-	}
 }
 
 // Fields defines one versioned Results Draft.

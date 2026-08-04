@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"entgo.io/ent"
-	"entgo.io/ent/privacy"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 )
@@ -17,18 +16,6 @@ type CommandReceipt struct {
 // Mixin applies the fail-closed authorization tripwire to CommandReceipt.
 func (CommandReceipt) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
-}
-
-// Policy keeps Command Receipts internal and immutable.
-func (CommandReceipt) Policy() ent.Policy {
-	return privacy.Policy{
-		Query: privacy.QueryPolicy{
-			denyMissingViewer(), privacy.AlwaysDenyRule(),
-		},
-		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), privacy.AlwaysDenyRule(),
-		},
-	}
 }
 
 // Fields defines Command Receipt persistence.

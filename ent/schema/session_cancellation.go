@@ -19,11 +19,6 @@ func (SessionCancellation) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
-// Policy keeps cancellation history behind application services.
-func (SessionCancellation) Policy() ent.Policy {
-	return appendOnlySystemPolicy()
-}
-
 // Fields defines immutable cancellation evidence.
 func (SessionCancellation) Fields() []ent.Field {
 	return []ent.Field{

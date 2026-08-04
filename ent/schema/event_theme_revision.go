@@ -21,11 +21,6 @@ func (EventThemeRevision) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
-// Policy keeps Event Theme Revisions behind the application service.
-func (EventThemeRevision) Policy() ent.Policy {
-	return systemOnlyPolicy()
-}
-
 // Fields define immutable Event Theme configuration and authorship.
 func (EventThemeRevision) Fields() []ent.Field {
 	return []ent.Field{

@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"entgo.io/ent"
-	"entgo.io/ent/privacy"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
@@ -19,18 +18,6 @@ type SessionRun struct {
 // Mixin applies the fail-closed authorization tripwire to SessionRun.
 func (SessionRun) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
-}
-
-// Policy keeps Session Run persistence behind application services.
-func (SessionRun) Policy() ent.Policy {
-	return privacy.Policy{
-		Query: privacy.QueryPolicy{
-			denyMissingViewer(), filterGrantedSessionRuns(), privacy.AlwaysAllowRule(),
-		},
-		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowScopedSessionRunMutation(), privacy.AlwaysDenyRule(),
-		},
-	}
 }
 
 // Fields defines durable Session Run history.

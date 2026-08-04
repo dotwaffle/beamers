@@ -18,11 +18,6 @@ func (RecoveryToken) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
-// Policy keeps Recovery Tokens inside authentication storage paths.
-func (RecoveryToken) Policy() ent.Policy {
-	return systemOnlyPolicy()
-}
-
 // Fields defines Recovery Token persistence.
 func (RecoveryToken) Fields() []ent.Field {
 	return []ent.Field{

@@ -19,11 +19,6 @@ func (DraftEdit) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
-// Policy keeps Draft Edit evidence internal and append-only.
-func (DraftEdit) Policy() ent.Policy {
-	return appendOnlySystemPolicy()
-}
-
 // Fields defines Draft Edit persistence.
 func (DraftEdit) Fields() []ent.Field {
 	return []ent.Field{

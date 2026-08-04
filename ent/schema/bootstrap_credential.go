@@ -17,11 +17,6 @@ func (BootstrapCredential) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
-// Policy keeps bootstrap credentials inside the host-authorized authentication path.
-func (BootstrapCredential) Policy() ent.Policy {
-	return systemOnlyPolicy()
-}
-
 // Fields defines BootstrapCredential persistence.
 func (BootstrapCredential) Fields() []ent.Field {
 	return []ent.Field{

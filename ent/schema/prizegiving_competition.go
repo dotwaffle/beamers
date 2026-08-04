@@ -2,7 +2,6 @@ package schema
 
 import (
 	"entgo.io/ent"
-	"entgo.io/ent/privacy"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
@@ -16,20 +15,6 @@ type PrizegivingCompetition struct {
 // Mixin applies the fail-closed authorization tripwire to PrizegivingCompetition.
 func (PrizegivingCompetition) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
-}
-
-// Policy confines plans to Results viewers and Producer mutations.
-func (PrizegivingCompetition) Policy() ent.Policy {
-	return privacy.Policy{
-		Query: privacy.QueryPolicy{
-			denyMissingViewer(), filterViewablePrizegivingCompetitions(),
-			privacy.AlwaysAllowRule(),
-		},
-		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowProducerPrizegivingCompetitionMutation(),
-			privacy.AlwaysDenyRule(),
-		},
-	}
 }
 
 // Fields define immutable Event, Prizegiving, and Competition ownership.

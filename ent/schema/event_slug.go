@@ -18,11 +18,6 @@ func (EventSlug) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
-// Policy keeps Event Slug namespace mutations behind Event services.
-func (EventSlug) Policy() ent.Policy {
-	return systemOnlyPolicy()
-}
-
 // Fields defines Event Slug persistence.
 func (EventSlug) Fields() []ent.Field {
 	return []ent.Field{

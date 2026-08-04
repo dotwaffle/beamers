@@ -2,7 +2,6 @@ package schema
 
 import (
 	"entgo.io/ent"
-	"entgo.io/ent/privacy"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 )
@@ -15,18 +14,6 @@ type AccountPreference struct {
 // Mixin applies the fail-closed authorization tripwire to AccountPreference.
 func (AccountPreference) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
-}
-
-// Policy confines Account preferences to authenticated application flows.
-func (AccountPreference) Policy() ent.Policy {
-	return privacy.Policy{
-		Query: privacy.QueryPolicy{
-			denyMissingViewer(), allowAdministrator(), privacy.AlwaysDenyRule(),
-		},
-		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowAdministratorMutation(), privacy.AlwaysDenyRule(),
-		},
-	}
 }
 
 // Fields defines Account preference persistence.

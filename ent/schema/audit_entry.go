@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"entgo.io/ent"
-	"entgo.io/ent/privacy"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 )
@@ -17,18 +16,6 @@ type AuditEntry struct {
 // Mixin applies the fail-closed authorization tripwire to AuditEntry.
 func (AuditEntry) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
-}
-
-// Policy keeps Audit Entries append-only and Administrator-readable.
-func (AuditEntry) Policy() ent.Policy {
-	return privacy.Policy{
-		Query: privacy.QueryPolicy{
-			denyMissingViewer(), allowAdministrator(), privacy.AlwaysDenyRule(),
-		},
-		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowAuthenticatedAuditCreation(), privacy.AlwaysDenyRule(),
-		},
-	}
 }
 
 // Fields defines Audit Entry persistence.

@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"entgo.io/ent"
-	"entgo.io/ent/privacy"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
@@ -18,18 +17,6 @@ type TrackPublishedVersion struct {
 // Mixin applies the fail-closed authorization tripwire to TrackPublishedVersion.
 func (TrackPublishedVersion) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
-}
-
-// Policy makes Published Track versions append-only and application-owned.
-func (TrackPublishedVersion) Policy() ent.Policy {
-	return privacy.Policy{
-		Query: privacy.QueryPolicy{
-			denyMissingViewer(), filterGrantedTrackPublishedVersions(), privacy.AlwaysAllowRule(),
-		},
-		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowTrackOwnedCreation(), privacy.AlwaysDenyRule(),
-		},
-	}
 }
 
 // Fields defines Published Track version persistence.

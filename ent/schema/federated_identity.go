@@ -19,11 +19,6 @@ func (FederatedIdentity) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
-// Policy keeps Federated Identity material inside authentication storage paths.
-func (FederatedIdentity) Policy() ent.Policy {
-	return systemOnlyPolicy()
-}
-
 // Fields defines Federated Identity persistence.
 func (FederatedIdentity) Fields() []ent.Field {
 	return []ent.Field{

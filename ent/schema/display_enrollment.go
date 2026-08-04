@@ -17,11 +17,6 @@ func (DisplayEnrollment) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
-// Policy confines Enrollment secrets to Display application paths.
-func (DisplayEnrollment) Policy() ent.Policy {
-	return systemOnlyPolicy()
-}
-
 // Fields defines hashed claim and candidate credential values.
 func (DisplayEnrollment) Fields() []ent.Field {
 	return []ent.Field{

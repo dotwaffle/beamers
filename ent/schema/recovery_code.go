@@ -18,11 +18,6 @@ func (RecoveryCode) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
-// Policy keeps Recovery Codes inside authentication storage paths.
-func (RecoveryCode) Policy() ent.Policy {
-	return systemOnlyPolicy()
-}
-
 // Fields defines Recovery Code persistence.
 func (RecoveryCode) Fields() []ent.Field {
 	return []ent.Field{

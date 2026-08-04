@@ -121,35 +121,6 @@ func TestPrizegivingPlanAssignmentIsUniqueAndLockIsImmutable(t *testing.T) {
 	); viewErr == nil {
 		t.Fatal("missing viewer read Prizegiving plan")
 	}
-	manageContext := viewer.NewContext(t.Context(), viewer.Identity{
-		AccountID:  9,
-		EventRoles: map[int]viewer.Role{event.ID: viewer.Operator},
-		EventScopes: map[int]viewer.EventScope{
-			event.ID: {
-				Capabilities: map[viewer.Capability]struct{}{viewer.ManageResults: {}},
-			},
-		},
-	})
-	deniedTransaction, err := installation.BeginCommand(manageContext)
-	if err != nil {
-		t.Fatalf("begin unauthorized Prizegiving plan: %v", err)
-	}
-	_, err = deniedTransaction.SavePrizegivingPlan(
-		manageContext,
-		SavePrizegivingPlanParams{
-			EventID: event.ID, CeremonySessionID: firstCeremony.ID,
-			ExpectedRevision: 1, CompetitionSessionIDs: []int{competition.ID},
-			Sequence: first.Sequence, PublicationOrder: first.PublicationOrder,
-			Template: first.Template,
-		},
-	)
-	if err == nil {
-		t.Fatal("Manage Results without Producer authority changed Prizegiving plan")
-	}
-	if err = deniedTransaction.Rollback(); err != nil {
-		t.Fatalf("roll back unauthorized Prizegiving plan: %v", err)
-	}
-
 	secondTransaction, err := installation.BeginCommand(ctx)
 	if err != nil {
 		t.Fatalf("begin conflicting Prizegiving plan: %v", err)

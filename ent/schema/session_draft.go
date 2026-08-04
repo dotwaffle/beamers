@@ -2,7 +2,6 @@ package schema
 
 import (
 	"entgo.io/ent"
-	"entgo.io/ent/privacy"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 )
@@ -20,18 +19,6 @@ func (SessionDraft) Mixin() []ent.Mixin {
 // Hooks enforce Event ownership for every structural membership.
 func (SessionDraft) Hooks() []ent.Hook {
 	return []ent.Hook{validateSessionMembershipOwnership}
-}
-
-// Policy confines Session Draft access to granted Event roles.
-func (SessionDraft) Policy() ent.Policy {
-	return privacy.Policy{
-		Query: privacy.QueryPolicy{
-			denyMissingViewer(), filterGrantedSessionDrafts(), privacy.AlwaysAllowRule(),
-		},
-		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowSessionDraftDeletion(), allowSessionOwnedMutation(), privacy.AlwaysDenyRule(),
-		},
-	}
 }
 
 // Fields defines Session Draft persistence.

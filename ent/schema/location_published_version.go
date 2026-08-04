@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"entgo.io/ent"
-	"entgo.io/ent/privacy"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
@@ -18,18 +17,6 @@ type LocationPublishedVersion struct {
 // Mixin applies the fail-closed authorization tripwire to LocationPublishedVersion.
 func (LocationPublishedVersion) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
-}
-
-// Policy makes Published Location versions append-only and application-owned.
-func (LocationPublishedVersion) Policy() ent.Policy {
-	return privacy.Policy{
-		Query: privacy.QueryPolicy{
-			denyMissingViewer(), filterGrantedLocationPublishedVersions(), privacy.AlwaysAllowRule(),
-		},
-		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowLocationOwnedCreation(), privacy.AlwaysDenyRule(),
-		},
-	}
 }
 
 // Fields defines Published Location version persistence.

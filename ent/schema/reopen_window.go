@@ -18,11 +18,6 @@ func (ReopenWindow) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
-// Policy keeps Reopen Windows behind application services.
-func (ReopenWindow) Policy() ent.Policy {
-	return appendOnlySystemPolicy()
-}
-
 // Fields defines audited, automatically expiring access.
 func (ReopenWindow) Fields() []ent.Field {
 	return []ent.Field{

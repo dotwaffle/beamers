@@ -17,11 +17,6 @@ func (DraftChangeDependency) Mixin() []ent.Mixin {
 	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
-// Policy keeps dependency evidence internal and append-only.
-func (DraftChangeDependency) Policy() ent.Policy {
-	return appendOnlySystemPolicy()
-}
-
 // Fields defines Draft Change dependency persistence.
 func (DraftChangeDependency) Fields() []ent.Field {
 	return []ent.Field{
