@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -846,6 +847,7 @@ func (service *Service) UpdateProfile(
 	displayName string,
 	published bool,
 	entryIDs []int,
+	commandID string,
 ) error {
 	if service.storageDegraded() {
 		return ErrStorageDegraded
@@ -859,24 +861,72 @@ func (service *Service) UpdateProfile(
 			return ErrProfileEntryUnavailable
 		}
 	}
-	if err := service.storage.UpdateAccountProfile(
-		actor.Context(ctx),
-		actor.ID,
-		actor.Handle,
-		displayName,
-		published,
-		entryIDs,
-	); err != nil {
+	if validateErr := command.ValidateID(commandID); validateErr != nil {
+		return ErrInvalidAccountDetails
+	}
+	// Canonicalize EntryIDs before hashing so equivalent submissions (same
+	// Entries in a different order, or with duplicates) share one command
+	// identity instead of colliding as a payload mismatch. This mirrors the
+	// canonicalization the store applies before persisting.
+	entryIDs = slices.Compact(slices.Sorted(slices.Values(entryIDs)))
+	payload, err := json.Marshal(struct {
+		DisplayName string `json:"display_name"`
+		Published   bool   `json:"published"`
+		EntryIDs    []int  `json:"entry_ids"`
+	}{DisplayName: displayName, Published: published, EntryIDs: entryIDs})
+	if err != nil {
+		return errors.New("encode Update Profile command")
+	}
+	identity := store.CommandIdentity{
+		ActorAccountID: actor.ID, CommandID: commandID,
+		PayloadHash: command.PayloadHash(string(payload)), Action: "UpdateAccountProfile",
+		TargetType: "Account", TargetID: strconv.Itoa(actor.ID), Now: service.now().UTC(),
+	}
+	_, err = command.Execute(actor.Context(ctx), command.Plan[struct{}]{
+		Storage: service.storage, Identity: identity,
+		Replay: func(outcome string) (struct{}, error) {
+			var original store.AccountProfile
+			if decodeErr := store.DecodeCommandReceipt(outcome, &original); decodeErr != nil {
+				return struct{}{}, restoreRejected(decodeErr)
+			}
+			return struct{}{}, nil
+		},
+		Apply: func(transaction *store.CommandTx) (command.Execution[struct{}], error) {
+			updated, updateErr := transaction.UpdateAccountProfile(actor.Context(ctx), store.UpdateAccountProfileParams{
+				AccountID: actor.ID, AccountHandle: actor.Handle,
+				DisplayName: displayName, Published: published, EntryIDs: entryIDs,
+			})
+			if errors.Is(updateErr, ErrProfileEntryUnavailable) {
+				return accountRejectionExecution[struct{}](ErrProfileEntryUnavailable), nil
+			}
+			if updateErr != nil {
+				return command.Execution[struct{}]{}, updateErr
+			}
+			encoded, encodeErr := json.Marshal(updated)
+			if encodeErr != nil {
+				return command.Execution[struct{}]{}, errors.New("encode Update Profile outcome")
+			}
+			return command.Success(struct{}{}, string(encoded)), nil
+		},
+		// Applied fires only after a fresh Apply commits, never after a
+		// Replay of an earlier command. Adopting displayName into the
+		// session cache here (rather than from command.Execute's return
+		// value) guards against a replayed older command clobbering the
+		// cache with its own stale, historical Display Name.
+		Applied: func() {
+			service.sessionMu.Lock()
+			for token, session := range service.sessions {
+				if session.account.ID == actor.ID {
+					session.account.Name = displayName
+					service.sessions[token] = session
+				}
+			}
+			service.sessionMu.Unlock()
+		},
+	})
+	if err != nil {
 		return err
 	}
-	service.sessionMu.Lock()
-	for token, session := range service.sessions {
-		if session.account.ID == actor.ID {
-			session.account.Name = displayName
-			service.sessions[token] = session
-		}
-	}
-	service.sessionMu.Unlock()
 	return nil
 }
 
@@ -1092,6 +1142,7 @@ var accountRejections = command.RejectionTable{
 		{Err: ErrRecoveryAccountNotFound, Code: "recovery_account_not_found"},
 		{Err: ErrLastAdministrator, Code: "last_administrator"},
 		{Err: ErrFinalCredential, Code: "final_credential"},
+		{Err: ErrProfileEntryUnavailable, Code: "profile_entry_unavailable"},
 		{Err: store.ErrInvalidSession, Code: "credential_not_found", Restored: ErrInvalidSession},
 	},
 }

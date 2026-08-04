@@ -82,15 +82,14 @@ func (handlers finalFilesHandlers) backstage(
 		handlers.browser.frontendError(response, request, "preview Final Files Export", err)
 		return
 	}
-	csrfToken, err := handlers.browser.csrfToken(response, request)
-	if err != nil {
-		handlers.browser.frontendError(response, request, "create CSRF proof", err)
+	prologue, ok := handlers.browser.backstagePagePrologue(response, request, actor)
+	if !ok {
 		return
 	}
 	switch request.Method {
 	case http.MethodGet, http.MethodHead:
 		handlers.renderBackstage(
-			response, request, actor, event, plan, csrfToken, http.StatusOK, nil,
+			response, request, actor, event, plan, prologue, http.StatusOK, nil,
 		)
 	case http.MethodPost:
 		if !handlers.browser.validForm(response, request) {
@@ -104,7 +103,7 @@ func (handlers finalFilesHandlers) backstage(
 				actor,
 				event,
 				plan,
-				csrfToken,
+				prologue,
 				http.StatusBadRequest,
 				finalFilesConfirmationErrors(request),
 			)
@@ -117,7 +116,7 @@ func (handlers finalFilesHandlers) backstage(
 				actor,
 				event,
 				plan,
-				csrfToken,
+				prologue,
 				http.StatusConflict,
 				frontend.FormErrors{{
 					FieldID: "final-files-confirmed",
@@ -146,7 +145,7 @@ func (handlers finalFilesHandlers) backstage(
 				actor,
 				event,
 				plan,
-				csrfToken,
+				prologue,
 				http.StatusConflict,
 				frontend.FormErrors{{
 					FieldID: "final-files-confirmed",
@@ -174,7 +173,7 @@ func (handlers finalFilesHandlers) renderBackstage(
 	actor auth.Account,
 	event events.Event,
 	plan attachments.FinalFilesPlan,
-	csrfToken string,
+	prologue backstagePrologue,
 	status int,
 	formErrors frontend.FormErrors,
 ) {
@@ -184,9 +183,9 @@ func (handlers finalFilesHandlers) renderBackstage(
 	}
 	handlers.browser.render(response, request, status, frontend.FinalFiles(
 		frontend.FinalFilesPage{
-			AccountName: actor.Name, CSRFToken: csrfToken,
-			ReducedEffects: reducedEffectsCookie(request),
-			Navigation:     backstageNavigation(actor, request.URL.Path),
+			AccountName: actor.Name, CSRFToken: prologue.CSRFToken,
+			ReducedEffects: prologue.ReducedEffects,
+			Navigation:     prologue.Navigation,
 			Event:          event, Plan: plan, TotalSize: totalSize, Errors: formErrors,
 		},
 	))

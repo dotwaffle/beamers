@@ -30,9 +30,8 @@ func (handlers eventThemeHandlers) administration(
 		http.NotFound(response, request)
 		return
 	}
-	csrfToken, err := handlers.browser.csrfToken(response, request)
-	if err != nil {
-		handlers.browser.frontendError(response, request, "create CSRF proof", err)
+	prologue, ok := handlers.browser.backstagePagePrologue(response, request, actor)
+	if !ok {
 		return
 	}
 	switch request.Method {
@@ -47,25 +46,25 @@ func (handlers eventThemeHandlers) administration(
 			selected, err = nonnegativeThemeID(value)
 			if err != nil {
 				handlers.render(
-					response, request, actor, eventID, csrfToken, 0,
+					response, request, actor, eventID, prologue, 0,
 					http.StatusBadRequest, "Theme Revision must be a non-negative integer.",
 				)
 				return
 			}
 		}
-		handlers.render(response, request, actor, eventID, csrfToken, selected, http.StatusOK, "")
+		handlers.render(response, request, actor, eventID, prologue, selected, http.StatusOK, "")
 	case http.MethodPost:
 		if !handlers.browser.validForm(response, request) {
 			return
 		}
 		if err = validateEventThemeForm(request.Form); err != nil {
 			handlers.render(
-				response, request, actor, eventID, csrfToken, 0,
+				response, request, actor, eventID, prologue, 0,
 				http.StatusBadRequest, "An undocumented Theme control was rejected.",
 			)
 			return
 		}
-		handlers.submit(response, request, actor, eventID, csrfToken)
+		handlers.submit(response, request, actor, eventID, prologue)
 	default:
 		frontendMethodNotAllowed(response, http.MethodGet+", "+http.MethodHead+", "+http.MethodPost)
 	}
@@ -76,7 +75,7 @@ func (handlers eventThemeHandlers) submit(
 	request *http.Request,
 	actor auth.Account,
 	eventID int,
-	csrfToken string,
+	prologue backstagePrologue,
 ) {
 	switch request.Form.Get("action") {
 	case "create-draft":
@@ -94,7 +93,7 @@ func (handlers eventThemeHandlers) submit(
 				handlers.browser.frontendError(response, request, "create Event Theme Revision", err)
 				return
 			}
-			handlers.render(response, request, actor, eventID, csrfToken, 0, status, message)
+			handlers.render(response, request, actor, eventID, prologue, 0, status, message)
 			return
 		}
 		http.Redirect(
@@ -107,13 +106,13 @@ func (handlers eventThemeHandlers) submit(
 		config, ok := themevalue.PresetConfig(request.Form.Get("preset"))
 		if !ok {
 			handlers.render(
-				response, request, actor, eventID, csrfToken, 0,
+				response, request, actor, eventID, prologue, 0,
 				http.StatusBadRequest, "Select a bundled Theme Preset and try again.",
 			)
 			return
 		}
 		applyThemeConfig(request.Form, config)
-		handlers.render(response, request, actor, eventID, csrfToken, 0, http.StatusOK, "")
+		handlers.render(response, request, actor, eventID, prologue, 0, http.StatusOK, "")
 	case "activate":
 		revisionID, revisionErr := nonnegativeThemeID(request.Form.Get("revision_id"))
 		expectedID, expectedErr := nonnegativeThemeID(
@@ -121,7 +120,7 @@ func (handlers eventThemeHandlers) submit(
 		)
 		if revisionErr != nil || expectedErr != nil {
 			handlers.render(
-				response, request, actor, eventID, csrfToken, 0,
+				response, request, actor, eventID, prologue, 0,
 				http.StatusBadRequest, "Check the Theme Revision details and try again.",
 			)
 			return
@@ -142,7 +141,7 @@ func (handlers eventThemeHandlers) submit(
 				return
 			}
 			handlers.render(
-				response, request, actor, eventID, csrfToken, revisionID, status, message,
+				response, request, actor, eventID, prologue, revisionID, status, message,
 			)
 			return
 		}
@@ -154,7 +153,7 @@ func (handlers eventThemeHandlers) submit(
 		)
 	default:
 		handlers.render(
-			response, request, actor, eventID, csrfToken, 0,
+			response, request, actor, eventID, prologue, 0,
 			http.StatusBadRequest, "Check the Theme action and try again.",
 		)
 	}
@@ -165,7 +164,7 @@ func (handlers eventThemeHandlers) render(
 	request *http.Request,
 	actor auth.Account,
 	eventID int,
-	csrfToken string,
+	prologue backstagePrologue,
 	selectedRevisionID int,
 	status int,
 	message string,
@@ -219,9 +218,9 @@ func (handlers eventThemeHandlers) render(
 		request,
 		status,
 		frontend.EventThemeAdministration(frontend.EventThemePage{
-			EventID: eventID, AccountName: actor.Name, CSRFToken: csrfToken,
-			ReducedEffects:   reducedEffectsCookie(request),
-			Navigation:       backstageNavigation(actor, request.URL.Path),
+			EventID: eventID, AccountName: actor.Name, CSRFToken: prologue.CSRFToken,
+			ReducedEffects:   prologue.ReducedEffects,
+			Navigation:       prologue.Navigation,
 			ActiveRevisionID: active.Revision.ID, Revisions: summaries,
 			RevisionID: preview.Revision.ID, Config: preview.Revision.Config,
 			Resolved: preview.Resolved, Variants: preview.Variants,

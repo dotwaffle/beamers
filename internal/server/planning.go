@@ -109,16 +109,15 @@ func (handlers planningHandlers) sessions(
 			manage[session.ID] = true
 		}
 	}
-	csrfToken, err := handlers.browser.csrfToken(response, request)
-	if err != nil {
-		handlers.browser.frontendError(response, request, "create CSRF proof", err)
+	prologue, ok := handlers.browser.backstagePagePrologue(response, request, actor)
+	if !ok {
 		return
 	}
 	handlers.browser.render(response, request, http.StatusOK, frontend.BackstageSessions(
 		frontend.BackstageSessionsPage{
-			AccountName: actor.Name, CSRFToken: csrfToken,
-			ReducedEffects: reducedEffectsCookie(request),
-			Navigation:     backstageNavigation(actor, request.URL.Path),
+			AccountName: actor.Name, CSRFToken: prologue.CSRFToken,
+			ReducedEffects: prologue.ReducedEffects,
+			Navigation:     prologue.Navigation,
 			Event:          event, Role: string(role), Sessions: state.Sessions,
 			Manage: manage, Producer: actor.CanProduceEvent(eventID),
 		},
@@ -153,16 +152,15 @@ func (handlers planningHandlers) overview(response http.ResponseWriter, request 
 		handlers.browser.frontendError(response, request, "read Rundown readiness", err)
 		return
 	}
-	csrfToken, err := handlers.browser.csrfToken(response, request)
-	if err != nil {
-		handlers.browser.frontendError(response, request, "create CSRF proof", err)
+	prologue, ok := handlers.browser.backstagePagePrologue(response, request, actor)
+	if !ok {
 		return
 	}
 	handlers.browser.render(response, request, http.StatusOK, frontend.EventOverview(
 		frontend.EventOverviewPage{
-			AccountName: actor.Name, CSRFToken: csrfToken,
-			ReducedEffects: reducedEffectsCookie(request),
-			Navigation:     backstageNavigation(actor, request.URL.Path),
+			AccountName: actor.Name, CSRFToken: prologue.CSRFToken,
+			ReducedEffects: prologue.ReducedEffects,
+			Navigation:     prologue.Navigation,
 			Event:          overview.Event, Active: overview.Active,
 			AttachmentRelease: overview.AttachmentRelease,
 			Rundown:           preview, Role: string(role),
@@ -181,14 +179,13 @@ func (handlers planningHandlers) settings(response http.ResponseWriter, request 
 		http.NotFound(response, request)
 		return
 	}
-	csrfToken, err := handlers.browser.csrfToken(response, request)
-	if err != nil {
-		handlers.browser.frontendError(response, request, "create CSRF proof", err)
+	prologue, ok := handlers.browser.backstagePagePrologue(response, request, actor)
+	if !ok {
 		return
 	}
 	switch request.Method {
 	case http.MethodGet, http.MethodHead:
-		handlers.renderSettings(response, request, actor, eventID, csrfToken, http.StatusOK, nil)
+		handlers.renderSettings(response, request, actor, eventID, prologue, http.StatusOK, nil)
 	case http.MethodPost:
 		if !handlers.browser.validForm(response, request) {
 			return
@@ -237,7 +234,7 @@ func (handlers planningHandlers) settings(response http.ResponseWriter, request 
 		}
 		if inputErr != nil {
 			status, formErrors := eventSettingsErrors(inputErr, request.Form.Get("action"))
-			handlers.renderSettings(response, request, actor, eventID, csrfToken, status, formErrors)
+			handlers.renderSettings(response, request, actor, eventID, prologue, status, formErrors)
 			return
 		}
 		http.Redirect(
@@ -256,7 +253,7 @@ func (handlers planningHandlers) renderSettings(
 	request *http.Request,
 	actor auth.Account,
 	eventID int,
-	csrfToken string,
+	prologue backstagePrologue,
 	status int,
 	formErrors frontend.FormErrors,
 ) {
@@ -288,9 +285,9 @@ func (handlers planningHandlers) renderSettings(
 	}
 	handlers.browser.render(response, request, status, frontend.EventSettings(
 		frontend.EventSettingsPage{
-			AccountName: actor.Name, CSRFToken: csrfToken,
-			ReducedEffects: reducedEffectsCookie(request),
-			Navigation:     backstageNavigation(actor, request.URL.Path),
+			AccountName: actor.Name, CSRFToken: prologue.CSRFToken,
+			ReducedEffects: prologue.ReducedEffects,
+			Navigation:     prologue.Navigation,
 			Event:          event, Release: release, Ceremonies: ceremonies,
 			CommandID: commandID, SubmittedAction: request.Form.Get("action"),
 			Form: request.Form, Errors: formErrors,
@@ -298,28 +295,34 @@ func (handlers planningHandlers) renderSettings(
 	))
 }
 
+// eventSettingsFormErrorRules is the classify-error-to-field table for
+// eventSettingsErrors' common shape. Adding a new validation rule means
+// adding one row here.
+var eventSettingsFormErrorRules = []formErrorRule{
+	ruleValidation(func(validation *events.ValidationError) (string, string, string) {
+		field, label := eventSettingsField(validation.Field)
+		return field, label, validation.Message
+	}),
+	ruleValidation(func(validation *rundown.ValidationError) (string, string, string) {
+		field, label := eventSettingsField(validation.Field)
+		return field, label, validation.Message
+	}),
+	rule(matchErr(events.ErrEventSlugUnavailable),
+		"public-slug", "Current Event Slug", ""),
+	rule(matchErr(attachments.ErrReleasePolicy),
+		"release-policy", "Event Release Policy", ""),
+	rule(matchAll(matchErr(attachments.ErrInvalidInput), matchAction("configure-attachment-release")),
+		"cue-session", "Optional release Ceremony", ""),
+	rule(matchAll(matchErr(attachments.ErrInvalidInput), matchAction("fire-attachment-release-cue")),
+		"release-cue-confirmed", "Release confirmation", ""),
+}
+
 func eventSettingsErrors(err error, action string) (int, frontend.FormErrors) {
 	status, message := planningError(err)
-	field, label := "", ""
-	var eventValidation *events.ValidationError
-	var rundownValidation *rundown.ValidationError
-	switch {
-	case errors.As(err, &eventValidation):
-		field, label = eventSettingsField(eventValidation.Field)
-		message = eventValidation.Message
-	case errors.As(err, &rundownValidation):
-		field, label = eventSettingsField(rundownValidation.Field)
-		message = rundownValidation.Message
-	case errors.Is(err, events.ErrEventSlugUnavailable):
-		field, label = "public-slug", "Current Event Slug"
-	case errors.Is(err, attachments.ErrReleasePolicy):
-		field, label = "release-policy", "Event Release Policy"
-	case errors.Is(err, attachments.ErrInvalidInput) && action == "configure-attachment-release":
-		field, label = "cue-session", "Optional release Ceremony"
-	case errors.Is(err, attachments.ErrInvalidInput) && action == "fire-attachment-release-cue":
-		field, label = "release-cue-confirmed", "Release confirmation"
-	}
-	return status, frontend.FormErrors{{FieldID: field, Label: label, Message: message}}
+	field, label, fieldMessage, _ := resolveFormErrorField(eventSettingsFormErrorRules, err, action)
+	return status, formErrorResult(field, label, fieldMessage, action, message,
+		func(field, _ string) string { return field },
+	)
 }
 
 func eventSettingsField(field string) (string, string) {
@@ -374,9 +377,8 @@ func (handlers planningHandlers) displaySettings(
 		handlers.browser.frontendError(response, request, "read named Sessions", err)
 		return
 	}
-	csrfToken, err := handlers.browser.csrfToken(response, request)
-	if err != nil {
-		handlers.browser.frontendError(response, request, "create CSRF proof", err)
+	prologue, ok := handlers.browser.backstagePagePrologue(response, request, actor)
+	if !ok {
 		return
 	}
 	form := displaySettingsFormFromConfiguration(configuration.Configuration, draft)
@@ -414,7 +416,7 @@ func (handlers planningHandlers) displaySettings(
 				event,
 				configuration.EventRevision,
 				draft,
-				csrfToken,
+				prologue,
 				form,
 				status,
 				formErrors,
@@ -440,7 +442,7 @@ func (handlers planningHandlers) displaySettings(
 		event,
 		configuration.EventRevision,
 		draft,
-		csrfToken,
+		prologue,
 		form,
 		http.StatusOK,
 		nil,
@@ -455,7 +457,7 @@ func (handlers planningHandlers) renderDisplaySettings(
 	event events.Event,
 	eventRevision int,
 	draft rundown.DraftRundown,
-	csrfToken string,
+	prologue backstagePrologue,
 	form frontend.DisplaySettingsForm,
 	status int,
 	formErrors frontend.FormErrors,
@@ -468,9 +470,9 @@ func (handlers planningHandlers) renderDisplaySettings(
 	}
 	handlers.browser.render(response, request, status, frontend.DisplaySettings(
 		frontend.DisplaySettingsPage{
-			AccountName: actor.Name, CSRFToken: csrfToken,
-			ReducedEffects: reducedEffectsCookie(request),
-			Navigation:     backstageNavigation(actor, request.URL.Path),
+			AccountName: actor.Name, CSRFToken: prologue.CSRFToken,
+			ReducedEffects: prologue.ReducedEffects,
+			Navigation:     prologue.Navigation,
 			Event:          event, EventRevision: eventRevision, Draft: draft,
 			SessionTypes: displaySessionTypes(), Form: form,
 			CommandID: commandID, Errors: formErrors, ErrorSection: errorSection,
@@ -810,9 +812,8 @@ func (handlers planningHandlers) newEvent(response http.ResponseWriter, request 
 		http.NotFound(response, request)
 		return
 	}
-	csrfToken, err := handlers.browser.csrfToken(response, request)
-	if err != nil {
-		handlers.browser.frontendError(response, request, "create CSRF proof", err)
+	prologue, ok := handlers.browser.backstagePagePrologue(response, request, actor)
+	if !ok {
 		return
 	}
 	commandID, err := planningCommandID(handlers.browser.random)
@@ -828,7 +829,7 @@ func (handlers planningHandlers) newEvent(response http.ResponseWriter, request 
 	switch request.Method {
 	case http.MethodGet, http.MethodHead:
 		handlers.renderNewEvent(
-			response, request, actor, csrfToken, commandID, grantCommandID,
+			response, request, actor, prologue, commandID, grantCommandID,
 			http.StatusOK, "",
 		)
 	case http.MethodPost:
@@ -841,7 +842,7 @@ func (handlers planningHandlers) newEvent(response http.ResponseWriter, request 
 		if inputErr != nil {
 			status, message := planningError(inputErr)
 			handlers.renderNewEvent(
-				response, request, actor, csrfToken, commandID, grantCommandID,
+				response, request, actor, prologue, commandID, grantCommandID,
 				status, message,
 			)
 			return
@@ -860,7 +861,7 @@ func (handlers planningHandlers) newEvent(response http.ResponseWriter, request 
 		if createErr != nil {
 			status, message := planningError(createErr)
 			handlers.renderNewEvent(
-				response, request, actor, csrfToken, commandID, grantCommandID,
+				response, request, actor, prologue, commandID, grantCommandID,
 				status, message,
 			)
 			return
@@ -879,7 +880,8 @@ func (handlers planningHandlers) renderNewEvent(
 	response http.ResponseWriter,
 	request *http.Request,
 	actor auth.Account,
-	csrfToken, commandID, grantCommandID string,
+	prologue backstagePrologue,
+	commandID, grantCommandID string,
 	status int,
 	message string,
 ) {
@@ -889,9 +891,9 @@ func (handlers planningHandlers) renderNewEvent(
 		return
 	}
 	handlers.browser.render(response, request, status, frontend.NewEvent(frontend.NewEventPage{
-		AccountName: actor.Name, CSRFToken: csrfToken,
-		ReducedEffects: reducedEffectsCookie(request),
-		Navigation:     backstageNavigation(actor, request.URL.Path),
+		AccountName: actor.Name, CSRFToken: prologue.CSRFToken,
+		ReducedEffects: prologue.ReducedEffects,
+		Navigation:     prologue.Navigation,
 		CommandID:      commandID, GrantCommandID: grantCommandID,
 		GrantSelfDefault: len(existingEvents) == 0,
 		Error:            message,
@@ -908,19 +910,18 @@ func (handlers planningHandlers) planning(response http.ResponseWriter, request 
 		http.NotFound(response, request)
 		return
 	}
-	csrfToken, err := handlers.browser.csrfToken(response, request)
-	if err != nil {
-		handlers.browser.frontendError(response, request, "create CSRF proof", err)
+	prologue, ok := handlers.browser.backstagePagePrologue(response, request, actor)
+	if !ok {
 		return
 	}
 	switch request.Method {
 	case http.MethodGet, http.MethodHead:
-		handlers.render(response, request, actor, eventID, csrfToken, http.StatusOK, nil, nil, nil, nil, "", "", "", "")
+		handlers.render(response, request, actor, eventID, prologue, http.StatusOK, nil, nil, nil, nil, "", "", "", "")
 	case http.MethodPost:
 		if !handlers.browser.validForm(response, request) {
 			return
 		}
-		handlers.submit(response, request, actor, eventID, csrfToken)
+		handlers.submit(response, request, actor, eventID, prologue)
 	default:
 		frontendMethodNotAllowed(response, http.MethodGet+", "+http.MethodHead+", "+http.MethodPost)
 	}
@@ -931,7 +932,7 @@ func (handlers planningHandlers) submit(
 	request *http.Request,
 	actor auth.Account,
 	eventID int,
-	csrfToken string,
+	prologue backstagePrologue,
 ) {
 	var (
 		publishPreview   *rundown.PublishPreview
@@ -1086,7 +1087,7 @@ func (handlers planningHandlers) submit(
 		request,
 		actor,
 		eventID,
-		csrfToken,
+		prologue,
 		status,
 		formErrors,
 		publishPreview,
@@ -1104,7 +1105,7 @@ func (handlers planningHandlers) render(
 	request *http.Request,
 	actor auth.Account,
 	eventID int,
-	csrfToken string,
+	prologue backstagePrologue,
 	status int,
 	formErrors frontend.FormErrors,
 	publishPreview *rundown.PublishPreview,
@@ -1154,9 +1155,9 @@ func (handlers planningHandlers) render(
 		sessionBases[session.ID] = string(encoded)
 	}
 	handlers.browser.render(response, request, status, frontend.Planning(frontend.PlanningPage{
-		AccountName: actor.Name, CSRFToken: csrfToken,
-		ReducedEffects: reducedEffectsCookie(request),
-		Navigation:     backstageNavigation(actor, request.URL.Path),
+		AccountName: actor.Name, CSRFToken: prologue.CSRFToken,
+		ReducedEffects: prologue.ReducedEffects,
+		Navigation:     prologue.Navigation,
 		Event:          event, Rundown: crew, Draft: draft, SessionBases: sessionBases, CurrentPreview: current,
 		PublishPreview: publishPreview, CSVPreview: csvPreview,
 		ICalendarPreview: icalendarPreview, CSVData: csvData, CSVMappings: csvMappings,

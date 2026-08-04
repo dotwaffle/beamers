@@ -420,14 +420,9 @@ func (installation *SQLite) PreflightCompetitionStart(
 	ctx context.Context,
 	eventID, sessionID int,
 ) (CompetitionPreflight, error) {
-	transaction, err := installation.client.Tx(ctx)
-	if err != nil {
-		return CompetitionPreflight{}, opaqueError("begin Competition Preflight", err)
-	}
-	defer func() {
-		_ = transaction.Rollback()
-	}()
-	return loadCompetitionPreflight(ctx, transaction.Client(), eventID, sessionID, false)
+	return withReadTx(ctx, installation.client, "Competition Preflight", func(transaction *ent.Tx) (CompetitionPreflight, error) {
+		return loadCompetitionPreflight(ctx, transaction.Client(), eventID, sessionID, false)
+	})
 }
 
 // PreflightCompetitionStart applies automation inside a Start command transaction.

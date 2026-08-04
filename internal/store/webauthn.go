@@ -160,52 +160,52 @@ func (installation *SQLite) CreateWebAuthnSession(
 	expiresAt time.Time,
 ) (AccountCredential, []string, error) {
 	internalContext := systemContext(ctx)
-	transaction, err := installation.client.Tx(internalContext)
-	if err != nil {
-		return AccountCredential{}, nil, opaqueError("begin WebAuthn sign-in", err)
+	type webAuthnSession struct {
+		credential AccountCredential
+		revoked    []string
 	}
-	defer func() {
-		_ = transaction.Rollback()
-	}()
-	stored, err := transaction.WebAuthnCredential.Query().Where(
-		webauthncredential.AccountIDEQ(accountID),
-		webauthncredential.CredentialIDEQ(credentialID),
-		webauthncredential.RevokedAtIsNil(),
-		webauthncredential.HasAccountWith(account.DisabledAtIsNil()),
-	).Only(internalContext)
-	if ent.IsNotFound(err) {
-		return AccountCredential{}, nil, ErrInvalidSession
-	}
-	if err != nil {
-		return AccountCredential{}, nil, opaqueError("read verified WebAuthn Credential", err)
-	}
-	if _, err = stored.Update().
-		SetCredential(credentialJSON).
-		SetLastUsedAt(now).
-		Save(internalContext); err != nil {
-		return AccountCredential{}, nil, opaqueError("update WebAuthn Credential", err)
-	}
-	revoked, err := createBoundedAccountSession(
-		internalContext,
-		transaction,
-		accountID,
-		sessionHash,
-		now,
-		expiresAt,
-	)
+	result, err := withTx(internalContext, installation.client, "WebAuthn sign-in", func(transaction *ent.Tx) (webAuthnSession, error) {
+		stored, err := transaction.WebAuthnCredential.Query().Where(
+			webauthncredential.AccountIDEQ(accountID),
+			webauthncredential.CredentialIDEQ(credentialID),
+			webauthncredential.RevokedAtIsNil(),
+			webauthncredential.HasAccountWith(account.DisabledAtIsNil()),
+		).Only(internalContext)
+		if ent.IsNotFound(err) {
+			return webAuthnSession{}, ErrInvalidSession
+		}
+		if err != nil {
+			return webAuthnSession{}, opaqueError("read verified WebAuthn Credential", err)
+		}
+		if _, err = stored.Update().
+			SetCredential(credentialJSON).
+			SetLastUsedAt(now).
+			Save(internalContext); err != nil {
+			return webAuthnSession{}, opaqueError("update WebAuthn Credential", err)
+		}
+		revoked, err := createBoundedAccountSession(
+			internalContext,
+			transaction,
+			accountID,
+			sessionHash,
+			now,
+			expiresAt,
+		)
+		if err != nil {
+			return webAuthnSession{}, err
+		}
+		found, err := transaction.Account.Query().
+			Where(account.IDEQ(accountID), account.DisabledAtIsNil()).
+			Only(internalContext)
+		if err != nil {
+			return webAuthnSession{}, opaqueError("read WebAuthn Account session", err)
+		}
+		return webAuthnSession{credential: accountCredential(found, ""), revoked: revoked}, nil
+	})
 	if err != nil {
 		return AccountCredential{}, nil, err
 	}
-	found, err := transaction.Account.Query().
-		Where(account.IDEQ(accountID), account.DisabledAtIsNil()).
-		Only(internalContext)
-	if err != nil {
-		return AccountCredential{}, nil, opaqueError("read WebAuthn Account session", err)
-	}
-	if err = transaction.Commit(); err != nil {
-		return AccountCredential{}, nil, opaqueError("commit WebAuthn sign-in", err)
-	}
-	return accountCredential(found, ""), revoked, nil
+	return result.credential, result.revoked, nil
 }
 
 // RemovePassword revokes a password inside a command only when another Credential remains active.

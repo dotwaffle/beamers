@@ -389,9 +389,8 @@ func (handlers votingHandlers) competition(response http.ResponseWriter, request
 		http.NotFound(response, request)
 		return
 	}
-	csrfToken, err := handlers.browser.csrfToken(response, request)
-	if err != nil {
-		handlers.browser.frontendError(response, request, "create CSRF proof", err)
+	prologue, ok := handlers.browser.backstagePagePrologue(response, request, actor)
+	if !ok {
 		return
 	}
 	message := ""
@@ -404,7 +403,7 @@ func (handlers votingHandlers) competition(response http.ResponseWriter, request
 			http.NotFound(response, request)
 			return
 		}
-		err = handlers.submitCompetition(request, actor, eventID, sessionID)
+		err := handlers.submitCompetition(request, actor, eventID, sessionID)
 		if err == nil {
 			http.Redirect(
 				response, request,
@@ -420,7 +419,7 @@ func (handlers votingHandlers) competition(response http.ResponseWriter, request
 		return
 	}
 	handlers.renderCompetition(
-		response, request, actor, csrfToken, eventID, sessionID, status, message,
+		response, request, actor, prologue, eventID, sessionID, status, message,
 	)
 }
 
@@ -467,7 +466,7 @@ func (handlers votingHandlers) renderCompetition(
 	response http.ResponseWriter,
 	request *http.Request,
 	actor auth.Account,
-	csrfToken string,
+	prologue backstagePrologue,
 	eventID, sessionID, status int,
 	message string,
 ) {
@@ -490,9 +489,9 @@ func (handlers votingHandlers) renderCompetition(
 	}
 	handlers.browser.render(response, request, status, frontend.CompetitionVoting(
 		frontend.CompetitionVotingPage{
-			AccountName: actor.Name, CSRFToken: csrfToken,
-			ReducedEffects: reducedEffectsCookie(request),
-			Navigation:     backstageNavigation(actor, request.URL.Path),
+			AccountName: actor.Name, CSRFToken: prologue.CSRFToken,
+			ReducedEffects: prologue.ReducedEffects,
+			Navigation:     prologue.Navigation,
 			Producer:       actor.CanProduceEvent(eventID), CommandID: commandID,
 			Window: window, Participation: participation, Message: message,
 		},
@@ -509,19 +508,18 @@ func (handlers votingHandlers) keys(response http.ResponseWriter, request *http.
 		http.NotFound(response, request)
 		return
 	}
-	csrfToken, err := handlers.browser.csrfToken(response, request)
-	if err != nil {
-		handlers.browser.frontendError(response, request, "create CSRF proof", err)
+	prologue, ok := handlers.browser.backstagePagePrologue(response, request, actor)
+	if !ok {
 		return
 	}
 	switch request.Method {
 	case http.MethodGet, http.MethodHead:
-		handlers.renderKeys(response, request, actor, csrfToken, eventID, nil, http.StatusOK, "")
+		handlers.renderKeys(response, request, actor, prologue, eventID, nil, http.StatusOK, "")
 	case http.MethodPost:
 		if !handlers.browser.validForm(response, request) {
 			return
 		}
-		handlers.submitKeys(response, request, actor, csrfToken, eventID)
+		handlers.submitKeys(response, request, actor, prologue, eventID)
 	default:
 		frontendMethodNotAllowed(response, http.MethodGet+", "+http.MethodHead+", "+http.MethodPost)
 	}
@@ -531,7 +529,7 @@ func (handlers votingHandlers) submitKeys(
 	response http.ResponseWriter,
 	request *http.Request,
 	actor auth.Account,
-	csrfToken string,
+	prologue backstagePrologue,
 	eventID int,
 ) {
 	var (
@@ -576,17 +574,17 @@ func (handlers votingHandlers) submitKeys(
 	}
 	if err != nil {
 		status, message := votingManagementError(err)
-		handlers.renderKeys(response, request, actor, csrfToken, eventID, nil, status, message)
+		handlers.renderKeys(response, request, actor, prologue, eventID, nil, status, message)
 		return
 	}
-	handlers.renderKeys(response, request, actor, csrfToken, eventID, issued, http.StatusOK, "")
+	handlers.renderKeys(response, request, actor, prologue, eventID, issued, http.StatusOK, "")
 }
 
 func (handlers votingHandlers) renderKeys(
 	response http.ResponseWriter,
 	request *http.Request,
 	actor auth.Account,
-	csrfToken string,
+	prologue backstagePrologue,
 	eventID int,
 	issued []voting.IssuedKey,
 	status int,
@@ -614,9 +612,9 @@ func (handlers votingHandlers) renderKeys(
 		return
 	}
 	handlers.browser.render(response, request, status, frontend.VotingKeys(frontend.VotingKeyPage{
-		AccountName: actor.Name, CSRFToken: csrfToken,
-		ReducedEffects: reducedEffectsCookie(request),
-		Navigation:     backstageNavigation(actor, request.URL.Path),
+		AccountName: actor.Name, CSRFToken: prologue.CSRFToken,
+		ReducedEffects: prologue.ReducedEffects,
+		Navigation:     prologue.Navigation,
 		CommandID:      commandID, Event: foundEvent,
 		ExpiryValue: now.Add(24 * time.Hour).In(location).Format("2006-01-02T15:04"),
 		Keys:        keys, Issued: issued, Message: message, Now: now,

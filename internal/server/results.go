@@ -71,19 +71,18 @@ func (handlers backstageResultsHandlers) page(
 		http.NotFound(response, request)
 		return
 	}
-	csrfToken, err := handlers.browser.csrfToken(response, request)
-	if err != nil {
-		handlers.browser.frontendError(response, request, "create CSRF proof", err)
+	prologue, ok := handlers.browser.backstagePagePrologue(response, request, actor)
+	if !ok {
 		return
 	}
 	switch request.Method {
 	case http.MethodGet, http.MethodHead:
-		handlers.renderPage(response, request, actor, eventID, csrfToken, http.StatusOK, nil)
+		handlers.renderPage(response, request, actor, eventID, prologue, http.StatusOK, nil)
 	case http.MethodPost:
 		if !handlers.browser.validForm(response, request) {
 			return
 		}
-		handlers.submitPage(response, request, actor, eventID, csrfToken)
+		handlers.submitPage(response, request, actor, eventID, prologue)
 	default:
 		frontendMethodNotAllowed(response, http.MethodGet+", "+http.MethodHead+", "+http.MethodPost)
 	}
@@ -94,7 +93,7 @@ func (handlers backstageResultsHandlers) submitPage(
 	request *http.Request,
 	actor auth.Account,
 	eventID int,
-	csrfToken string,
+	prologue backstagePrologue,
 ) {
 	var err error
 	switch request.Form.Get("action") {
@@ -312,7 +311,7 @@ func (handlers backstageResultsHandlers) submitPage(
 		request,
 		actor,
 		eventID,
-		csrfToken,
+		prologue,
 		status,
 		resultsFormErrors(err, request.Form, message),
 	)
@@ -386,35 +385,29 @@ func resultsFormErrors(
 			}}
 		}
 	}
-	switch {
-	case errors.Is(err, results.ErrDisposition):
-		return frontend.FormErrors{{
-			FieldID: frontend.ResultsFieldID(
-				"save-results-draft", targetID, "disposition",
-			),
-			Label:   "Disposition",
-			Message: err.Error(),
-		}}
-	case errors.Is(err, results.ErrIncomplete),
-		errors.Is(err, results.ErrCompetitionRanking),
-		errors.Is(err, results.ErrUnplacedOrder),
-		errors.Is(err, results.ErrScoreRequired),
-		errors.Is(err, results.ErrInvalidScore):
-		return frontend.FormErrors{{
-			FieldID: frontend.ResultsFieldID(
-				"save-results-draft", targetID, "result_standings",
-			),
-			Label:   "Result Standings",
-			Message: err.Error(),
-		}}
-	case errors.Is(err, results.ErrInvalidAward):
-		return frontend.FormErrors{{
-			FieldID: frontend.ResultsFieldID(action, targetID, "award_details"),
-			Label:   "Award details",
-			Message: err.Error(),
-		}}
-	}
-	return frontend.FormErrors{{Message: message}}
+	field, label, fieldMessage, fieldAction := resolveFormErrorField(resultsFormErrorRules, err, action)
+	return formErrorResult(field, label, fieldMessage, fieldAction, message,
+		func(field, action string) string {
+			return frontend.ResultsFieldID(action, targetID, field)
+		},
+	)
+}
+
+// resultsFormErrorRules is the classify-error-to-field table for
+// resultsFormErrors' common tail shape (the bespoke prizegiving-plan and
+// crew-reason pre-checks above stay outside the table). Adding a new
+// validation rule means adding one row here.
+var resultsFormErrorRules = []formErrorRule{
+	ruleErrorMessage(matchErr(results.ErrDisposition),
+		"save-results-draft", "disposition", "Disposition"),
+	ruleErrorMessage(
+		matchErrAny(
+			results.ErrIncomplete, results.ErrCompetitionRanking, results.ErrUnplacedOrder,
+			results.ErrScoreRequired, results.ErrInvalidScore,
+		),
+		"save-results-draft", "result_standings", "Result Standings",
+	),
+	ruleErrorMessage(matchErr(results.ErrInvalidAward), "", "award_details", "Award details"),
 }
 
 func resultsFieldLabel(field string) string {
@@ -933,7 +926,7 @@ func (handlers backstageResultsHandlers) renderPage(
 	request *http.Request,
 	actor auth.Account,
 	eventID int,
-	csrfToken string,
+	prologue backstagePrologue,
 	status int,
 	formErrors frontend.FormErrors,
 ) {
@@ -968,9 +961,9 @@ func (handlers backstageResultsHandlers) renderPage(
 		return
 	}
 	handlers.browser.render(response, request, status, frontend.Results(frontend.ResultsPage{
-		AccountName: actor.Name, CSRFToken: csrfToken,
-		ReducedEffects: reducedEffectsCookie(request),
-		Navigation:     backstageNavigation(actor, request.URL.Path),
+		AccountName: actor.Name, CSRFToken: prologue.CSRFToken,
+		ReducedEffects: prologue.ReducedEffects,
+		Navigation:     prologue.Navigation,
 		CommandID:      commandID,
 		Event: events.Event{
 			ID: workspace.Event.ID, Name: workspace.Event.Name,

@@ -78,11 +78,11 @@ type AccountCredential struct {
 
 // AccountProfile is one Account's private profile settings or public projection.
 type AccountProfile struct {
-	Handle           string
-	DisplayName      string
-	Published        bool
-	Entries          []ProfileEntry
-	AvailableEntries []ProfileEntry
+	Handle           string         `json:"handle"`
+	DisplayName      string         `json:"display_name"`
+	Published        bool           `json:"published"`
+	Entries          []ProfileEntry `json:"entries"`
+	AvailableEntries []ProfileEntry `json:"available_entries"`
 }
 
 // ReleasedProfileEntries lists Entries eligible for Public Profile selection.
@@ -237,13 +237,16 @@ func (installation *SQLite) RegisterAccount(
 ) (AccountCredential, error) {
 	requestContext := ctx
 	internalContext := systemContext(ctx)
-	transaction, err := installation.client.Tx(ctx)
-	if err != nil {
-		return AccountCredential{}, opaqueError("begin Account registration", err)
-	}
-	defer func() {
-		_ = transaction.Rollback()
-	}()
+	return withTx(ctx, installation.client, "Account registration", func(transaction *ent.Tx) (AccountCredential, error) {
+		return registerAccount(requestContext, internalContext, transaction, params)
+	})
+}
+
+func registerAccount(
+	requestContext, internalContext context.Context,
+	transaction *ent.Tx,
+	params CreateAccountParams,
+) (AccountCredential, error) {
 	credentials, err := activeCredentialCount(internalContext, transaction.Client())
 	if err != nil {
 		return AccountCredential{}, err
@@ -274,9 +277,6 @@ func (installation *SQLite) RegisterAccount(
 		SetCreatedAt(params.Now).
 		Save(internalContext); err != nil {
 		return AccountCredential{}, opaqueError("create registered Account credential", err)
-	}
-	if err = transaction.Commit(); err != nil {
-		return AccountCredential{}, opaqueError("commit Account registration", err)
 	}
 	return accountCredential(created, params.PasswordHash), nil
 }
@@ -318,28 +318,28 @@ func (installation *SQLite) PublicProfile(
 	return accountProfile(found), true, nil
 }
 
-// UpdateAccountProfile replaces one Account's profile and released Entry selection.
-func (installation *SQLite) UpdateAccountProfile(
+// UpdateAccountProfileParams contains one proposed Account Profile revision.
+type UpdateAccountProfileParams struct {
+	AccountID     int
+	AccountHandle string
+	DisplayName   string
+	Published     bool
+	EntryIDs      []int
+}
+
+// UpdateAccountProfile replaces one Account's profile and released Entry
+// selection inside a command transaction, so the change carries a Command
+// Receipt and Audit Entry like every other user-attributed mutation.
+func (transaction *CommandTx) UpdateAccountProfile(
 	ctx context.Context,
-	accountID int,
-	accountHandle string,
-	displayName string,
-	published bool,
-	entryIDs []int,
-) error {
-	transaction, err := installation.client.Tx(ctx)
-	if err != nil {
-		return opaqueError("begin Profile update", err)
-	}
-	defer func() {
-		_ = transaction.Rollback()
-	}()
-	entryIDs = slices.Compact(slices.Sorted(slices.Values(entryIDs)))
+	params UpdateAccountProfileParams,
+) (AccountProfile, error) {
+	entryIDs := slices.Compact(slices.Sorted(slices.Values(params.EntryIDs)))
 	selectedEntries := make([]profilevalue.Entry, 0, len(entryIDs))
 	if len(entryIDs) != 0 {
-		released, releaseErr := transaction.ReleasedProfileEntry.Query().All(ctx)
+		released, releaseErr := transaction.transaction.ReleasedProfileEntry.Query().All(ctx)
 		if releaseErr != nil {
-			return opaqueError("read released Profile Entries", releaseErr)
+			return AccountProfile{}, opaqueError("read released Profile Entries", releaseErr)
 		}
 		releasedByID := make(map[int]*ent.ReleasedProfileEntry, len(released))
 		for _, entry := range released {
@@ -348,7 +348,7 @@ func (installation *SQLite) UpdateAccountProfile(
 		for _, entryID := range entryIDs {
 			entry, ok := releasedByID[entryID]
 			if !ok {
-				return ErrProfileEntryUnavailable
+				return AccountProfile{}, ErrProfileEntryUnavailable
 			}
 			selectedEntries = append(
 				selectedEntries,
@@ -356,40 +356,40 @@ func (installation *SQLite) UpdateAccountProfile(
 			)
 		}
 	}
-	if _, err = transaction.Account.UpdateOneID(accountID).
-		SetName(displayName).
+	if _, err := transaction.transaction.Account.UpdateOneID(params.AccountID).
+		SetName(params.DisplayName).
 		Save(ctx); err != nil {
-		return opaqueError("update Account Profile", err)
+		return AccountProfile{}, opaqueError("update Account Profile", err)
 	}
-	found, err := transaction.AccountProfile.Query().
-		Where(accountprofile.AccountIDEQ(accountID)).
+	found, err := transaction.transaction.AccountProfile.Query().
+		Where(accountprofile.AccountIDEQ(params.AccountID)).
 		Only(ctx)
+	var stored *ent.AccountProfile
 	switch {
 	case ent.IsNotFound(err):
-		create := transaction.AccountProfile.Create().
-			SetAccountID(accountID).
-			SetNormalizedHandle(accountHandle).
-			SetDisplayName(displayName).
+		stored, err = transaction.transaction.AccountProfile.Create().
+			SetAccountID(params.AccountID).
+			SetNormalizedHandle(params.AccountHandle).
+			SetDisplayName(params.DisplayName).
 			SetSelectedEntries(selectedEntries).
-			SetPublished(published)
-		if _, err = create.Save(ctx); err != nil {
-			return opaqueError("create Account Profile", err)
+			SetPublished(params.Published).
+			Save(ctx)
+		if err != nil {
+			return AccountProfile{}, opaqueError("create Account Profile", err)
 		}
 	case err != nil:
-		return opaqueError("read Account Profile", err)
+		return AccountProfile{}, opaqueError("read Account Profile", err)
 	default:
-		update := found.Update().
-			SetDisplayName(displayName).
+		stored, err = found.Update().
+			SetDisplayName(params.DisplayName).
 			SetSelectedEntries(selectedEntries).
-			SetPublished(published)
-		if _, err = update.Save(ctx); err != nil {
-			return opaqueError("update Account Profile", err)
+			SetPublished(params.Published).
+			Save(ctx)
+		if err != nil {
+			return AccountProfile{}, opaqueError("update Account Profile", err)
 		}
 	}
-	if err = transaction.Commit(); err != nil {
-		return opaqueError("commit Account Profile", err)
-	}
-	return nil
+	return accountProfile(stored), nil
 }
 
 func accountProfile(found *ent.AccountProfile) AccountProfile {
@@ -541,44 +541,35 @@ func (installation *SQLite) IssueBootstrap(
 	expiresAt time.Time,
 ) error {
 	ctx = systemContext(ctx)
-	transaction, err := installation.client.Tx(ctx)
-	if err != nil {
-		return opaqueError("begin bootstrap issuance", err)
-	}
-	defer func() {
-		_ = transaction.Rollback()
-	}()
-
-	credentialCount, err := activeCredentialCount(ctx, transaction.Client())
-	if err != nil {
-		return err
-	}
-	if credentialCount != 0 {
-		return ErrBootstrapUnavailable
-	}
-	activeCount, err := transaction.BootstrapCredential.Query().
-		Where(
-			bootstrapcredential.UsedAtIsNil(),
-			bootstrapcredential.ExpiresAtGT(now),
-		).
-		Count(ctx)
-	if err != nil {
-		return opaqueError("count active bootstrap credentials", err)
-	}
-	if activeCount != 0 {
-		return ErrBootstrapUnavailable
-	}
-	if _, err := transaction.BootstrapCredential.Create().
-		SetTokenHash(tokenHash).
-		SetCreatedAt(now).
-		SetExpiresAt(expiresAt).
-		Save(ctx); err != nil {
-		return opaqueError("record bootstrap credential", err)
-	}
-	if err := transaction.Commit(); err != nil {
-		return opaqueError("commit bootstrap credential", err)
-	}
-	return nil
+	return withVoidTx(ctx, installation.client, "bootstrap issuance", func(transaction *ent.Tx) error {
+		credentialCount, err := activeCredentialCount(ctx, transaction.Client())
+		if err != nil {
+			return err
+		}
+		if credentialCount != 0 {
+			return ErrBootstrapUnavailable
+		}
+		activeCount, err := transaction.BootstrapCredential.Query().
+			Where(
+				bootstrapcredential.UsedAtIsNil(),
+				bootstrapcredential.ExpiresAtGT(now),
+			).
+			Count(ctx)
+		if err != nil {
+			return opaqueError("count active bootstrap credentials", err)
+		}
+		if activeCount != 0 {
+			return ErrBootstrapUnavailable
+		}
+		if _, err := transaction.BootstrapCredential.Create().
+			SetTokenHash(tokenHash).
+			SetCreatedAt(now).
+			SetExpiresAt(expiresAt).
+			Save(ctx); err != nil {
+			return opaqueError("record bootstrap credential", err)
+		}
+		return nil
+	})
 }
 
 // BootstrapAdministrator consumes a bootstrap credential and either commits
@@ -588,14 +579,16 @@ func (installation *SQLite) BootstrapAdministrator(
 	params BootstrapAdministratorParams,
 ) (AccountCredential, error) {
 	ctx = systemContext(ctx)
-	transaction, err := installation.client.Tx(ctx)
-	if err != nil {
-		return AccountCredential{}, opaqueError("begin Administrator bootstrap", err)
-	}
-	defer func() {
-		_ = transaction.Rollback()
-	}()
+	return withTx(ctx, installation.client, "Administrator bootstrap", func(transaction *ent.Tx) (AccountCredential, error) {
+		return bootstrapAdministrator(ctx, transaction, params)
+	})
+}
 
+func bootstrapAdministrator(
+	ctx context.Context,
+	transaction *ent.Tx,
+	params BootstrapAdministratorParams,
+) (AccountCredential, error) {
 	credential, err := transaction.BootstrapCredential.Query().
 		Where(
 			bootstrapcredential.TokenHashEQ(params.BootstrapHash),
@@ -678,9 +671,6 @@ func (installation *SQLite) BootstrapAdministrator(
 		params.SessionExpiry,
 	); err != nil {
 		return AccountCredential{}, opaqueError("create initial Account session", err)
-	}
-	if err := transaction.Commit(); err != nil {
-		return AccountCredential{}, opaqueError("commit first Administrator", err)
 	}
 	return accountCredential(administrator, params.PasswordHash), nil
 }
@@ -986,28 +976,9 @@ func (installation *SQLite) CreateAccountSession(
 	expiresAt time.Time,
 ) ([]string, error) {
 	ctx = systemContext(ctx)
-	transaction, err := installation.client.Tx(ctx)
-	if err != nil {
-		return nil, opaqueError("begin Account session creation", err)
-	}
-	defer func() {
-		_ = transaction.Rollback()
-	}()
-	revoked, err := createBoundedAccountSession(
-		ctx,
-		transaction,
-		accountID,
-		tokenHash,
-		now,
-		expiresAt,
-	)
-	if err != nil {
-		return nil, err
-	}
-	if err = transaction.Commit(); err != nil {
-		return nil, opaqueError("commit Account session creation", err)
-	}
-	return revoked, nil
+	return withTx(ctx, installation.client, "Account session creation", func(transaction *ent.Tx) ([]string, error) {
+		return createBoundedAccountSession(ctx, transaction, accountID, tokenHash, now, expiresAt)
+	})
 }
 
 func createBoundedAccountSession(

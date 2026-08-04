@@ -1825,11 +1825,28 @@ func TestBrowserRegistrationProfileAndDisablement(t *testing.T) {
 	}
 	saved := postFrontendForm(t, participant, server.address, "/profile", url.Values{
 		"csrf_token":   {requireFrontendCSRF(t, profile)},
+		"command_id":   {frontendNamedValues(profile.body, "command_id").Get("command_id")},
 		"display_name": {"Public Person"},
 		"published":    {"true"},
 	})
 	if saved.status != http.StatusSeeOther {
 		t.Fatalf("Profile update = %d %q", saved.status, saved.body)
+	}
+	auditEntries, auditBody := readAuditHistory(t, admin, server.address)
+	profileAudited := false
+	for _, entry := range auditEntries {
+		if entry.Action != "UpdateAccountProfile" {
+			continue
+		}
+		profileAudited = true
+		if entry.ActorAccountID != 2 || entry.TargetType != "Account" ||
+			entry.TargetID != "2" || entry.Outcome != "Succeeded" ||
+			entry.ServerTime.IsZero() {
+			t.Errorf("Profile update Audit Entry = %+v", entry)
+		}
+	}
+	if !profileAudited {
+		t.Fatalf("Profile update did not record an Audit Entry: %s", auditBody)
 	}
 	public := getFrontendPage(
 		t,

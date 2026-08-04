@@ -122,19 +122,18 @@ func (handlers entryHandlers) entries(response http.ResponseWriter, request *htt
 		http.NotFound(response, request)
 		return
 	}
-	csrfToken, err := handlers.browser.csrfToken(response, request)
-	if err != nil {
-		handlers.browser.frontendError(response, request, "create CSRF proof", err)
+	prologue, ok := handlers.browser.backstagePagePrologue(response, request, actor)
+	if !ok {
 		return
 	}
 	switch request.Method {
 	case http.MethodGet, http.MethodHead:
-		handlers.render(response, request, actor, eventID, sessionID, csrfToken, http.StatusOK, nil)
+		handlers.render(response, request, actor, eventID, sessionID, prologue, http.StatusOK, nil)
 	case http.MethodPost:
 		if !handlers.browser.validForm(response, request) {
 			return
 		}
-		handlers.submit(response, request, actor, eventID, sessionID, csrfToken)
+		handlers.submit(response, request, actor, eventID, sessionID, prologue)
 	default:
 		frontendMethodNotAllowed(response, http.MethodGet+", "+http.MethodHead+", "+http.MethodPost)
 	}
@@ -145,7 +144,7 @@ func (handlers entryHandlers) submit(
 	request *http.Request,
 	actor auth.Account,
 	eventID, sessionID int,
-	csrfToken string,
+	prologue backstagePrologue,
 ) {
 	err := handlers.validateEntryActionTargets(request, actor, eventID, sessionID)
 	if err == nil {
@@ -161,7 +160,7 @@ func (handlers entryHandlers) submit(
 		return
 	}
 	status, formErrors := entryFormErrors(err, request.Form)
-	handlers.render(response, request, actor, eventID, sessionID, csrfToken, status, formErrors)
+	handlers.render(response, request, actor, eventID, sessionID, prologue, status, formErrors)
 }
 
 func (handlers entryHandlers) submitEntryAction(
@@ -764,9 +763,8 @@ func (handlers entryHandlers) renderEntryUploadFailure(
 	eventID, sessionID, entryID int,
 	err error,
 ) {
-	csrfToken, csrfErr := handlers.browser.csrfToken(response, request)
-	if csrfErr != nil {
-		handlers.browser.frontendError(response, request, "create CSRF proof", csrfErr)
+	prologue, ok := handlers.browser.backstagePagePrologue(response, request, actor)
+	if !ok {
 		return
 	}
 	request.Form.Set("action", "upload-entry")
@@ -786,7 +784,7 @@ func (handlers entryHandlers) renderEntryUploadFailure(
 	}
 	if len(typedErrors) > 0 {
 		handlers.render(
-			response, request, actor, eventID, sessionID, csrfToken, status, typedErrors,
+			response, request, actor, eventID, sessionID, prologue, status, typedErrors,
 		)
 		return
 	}
@@ -803,7 +801,7 @@ func (handlers entryHandlers) renderEntryUploadFailure(
 		formErrors[0].Label = label
 	}
 	handlers.render(
-		response, request, actor, eventID, sessionID, csrfToken, status, formErrors,
+		response, request, actor, eventID, sessionID, prologue, status, formErrors,
 	)
 }
 
@@ -890,7 +888,7 @@ func (handlers entryHandlers) render(
 	request *http.Request,
 	actor auth.Account,
 	eventID, sessionID int,
-	csrfToken string,
+	prologue backstagePrologue,
 	status int,
 	formErrors frontend.FormErrors,
 ) {
@@ -954,15 +952,52 @@ func (handlers entryHandlers) render(
 	handlers.browser.render(response, request, status, frontend.CompetitionEntries(
 		frontend.CompetitionEntriesPage{
 			AccountID: actor.ID, AccountName: actor.Name, Producer: actor.CanProduceEvent(eventID),
-			CSRFToken:      csrfToken,
-			ReducedEffects: reducedEffectsCookie(request),
-			Navigation:     backstageNavigation(actor, request.URL.Path),
+			CSRFToken:      prologue.CSRFToken,
+			ReducedEffects: prologue.ReducedEffects,
+			Navigation:     prologue.Navigation,
 			CommandID:      commandID, Event: event, State: state, Preflight: preflight,
 			Attachments: attachmentState, Program: programState,
 			SubmissionAccounts: submissionAccounts,
 			SubmittedAction:    request.Form.Get("action"), Form: request.Form, Errors: formErrors,
 		},
 	))
+}
+
+// entryFormErrorRules is the classify-error-to-field table for
+// entryFormErrors' common shape. Adding a new validation rule means adding
+// one row here.
+var entryFormErrorRules = []formErrorRule{
+	ruleValidation(func(validation *rundown.ValidationError) (string, string, string) {
+		return validation.Field, "", validation.Message
+	}),
+	rule(matchErr(competition.ErrInvalidEntryName),
+		"entry_name", "Entry name", "Enter an Entry name."),
+	rule(matchErr(competition.ErrInvalidEntryPublicDetails),
+		"public_details", "Public details", "Enter no more than 10000 characters."),
+	rule(matchErr(competition.ErrCrewReasonRequired),
+		"crew_reason", "Crew Reason", ""),
+	rule(matchErr(competition.ErrEntryOrderInvalid),
+		"manual_entry_ids", "Manual Entry IDs", ""),
+	rule(matchErr(competition.ErrLiveDispositionConfirmation),
+		"confirmed_live_override", "Live disposition confirmation", ""),
+	rule(matchAll(matchErr(competition.ErrInvalidInput), matchAction("create-entry", "update-entry")),
+		"crew_notes", "Crew notes", "Enter no more than 10000 characters."),
+	rule(matchAll(matchErr(competition.ErrInvalidInput), matchAction("assign-submitter")),
+		"account_id", "Submitter Account", ""),
+	rule(matchAll(matchErr(competition.ErrInvalidInput), matchAction("change-disposition")),
+		"disposition", "Disposition", ""),
+	rule(matchAll(matchErr(competition.ErrInvalidInput), matchAction("configure-submission-eligibility")),
+		"submission_eligibility", "Eligibility", ""),
+	rule(matchErr(attachments.ErrReleasePolicy),
+		"release_policy", "Release Policy", ""),
+	rule(matchErrAny(attachments.ErrReopenWindowExtension, attachments.ErrReopenWindowExpiry),
+		"expires_at", "Expiry", ""),
+	rule(matchAll(matchErr(attachments.ErrInvalidInput), matchAction("create-reopen-window")),
+		"expires_at", "Expiry", ""),
+	rule(matchAll(matchErr(attachments.ErrInvalidInput), matchAction("close-reopen-window")),
+		"confirm_close", "Early closure confirmation", ""),
+	rule(matchAll(matchErr(attachments.ErrInvalidInput), matchAction("attachment-readiness")),
+		"primary", "Primary Attachment", ""),
 }
 
 func entryFormErrors(err error, values url.Values) (int, frontend.FormErrors) {
@@ -1022,52 +1057,12 @@ func entryFormErrors(err error, values url.Values) (int, frontend.FormErrors) {
 			return status, result
 		}
 	}
-	field, label, fieldMessage := "", "", message
-	var validation *rundown.ValidationError
-	switch {
-	case errors.As(err, &validation):
-		field, fieldMessage = validation.Field, validation.Message
-	case errors.Is(err, competition.ErrInvalidEntryName):
-		field, label, fieldMessage = "entry_name", "Entry name", "Enter an Entry name."
-	case errors.Is(err, competition.ErrInvalidEntryPublicDetails):
-		field, label, fieldMessage = "public_details", "Public details", "Enter no more than 10000 characters."
-	case errors.Is(err, competition.ErrCrewReasonRequired):
-		field, label = "crew_reason", "Crew Reason"
-	case errors.Is(err, competition.ErrEntryOrderInvalid):
-		field, label = "manual_entry_ids", "Manual Entry IDs"
-	case errors.Is(err, competition.ErrLiveDispositionConfirmation):
-		field, label = "confirmed_live_override", "Live disposition confirmation"
-	case errors.Is(err, competition.ErrInvalidInput) &&
-		(action == "create-entry" || action == "update-entry"):
-		field, label, fieldMessage = "crew_notes", "Crew notes", "Enter no more than 10000 characters."
-	case errors.Is(err, competition.ErrInvalidInput) && action == "assign-submitter":
-		field, label = "account_id", "Submitter Account"
-	case errors.Is(err, competition.ErrInvalidInput) && action == "change-disposition":
-		field, label = "disposition", "Disposition"
-	case errors.Is(err, competition.ErrInvalidInput) && action == "configure-submission-eligibility":
-		field, label = "submission_eligibility", "Eligibility"
-	case errors.Is(err, attachments.ErrReleasePolicy):
-		field, label = "release_policy", "Release Policy"
-	case errors.Is(err, attachments.ErrReopenWindowExtension),
-		errors.Is(err, attachments.ErrReopenWindowExpiry):
-		field, label = "expires_at", "Expiry"
-	case errors.Is(err, attachments.ErrInvalidInput) && action == "create-reopen-window":
-		field, label = "expires_at", "Expiry"
-	case errors.Is(err, attachments.ErrInvalidInput) && action == "close-reopen-window":
-		field, label = "confirm_close", "Early closure confirmation"
-	case errors.Is(err, attachments.ErrInvalidInput) && action == "attachment-readiness":
-		field, label = "primary", "Primary Attachment"
-	}
-	if field == "" {
-		return status, frontend.FormErrors{{Message: message}}
-	}
-	if label == "" {
-		label = strings.ReplaceAll(field, "_", " ")
-	}
-	return status, frontend.FormErrors{{
-		FieldID: frontend.WorkflowFieldID(action, entryID, versionID, windowID, field),
-		Label:   label, Message: fieldMessage,
-	}}
+	field, label, fieldMessage, fieldAction := resolveFormErrorField(entryFormErrorRules, err, action)
+	return status, formErrorResult(field, label, fieldMessage, fieldAction, message,
+		func(field, action string) string {
+			return frontend.WorkflowFieldID(action, entryID, versionID, windowID, field)
+		},
+	)
 }
 
 func createReopenWindowFormErrors(values url.Values, targetID int) frontend.FormErrors {

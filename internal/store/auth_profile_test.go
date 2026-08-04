@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"errors"
 	"strconv"
 	"testing"
@@ -15,6 +16,32 @@ import (
 	"github.com/dotwaffle/beamers/internal/prizegivingvalue"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
+
+// updateAccountProfileForTest exercises UpdateAccountProfile through its
+// command transaction, committing on success like the real command path
+// and rolling back on any rejection so fixtures stay reusable across cases.
+func updateAccountProfileForTest(
+	t *testing.T,
+	ctx context.Context,
+	installation *SQLite,
+	params UpdateAccountProfileParams,
+) error {
+	t.Helper()
+	transaction, err := installation.BeginCommand(ctx)
+	if err != nil {
+		t.Fatalf("begin Profile update command: %v", err)
+	}
+	defer func() {
+		_ = transaction.Rollback()
+	}()
+	if _, err = transaction.UpdateAccountProfile(ctx, params); err != nil {
+		return err
+	}
+	if err = transaction.Commit(); err != nil {
+		t.Fatalf("commit Profile update command: %v", err)
+	}
+	return nil
+}
 
 func TestAccountAndProfilePrivacyMatrix(t *testing.T) {
 	client := openEntTestClient(t)
@@ -136,14 +163,10 @@ func TestPublicProfileAcceptsOnlyReleasedEntries(t *testing.T) {
 		SetDisposition("Included").
 		SaveX(ctx)
 
-	if err := installation.UpdateAccountProfile(
-		ctx,
-		profileOwner.ID,
-		profileOwner.NormalizedName,
-		"Profile Owner",
-		true,
-		[]int{entry.ID},
-	); !errors.Is(err, ErrProfileEntryUnavailable) {
+	if err := updateAccountProfileForTest(t, ctx, installation, UpdateAccountProfileParams{
+		AccountID: profileOwner.ID, AccountHandle: profileOwner.NormalizedName,
+		DisplayName: "Profile Owner", Published: true, EntryIDs: []int{entry.ID},
+	}); !errors.Is(err, ErrProfileEntryUnavailable) {
 		t.Fatalf("unreleased Profile Entry error = %v, want %v", err, ErrProfileEntryUnavailable)
 	}
 	renderedJSON := `{"items":[{"competition":{"placed":[{"entry_id":` +
@@ -168,14 +191,10 @@ func TestPublicProfileAcceptsOnlyReleasedEntries(t *testing.T) {
 	if err != nil || len(entries) != 1 || entries[0].ID != entry.ID {
 		t.Fatalf("released Profile Entries = %+v, %v", entries, err)
 	}
-	if err = installation.UpdateAccountProfile(
-		ctx,
-		profileOwner.ID,
-		profileOwner.NormalizedName,
-		"Profile Owner",
-		true,
-		[]int{entry.ID},
-	); err != nil {
+	if err = updateAccountProfileForTest(t, ctx, installation, UpdateAccountProfileParams{
+		AccountID: profileOwner.ID, AccountHandle: profileOwner.NormalizedName,
+		DisplayName: "Profile Owner", Published: true, EntryIDs: []int{entry.ID},
+	}); err != nil {
 		t.Fatalf("select released Profile Entry: %v", err)
 	}
 	profile, found, err := installation.PublicProfile(ctx, "profile-owner")

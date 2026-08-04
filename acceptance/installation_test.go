@@ -176,6 +176,9 @@ func TestAdministratorRevisesPreviewsActivatesAndRestoresInstallationTheme(t *te
 		"Access denied",
 	)
 	csrf := browserCSRFToken(t, administrator, server.address, "/backstage/themes")
+	profileResponse := get(t, administrator, server.address, "/profile")
+	defer func() { _ = profileResponse.Body.Close() }()
+	profileBody := readResponseBody(t, profileResponse)
 	profileCSRF := browserCSRFToken(t, administrator, server.address, "/profile")
 	_, _ = postBrowserForm(
 		t,
@@ -184,6 +187,7 @@ func TestAdministratorRevisesPreviewsActivatesAndRestoresInstallationTheme(t *te
 		"/profile",
 		url.Values{
 			"csrf_token":   {profileCSRF},
+			"command_id":   {frontendNamedValues(profileBody, "command_id").Get("command_id")},
 			"display_name": {"Ada Admin"},
 			"published":    {"true"},
 		},

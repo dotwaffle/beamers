@@ -68,12 +68,9 @@ func (installationStore *SQLite) PreviewSessionTarget(
 	adjustment sessiontarget.Adjustment,
 	now time.Time,
 ) (SessionTargetPreview, error) {
-	transaction, err := installationStore.client.Tx(ctx)
-	if err != nil {
-		return SessionTargetPreview{}, opaqueError("begin Adjust Target preview", err)
-	}
-	defer func() { _ = transaction.Rollback() }()
-	return previewSessionTarget(ctx, transaction.Client(), eventID, sessionID, adjustment, now)
+	return withReadTx(ctx, installationStore.client, "Adjust Target preview", func(transaction *ent.Tx) (SessionTargetPreview, error) {
+		return previewSessionTarget(ctx, transaction.Client(), eventID, sessionID, adjustment, now)
+	})
 }
 
 // AdjustSessionTarget validates a fresh preview and commits Forecast and timer state atomically.
