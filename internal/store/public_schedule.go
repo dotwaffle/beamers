@@ -78,6 +78,10 @@ type PublicCompetitionEntry struct {
 
 // LoadPublicSchedule returns the Active Event's current public projection.
 func (installationStore *SQLite) LoadPublicSchedule(ctx context.Context) (PublicScheduleState, error) {
+	if err := requireActor(ctx, "SQLite.LoadPublicSchedule"); err != nil {
+		return PublicScheduleState{}, err
+	}
+
 	active, err := installationStore.readClient().Installation.Query().
 		Where(installation.ActiveEventIDNotNil()).
 		Only(ctx)

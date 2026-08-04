@@ -160,6 +160,10 @@ type UpdateEventParams struct {
 
 // CreateEvent mutates Event state without owning command lifecycle evidence.
 func (transaction *CommandTx) CreateEvent(ctx context.Context, params CreateEventParams) (Event, error) {
+	if err := requireActor(ctx, "CommandTx.CreateEvent"); err != nil {
+		return Event{}, err
+	}
+
 	presets, err := json.Marshal(params.TargetAdjustmentPresetsSeconds)
 	if err != nil {
 		return Event{}, opaqueError("encode Adjust Target presets", err)
@@ -215,6 +219,10 @@ func (transaction *CommandTx) CreateEvent(ctx context.Context, params CreateEven
 
 // ListEvents returns installation Events in stable creation order.
 func (installation *SQLite) ListEvents(ctx context.Context) ([]Event, error) {
+	if err := requireActor(ctx, "SQLite.ListEvents"); err != nil {
+		return []Event(nil), err
+	}
+
 	found, err := installation.client.Event.Query().
 		Order(ent.Asc(event.FieldID)).
 		All(ctx)
@@ -230,6 +238,10 @@ func (installation *SQLite) ListEvents(ctx context.Context) ([]Event, error) {
 
 // ListPublicEvents returns the attendee-visible Event collection and Active Event marker.
 func (installation *SQLite) ListPublicEvents(ctx context.Context) ([]PublicEvent, int, error) {
+	if err := requireActor(ctx, "SQLite.ListPublicEvents"); err != nil {
+		return []PublicEvent(nil), 0, err
+	}
+
 	found, err := installation.client.Event.Query().
 		Where(event.PublicEQ(true)).
 		Order(ent.Asc(event.FieldID)).
@@ -253,6 +265,10 @@ func (installation *SQLite) FindPublicEvent(
 	ctx context.Context,
 	slug string,
 ) (PublicEvent, bool, error) {
+	if err := requireActor(ctx, "SQLite.FindPublicEvent"); err != nil {
+		return PublicEvent{}, false, err
+	}
+
 	reserved, err := installation.client.EventSlug.Query().
 		Where(eventslug.SlugEQ(slug)).
 		Only(ctx)
@@ -278,6 +294,10 @@ func (installation *SQLite) FindPublicEvent(
 func (installation *SQLite) ListEventSlugAliases(
 	ctx context.Context,
 ) ([]EventSlugAlias, error) {
+	if err := requireActor(ctx, "SQLite.ListEventSlugAliases"); err != nil {
+		return []EventSlugAlias(nil), err
+	}
+
 	found, err := installation.client.EventSlug.Query().
 		WithEvent().
 		Order(ent.Asc(eventslug.FieldID)).
@@ -307,6 +327,10 @@ func (transaction *CommandTx) PruneEventSlugAlias(
 	ctx context.Context,
 	aliasID int,
 ) (EventSlugAlias, error) {
+	if err := requireActor(ctx, "CommandTx.PruneEventSlugAlias"); err != nil {
+		return EventSlugAlias{}, err
+	}
+
 	found, err := transaction.transaction.EventSlug.Query().
 		Where(eventslug.IDEQ(aliasID)).
 		WithEvent().
@@ -335,6 +359,10 @@ func (transaction *CommandTx) PruneEventSlugAlias(
 
 // ListEventGrants returns installation Event Grants in stable creation order.
 func (installation *SQLite) ListEventGrants(ctx context.Context) ([]EventGrant, error) {
+	if err := requireActor(ctx, "SQLite.ListEventGrants"); err != nil {
+		return []EventGrant(nil), err
+	}
+
 	found, err := installation.client.EventGrant.Query().
 		Order(ent.Asc(eventgrant.FieldID)).
 		All(ctx)
@@ -357,6 +385,10 @@ func (transaction *CommandTx) LoadEventInterchange(
 	ctx context.Context,
 	eventID int,
 ) (EventInterchangeState, error) {
+	if err := requireActor(ctx, "CommandTx.LoadEventInterchange"); err != nil {
+		return EventInterchangeState{}, err
+	}
+
 	client := transaction.transaction.Client()
 	found, err := client.Event.Query().
 		Where(event.IDEQ(eventID)).
@@ -379,6 +411,10 @@ func (transaction *CommandTx) GrantEventAccess(
 	ctx context.Context,
 	params GrantEventAccessParams,
 ) (EventGrant, error) {
+	if err := requireActor(ctx, "CommandTx.GrantEventAccess"); err != nil {
+		return EventGrant{}, err
+	}
+
 	eventExists, err := transaction.transaction.Event.Query().
 		Where(event.IDEQ(params.EventID)).
 		Exist(ctx)
@@ -432,6 +468,10 @@ func (transaction *CommandTx) GrantEventAccess(
 
 // UpdateEvent mutates Event configuration without owning command lifecycle evidence.
 func (transaction *CommandTx) UpdateEvent(ctx context.Context, params UpdateEventParams) (Event, error) {
+	if err := requireActor(ctx, "CommandTx.UpdateEvent"); err != nil {
+		return Event{}, err
+	}
+
 	presets, err := json.Marshal(params.TargetAdjustmentPresetsSeconds)
 	if err != nil {
 		return Event{}, opaqueError("encode Adjust Target presets", err)
@@ -670,6 +710,10 @@ func (installation *SQLite) FindCrewEvent(
 	accountID int,
 	eventID int,
 ) (Event, error) {
+	if err := requireActor(ctx, "SQLite.FindCrewEvent"); err != nil {
+		return Event{}, err
+	}
+
 	found, err := installation.findCrewEvent(ctx, accountID, eventID)
 	if err != nil {
 		return Event{}, err
@@ -683,6 +727,10 @@ func (installation *SQLite) FindCrewEventOverview(
 	accountID int,
 	eventID int,
 ) (CrewEventOverview, error) {
+	if err := requireActor(ctx, "SQLite.FindCrewEventOverview"); err != nil {
+		return CrewEventOverview{}, err
+	}
+
 	found, err := installation.findCrewEvent(ctx, accountID, eventID)
 	if err != nil {
 		return CrewEventOverview{}, err

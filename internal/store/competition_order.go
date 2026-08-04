@@ -81,6 +81,10 @@ func (installation *SQLite) LoadCompetitionEntryOrder(
 	ctx context.Context,
 	eventID, sessionID int,
 ) (EntryOrderState, string, error) {
+	if err := requireActor(ctx, "SQLite.LoadCompetitionEntryOrder"); err != nil {
+		return EntryOrderState{}, "", err
+	}
+
 	_, found, err := loadCompetitionConfiguration(
 		ctx, installation.client.Session, installation.client.Event, eventID, sessionID,
 	)
@@ -105,6 +109,10 @@ func (transaction *CommandTx) ConfigureCompetitionEntryOrder(
 	ctx context.Context,
 	params ConfigureEntryOrderParams,
 ) (EntryOrderState, error) {
+	if err := requireActor(ctx, "CommandTx.ConfigureCompetitionEntryOrder"); err != nil {
+		return EntryOrderState{}, err
+	}
+
 	_, found, err := transaction.competitionConfiguration(ctx, params.EventID, params.SessionID)
 	if err != nil {
 		return EntryOrderState{}, err

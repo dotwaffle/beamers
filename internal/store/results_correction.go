@@ -70,6 +70,10 @@ func (transaction *CommandTx) AppendResultsCorrection(
 	ctx context.Context,
 	params AppendResultsCorrectionParams,
 ) (ResultsCorrection, error) {
+	if err := requireActor(ctx, "CommandTx.AppendResultsCorrection"); err != nil {
+		return ResultsCorrection{}, err
+	}
+
 	current, found, err := loadResultsCorrection(
 		ctx,
 		transaction.transaction.Client(),
@@ -120,6 +124,10 @@ func (installation *SQLite) LoadResultsCorrection(
 	scope ResultsPublicationScope,
 	scopeSessionID int,
 ) (ResultsCorrection, error) {
+	if err := requireActor(ctx, "SQLite.LoadResultsCorrection"); err != nil {
+		return ResultsCorrection{}, err
+	}
+
 	found, _, err := loadResultsCorrection(
 		ctx,
 		installation.client,
@@ -137,6 +145,10 @@ func (installation *SQLite) ListResultsCorrectionHistory(
 	scope ResultsPublicationScope,
 	scopeSessionID int,
 ) ([]ResultsCorrection, error) {
+	if err := requireActor(ctx, "SQLite.ListResultsCorrectionHistory"); err != nil {
+		return []ResultsCorrection(nil), err
+	}
+
 	found, err := installation.client.ResultsCorrection.Query().
 		Where(
 			resultscorrection.EventIDEQ(eventID),
@@ -162,6 +174,10 @@ func (transaction *CommandTx) LoadResultsCorrection(
 	scope ResultsPublicationScope,
 	scopeSessionID int,
 ) (ResultsCorrection, error) {
+	if err := requireActor(ctx, "CommandTx.LoadResultsCorrection"); err != nil {
+		return ResultsCorrection{}, err
+	}
+
 	found, _, err := loadResultsCorrection(
 		ctx,
 		transaction.transaction.Client(),

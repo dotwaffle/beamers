@@ -44,6 +44,10 @@ func (installationStore *SQLite) LoadActivationPreflight(
 	ctx context.Context,
 	eventID int,
 ) (ActivationPreflightState, error) {
+	if err := requireActor(ctx, "SQLite.LoadActivationPreflight"); err != nil {
+		return ActivationPreflightState{}, err
+	}
+
 	return loadActivationPreflight(ctx, installationStore.client, eventID)
 }
 
@@ -52,6 +56,10 @@ func (transaction *CommandTx) LoadActivationPreflight(
 	ctx context.Context,
 	eventID int,
 ) (ActivationPreflightState, error) {
+	if err := requireActor(ctx, "CommandTx.LoadActivationPreflight"); err != nil {
+		return ActivationPreflightState{}, err
+	}
+
 	return loadActivationPreflight(ctx, transaction.transaction.Client(), eventID)
 }
 
@@ -142,6 +150,10 @@ func (transaction *CommandTx) ActivateEvent(
 	expectedPublishedRevision int,
 	expectedActivationGeneration int,
 ) (ActiveEventState, error) {
+	if err := requireActor(ctx, "CommandTx.ActivateEvent"); err != nil {
+		return ActiveEventState{}, err
+	}
+
 	exists, err := transaction.transaction.Event.Query().
 		Where(event.IDEQ(eventID), event.RevisionEQ(expectedEventRevision)).
 		Exist(ctx)
@@ -180,6 +192,10 @@ func (transaction *CommandTx) ActivateEvent(
 
 // LoadActiveEvent returns the current installation-wide live routing designation.
 func (installationStore *SQLite) LoadActiveEvent(ctx context.Context) (ActiveEventState, error) {
+	if err := requireActor(ctx, "SQLite.LoadActiveEvent"); err != nil {
+		return ActiveEventState{}, err
+	}
+
 	found, err := installationStore.client.Installation.Query().
 		Where(installation.ActiveEventIDNotNil()).
 		Only(ctx)

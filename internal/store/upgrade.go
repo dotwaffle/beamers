@@ -76,6 +76,10 @@ func (installation *SQLite) UpgradeBlockers(
 	ctx context.Context,
 	now time.Time,
 ) ([]string, error) {
+	if err := requireActor(ctx, "SQLite.UpgradeBlockers"); err != nil {
+		return []string(nil), err
+	}
+
 	if installation == nil || installation.database == nil {
 		return nil, ErrUninitialized
 	}
@@ -140,6 +144,10 @@ func (installation *SQLite) RecordUpgradeAudit(
 	ctx context.Context,
 	evidence UpgradeAudit,
 ) error {
+	if err := requireActor(ctx, "SQLite.RecordUpgradeAudit"); err != nil {
+		return err
+	}
+
 	if installation == nil || installation.client == nil {
 		return ErrUninitialized
 	}

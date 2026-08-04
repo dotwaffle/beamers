@@ -29,11 +29,19 @@ type DraftHistoryParams struct {
 
 // DiscardDraftChanges restores effective facts to their recorded prior values.
 func (transaction *CommandTx) DiscardDraftChanges(ctx context.Context, params DraftHistoryParams) (EditDraftResult, error) {
+	if err := requireActor(ctx, "CommandTx.DiscardDraftChanges"); err != nil {
+		return EditDraftResult{}, err
+	}
+
 	return transaction.changeDraftHistory(ctx, params, false)
 }
 
 // RevertDraftChange appends effective inverse facts from one historical change.
 func (transaction *CommandTx) RevertDraftChange(ctx context.Context, params DraftHistoryParams) (EditDraftResult, error) {
+	if err := requireActor(ctx, "CommandTx.RevertDraftChange"); err != nil {
+		return EditDraftResult{}, err
+	}
+
 	return transaction.changeDraftHistory(ctx, params, true)
 }
 

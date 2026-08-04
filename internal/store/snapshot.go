@@ -26,6 +26,10 @@ type UnsupportedSnapshotInspection struct {
 // Snapshot writes one consistent compact database copy without replacing an
 // existing destination.
 func (installation *SQLite) Snapshot(ctx context.Context, destination string) error {
+	if err := requireActor(ctx, "SQLite.Snapshot"); err != nil {
+		return err
+	}
+
 	if installation == nil || installation.database == nil {
 		return ErrUninitialized
 	}

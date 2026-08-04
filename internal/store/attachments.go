@@ -94,6 +94,10 @@ func (installation *SQLite) AccountOwnsUploadTarget(
 	targetType UploadTargetKind,
 	targetID, accountID int,
 ) (bool, error) {
+	if err := requireActor(ctx, "SQLite.AccountOwnsUploadTarget"); err != nil {
+		return false, err
+	}
+
 	return accountOwnsUploadTarget(
 		ctx,
 		installation.client,
@@ -341,6 +345,10 @@ func (transaction *CommandTx) SaveAttachmentVersion(
 	ctx context.Context,
 	params SaveAttachmentVersionParams,
 ) (AttachmentVersion, error) {
+	if err := requireActor(ctx, "CommandTx.SaveAttachmentVersion"); err != nil {
+		return AttachmentVersion{}, err
+	}
+
 	switch params.UploaderType {
 	case "Account":
 		owned, err := accountOwnsUploadTarget(
@@ -450,6 +458,10 @@ func (installation *SQLite) LoadAttachmentVersion(
 	ctx context.Context,
 	eventID, versionID int,
 ) (AttachmentVersion, error) {
+	if err := requireActor(ctx, "SQLite.LoadAttachmentVersion"); err != nil {
+		return AttachmentVersion{}, err
+	}
+
 	version, err := installation.client.AttachmentVersion.Query().
 		Where(attachmentversion.IDEQ(versionID)).
 		WithAttachment().
@@ -472,6 +484,10 @@ func (installation *SQLite) LoadCompetitionAttachmentCrewState(
 	ctx context.Context,
 	eventID, sessionID int,
 ) (CompetitionAttachmentCrewState, error) {
+	if err := requireActor(ctx, "SQLite.LoadCompetitionAttachmentCrewState"); err != nil {
+		return CompetitionAttachmentCrewState{}, err
+	}
+
 	foundEvent, err := installation.client.Event.Query().
 		Where(event.IDEQ(eventID)).
 		Only(ctx)
@@ -561,6 +577,10 @@ func (installation *SQLite) LoadReopenWindows(
 	targetType UploadTargetKind,
 	targetID int,
 ) ([]ReopenWindow, error) {
+	if err := requireActor(ctx, "SQLite.LoadReopenWindows"); err != nil {
+		return []ReopenWindow(nil), err
+	}
+
 	windows, err := installation.client.ReopenWindow.Query().
 		Where(
 			reopenwindow.EventIDEQ(eventID),
@@ -584,6 +604,10 @@ func (installation *SQLite) LoadAccountAttachmentState(
 	ctx context.Context,
 	accountID int,
 ) (AccountAttachmentState, error) {
+	if err := requireActor(ctx, "SQLite.LoadAccountAttachmentState"); err != nil {
+		return AccountAttachmentState{}, err
+	}
+
 	entries, err := installation.client.CompetitionEntry.Query().
 		Where(competitionentry.SubmitterAccountIDEQ(accountID)).
 		Order(ent.Asc(competitionentry.FieldID)).
@@ -693,6 +717,10 @@ func (installation *SQLite) LoadAccountAttachmentState(
 func (installation *SQLite) ReferencedAttachmentStorageKeys(
 	ctx context.Context,
 ) ([]string, error) {
+	if err := requireActor(ctx, "SQLite.ReferencedAttachmentStorageKeys"); err != nil {
+		return []string(nil), err
+	}
+
 	var keys []string
 	if err := installation.client.AttachmentVersion.Query().
 		Unique(true).
@@ -731,6 +759,10 @@ func (transaction *CommandTx) CreateReopenWindow(
 	actorAccountID int,
 	now time.Time,
 ) (ReopenWindow, error) {
+	if err := requireActor(ctx, "CommandTx.CreateReopenWindow"); err != nil {
+		return ReopenWindow{}, err
+	}
+
 	if err := transaction.validateUploadTarget(ctx, eventID, targetType, targetID); err != nil {
 		return ReopenWindow{}, err
 	}
@@ -758,6 +790,10 @@ func (transaction *CommandTx) UpdateReopenWindow(
 	closeWindow bool,
 	now time.Time,
 ) (ReopenWindow, error) {
+	if err := requireActor(ctx, "CommandTx.UpdateReopenWindow"); err != nil {
+		return ReopenWindow{}, err
+	}
+
 	window, err := transaction.transaction.ReopenWindow.Query().Where(
 		reopenwindow.IDEQ(windowID), reopenwindow.EventIDEQ(eventID),
 	).Only(ctx)

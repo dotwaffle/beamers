@@ -54,6 +54,10 @@ type PublishState struct {
 
 // LoadPublishState returns all Draft Change evidence needed for dependency closure.
 func (installation *SQLite) LoadPublishState(ctx context.Context, eventID int) (PublishState, error) {
+	if err := requireActor(ctx, "SQLite.LoadPublishState"); err != nil {
+		return PublishState{}, err
+	}
+
 	return loadPublishState(
 		ctx,
 		installation.client.Rundown,
@@ -66,6 +70,10 @@ func (installation *SQLite) LoadPublishState(ctx context.Context, eventID int) (
 
 // LoadPublishState returns transaction-consistent Preview inputs.
 func (transaction *CommandTx) LoadPublishState(ctx context.Context, eventID int) (PublishState, error) {
+	if err := requireActor(ctx, "CommandTx.LoadPublishState"); err != nil {
+		return PublishState{}, err
+	}
+
 	return loadPublishState(
 		ctx,
 		transaction.transaction.Rundown,
@@ -183,6 +191,10 @@ type PublishResult struct {
 
 // Publish creates immutable versions for the exact confirmed effective changes.
 func (transaction *CommandTx) Publish(ctx context.Context, params PublishParams) (PublishResult, error) {
+	if err := requireActor(ctx, "CommandTx.Publish"); err != nil {
+		return PublishResult{}, err
+	}
+
 	current, err := transaction.transaction.Rundown.Query().
 		Where(
 			rundown.EventIDEQ(params.EventID),
@@ -953,6 +965,10 @@ func (installation *SQLite) LoadPublishImpactDisplays(
 	ctx context.Context,
 	eventID int,
 ) ([]PublishImpactDisplay, error) {
+	if err := requireActor(ctx, "SQLite.LoadPublishImpactDisplays"); err != nil {
+		return []PublishImpactDisplay(nil), err
+	}
+
 	assignments, err := installation.client.DisplayAssignment.Query().
 		Where(displayassignment.EventIDEQ(eventID)).
 		WithDisplay().
@@ -979,6 +995,10 @@ func (installation *SQLite) LoadDraftRundown(
 	ctx context.Context,
 	eventID int,
 ) (DraftRundownState, error) {
+	if err := requireActor(ctx, "SQLite.LoadDraftRundown"); err != nil {
+		return DraftRundownState{}, err
+	}
+
 	revisions, err := installation.client.Rundown.Query().
 		Where(rundown.EventIDEQ(eventID)).
 		Only(ctx)
@@ -1080,6 +1100,10 @@ func (installation *SQLite) LoadDraftRundown(
 
 // LoadCrewRundown returns the current Published versions without exposing Ent entities.
 func (installation *SQLite) LoadCrewRundown(ctx context.Context, eventID int) (CrewRundownState, error) {
+	if err := requireActor(ctx, "SQLite.LoadCrewRundown"); err != nil {
+		return CrewRundownState{}, err
+	}
+
 	return loadCrewRundown(ctx, installation.readClient(), eventID)
 }
 
@@ -1096,6 +1120,10 @@ func (installation *SQLite) LoadRundownRevisions(
 	ctx context.Context,
 	eventID int,
 ) (RundownRevisions, error) {
+	if err := requireActor(ctx, "SQLite.LoadRundownRevisions"); err != nil {
+		return RundownRevisions{}, err
+	}
+
 	revisions, err := installation.readClient().Rundown.Query().
 		Where(rundown.EventIDEQ(eventID)).
 		Only(ctx)
@@ -1116,6 +1144,10 @@ func (installation *SQLite) LoadDisplayLocations(
 	ctx context.Context,
 	eventID int,
 ) ([]PublishedLocation, error) {
+	if err := requireActor(ctx, "SQLite.LoadDisplayLocations"); err != nil {
+		return []PublishedLocation(nil), err
+	}
+
 	return loadPublishedLocations(ctx, installation.readClient(), eventID)
 }
 
@@ -1126,6 +1158,10 @@ func (installation *SQLite) LoadAdministrationLanes(
 	ctx context.Context,
 	eventID int,
 ) ([]PublishedLane, error) {
+	if err := requireActor(ctx, "SQLite.LoadAdministrationLanes"); err != nil {
+		return []PublishedLane(nil), err
+	}
+
 	return loadPublishedLanes(ctx, installation.client, eventID)
 }
 

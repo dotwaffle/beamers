@@ -36,6 +36,10 @@ func (transaction *CommandTx) CreateEventThemeRevision(
 	createdByAccountID int,
 	now time.Time,
 ) (EventThemeRevision, error) {
+	if err := requireActor(ctx, "CommandTx.CreateEventThemeRevision"); err != nil {
+		return EventThemeRevision{}, err
+	}
+
 	created, err := transaction.transaction.EventThemeRevision.Create().
 		SetEventID(eventID).
 		SetConfig(config).
@@ -55,6 +59,10 @@ func (transaction *CommandTx) ActivateEventThemeRevision(
 	revisionID int,
 	expectedActiveRevisionID int,
 ) (EventThemeRevision, error) {
+	if err := requireActor(ctx, "CommandTx.ActivateEventThemeRevision"); err != nil {
+		return EventThemeRevision{}, err
+	}
+
 	var selected EventThemeRevision
 	if revisionID > 0 {
 		found, err := transaction.transaction.EventThemeRevision.Get(
@@ -98,6 +106,10 @@ func (installationStore *SQLite) LoadEventThemeRevision(
 	eventID int,
 	revisionID int,
 ) (EventThemeRevision, error) {
+	if err := requireActor(ctx, "SQLite.LoadEventThemeRevision"); err != nil {
+		return EventThemeRevision{}, err
+	}
+
 	return loadEventThemeRevision(ctx, installationStore.client, eventID, revisionID)
 }
 
@@ -107,6 +119,10 @@ func (transaction *CommandTx) LoadEventThemeRevision(
 	eventID int,
 	revisionID int,
 ) (EventThemeRevision, error) {
+	if err := requireActor(ctx, "CommandTx.LoadEventThemeRevision"); err != nil {
+		return EventThemeRevision{}, err
+	}
+
 	return loadEventThemeRevision(
 		ctx,
 		transaction.transaction.Client(),
@@ -139,6 +155,10 @@ func (installationStore *SQLite) ListEventThemeRevisions(
 	ctx context.Context,
 	eventID int,
 ) ([]EventThemeRevision, error) {
+	if err := requireActor(ctx, "SQLite.ListEventThemeRevisions"); err != nil {
+		return []EventThemeRevision(nil), err
+	}
+
 	found, err := installationStore.client.EventThemeRevision.Query().
 		Where(eventthemerevision.EventIDEQ(eventID)).
 		Order(ent.Desc(eventthemerevision.FieldID)).
@@ -157,6 +177,10 @@ func (installationStore *SQLite) ListEventThemeRevisions(
 func (transaction *CommandTx) ListActiveEventThemeConfigs(
 	ctx context.Context,
 ) ([]themevalue.EventConfig, error) {
+	if err := requireActor(ctx, "CommandTx.ListActiveEventThemeConfigs"); err != nil {
+		return []themevalue.EventConfig(nil), err
+	}
+
 	found, err := transaction.transaction.Event.Query().
 		Where(event.ActiveThemeRevisionIDNotNil()).
 		All(ctx)
@@ -183,6 +207,10 @@ func (installationStore *SQLite) LoadActiveEventThemeRevision(
 	ctx context.Context,
 	eventID int,
 ) (EventThemeRevision, error) {
+	if err := requireActor(ctx, "SQLite.LoadActiveEventThemeRevision"); err != nil {
+		return EventThemeRevision{}, err
+	}
+
 	found, err := installationStore.client.Event.Get(ctx, eventID)
 	if ent.IsNotFound(err) {
 		return EventThemeRevision{}, ErrEventNotFound

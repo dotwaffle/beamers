@@ -145,6 +145,10 @@ func (installation *SQLite) LoadVotingWindow(
 	ctx context.Context,
 	eventID, sessionID int,
 ) (VotingWindow, error) {
+	if err := requireActor(ctx, "SQLite.LoadVotingWindow"); err != nil {
+		return VotingWindow{}, err
+	}
+
 	found, foundEvent, version, err := votingCompetition(
 		ctx, installation.client.Session.Query(), eventID, sessionID,
 	)
@@ -159,6 +163,10 @@ func (transaction *CommandTx) ConfigureVoting(
 	ctx context.Context,
 	params ConfigureVotingParams,
 ) (VotingWindow, error) {
+	if err := requireActor(ctx, "CommandTx.ConfigureVoting"); err != nil {
+		return VotingWindow{}, err
+	}
+
 	found, foundEvent, version, err := votingCompetition(
 		ctx, transaction.transaction.Session.Query(), params.EventID, params.SessionID,
 	)
@@ -194,6 +202,10 @@ func (transaction *CommandTx) OpenVotingWindow(
 	ctx context.Context,
 	params VotingWindowParams,
 ) (VotingWindow, error) {
+	if err := requireActor(ctx, "CommandTx.OpenVotingWindow"); err != nil {
+		return VotingWindow{}, err
+	}
+
 	if err := transaction.requireActiveEvent(ctx, params.EventID); err != nil {
 		return VotingWindow{}, err
 	}
@@ -229,6 +241,10 @@ func (transaction *CommandTx) CloseVotingWindow(
 	ctx context.Context,
 	params VotingWindowParams,
 ) (VotingWindow, error) {
+	if err := requireActor(ctx, "CommandTx.CloseVotingWindow"); err != nil {
+		return VotingWindow{}, err
+	}
+
 	found, foundEvent, version, err := votingCompetition(
 		ctx, transaction.transaction.Session.Query(), params.EventID, params.SessionID,
 	)
@@ -371,6 +387,10 @@ func (installation *SQLite) LoadVotingTally(
 	ctx context.Context,
 	eventID, sessionID int,
 ) (VotingTally, error) {
+	if err := requireActor(ctx, "SQLite.LoadVotingTally"); err != nil {
+		return VotingTally{}, err
+	}
+
 	found, err := installation.client.VotingTally.Query().Where(
 		votingtally.EventIDEQ(eventID),
 		votingtally.CompetitionSessionIDEQ(sessionID),
@@ -386,6 +406,10 @@ func (transaction *CommandTx) LoadVotingTally(
 	ctx context.Context,
 	eventID, sessionID int,
 ) (VotingTally, error) {
+	if err := requireActor(ctx, "CommandTx.LoadVotingTally"); err != nil {
+		return VotingTally{}, err
+	}
+
 	found, err := transaction.transaction.VotingTally.Query().Where(
 		votingtally.EventIDEQ(eventID),
 		votingtally.CompetitionSessionIDEQ(sessionID),
@@ -422,6 +446,10 @@ func (transaction *CommandTx) CastVote(
 	ctx context.Context,
 	params CastVoteParams,
 ) (Ballot, error) {
+	if err := requireActor(ctx, "CommandTx.CastVote"); err != nil {
+		return Ballot{}, err
+	}
+
 	found, _, _, err := votingCompetition(
 		ctx, transaction.transaction.Session.Query(), params.EventID, params.SessionID,
 	)
@@ -548,6 +576,10 @@ func (installation *SQLite) LoadBallot(
 	ctx context.Context,
 	eventID, sessionID, accountID int,
 ) (Ballot, error) {
+	if err := requireActor(ctx, "SQLite.LoadBallot"); err != nil {
+		return Ballot{}, err
+	}
+
 	found, foundEvent, version, err := votingCompetition(
 		ctx, installation.client.Session.Query(), eventID, sessionID,
 	)
@@ -577,6 +609,10 @@ func (installation *SQLite) ListOpenBallots(
 	ctx context.Context,
 	accountID int,
 ) ([]VotingWindow, error) {
+	if err := requireActor(ctx, "SQLite.ListOpenBallots"); err != nil {
+		return []VotingWindow(nil), err
+	}
+
 	eligibilities, err := installation.client.VotingEligibility.Query().
 		Where(votingeligibility.AccountIDEQ(accountID)).
 		All(ctx)
@@ -617,6 +653,10 @@ func (installation *SQLite) LoadVotingParticipation(
 	ctx context.Context,
 	eventID, sessionID int,
 ) (VotingParticipation, error) {
+	if err := requireActor(ctx, "SQLite.LoadVotingParticipation"); err != nil {
+		return VotingParticipation{}, err
+	}
+
 	found, _, _, err := votingCompetition(
 		ctx, installation.client.Session.Query(), eventID, sessionID,
 	)

@@ -53,6 +53,10 @@ type AuditDetails struct {
 
 // BeginCommand starts one concrete command transaction.
 func (installation *SQLite) BeginCommand(ctx context.Context) (*CommandTx, error) {
+	if err := requireActor(ctx, "SQLite.BeginCommand"); err != nil {
+		return nil, err
+	}
+
 	transaction, err := installation.client.Tx(ctx)
 	if err != nil {
 		return nil, opaqueError("begin command", err)
@@ -66,6 +70,10 @@ func (installation *SQLite) ProbeCommandEvidence(
 	ctx context.Context,
 	now time.Time,
 ) (returnErr error) {
+	if err := requireActor(ctx, "SQLite.ProbeCommandEvidence"); err != nil {
+		return err
+	}
+
 	transaction, err := installation.client.Tx(ctx)
 	if err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
@@ -120,6 +128,10 @@ func (transaction *CommandTx) LookupReceipt(
 	ctx context.Context,
 	identity CommandIdentity,
 ) (string, bool, error) {
+	if err := requireActor(ctx, "CommandTx.LookupReceipt"); err != nil {
+		return "", false, err
+	}
+
 	return findCommandReceipt(ctx, transaction.transaction, commandReceiptParams{
 		ActorAccountID: identity.ActorAccountID, CommandID: identity.CommandID,
 		PayloadHash: identity.PayloadHash, Action: identity.Action,
@@ -144,6 +156,10 @@ func (transaction *CommandTx) RecordOutcomeWithAudit(
 	rejected bool,
 	details AuditDetails,
 ) error {
+	if err := requireActor(ctx, "CommandTx.RecordOutcomeWithAudit"); err != nil {
+		return err
+	}
+
 	result := auditentry.ResultSucceeded
 	if rejected {
 		result = auditentry.ResultRejected
@@ -192,6 +208,10 @@ func (transaction *CommandTx) RecordRejection(
 	identity CommandIdentity,
 	rejection CommandRejection,
 ) error {
+	if err := requireActor(ctx, "CommandTx.RecordRejection"); err != nil {
+		return err
+	}
+
 	encoded, err := json.Marshal(commandOutcome{Rejected: &rejection})
 	if err != nil {
 		return opaqueError("encode rejected command outcome", err)
@@ -201,6 +221,10 @@ func (transaction *CommandTx) RecordRejection(
 
 // CommitConflict records one conflicting Command ID reuse without altering its receipt.
 func (transaction *CommandTx) CommitConflict(ctx context.Context, identity CommandIdentity) error {
+	if err := requireActor(ctx, "CommandTx.CommitConflict"); err != nil {
+		return err
+	}
+
 	if err := auditRejectedCommand(
 		ctx,
 		transaction.transaction.AuditEntry,

@@ -73,6 +73,10 @@ func (transaction *CommandTx) DeferCompetitionEntry(
 	ctx context.Context,
 	params DeferCompetitionEntryParams,
 ) (CompetitionEntry, error) {
+	if err := requireActor(ctx, "CommandTx.DeferCompetitionEntry"); err != nil {
+		return CompetitionEntry{}, err
+	}
+
 	state, err := transaction.LoadProgramChannel(ctx, params.EventID, params.SessionID)
 	if err != nil {
 		return CompetitionEntry{}, err
@@ -135,6 +139,10 @@ func (transaction *CommandTx) RecordCompetitionTechnicalFailure(
 	ctx context.Context,
 	params TechnicalFailureParams,
 ) (CompetitionEntry, error) {
+	if err := requireActor(ctx, "CommandTx.RecordCompetitionTechnicalFailure"); err != nil {
+		return CompetitionEntry{}, err
+	}
+
 	entry, err := transaction.competitionEntry(ctx, params.EventID, params.SessionID, params.EntryID)
 	if err != nil {
 		return CompetitionEntry{}, err
@@ -160,6 +168,10 @@ func (transaction *CommandTx) ResolveCompetitionEntry(
 	ctx context.Context,
 	params ResolveCompetitionEntryParams,
 ) (CompetitionEntry, error) {
+	if err := requireActor(ctx, "CommandTx.ResolveCompetitionEntry"); err != nil {
+		return CompetitionEntry{}, err
+	}
+
 	_, competition, err := transaction.competitionConfiguration(
 		ctx, params.EventID, params.SessionID,
 	)
@@ -239,6 +251,10 @@ func (transaction *CommandTx) SetCompetitionEntryReleaseHold(
 	ctx context.Context,
 	params SetCompetitionEntryReleaseHoldParams,
 ) (CompetitionEntry, error) {
+	if err := requireActor(ctx, "CommandTx.SetCompetitionEntryReleaseHold"); err != nil {
+		return CompetitionEntry{}, err
+	}
+
 	entry, err := transaction.competitionEntry(ctx, params.EventID, params.SessionID, params.EntryID)
 	if err != nil {
 		return CompetitionEntry{}, err
@@ -265,6 +281,10 @@ func (installation *SQLite) PreflightCompetitionEnd(
 	ctx context.Context,
 	eventID, sessionID int,
 ) (CompetitionEndPreflight, error) {
+	if err := requireActor(ctx, "SQLite.PreflightCompetitionEnd"); err != nil {
+		return CompetitionEndPreflight{}, err
+	}
+
 	_, found, err := loadCompetitionConfiguration(
 		ctx, installation.client.Session, installation.client.Event, eventID, sessionID,
 	)

@@ -93,6 +93,10 @@ type DisplayOverrideTarget struct {
 // DegradedEmergencyIDFloor returns a process-local ID starting point above all
 // durable Display Overrides from earlier incidents.
 func (installationStore *SQLite) DegradedEmergencyIDFloor(ctx context.Context) (int, error) {
+	if err := requireActor(ctx, "SQLite.DegradedEmergencyIDFloor"); err != nil {
+		return 0, err
+	}
+
 	found, err := installationStore.client.DisplayOverride.Query().
 		Order(ent.Desc(displayoverride.FieldID)).
 		First(ctx)
@@ -224,6 +228,10 @@ func (installationStore *SQLite) PreviewStageMessage(
 	ctx context.Context,
 	params ActivateStageMessageParams,
 ) (DisplayOverridePreview, error) {
+	if err := requireActor(ctx, "SQLite.PreviewStageMessage"); err != nil {
+		return DisplayOverridePreview{}, err
+	}
+
 	found, err := installationStore.activeOverrideEvent(ctx, params.EventID)
 	if err != nil {
 		return DisplayOverridePreview{}, err
@@ -248,6 +256,10 @@ func (installationStore *SQLite) ListActiveDisplayOverrides(
 	eventID int,
 	now time.Time,
 ) ([]ActiveDisplayOverride, error) {
+	if err := requireActor(ctx, "SQLite.ListActiveDisplayOverrides"); err != nil {
+		return []ActiveDisplayOverride(nil), err
+	}
+
 	if _, err := installationStore.activeOverrideEvent(ctx, eventID); err != nil {
 		return nil, err
 	}
@@ -316,6 +328,10 @@ func (installationStore *SQLite) PreviewTechnicalDifficulties(
 	ctx context.Context,
 	params ActivateTechnicalDifficultiesParams,
 ) (DisplayOverridePreview, error) {
+	if err := requireActor(ctx, "SQLite.PreviewTechnicalDifficulties"); err != nil {
+		return DisplayOverridePreview{}, err
+	}
+
 	if _, err := installationStore.activeOverrideEvent(ctx, params.EventID); err != nil {
 		return DisplayOverridePreview{}, err
 	}
@@ -337,6 +353,10 @@ func (installationStore *SQLite) PreviewPriorityOverride(
 	ctx context.Context,
 	params ActivatePriorityOverrideParams,
 ) (DisplayOverridePreview, error) {
+	if err := requireActor(ctx, "SQLite.PreviewPriorityOverride"); err != nil {
+		return DisplayOverridePreview{}, err
+	}
+
 	if _, err := installationStore.activeOverrideEvent(ctx, params.EventID); err != nil {
 		return DisplayOverridePreview{}, err
 	}
@@ -569,6 +589,10 @@ func (transaction *CommandTx) ConfigureStageMessages(
 	ctx context.Context,
 	params ConfigureStageMessagesParams,
 ) (StageMessageConfiguration, error) {
+	if err := requireActor(ctx, "CommandTx.ConfigureStageMessages"); err != nil {
+		return StageMessageConfiguration{}, err
+	}
+
 	if params.DefaultDurationSeconds <= 0 || params.DefaultDurationSeconds > 24*60*60 {
 		return StageMessageConfiguration{}, ErrDisplayOverrideInput
 	}
@@ -619,6 +643,10 @@ func (transaction *CommandTx) ActivateStageMessage(
 	ctx context.Context,
 	params ActivateStageMessageParams,
 ) (DisplayOverride, error) {
+	if err := requireActor(ctx, "CommandTx.ActivateStageMessage"); err != nil {
+		return DisplayOverride{}, err
+	}
+
 	if err := transaction.requireActiveEvent(ctx, params.EventID); err != nil {
 		return DisplayOverride{}, err
 	}
@@ -656,6 +684,10 @@ func (transaction *CommandTx) ActivateTechnicalDifficulties(
 	ctx context.Context,
 	params ActivateTechnicalDifficultiesParams,
 ) (DisplayOverride, error) {
+	if err := requireActor(ctx, "CommandTx.ActivateTechnicalDifficulties"); err != nil {
+		return DisplayOverride{}, err
+	}
+
 	if err := transaction.requireActiveEvent(ctx, params.EventID); err != nil {
 		return DisplayOverride{}, err
 	}
@@ -686,6 +718,10 @@ func (transaction *CommandTx) ActivatePriorityOverride(
 	ctx context.Context,
 	params ActivatePriorityOverrideParams,
 ) (DisplayOverride, error) {
+	if err := requireActor(ctx, "CommandTx.ActivatePriorityOverride"); err != nil {
+		return DisplayOverride{}, err
+	}
+
 	if err := transaction.requireActiveEvent(ctx, params.EventID); err != nil {
 		return DisplayOverride{}, err
 	}
@@ -947,6 +983,10 @@ func (transaction *CommandTx) ClearDisplayOverride(
 	now time.Time,
 	confirmedEmergency bool,
 ) (DisplayOverride, error) {
+	if err := requireActor(ctx, "CommandTx.ClearDisplayOverride"); err != nil {
+		return DisplayOverride{}, err
+	}
+
 	found, err := transaction.transaction.DisplayOverride.Query().
 		Where(
 			displayoverride.IDEQ(overrideID),
@@ -999,6 +1039,10 @@ func (transaction *CommandTx) PersistDegradedEmergencyAlert(
 	ctx context.Context,
 	outcome DisplayOverride,
 ) (DisplayOverride, error) {
+	if err := requireActor(ctx, "CommandTx.PersistDegradedEmergencyAlert"); err != nil {
+		return DisplayOverride{}, err
+	}
+
 	if !outcome.Nondurable ||
 		outcome.ID <= 0 ||
 		outcome.EventID <= 0 ||

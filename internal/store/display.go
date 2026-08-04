@@ -97,6 +97,10 @@ func (installation *SQLite) IssueDisplayEnrollment(
 	ctx context.Context,
 	params DisplayEnrollmentParams,
 ) error {
+	if err := requireActor(ctx, "SQLite.IssueDisplayEnrollment"); err != nil {
+		return err
+	}
+
 	_, err := installation.client.DisplayEnrollment.Create().
 		SetCodeHash(params.CodeHash).
 		SetCredentialHash(params.CredentialHash).
@@ -120,6 +124,10 @@ func (transaction *CommandTx) ClaimDisplayEnrollment(
 	displayID int,
 	now time.Time,
 ) (Display, error) {
+	if err := requireActor(ctx, "CommandTx.ClaimDisplayEnrollment"); err != nil {
+		return Display{}, err
+	}
+
 	enrollment, err := transaction.transaction.DisplayEnrollment.Query().Where(
 		displayenrollment.CodeHashEQ(codeHash),
 		displayenrollment.UsedAtIsNil(),
@@ -185,6 +193,10 @@ func (installation *SQLite) FindDisplayByCredential(
 	ctx context.Context,
 	tokenHash string,
 ) (Display, error) {
+	if err := requireActor(ctx, "SQLite.FindDisplayByCredential"); err != nil {
+		return Display{}, err
+	}
+
 	credential, err := installation.reader.DisplayCredential.Query().Where(
 		displaycredential.TokenHashEQ(tokenHash),
 		displaycredential.RevokedAtIsNil(),
@@ -208,6 +220,10 @@ func (transaction *CommandTx) AssignDisplay(
 	assignment DisplayAssignment,
 	now time.Time,
 ) (DisplayAssignment, error) {
+	if err := requireActor(ctx, "CommandTx.AssignDisplay"); err != nil {
+		return DisplayAssignment{}, err
+	}
+
 	if exists, err := transaction.transaction.Display.Query().Where(
 		display.IDEQ(assignment.DisplayID),
 	).Exist(ctx); err != nil {
@@ -305,6 +321,10 @@ func (installation *SQLite) LoadDisplayStatus(
 
 // ListDisplayStatuses returns one snapshot's Active Event and crew-visible Assignment summaries.
 func (installation *SQLite) ListDisplayStatuses(ctx context.Context) (int, []DisplayStatus, error) {
+	if err := requireActor(ctx, "SQLite.ListDisplayStatuses"); err != nil {
+		return 0, []DisplayStatus(nil), err
+	}
+
 	type snapshot struct {
 		activeEventID int
 		statuses      []DisplayStatus
@@ -536,6 +556,10 @@ func (installation *SQLite) PendingDisplayEnrollment(
 	credentialHash string,
 	now time.Time,
 ) (time.Time, bool, error) {
+	if err := requireActor(ctx, "SQLite.PendingDisplayEnrollment"); err != nil {
+		return time.Time{}, false, err
+	}
+
 	found, err := installation.client.DisplayEnrollment.Query().Where(
 		displayenrollment.CodeHashEQ(codeHash),
 		displayenrollment.CredentialHashEQ(credentialHash),

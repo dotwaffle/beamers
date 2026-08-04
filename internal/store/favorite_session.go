@@ -12,6 +12,10 @@ func (installation *SQLite) FavoriteSessionIDs(
 	ctx context.Context,
 	accountID int,
 ) ([]int, error) {
+	if err := requireActor(ctx, "SQLite.FavoriteSessionIDs"); err != nil {
+		return []int(nil), err
+	}
+
 	found, err := installation.client.FavoriteSession.Query().
 		Where(favoritesession.AccountIDEQ(accountID)).
 		Select(favoritesession.FieldSessionID).
@@ -29,6 +33,10 @@ func (installation *SQLite) SetFavoriteSession(
 	sessionID int,
 	favorite bool,
 ) error {
+	if err := requireActor(ctx, "SQLite.SetFavoriteSession"); err != nil {
+		return err
+	}
+
 	if !favorite {
 		_, err := installation.client.FavoriteSession.Delete().
 			Where(

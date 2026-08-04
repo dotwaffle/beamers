@@ -213,6 +213,10 @@ func (installation *SQLite) LoadCompetitionResultsDraft(
 	ctx context.Context,
 	eventID, sessionID int,
 ) (CompetitionResultsDraft, error) {
+	if err := requireActor(ctx, "SQLite.LoadCompetitionResultsDraft"); err != nil {
+		return CompetitionResultsDraft{}, err
+	}
+
 	found, err := installation.client.CompetitionResultsDraft.Query().
 		Where(
 			competitionresultsdraft.EventIDEQ(eventID),
@@ -242,6 +246,10 @@ func (installation *SQLite) LoadEventAwardsDraft(
 	ctx context.Context,
 	eventID int,
 ) (EventAwardsDraft, error) {
+	if err := requireActor(ctx, "SQLite.LoadEventAwardsDraft"); err != nil {
+		return EventAwardsDraft{}, err
+	}
+
 	found, err := installation.client.EventAwardsDraft.Query().
 		Where(eventawardsdraft.EventIDEQ(eventID)).
 		Order(ent.Desc(eventawardsdraft.FieldRevision)).
@@ -260,6 +268,10 @@ func (transaction *CommandTx) LoadCompetitionResultsDraft(
 	ctx context.Context,
 	eventID, sessionID int,
 ) (CompetitionResultsDraft, error) {
+	if err := requireActor(ctx, "CommandTx.LoadCompetitionResultsDraft"); err != nil {
+		return CompetitionResultsDraft{}, err
+	}
+
 	found, err := transaction.transaction.Client().CompetitionResultsDraft.Query().
 		Where(
 			competitionresultsdraft.EventIDEQ(eventID),
@@ -289,6 +301,10 @@ func (transaction *CommandTx) LoadEventAwardsDraft(
 	ctx context.Context,
 	eventID int,
 ) (EventAwardsDraft, error) {
+	if err := requireActor(ctx, "CommandTx.LoadEventAwardsDraft"); err != nil {
+		return EventAwardsDraft{}, err
+	}
+
 	found, err := transaction.transaction.Client().EventAwardsDraft.Query().
 		Where(eventawardsdraft.EventIDEQ(eventID)).
 		Order(ent.Desc(eventawardsdraft.FieldRevision)).
@@ -307,6 +323,10 @@ func (transaction *CommandTx) DesignatePrizegiving(
 	ctx context.Context,
 	params DesignatePrizegivingParams,
 ) (Prizegiving, error) {
+	if err := requireActor(ctx, "CommandTx.DesignatePrizegiving"); err != nil {
+		return Prizegiving{}, err
+	}
+
 	client := transaction.transaction.Client()
 	ceremony, err := client.Session.Query().
 		Where(
@@ -352,6 +372,10 @@ func (transaction *CommandTx) SaveEventAwardsDraft(
 	ctx context.Context,
 	params SaveEventAwardsDraftParams,
 ) (EventAwardsDraft, error) {
+	if err := requireActor(ctx, "CommandTx.SaveEventAwardsDraft"); err != nil {
+		return EventAwardsDraft{}, err
+	}
+
 	client := transaction.transaction.Client()
 	if _, err := client.Event.Query().
 		Where(event.IDEQ(params.EventID)).
@@ -411,6 +435,10 @@ func (transaction *CommandTx) MarkEventAwardsReady(
 	ctx context.Context,
 	params MarkEventAwardsReadyParams,
 ) (EventAwardsDraft, error) {
+	if err := requireActor(ctx, "CommandTx.MarkEventAwardsReady"); err != nil {
+		return EventAwardsDraft{}, err
+	}
+
 	current, err := transaction.LoadEventAwardsDraft(ctx, params.EventID)
 	if err != nil {
 		return EventAwardsDraft{}, err
@@ -450,6 +478,10 @@ func (transaction *CommandTx) SaveCompetitionResultsDraft(
 	ctx context.Context,
 	params SaveCompetitionResultsDraftParams,
 ) (CompetitionResultsDraft, error) {
+	if err := requireActor(ctx, "CommandTx.SaveCompetitionResultsDraft"); err != nil {
+		return CompetitionResultsDraft{}, err
+	}
+
 	client := transaction.transaction.Client()
 	if _, _, err := loadCompetitionConfiguration(
 		ctx,
@@ -575,6 +607,10 @@ func (transaction *CommandTx) MarkCompetitionResultsReady(
 	ctx context.Context,
 	params MarkCompetitionResultsReadyParams,
 ) (CompetitionResultsDraft, error) {
+	if err := requireActor(ctx, "CommandTx.MarkCompetitionResultsReady"); err != nil {
+		return CompetitionResultsDraft{}, err
+	}
+
 	client := transaction.transaction.Client()
 	current, err := client.CompetitionResultsDraft.Query().
 		Where(
@@ -605,6 +641,10 @@ func (transaction *CommandTx) LoadCompetitionResultsReviewState(
 	ctx context.Context,
 	eventID, sessionID int,
 ) (CompetitionResultsDraft, []CompetitionResultsEligibleEntry, error) {
+	if err := requireActor(ctx, "CommandTx.LoadCompetitionResultsReviewState"); err != nil {
+		return CompetitionResultsDraft{}, []CompetitionResultsEligibleEntry(nil), err
+	}
+
 	client := transaction.transaction.Client()
 	current, err := client.CompetitionResultsDraft.Query().
 		Where(

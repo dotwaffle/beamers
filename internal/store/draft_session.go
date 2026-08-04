@@ -36,6 +36,10 @@ func (transaction *CommandTx) DeleteDraftSession(
 	ctx context.Context,
 	params DeleteDraftSessionParams,
 ) (DeleteDraftSessionResult, error) {
+	if err := requireActor(ctx, "CommandTx.DeleteDraftSession"); err != nil {
+		return DeleteDraftSessionResult{}, err
+	}
+
 	current, err := transaction.transaction.Rundown.Query().Where(
 		rundown.EventIDEQ(params.EventID),
 		rundown.DraftRevisionEQ(params.ExpectedDraftRevision),

@@ -23,6 +23,10 @@ type Capacity struct {
 
 // Capacity returns bounded counts used for operational warnings.
 func (installationStore *SQLite) Capacity(ctx context.Context) (Capacity, error) {
+	if err := requireActor(ctx, "SQLite.Capacity"); err != nil {
+		return Capacity{}, err
+	}
+
 	displayCount, err := installationStore.client.Display.Query().Count(ctx)
 	if err != nil {
 		return Capacity{}, opaqueError("count Displays for capacity", err)
