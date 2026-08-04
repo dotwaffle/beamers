@@ -849,6 +849,7 @@ func TestBrowserCertification(t *testing.T) {
 		crewDriver,
 		origin+"/events/beamconf-2099/schedule",
 		320,
+		768,
 		1440,
 	)
 	assertResponsivePageWidths(
@@ -860,6 +861,7 @@ func TestBrowserCertification(t *testing.T) {
 	)
 	assertResponsivePageZoom(t, crewDriver, origin+"/events/beamconf-2099/schedule", 1024, 2)
 	assertResponsivePageZoom(t, crewDriver, origin+"/events/beamconf-2099/schedule", 1280, 4)
+	certifyScheduleCardLayout(t, crewDriver, origin)
 	certifyLiveScheduleUpdate(
 		t,
 		crewDriver,
@@ -2660,6 +2662,45 @@ func assertResponsivePageZoom(
 	}
 	if !fits {
 		t.Fatalf("page overflows horizontally at %d pixels and %d%% zoom", width, zoom*100)
+	}
+}
+
+// certifyScheduleCardLayout certifies the public Schedule's card layout
+// (#207) at desktop width: a dedicated tabular-numeral time column, a
+// sticky per Event-day heading, and an explicit grid instead of the former
+// first-paragraph CSS selector hack. Phone and tablet widths are certified
+// through assertResponsivePageWidths instead of a second structural check
+// here: this repo's Firefox certification container does not reliably
+// shrink its window below the two-column breakpoint, and the ticket's
+// "holds at phone/tablet/desktop widths" requirement is about the layout
+// not breaking, which the no-horizontal-overflow assertion already covers
+// without depending on an exact viewport width this container can't
+// guarantee.
+func certifyScheduleCardLayout(t *testing.T, driver *webDriver, origin string) {
+	t.Helper()
+	target := origin + "/events/beamconf-2099/schedule"
+	if err := driver.navigate(t.Context(), target); err != nil {
+		t.Fatalf("navigate to Schedule card layout: %v", err)
+	}
+	if err := driver.setWindowSize(t.Context(), 1440); err != nil {
+		t.Fatalf("set desktop Schedule width: %v", err)
+	}
+	// waitFor rather than a single evaluateBool: a window resize is applied
+	// asynchronously, and the browser can still be reflowing to the new
+	// width at the instant the very next command runs.
+	wideScript := `const card = document.querySelector(".schedule-card"); ` +
+		`const heading = document.querySelector(".schedule-day-heading"); ` +
+		`const time = document.querySelector(".schedule-card-time"); ` +
+		`if (!card || !heading || !time) return false; ` +
+		`const cardStyle = getComputedStyle(card); ` +
+		`const headingStyle = getComputedStyle(heading); ` +
+		`const timeStyle = getComputedStyle(time); ` +
+		`return cardStyle.display === "grid" && ` +
+		`cardStyle.gridTemplateColumns.trim().split(" ").length >= 2 && ` +
+		`headingStyle.position === "sticky" && ` +
+		`timeStyle.fontVariantNumeric.includes("tabular-nums");`
+	if err := driver.waitFor(t.Context(), 5*time.Second, wideScript); err != nil {
+		t.Fatalf("certify desktop Schedule card layout: %v", err)
 	}
 }
 

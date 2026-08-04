@@ -3881,9 +3881,8 @@ func TestPublicScheduleEncodesFiltersAndLocalTimeInURL(t *testing.T) {
 		`<option value="1" selected>General</option>`,
 		`value="America/New_York"`,
 		"Attendee-local conversion: America/New_York. Program days remain grouped in Event time.",
-		"Event Time (CEST +02:00): Forecast Start 2099-08-21 10:00 CEST",
-		"Attendee-local time (EDT -04:00): Forecast Start",
-		`datetime="2099-08-21T04:00:00-04:00">2099-08-21 04:00 EDT`,
+		`<time datetime="2099-08-21T04:00:00-04:00">04:00</time>`,
+		"CEST +02:00 10:00",
 		fmt.Sprintf(`/events/beamconf-2099/schedule/sessions/%d?time_zone=America%%2FNew_York`, publicSessionID),
 		`hx-get="/events/beamconf-2099/schedule?day=2099-08-21&amp;lane=1&amp;location=1&amp;time_zone=America%2FNew_York&amp;track=1"`,
 	} {
@@ -7180,7 +7179,8 @@ func TestOperatorStartsPublishedSessionDurably(t *testing.T) {
 	if err := errors.Join(readErr, closeErr); err != nil {
 		t.Fatalf("read Live public Schedule: %v", err)
 	}
-	if public.StatusCode != http.StatusOK || !strings.Contains(string(publicBody), "Status: Live") ||
+	if public.StatusCode != http.StatusOK ||
+		!strings.Contains(string(publicBody), `data-lifecycle="Live">Live</span>`) ||
 		!strings.Contains(string(publicBody), wantActualStart) {
 		t.Errorf("Live public Schedule = %d %q", public.StatusCode, publicBody)
 	}
@@ -7289,7 +7289,7 @@ func TestOperatorCancelsScheduledSessionWithPublicMessage(t *testing.T) {
 		t.Fatalf("read canceled public Session: %v", joinedErr)
 	}
 	if public.StatusCode != http.StatusOK ||
-		!strings.Contains(string(body), "Status: Canceled") ||
+		!strings.Contains(string(body), `data-lifecycle="Canceled">Canceled</span>`) ||
 		!strings.Contains(string(body), "Speaker travel was disrupted.") ||
 		strings.Contains(string(body), crewNotes) {
 		t.Fatalf("canceled public Session = %d %q", public.StatusCode, body)

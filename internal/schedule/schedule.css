@@ -1,4 +1,7 @@
-article {
+/* :not(.schedule-card) keeps this generic Competitions-list and Competition-
+ * entry treatment off the Schedule card, which lays itself out through an
+ * explicit grid instead. */
+article:not(.schedule-card) {
   border-block-start: 1px solid var(--border);
   padding-block: 1rem;
 }
@@ -70,18 +73,104 @@ h1[data-lifecycle="Canceled"] {
 }
 
 @media (min-width: 48rem) {
-  article {
+  article:not(.schedule-card) {
     display: grid;
     gap: 0 2rem;
     grid-template-columns: minmax(14rem, 2fr) minmax(18rem, 3fr);
   }
 
-  article h2,
-  article > p:first-of-type {
+  article:not(.schedule-card) h2,
+  article:not(.schedule-card) > p:first-of-type {
     grid-column: 1;
   }
 
-  article > p:not(:first-of-type) {
+  article:not(.schedule-card) > p:not(:first-of-type) {
     grid-column: 2;
   }
+}
+
+/* Schedule card: a dedicated tabular-numeral time column beside the
+ * Session's identity and details, laid out through an explicit grid instead
+ * of the first-paragraph selector hack the rest of this file still uses for
+ * the Competitions list and Competition entries. */
+.schedule-day {
+  margin-block-end: var(--space-6, 2rem);
+}
+
+/* Sticky per Event-day heading: the group a Session belongs to stays
+ * visible while its cards scroll underneath, matching the panel background
+ * so it reads as a header rather than overlapping content. */
+.schedule-day-heading {
+  background: var(--surface, canvas);
+  inset-block-start: 0;
+  padding-block: 0.5rem;
+  position: sticky;
+  z-index: 1;
+}
+
+.schedule-cards {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.schedule-card {
+  background: var(--surface-raised, canvas);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  display: grid;
+  gap: 0.5rem 1.5rem;
+  grid-template-columns: 1fr;
+  padding: 1rem;
+}
+
+@media (min-width: 30rem) {
+  .schedule-card {
+    grid-template-columns: minmax(5rem, auto) 1fr;
+  }
+}
+
+.schedule-card-time {
+  font-variant-numeric: tabular-nums;
+}
+
+.schedule-card-time-range {
+  font-size: 1.1em;
+  font-weight: 700;
+}
+
+.schedule-card-time-range,
+.schedule-card-time-secondary {
+  margin: 0;
+}
+
+/* Distinguishes a Live Session's normalized Actual Start from its Forecast
+ * End (publictime.Live keeps both). font-variant-numeric does not apply to
+ * this letter-only caption; the parent's tabular-nums setting only affects
+ * the times themselves. */
+.schedule-card-time-kind {
+  color: var(--muted, GrayText);
+  font-size: 0.7em;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.schedule-card-time-secondary {
+  color: var(--muted, GrayText);
+  font-size: 0.85em;
+}
+
+.schedule-card-body > :first-child {
+  margin-block-start: 0;
+}
+
+.schedule-card-was,
+.schedule-card-meta {
+  color: var(--muted, GrayText);
+  font-size: 0.9em;
+}
+
+.calendar-date-rollover {
+  color: var(--muted, GrayText);
+  font-size: 0.85em;
+  font-style: italic;
 }

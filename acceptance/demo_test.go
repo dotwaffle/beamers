@@ -72,7 +72,7 @@ func assertDemoSignIn(t *testing.T, address string, expectWarning bool) {
 	for _, want := range []string{
 		"BeamParty Demo",
 		"Tracked Music",
-		"Status: Live",
+		`class="lifecycle-badge" data-lifecycle="Live">Live</span>`,
 		"Closing",
 		"Main Hall",
 		"Main Stage",
