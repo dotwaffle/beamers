@@ -394,7 +394,7 @@ func publishedSourceEvent(t *testing.T) (*store.SQLite, auth.Account, int) {
 	if err != nil {
 		t.Fatalf("create source Draft: %v", err)
 	}
-	queries, err := rundown.NewQueries(storage)
+	queries, err := rundown.NewQueries(storage, nil)
 	if err != nil {
 		t.Fatalf("create Rundown Queries: %v", err)
 	}
@@ -427,7 +427,7 @@ func publishImported(
 	if err != nil {
 		t.Fatalf("create imported Rundown Commands: %v", err)
 	}
-	queries, err := rundown.NewQueries(storage)
+	queries, err := rundown.NewQueries(storage, nil)
 	if err != nil {
 		t.Fatalf("create imported Rundown Queries: %v", err)
 	}

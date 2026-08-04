@@ -266,7 +266,7 @@ func TestTechnicalDifficultiesCanTargetPublicAndCrewDisplays(t *testing.T) {
 	if err = loadCurrentDisplayOverrides(
 		internalContext,
 		displayOverrideSelection{
-			Client: client, Assignment: assignment, Now: now.Add(3*time.Second),
+			Client: client, Assignment: assignment, Now: now.Add(3 * time.Second),
 		},
 		&snapshot,
 	); err != nil {
@@ -502,7 +502,7 @@ func TestPriorityOverridesResolveTargetsAndRequireEmergencyConfirmation(t *testi
 	if err = loadCurrentDisplayOverrides(
 		internalContext,
 		displayOverrideSelection{
-			Client: client, Assignment: assignment, Now: now.Add(2*time.Second),
+			Client: client, Assignment: assignment, Now: now.Add(2 * time.Second),
 		},
 		&snapshot,
 	); err != nil {
@@ -534,7 +534,7 @@ func TestPriorityOverridesResolveTargetsAndRequireEmergencyConfirmation(t *testi
 	if err = loadCurrentDisplayOverrides(
 		internalContext,
 		displayOverrideSelection{
-			Client: client, Assignment: assignment, Now: now.Add(4*time.Second),
+			Client: client, Assignment: assignment, Now: now.Add(4 * time.Second),
 		},
 		&snapshot,
 	); err != nil || snapshot.EmergencyAlert != nil ||

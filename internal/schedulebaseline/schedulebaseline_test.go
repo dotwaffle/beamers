@@ -122,7 +122,7 @@ func TestFirstPublicPublicationEnrollsImmutableBaseline(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create Rundown Commands: %v", err)
 	}
-	rundownQueries, err := rundown.NewQueries(storage)
+	rundownQueries, err := rundown.NewQueries(storage, nil)
 	if err != nil {
 		t.Fatalf("create Rundown Queries: %v", err)
 	}
@@ -288,7 +288,7 @@ func publishBaselineTestRundown(
 	if err != nil {
 		t.Fatalf("create Rundown Commands: %v", err)
 	}
-	queries, err := rundown.NewQueries(storage)
+	queries, err := rundown.NewQueries(storage, nil)
 	if err != nil {
 		t.Fatalf("create Rundown Queries: %v", err)
 	}

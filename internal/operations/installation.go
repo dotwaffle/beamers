@@ -91,6 +91,10 @@ type OpenConfig struct {
 	// advances. The public Schedule build is memoized against it; leaving it
 	// nil rebuilds the projection on every attendee request.
 	SchedulePosition func() uint64
+	// RundownPosition reports a cursor that advances on every live change the
+	// Crew Rundown shows. The Crew Rundown build is memoized against it and the
+	// Event's revisions; leaving it nil rebuilds on every crew request.
+	RundownPosition func() uint64
 }
 
 // Initialize creates a new installation with the committed schema.
@@ -319,7 +323,7 @@ func OpenInstallationWithConfig(
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.rundownCommands = rundownCommands
-	rundownQueries, err := rundown.NewQueries(storage)
+	rundownQueries, err := rundown.NewQueries(storage, config.RundownPosition)
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
 	}

@@ -13,6 +13,7 @@ import (
 
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/command"
+	"github.com/dotwaffle/beamers/internal/revisioncache"
 	"github.com/dotwaffle/beamers/internal/store"
 )
 
@@ -66,17 +67,36 @@ type PublishResult struct {
 	ChangeIDs         []int `json:"change_ids"`
 }
 
+// crewRundownKey identifies one Crew Rundown build exactly. Structural change
+// moves a revision; live change moves the stream cursor the Displays already
+// resume from.
+type crewRundownKey struct {
+	eventID           int
+	draftRevision     int
+	publishedRevision int
+	streamPosition    uint64
+}
+
 // Queries owns side-effect-free Rundown projections.
 type Queries struct {
 	storage *store.SQLite
+	// streamPosition reports the cursor that advances on every live change
+	// visible in the Crew Rundown. A nil streamPosition disables memoization.
+	streamPosition func() uint64
+	crewRundown    revisioncache.Cache[crewRundownKey, CrewRundown]
 }
 
 // NewQueries creates Rundown Queries with explicit persistence.
-func NewQueries(storage *store.SQLite) (*Queries, error) {
+//
+// streamPosition reports the display stream cursor. Crew Rundown builds are
+// memoized against it together with the Event's Draft and Published revisions,
+// so it must advance whenever live state changes. Pass nil to rebuild the
+// projection on every request.
+func NewQueries(storage *store.SQLite, streamPosition func() uint64) (*Queries, error) {
 	if storage == nil {
 		return nil, errors.New("rundown storage is required")
 	}
-	return &Queries{storage: storage}, nil
+	return &Queries{storage: storage, streamPosition: streamPosition}, nil
 }
 
 // PublishPreview forms and fingerprints a dependency-closed effective selection.
@@ -653,7 +673,28 @@ func (queries *Queries) CrewRundown(
 	if !canReadEvent(actor, eventID) {
 		return CrewRundown{}, ErrEventAccessDenied
 	}
-	stored, err := queries.storage.LoadCrewRundown(actor.Context(ctx), eventID)
+	scoped := actor.Context(ctx)
+	if queries.streamPosition == nil {
+		return queries.buildCrewRundown(scoped, eventID)
+	}
+	revisions, err := queries.storage.LoadRundownRevisions(scoped, eventID)
+	if err != nil {
+		return CrewRundown{}, err
+	}
+	key := crewRundownKey{
+		eventID:           eventID,
+		draftRevision:     revisions.DraftRevision,
+		publishedRevision: revisions.PublishedRevision,
+		streamPosition:    queries.streamPosition(),
+	}
+	return queries.crewRundown.Load(scoped, key, func(ctx context.Context) (CrewRundown, error) {
+		return queries.buildCrewRundown(ctx, eventID)
+	})
+}
+
+// buildCrewRundown loads and projects the whole Published structure.
+func (queries *Queries) buildCrewRundown(ctx context.Context, eventID int) (CrewRundown, error) {
+	stored, err := queries.storage.LoadCrewRundown(ctx, eventID)
 	if err != nil {
 		return CrewRundown{}, err
 	}

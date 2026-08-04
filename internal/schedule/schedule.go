@@ -15,8 +15,8 @@ import (
 
 	"github.com/dotwaffle/beamers/internal/events"
 	"github.com/dotwaffle/beamers/internal/publictime"
-	"github.com/dotwaffle/beamers/internal/revisioncache"
 	"github.com/dotwaffle/beamers/internal/results"
+	"github.com/dotwaffle/beamers/internal/revisioncache"
 	"github.com/dotwaffle/beamers/internal/store"
 )
 

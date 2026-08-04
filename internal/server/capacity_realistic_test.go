@@ -670,6 +670,12 @@ func BenchmarkCapacityRealisticPublicScheduleRepeat(b *testing.B) {
 // path (backing every Planning, Control, and Entries page) against a
 // realistic Session count, through the same Connect RPC the crew console
 // load generator exercises.
+//
+// At the recorded -benchtime=1x this is a cold build: the fixture is rebuilt
+// per sample, so the single measured request is the first one at that Event's
+// revision. Raising benchtime measures the memoized steady state between
+// changes instead, which is a different and much smaller number; keep the two
+// regimes apart when comparing runs.
 func BenchmarkCapacityRealisticCrewRundownLoad(b *testing.B) {
 	fixture := prepareRealisticCapacityFixture(b)
 	application := newCapacityApplicationTB(b, fixture)

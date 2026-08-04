@@ -26,7 +26,7 @@ import (
 func TestDisplayAssignmentSelectsDisplayNotifications(t *testing.T) {
 	storage, administrator, eventID := openNotificationTest(t)
 	publishNotificationCompetition(t, storage, administrator, eventID)
-	queries, err := rundown.NewQueries(storage)
+	queries, err := rundown.NewQueries(storage, nil)
 	if err != nil {
 		t.Fatalf("create Rundown queries: %v", err)
 	}
@@ -501,7 +501,7 @@ func publishNotificationCompetition(
 	if err != nil {
 		t.Fatalf("create Rundown commands: %v", err)
 	}
-	queries, err := rundown.NewQueries(storage)
+	queries, err := rundown.NewQueries(storage, nil)
 	if err != nil {
 		t.Fatalf("create Rundown queries: %v", err)
 	}

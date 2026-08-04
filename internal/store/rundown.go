@@ -1085,6 +1085,34 @@ func (installation *SQLite) LoadCrewRundown(ctx context.Context, eventID int) (C
 	return loadCrewRundown(ctx, installation.readClient(), eventID)
 }
 
+// RundownRevisions is one Event's Draft and Published revision pair.
+type RundownRevisions struct {
+	DraftRevision     int
+	PublishedRevision int
+}
+
+// LoadRundownRevisions returns only the revision pair, so a caller holding a
+// built Rundown projection can decide whether it is still current without
+// paying for the projection again.
+func (installation *SQLite) LoadRundownRevisions(
+	ctx context.Context,
+	eventID int,
+) (RundownRevisions, error) {
+	revisions, err := installation.readClient().Rundown.Query().
+		Where(rundown.EventIDEQ(eventID)).
+		Only(ctx)
+	if ent.IsNotFound(err) {
+		return RundownRevisions{}, ErrEventNotFound
+	}
+	if err != nil {
+		return RundownRevisions{}, opaqueError("load Rundown revisions", err)
+	}
+	return RundownRevisions{
+		DraftRevision:     revisions.DraftRevision,
+		PublishedRevision: revisions.PublishedRevision,
+	}, nil
+}
+
 // LoadDisplayLocations returns only current Published Locations for Administrator Display routing.
 func (installation *SQLite) LoadDisplayLocations(
 	ctx context.Context,

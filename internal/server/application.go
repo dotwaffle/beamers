@@ -536,8 +536,14 @@ func (application *application) openConfig() operations.OpenConfig {
 		SchedulePosition: func() uint64 {
 			return application.config.ScheduleStream.Cursor().Position
 		},
-		NotifyProgram:  application.config.ProgramStream.Notify,
-		NotifyVoting:   application.config.VotingStream.Notify,
+		// Both cursors only ever advance, so their sum advances whenever either
+		// stream reports a change the Crew Rundown can show.
+		RundownPosition: func() uint64 {
+			return application.config.DisplayStream.Cursor().Position +
+				application.config.ScheduleStream.Cursor().Position
+		},
+		NotifyProgram: application.config.ProgramStream.Notify,
+		NotifyVoting:  application.config.VotingStream.Notify,
 	}
 	if application.config.Telemetry != nil && application.config.Telemetry.Enabled() {
 		config.TracerProvider = application.config.TracerProvider

@@ -140,7 +140,7 @@ func TestPublishClosesDependenciesAndExposesCrewRundown(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create Rundown Commands: %v", err)
 	}
-	queries, err := rundown.NewQueries(storage)
+	queries, err := rundown.NewQueries(storage, nil)
 	if err != nil {
 		t.Fatalf("create Rundown Queries: %v", err)
 	}
@@ -209,7 +209,7 @@ func TestPublishRejectsStalePreviewAndLeavesSelectionEffective(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create Rundown Commands: %v", err)
 	}
-	queries, err := rundown.NewQueries(storage)
+	queries, err := rundown.NewQueries(storage, nil)
 	if err != nil {
 		t.Fatalf("create Rundown Queries: %v", err)
 	}
@@ -257,7 +257,7 @@ func TestPublishLeavesUnselectedChangesInDraft(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create Rundown Commands: %v", err)
 	}
-	queries, err := rundown.NewQueries(storage)
+	queries, err := rundown.NewQueries(storage, nil)
 	if err != nil {
 		t.Fatalf("create Rundown Queries: %v", err)
 	}
@@ -319,7 +319,7 @@ func TestPublishCreationUsesOnlySelectedLaterFacts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create Rundown Commands: %v", err)
 	}
-	queries, err := rundown.NewQueries(storage)
+	queries, err := rundown.NewQueries(storage, nil)
 	if err != nil {
 		t.Fatalf("create Rundown Queries: %v", err)
 	}
@@ -376,7 +376,7 @@ func TestDiscardReactivatesRemainingFactAndBaselineRevertIsNotSelectable(t *test
 	if err != nil {
 		t.Fatalf("create Rundown Commands: %v", err)
 	}
-	queries, err := rundown.NewQueries(storage)
+	queries, err := rundown.NewQueries(storage, nil)
 	if err != nil {
 		t.Fatalf("create Rundown Queries: %v", err)
 	}
@@ -556,6 +556,107 @@ func TestEditDraftRequiresCompetitionDeadlineDuringTypeChange(t *testing.T) {
 	})
 	if err != nil || changed.DraftRevision != created.DraftRevision+1 {
 		t.Fatalf("configured Competition type change = %+v, %v", changed, err)
+	}
+}
+
+// publishSessionInput is one memoization-test Publish of an already drafted
+// Session change.
+type publishSessionInput struct {
+	Commands  *rundown.Commands
+	Queries   *rundown.Queries
+	Actor     auth.Account
+	EventID   int
+	CommandID string
+	ChangeIDs []int
+}
+
+// publishDraftedSession publishes exactly one prepared selection.
+func publishDraftedSession(t *testing.T, input publishSessionInput) {
+	t.Helper()
+	preview, err := input.Queries.PublishPreview(t.Context(), input.Actor, rundown.PublishPreviewInput{
+		EventID: input.EventID, ChangeIDs: input.ChangeIDs,
+	})
+	if err != nil {
+		t.Fatalf("Publish Preview %s: %v", input.CommandID, err)
+	}
+	if _, err := input.Commands.Publish(t.Context(), input.Actor, rundown.PublishInput{
+		EventID: input.EventID, CommandID: input.CommandID,
+		Confirmation: rundown.PublishConfirmation{
+			DraftRevision: preview.DraftRevision, PublishedRevision: preview.PublishedRevision,
+			ChangeIDs: preview.ChangeIDs, Fingerprint: preview.Fingerprint,
+		},
+	}); err != nil {
+		t.Fatalf("Publish %s: %v", input.CommandID, err)
+	}
+}
+
+// TestMemoizedCrewRundownFollowsPublishedRevisions covers the risk memoization
+// introduces for crew: a Producer who Publishes must see the result on the next
+// load even when no live change has moved the stream cursor.
+func TestMemoizedCrewRundownFollowsPublishedRevisions(t *testing.T) {
+	storage, actor, eventID := openRundownTest(t)
+	commands, err := rundown.NewCommands(storage, time.Now, nil, nil)
+	if err != nil {
+		t.Fatalf("create Rundown Commands: %v", err)
+	}
+	queries, err := rundown.NewQueries(storage, func() uint64 { return 7 })
+	if err != nil {
+		t.Fatalf("create Rundown Queries: %v", err)
+	}
+	plannedStart := time.Date(2026, 8, 21, 8, 0, 0, 0, time.UTC)
+	session := func(ref string, title string) rundown.SessionDraftInput {
+		return rundown.SessionDraftInput{
+			Ref: ref, Title: title, Type: rundown.SessionCeremony,
+			AudienceVisibility: rundown.AudiencePublic,
+			PlannedStart:       plannedStart, PlannedEnd: plannedStart.Add(time.Hour),
+			TimingPolicy: rundown.TimingFixedEnd, MinimumDuration: 30 * time.Minute,
+			StartBoundary: rundown.BoundaryHard, EndBoundary: rundown.BoundarySoft,
+			Lanes:     []rundown.TargetRef{{Ref: "main-lane"}},
+			Locations: []rundown.TargetRef{{Ref: "main"}},
+			Tracks:    []rundown.TargetRef{{Ref: "systems"}},
+		}
+	}
+	edited, err := commands.EditDraft(t.Context(), actor, rundown.EditDraftInput{
+		EventID: eventID, CommandID: "draft-for-memo", ExpectedDraftRevision: 0,
+		Locations: []rundown.LocationDraftInput{{Ref: "main", Name: "Main Hall"}},
+		Lanes: []rundown.LaneDraftInput{{
+			Ref: "main-lane", Name: "Main Lane", Location: rundown.TargetRef{Ref: "main"},
+		}},
+		Tracks:   []rundown.TrackDraftInput{{Ref: "systems", Name: "Systems"}},
+		Sessions: []rundown.SessionDraftInput{session("opening", "Opening Session"), session("closing", "Closing Session")},
+	})
+	if err != nil {
+		t.Fatalf("Edit Draft: %v", err)
+	}
+	openingChangeID := edited.Changes[len(edited.Changes)-2].ID
+	crew, err := queries.CrewRundown(t.Context(), actor, eventID)
+	if err != nil {
+		t.Fatalf("Crew Rundown before Publish: %v", err)
+	}
+	if len(crew.Sessions) != 0 {
+		t.Fatalf("Crew Rundown before Publish = %d Sessions, want none", len(crew.Sessions))
+	}
+	publishDraftedSession(t, publishSessionInput{
+		Commands: commands, Queries: queries, Actor: actor, EventID: eventID,
+		CommandID: "publish-memo-1", ChangeIDs: []int{openingChangeID},
+	})
+	crew, err = queries.CrewRundown(t.Context(), actor, eventID)
+	if err != nil {
+		t.Fatalf("Crew Rundown after first Publish: %v", err)
+	}
+	if len(crew.Sessions) != 1 || crew.Sessions[0].Title != "Opening Session" {
+		t.Fatalf("Crew Rundown after first Publish = %+v, want only the Opening Session", crew.Sessions)
+	}
+	publishDraftedSession(t, publishSessionInput{
+		Commands: commands, Queries: queries, Actor: actor, EventID: eventID,
+		CommandID: "publish-memo-2",
+	})
+	crew, err = queries.CrewRundown(t.Context(), actor, eventID)
+	if err != nil {
+		t.Fatalf("Crew Rundown after second Publish: %v", err)
+	}
+	if len(crew.Sessions) != 2 {
+		t.Fatalf("Crew Rundown after second Publish = %d Sessions, want both", len(crew.Sessions))
 	}
 }
 
