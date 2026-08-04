@@ -13,6 +13,11 @@ type RecoveryCode struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to RecoveryCode.
+func (RecoveryCode) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy keeps Recovery Codes inside authentication storage paths.
 func (RecoveryCode) Policy() ent.Policy {
 	return systemOnlyPolicy()

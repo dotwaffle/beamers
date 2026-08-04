@@ -13,6 +13,11 @@ type PrizegivingCompetition struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to PrizegivingCompetition.
+func (PrizegivingCompetition) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy confines plans to Results viewers and Producer mutations.
 func (PrizegivingCompetition) Policy() ent.Policy {
 	return privacy.Policy{

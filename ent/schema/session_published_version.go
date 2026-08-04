@@ -15,6 +15,11 @@ type SessionPublishedVersion struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to SessionPublishedVersion.
+func (SessionPublishedVersion) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Hooks enforce Event ownership for every structural membership.
 func (SessionPublishedVersion) Hooks() []ent.Hook {
 	return []ent.Hook{validateSessionMembershipOwnership}

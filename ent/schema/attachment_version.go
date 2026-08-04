@@ -14,6 +14,11 @@ type AttachmentVersion struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to AttachmentVersion.
+func (AttachmentVersion) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy keeps Attachment Versions behind application services.
 func (AttachmentVersion) Policy() ent.Policy {
 	return appendOnlySystemPolicy()

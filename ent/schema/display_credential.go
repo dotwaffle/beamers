@@ -13,6 +13,11 @@ type DisplayCredential struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to DisplayCredential.
+func (DisplayCredential) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy confines Display credentials to authentication storage paths.
 func (DisplayCredential) Policy() ent.Policy {
 	return systemOnlyPolicy()

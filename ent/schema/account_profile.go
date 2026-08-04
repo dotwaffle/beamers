@@ -14,6 +14,11 @@ type AccountProfile struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to AccountProfile.
+func (AccountProfile) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy confines Profile persistence to application services.
 func (AccountProfile) Policy() ent.Policy {
 	return privacy.Policy{

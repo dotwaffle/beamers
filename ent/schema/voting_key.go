@@ -14,6 +14,11 @@ type VotingKey struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to VotingKey.
+func (VotingKey) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy confines Voting Key secrets to the voting application service.
 func (VotingKey) Policy() ent.Policy {
 	return systemOnlyPolicy()

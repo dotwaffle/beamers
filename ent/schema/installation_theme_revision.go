@@ -14,6 +14,11 @@ type InstallationThemeRevision struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to InstallationThemeRevision.
+func (InstallationThemeRevision) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy keeps Theme Revisions behind the application service.
 func (InstallationThemeRevision) Policy() ent.Policy {
 	return systemOnlyPolicy()

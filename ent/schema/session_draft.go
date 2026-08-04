@@ -12,6 +12,11 @@ type SessionDraft struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to SessionDraft.
+func (SessionDraft) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Hooks enforce Event ownership for every structural membership.
 func (SessionDraft) Hooks() []ent.Hook {
 	return []ent.Hook{validateSessionMembershipOwnership}

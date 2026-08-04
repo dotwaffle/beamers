@@ -14,6 +14,11 @@ type DisplayAssignment struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to DisplayAssignment.
+func (DisplayAssignment) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy keeps Assignment access behind the Display application module.
 func (DisplayAssignment) Policy() ent.Policy {
 	return systemOnlyPolicy()

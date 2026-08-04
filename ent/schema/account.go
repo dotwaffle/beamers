@@ -14,6 +14,11 @@ type Account struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to Account.
+func (Account) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy confines Account administration and selection to Administrators.
 func (Account) Policy() ent.Policy {
 	return privacy.Policy{

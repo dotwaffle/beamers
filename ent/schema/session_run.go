@@ -16,6 +16,11 @@ type SessionRun struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to SessionRun.
+func (SessionRun) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy keeps Session Run persistence behind application services.
 func (SessionRun) Policy() ent.Policy {
 	return privacy.Policy{

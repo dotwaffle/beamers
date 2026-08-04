@@ -16,6 +16,11 @@ type VotingTally struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to VotingTally.
+func (VotingTally) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy keeps aggregate evidence behind Crew application services.
 func (VotingTally) Policy() ent.Policy {
 	return systemOnlyPolicy()

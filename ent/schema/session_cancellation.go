@@ -14,6 +14,11 @@ type SessionCancellation struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to SessionCancellation.
+func (SessionCancellation) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy keeps cancellation history behind application services.
 func (SessionCancellation) Policy() ent.Policy {
 	return appendOnlySystemPolicy()

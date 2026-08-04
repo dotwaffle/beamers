@@ -13,6 +13,11 @@ type PasswordCredential struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to PasswordCredential.
+func (PasswordCredential) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy keeps password credential access inside authentication storage paths.
 func (PasswordCredential) Policy() ent.Policy {
 	return systemOnlyPolicy()

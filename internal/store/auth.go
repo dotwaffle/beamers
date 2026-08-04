@@ -201,9 +201,10 @@ type RecoveryTokenParams struct {
 	ExpiresAt time.Time
 }
 
-// RegistrationOpen reports whether visitors may create Accounts.
+// RegistrationOpen reports whether visitors may create Accounts. Visitors have
+// no viewer identity, so the read states its decision explicitly.
 func (installation *SQLite) RegistrationOpen(ctx context.Context) (bool, error) {
-	found, err := installation.client.RegistrationPolicy.Query().Only(ctx)
+	found, err := installation.client.RegistrationPolicy.Query().Only(systemContext(ctx))
 	if ent.IsNotFound(err) {
 		return true, nil
 	}
@@ -234,15 +235,14 @@ func (installation *SQLite) RegisterAccount(
 	ctx context.Context,
 	params CreateAccountParams,
 ) (AccountCredential, error) {
-	requestContext := ctx
 	internalContext := systemContext(ctx)
 	return withTx(ctx, installation.client, "Account registration", func(transaction *ent.Tx) (AccountCredential, error) {
-		return registerAccount(requestContext, internalContext, transaction, params)
+		return registerAccount(internalContext, transaction, params)
 	})
 }
 
 func registerAccount(
-	requestContext, internalContext context.Context,
+	internalContext context.Context,
 	transaction *ent.Tx,
 	params CreateAccountParams,
 ) (AccountCredential, error) {
@@ -263,7 +263,7 @@ func registerAccount(
 		SetWebauthnUserHandle(params.WebAuthnUserHandle).
 		SetAdministrator(false).
 		SetCreatedAt(params.Now).
-		Save(requestContext)
+		Save(internalContext)
 	if ent.IsConstraintError(err) {
 		return AccountCredential{}, ErrAccountExists
 	}
@@ -297,11 +297,14 @@ func (installation *SQLite) AccountProfile(
 	return accountProfile(found), true, nil
 }
 
-// PublicProfile returns the published profile matching a case-insensitive Handle.
+// PublicProfile returns the published profile matching a case-insensitive
+// Handle. Visitors have no viewer identity, so the read states its decision
+// explicitly and confines itself to published profiles.
 func (installation *SQLite) PublicProfile(
 	ctx context.Context,
 	normalizedHandle string,
 ) (AccountProfile, bool, error) {
+	ctx = systemContext(ctx)
 	found, err := installation.client.AccountProfile.Query().
 		Where(
 			accountprofile.NormalizedHandleEQ(normalizedHandle),

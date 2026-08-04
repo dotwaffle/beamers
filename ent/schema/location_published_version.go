@@ -15,6 +15,11 @@ type LocationPublishedVersion struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to LocationPublishedVersion.
+func (LocationPublishedVersion) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy makes Published Location versions append-only and application-owned.
 func (LocationPublishedVersion) Policy() ent.Policy {
 	return privacy.Policy{

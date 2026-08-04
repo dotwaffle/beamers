@@ -17,6 +17,11 @@ type Session struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to Session.
+func (Session) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy confines Session access to granted Event roles.
 func (Session) Policy() ent.Policy {
 	return privacy.Policy{

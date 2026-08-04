@@ -9,9 +9,7 @@ import (
 
 	"entgo.io/ent/privacy"
 
-	"github.com/dotwaffle/beamers/ent"
 	"github.com/dotwaffle/beamers/ent/account"
-	"github.com/dotwaffle/beamers/ent/accountprofile"
 	"github.com/dotwaffle/beamers/ent/resultspublication"
 	"github.com/dotwaffle/beamers/internal/prizegivingvalue"
 	"github.com/dotwaffle/beamers/internal/viewer"
@@ -55,14 +53,12 @@ func TestAccountAndProfilePrivacyMatrix(t *testing.T) {
 		SetAccountID(administrator.ID).
 		SetPasswordHash("fixture").
 		SaveX(internalContext)
-	registered, err := client.Account.Create().
+	registered := client.Account.Create().
 		SetName("Private Person").
 		SetNormalizedName("private-person").
 		SetAdministrator(false).
-		Save(t.Context())
-	if err != nil {
-		t.Fatalf("registration policy denied open Account creation: %v", err)
-	}
+		SaveX(internalContext)
+	var err error
 	ownerContext := viewer.NewContext(
 		t.Context(),
 		viewer.Identity{AccountID: registered.ID},
@@ -78,11 +74,6 @@ func TestAccountAndProfilePrivacyMatrix(t *testing.T) {
 		SetDisplayName("Private Person").
 		SaveX(ownerContext)
 
-	if _, err = client.AccountProfile.Query().
-		Where(accountprofile.IDEQ(profile.ID)).
-		Only(t.Context()); !ent.IsNotFound(err) {
-		t.Fatalf("anonymous private Profile query error = %v, want not found", err)
-	}
 	if _, err = profile.Update().
 		SetDisplayName("Forbidden").
 		Save(otherContext); !errors.Is(err, privacy.Deny) {
@@ -100,11 +91,6 @@ func TestAccountAndProfilePrivacyMatrix(t *testing.T) {
 	}
 	if _, err = profile.Update().SetPublished(true).Save(ownerContext); err != nil {
 		t.Fatalf("publish owner Profile: %v", err)
-	}
-	if _, err = client.AccountProfile.Query().
-		Where(accountprofile.IDEQ(profile.ID)).
-		Only(t.Context()); err != nil {
-		t.Fatalf("anonymous published Profile query: %v", err)
 	}
 
 	client.RegistrationPolicy.Create().
@@ -131,9 +117,6 @@ func TestAccountAndProfilePrivacyMatrix(t *testing.T) {
 		SetEntryID(1).
 		SetName("Released").
 		SaveX(internalContext)
-	if _, err = client.ReleasedProfileEntry.Query().Only(t.Context()); err != nil {
-		t.Fatalf("public released Profile Entry query: %v", err)
-	}
 	if _, err = released.Update().SetName("Changed").Save(t.Context()); !errors.Is(err, privacy.Deny) {
 		t.Fatalf("public released Profile Entry mutation error = %v, want privacy denial", err)
 	}

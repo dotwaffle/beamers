@@ -14,6 +14,11 @@ type DraftEdit struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to DraftEdit.
+func (DraftEdit) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy keeps Draft Edit evidence internal and append-only.
 func (DraftEdit) Policy() ent.Policy {
 	return appendOnlySystemPolicy()

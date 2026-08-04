@@ -12,6 +12,11 @@ type DraftChangeDependency struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to DraftChangeDependency.
+func (DraftChangeDependency) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy keeps dependency evidence internal and append-only.
 func (DraftChangeDependency) Policy() ent.Policy {
 	return appendOnlySystemPolicy()

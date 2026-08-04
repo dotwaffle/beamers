@@ -14,6 +14,11 @@ type VotingEligibility struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to VotingEligibility.
+func (VotingEligibility) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy keeps Voting Eligibility behind Account-scoped application services.
 func (VotingEligibility) Policy() ent.Policy {
 	return systemOnlyPolicy()

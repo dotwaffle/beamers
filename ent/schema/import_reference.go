@@ -14,6 +14,11 @@ type ImportReference struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to ImportReference.
+func (ImportReference) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy keeps Import References append-only behind application services.
 func (ImportReference) Policy() ent.Policy {
 	return appendOnlySystemPolicy()

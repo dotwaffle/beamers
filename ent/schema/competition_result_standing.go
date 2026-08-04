@@ -13,6 +13,11 @@ type CompetitionResultStanding struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to CompetitionResultStanding.
+func (CompetitionResultStanding) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy enforces separate unreleased Results access.
 func (CompetitionResultStanding) Policy() ent.Policy {
 	return privacy.Policy{

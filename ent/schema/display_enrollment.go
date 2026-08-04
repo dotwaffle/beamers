@@ -12,6 +12,11 @@ type DisplayEnrollment struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to DisplayEnrollment.
+func (DisplayEnrollment) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy confines Enrollment secrets to Display application paths.
 func (DisplayEnrollment) Policy() ent.Policy {
 	return systemOnlyPolicy()

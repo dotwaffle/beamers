@@ -14,6 +14,11 @@ type Migration struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to Migration.
+func (Migration) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Fields defines committed migration history.
 func (Migration) Fields() []ent.Field {
 	return []ent.Field{

@@ -14,6 +14,11 @@ type CommandReceipt struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to CommandReceipt.
+func (CommandReceipt) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy keeps Command Receipts internal and immutable.
 func (CommandReceipt) Policy() ent.Policy {
 	return privacy.Policy{

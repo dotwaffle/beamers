@@ -12,6 +12,11 @@ type AccountPreference struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to AccountPreference.
+func (AccountPreference) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy confines Account preferences to authenticated application flows.
 func (AccountPreference) Policy() ent.Policy {
 	return privacy.Policy{

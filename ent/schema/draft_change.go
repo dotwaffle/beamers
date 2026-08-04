@@ -14,6 +14,11 @@ type DraftChange struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to DraftChange.
+func (DraftChange) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy keeps Draft Change evidence behind the command transaction boundary.
 func (DraftChange) Policy() ent.Policy {
 	return systemOnlyPolicy()

@@ -17,6 +17,11 @@ type EventAwardsDraft struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to EventAwardsDraft.
+func (EventAwardsDraft) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy enforces separate unreleased Results access.
 func (EventAwardsDraft) Policy() ent.Policy {
 	return privacy.Policy{

@@ -12,6 +12,11 @@ type Rundown struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to Rundown.
+func (Rundown) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy confines Rundown access to granted Event roles.
 func (Rundown) Policy() ent.Policy {
 	return privacy.Policy{

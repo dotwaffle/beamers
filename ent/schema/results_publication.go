@@ -16,6 +16,11 @@ type ResultsPublication struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to ResultsPublication.
+func (ResultsPublication) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy keeps publication persistence behind application modules.
 func (ResultsPublication) Policy() ent.Policy {
 	return appendOnlySystemPolicy()

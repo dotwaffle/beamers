@@ -14,6 +14,11 @@ type Event struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to Event.
+func (Event) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy makes Event Grants the final read and mutation authorization boundary.
 func (Event) Policy() ent.Policy {
 	return privacy.Policy{

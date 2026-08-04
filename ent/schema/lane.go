@@ -14,6 +14,11 @@ type Lane struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to Lane.
+func (Lane) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy confines Lane access to granted Event roles.
 func (Lane) Policy() ent.Policy {
 	return privacy.Policy{

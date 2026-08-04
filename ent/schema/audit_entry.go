@@ -14,6 +14,11 @@ type AuditEntry struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to AuditEntry.
+func (AuditEntry) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy keeps Audit Entries append-only and Administrator-readable.
 func (AuditEntry) Policy() ent.Policy {
 	return privacy.Policy{

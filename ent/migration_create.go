@@ -101,7 +101,9 @@ func (_c *MigrationCreate) Mutation() *MigrationMutation {
 
 // Save creates the Migration in the database.
 func (_c *MigrationCreate) Save(ctx context.Context) (*Migration, error) {
-	_c.defaults()
+	if err := _c.defaults(); err != nil {
+		return nil, err
+	}
 	return withHooks(ctx, _c.sqlSave, _c.mutation, _c.hooks)
 }
 
@@ -128,7 +130,7 @@ func (_c *MigrationCreate) ExecX(ctx context.Context) {
 }
 
 // defaults sets the default values of the builder before save.
-func (_c *MigrationCreate) defaults() {
+func (_c *MigrationCreate) defaults() error {
 	if _, ok := _c.mutation.Safety(); !ok {
 		v := migration.DefaultSafety
 		_c.mutation.SetSafety(v)
@@ -142,9 +144,13 @@ func (_c *MigrationCreate) defaults() {
 		_c.mutation.SetMinimumWriterSchemaVersion(v)
 	}
 	if _, ok := _c.mutation.AppliedAt(); !ok {
+		if migration.DefaultAppliedAt == nil {
+			return fmt.Errorf("ent: uninitialized migration.DefaultAppliedAt (forgotten import ent/runtime?)")
+		}
 		v := migration.DefaultAppliedAt()
 		_c.mutation.SetAppliedAt(v)
 	}
+	return nil
 }
 
 // check runs all checks and user-defined validators on the builder.

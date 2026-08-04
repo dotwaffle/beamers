@@ -13,6 +13,11 @@ type PublicScheduleBaseline struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to PublicScheduleBaseline.
+func (PublicScheduleBaseline) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy keeps Public Schedule Baseline persistence behind application services.
 func (PublicScheduleBaseline) Policy() ent.Policy {
 	return appendOnlySystemPolicy()

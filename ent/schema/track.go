@@ -14,6 +14,11 @@ type Track struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to Track.
+func (Track) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy confines Track access to granted Event roles.
 func (Track) Policy() ent.Policy {
 	return privacy.Policy{

@@ -14,6 +14,11 @@ type DisplayOverrideState struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to DisplayOverrideState.
+func (DisplayOverrideState) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy keeps Display Override state behind the Override application module.
 func (DisplayOverrideState) Policy() ent.Policy {
 	return systemOnlyPolicy()

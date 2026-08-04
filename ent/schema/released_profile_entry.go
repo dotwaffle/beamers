@@ -11,6 +11,11 @@ type ReleasedProfileEntry struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to ReleasedProfileEntry.
+func (ReleasedProfileEntry) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy permits public reads and confines writes to Results Publication paths.
 func (ReleasedProfileEntry) Policy() ent.Policy {
 	return privacy.Policy{

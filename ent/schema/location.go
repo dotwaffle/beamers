@@ -14,6 +14,11 @@ type Location struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to Location.
+func (Location) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy confines Location access to granted Event roles.
 func (Location) Policy() ent.Policy {
 	return privacy.Policy{

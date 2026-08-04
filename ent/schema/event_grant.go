@@ -15,6 +15,11 @@ type EventGrant struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to EventGrant.
+func (EventGrant) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy confines Event Grant access to Administrators and internal authentication.
 func (EventGrant) Policy() ent.Policy {
 	return privacy.Policy{

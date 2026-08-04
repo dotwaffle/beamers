@@ -15,6 +15,11 @@ type Installation struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to Installation.
+func (Installation) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy confines Active Event routing to Administrators and internal operations.
 func (Installation) Policy() ent.Policy {
 	return privacy.Policy{

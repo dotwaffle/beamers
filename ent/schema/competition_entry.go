@@ -15,6 +15,11 @@ type CompetitionEntry struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to CompetitionEntry.
+func (CompetitionEntry) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Policy confines Competition Entries to granted Event crew.
 func (CompetitionEntry) Policy() ent.Policy {
 	return privacy.Policy{

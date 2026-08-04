@@ -14,6 +14,11 @@ type LaneDraft struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to LaneDraft.
+func (LaneDraft) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Hooks enforce Event ownership across the editable Lane placement.
 func (LaneDraft) Hooks() []ent.Hook {
 	return []ent.Hook{validateLaneLocationOwnership}
