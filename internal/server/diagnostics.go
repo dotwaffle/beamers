@@ -6,8 +6,12 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"time"
+
+	"go.opentelemetry.io/otel/metric"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/backup"
 	"github.com/dotwaffle/beamers/internal/displays"
 	"github.com/dotwaffle/beamers/internal/displaystream"
 	"github.com/dotwaffle/beamers/internal/operations"
@@ -33,6 +37,8 @@ type diagnosticHandlers struct {
 	telemetryRuntime   *telemetry.Runtime
 	replicationAdapter *replication.Adapter
 	logger             *slog.Logger
+	dataDir            string
+	attachmentsDir     string
 }
 
 func registerDiagnosticsRoutes(
@@ -49,6 +55,9 @@ func registerDiagnosticsRoutes(
 	replicationAdapter *replication.Adapter,
 	logger *slog.Logger,
 	listenerAddress net.Addr,
+	dataDir string,
+	attachmentsDir string,
+	meterProvider metric.MeterProvider,
 ) diagnosticHandlers {
 	handlers := diagnosticHandlers{
 		authentication:     authentication,
@@ -62,7 +71,10 @@ func registerDiagnosticsRoutes(
 		telemetryRuntime:   telemetryRuntime,
 		replicationAdapter: replicationAdapter,
 		logger:             logger,
+		dataDir:            dataDir,
+		attachmentsDir:     attachmentsDir,
 	}
+	registerStorageGauges(meterProvider, dataDir, attachmentsDir, logger)
 	serve := func(response http.ResponseWriter, request *http.Request, actor auth.Account) {
 		found := handlers.collect(request.Context(), actor)
 		response.Header().Set("Cache-Control", "no-store")
@@ -181,7 +193,67 @@ func (handlers diagnosticHandlers) collect(
 	if readinessErr != nil {
 		diagnostics.Readiness.Status = "not_ready"
 	}
+	handlers.applyStorageDiagnostics(ctx, &diagnostics)
+	handlers.applyBackupAgeDiagnostics(ctx, &diagnostics)
 	return diagnostics
+}
+
+// diskSpaceWarningBytes is the free-space floor below which diagnostics
+// reports a warning and logs it, giving an Administrator advance notice
+// before the filesystem holding DataDir runs out mid-show.
+const diskSpaceWarningBytes uint64 = 1 << 30 // 1 GiB
+
+func (handlers diagnosticHandlers) applyStorageDiagnostics(
+	ctx context.Context,
+	diagnostics *normalDiagnosticsResponse,
+) {
+	stats, err := collectStorageStats(handlers.dataDir, handlers.attachmentsDir)
+	if err != nil {
+		handlers.logger.ErrorContext(
+			ctx,
+			"build storage size diagnostics",
+			"component", "diagnostics",
+			"error", err,
+		)
+		diagnostics.DiskSpace.Status = "unavailable"
+		return
+	}
+	diagnostics.DiskSpace.FreeBytes = stats.freeDiskBytes
+	diagnostics.DiskSpace.WarningBytes = diskSpaceWarningBytes
+	diagnostics.StorageSize.DatabaseBytes = stats.databaseBytes
+	diagnostics.StorageSize.AttachmentsBytes = stats.attachmentsBytes
+	if stats.freeDiskBytes < diskSpaceWarningBytes {
+		diagnostics.DiskSpace.Status = "warning"
+		handlers.logger.WarnContext(
+			ctx,
+			"disk free space below warning threshold",
+			"component", "diagnostics",
+			"status", "warning",
+		)
+		return
+	}
+	diagnostics.DiskSpace.Status = "ready"
+}
+
+func (handlers diagnosticHandlers) applyBackupAgeDiagnostics(
+	ctx context.Context,
+	diagnostics *normalDiagnosticsResponse,
+) {
+	completedAt, found, err := backup.LastCompletedAt(handlers.dataDir)
+	if err != nil {
+		handlers.logger.ErrorContext(
+			ctx,
+			"build Backup age diagnostics",
+			"component", "diagnostics",
+			"error", err,
+		)
+		return
+	}
+	if !found {
+		return
+	}
+	age := time.Since(completedAt).Seconds()
+	diagnostics.Backup.AgeSeconds = &age
 }
 
 type componentDiagnostics struct {
@@ -211,11 +283,36 @@ type authenticationDiagnostics struct {
 	PerAccountLimit int    `json:"per_account_limit"`
 }
 
+// backupDiagnostics reports Backup availability plus how long ago the most
+// recent Backup completed. AgeSeconds is nil when no Backup has completed
+// since the completion marker was introduced.
+type backupDiagnostics struct {
+	Status     string   `json:"status"`
+	AgeSeconds *float64 `json:"age_seconds,omitempty"`
+}
+
+// diskSpaceDiagnostics reports free capacity on the filesystem holding
+// DataDir, and the threshold below which Status becomes "warning".
+type diskSpaceDiagnostics struct {
+	Status       string `json:"status"`
+	FreeBytes    uint64 `json:"free_bytes"`
+	WarningBytes uint64 `json:"warning_bytes"`
+}
+
+// storageSizeDiagnostics reports the current on-disk size of the durable
+// database and the Attachment Store.
+type storageSizeDiagnostics struct {
+	DatabaseBytes    uint64 `json:"database_bytes"`
+	AttachmentsBytes uint64 `json:"attachments_bytes"`
+}
+
 type normalDiagnosticsResponse struct {
 	Mode           string                    `json:"mode"`
 	Readiness      componentDiagnostics      `json:"readiness"`
 	Storage        componentDiagnostics      `json:"storage"`
-	Backup         componentDiagnostics      `json:"backup"`
+	Backup         backupDiagnostics         `json:"backup"`
+	DiskSpace      diskSpaceDiagnostics      `json:"disk_space"`
+	StorageSize    storageSizeDiagnostics    `json:"storage_size"`
 	Authentication authenticationDiagnostics `json:"authentication"`
 	Replication    replication.Status        `json:"replication"`
 	Streams        struct {
@@ -265,7 +362,7 @@ func normalDiagnostics(
 		Mode:        "normal",
 		Readiness:   componentDiagnostics{Status: "ready"},
 		Storage:     componentDiagnostics{Status: "ready"},
-		Backup:      componentDiagnostics{Status: "available"},
+		Backup:      backupDiagnostics{Status: "available"},
 		Replication: replication.Status{Status: "disabled"},
 		Telemetry:   componentDiagnostics{Status: "disabled"},
 		Capacity:    capacityDiagnostics{Status: "within_tested_envelope", Counts: capacity},

@@ -634,6 +634,9 @@ func (application *application) buildHandler(
 		application.config.Replication,
 		application.config.Logger,
 		application.config.ListenerAddress,
+		application.config.DataDir,
+		application.config.AttachmentsDir,
+		application.config.MeterProvider,
 	)
 	registerPprofRoutes(
 		mux,
