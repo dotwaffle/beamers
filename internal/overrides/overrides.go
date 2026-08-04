@@ -1368,26 +1368,26 @@ func execute[T any](
 	})
 }
 
-var overrideRejections = []struct {
-	err  error
-	code string
-}{
-	{ErrProducerRequired, "producer_required"},
-	{ErrScopeDenied, "override_scope_denied"},
-	{ErrInvalidInput, "override_invalid_input"},
-	{ErrNotFound, "override_not_found"},
-	{ErrRevision, "override_revision_conflict"},
-	{ErrConfigurationRevision, "stage_message_configuration_revision_conflict"},
-	{ErrEventNotActive, "event_not_active"},
+// overrideRejections is the single source for Display Override rejection codes
+// in both directions.
+var overrideRejections = command.RejectionTable{
+	Rejections: []command.Rejection{
+		{Err: ErrProducerRequired, Code: "producer_required"},
+		{Err: ErrScopeDenied, Code: "override_scope_denied"},
+		{Err: ErrInvalidInput, Code: "override_invalid_input"},
+		{Err: ErrNotFound, Code: "override_not_found"},
+		{Err: ErrRevision, Code: "override_revision_conflict"},
+		{
+			Err:  ErrConfigurationRevision,
+			Code: "stage_message_configuration_revision_conflict",
+		},
+		{Err: ErrEventNotActive, Code: "event_not_active"},
+	},
+	RecordMessage: true,
 }
 
 func overrideRejection(err error) (store.CommandRejection, bool) {
-	for _, known := range overrideRejections {
-		if errors.Is(err, known.err) {
-			return store.CommandRejection{Code: known.code, Message: err.Error()}, true
-		}
-	}
-	return store.CommandRejection{}, false
+	return overrideRejections.Rejection(err)
 }
 
 func restoreOverrideRejection(err error) error {
@@ -1399,10 +1399,8 @@ func restoreOverrideRejection(err error) error {
 }
 
 func overrideRejectionError(code string) error {
-	for _, known := range overrideRejections {
-		if code == known.code {
-			return known.err
-		}
+	if sentinel := overrideRejections.Sentinel(code); sentinel != nil {
+		return sentinel
 	}
 	return errors.New("display Override command unavailable")
 }

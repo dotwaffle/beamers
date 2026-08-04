@@ -1070,28 +1070,39 @@ func intsPayload(values []int) string {
 	return result.String()
 }
 
+// eventRejections is the single source for Event command rejection codes in
+// both directions. The list is ordered rather than keyed, so a failure matching
+// two sentinels always classifies the same way.
+var eventRejections = command.RejectionTable{
+	Rejections: []command.Rejection{
+		{Err: ErrAdministratorRequired, Code: "administrator_required"},
+		{Err: ErrGrantRoleRequired, Code: "grant_role_required"},
+		{Err: ErrEventNotFound, Code: "event_not_found"},
+		{Err: ErrAccountNotFound, Code: "account_not_found"},
+		{Err: ErrEventGrantExists, Code: "event_grant_exists"},
+		{Err: ErrEventAccessDenied, Code: "event_access_denied"},
+		{Err: ErrRevisionConflict, Code: "revision_conflict"},
+		{Err: ErrEventSlugUnavailable, Code: "event_slug_unavailable"},
+		{Err: ErrEventSlugAliasNotFound, Code: "event_slug_alias_not_found"},
+		{
+			Err:  ErrEventSlugPruneConfirmationRequired,
+			Code: "event_slug_prune_confirmation_required",
+		},
+	},
+}
+
 func commandRejection(reason error) store.CommandRejection {
 	var validation *ValidationError
 	if errors.As(reason, &validation) {
-		return store.CommandRejection{Code: "validation", Field: validation.Field, Message: validation.Message}
-	}
-	for candidate, code := range map[error]string{
-		ErrAdministratorRequired:              "administrator_required",
-		ErrGrantRoleRequired:                  "grant_role_required",
-		ErrEventNotFound:                      "event_not_found",
-		ErrAccountNotFound:                    "account_not_found",
-		ErrEventGrantExists:                   "event_grant_exists",
-		ErrEventAccessDenied:                  "event_access_denied",
-		ErrRevisionConflict:                   "revision_conflict",
-		ErrEventSlugUnavailable:               "event_slug_unavailable",
-		ErrEventSlugAliasNotFound:             "event_slug_alias_not_found",
-		ErrEventSlugPruneConfirmationRequired: "event_slug_prune_confirmation_required",
-	} {
-		if errors.Is(reason, candidate) {
-			return store.CommandRejection{Code: code}
+		return store.CommandRejection{
+			Code: "validation", Field: validation.Field, Message: validation.Message,
 		}
 	}
-	return store.CommandRejection{Code: "unavailable"}
+	rejection, known := eventRejections.Rejection(reason)
+	if !known {
+		return store.CommandRejection{Code: "unavailable"}
+	}
+	return rejection
 }
 
 func restoreRejected(err error) error {
@@ -1099,30 +1110,11 @@ func restoreRejected(err error) error {
 	if !errors.As(err, &rejected) {
 		return err
 	}
-	switch rejected.Rejection.Code {
-	case "validation":
+	if rejected.Rejection.Code == "validation" {
 		return invalid(rejected.Rejection.Field, rejected.Rejection.Message)
-	case "administrator_required":
-		return ErrAdministratorRequired
-	case "grant_role_required":
-		return ErrGrantRoleRequired
-	case "event_not_found":
-		return ErrEventNotFound
-	case "account_not_found":
-		return ErrAccountNotFound
-	case "event_grant_exists":
-		return ErrEventGrantExists
-	case "event_access_denied":
-		return ErrEventAccessDenied
-	case "revision_conflict":
-		return ErrRevisionConflict
-	case "event_slug_unavailable":
-		return ErrEventSlugUnavailable
-	case "event_slug_alias_not_found":
-		return ErrEventSlugAliasNotFound
-	case "event_slug_prune_confirmation_required":
-		return ErrEventSlugPruneConfirmationRequired
-	default:
-		return errors.New("Event command unavailable")
 	}
+	if sentinel := eventRejections.Sentinel(rejected.Rejection.Code); sentinel != nil {
+		return sentinel
+	}
+	return errors.New("Event command unavailable")
 }

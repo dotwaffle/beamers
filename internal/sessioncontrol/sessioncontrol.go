@@ -1004,13 +1004,33 @@ func timingCommandRejection[T any](
 	return command.Reject(current, rejection, returnErr), nil
 }
 
+// timingRejections is the single source for Session timing rejection codes in
+// both directions.
+var timingRejections = command.RejectionTable{
+	Rejections: []command.Rejection{
+		{Err: ErrOperatorRequired, Code: "operator_required"},
+		{Err: ErrProducerRequired, Code: "producer_required"},
+		{Err: ErrSessionNotFound, Code: "session_not_found"},
+		{Err: ErrLiveStateRevisionConflict, Code: "live_state_revision_conflict"},
+		{Err: ErrSessionLifecycleTransition, Code: "session_lifecycle_transition"},
+		{Err: ErrEventNotActive, Code: "event_not_active"},
+		{Err: ErrSessionScopeRequired, Code: "session_scope_required"},
+		{Err: ErrTargetPreviewStale, Code: "target_preview_stale"},
+		{Err: ErrTargetConfirmation, Code: "target_confirmation_required"},
+		{Err: ErrHardBoundaryConfirmation, Code: "hard_boundary_confirmation_required"},
+		{Err: ErrPresetNotConfigured, Code: "preset_not_configured"},
+		{Err: ErrTargetBeforeNow, Code: "target_before_now"},
+		{Err: ErrNoCountdownTarget, Code: "no_countdown_target"},
+		{Err: ErrPullForwardPreviewStale, Code: "pull_forward_preview_stale"},
+		{Err: ErrPullForwardConfirmation, Code: "pull_forward_confirmation_required"},
+		{Err: ErrReinstatePreviewStale, Code: "reinstate_preview_stale"},
+		{Err: ErrReinstateConfirmation, Code: "reinstate_confirmation_required"},
+		{Err: ErrReinstatePlacement, Code: "reinstate_placement_invalid"},
+	},
+}
+
 func timingRejectionCode(err error) (string, bool) {
-	for _, rejection := range timingRejections {
-		if errors.Is(err, rejection.err) {
-			return rejection.code, true
-		}
-	}
-	return "", false
+	return timingRejections.Code(err)
 }
 
 func restoreTimingRejection(err error, unavailable string) error {
@@ -1018,44 +1038,18 @@ func restoreTimingRejection(err error, unavailable string) error {
 	if !errors.As(err, &rejected) {
 		return err
 	}
-	for _, rejection := range timingRejections {
-		if rejected.Rejection.Code == rejection.code {
-			if errors.Is(rejection.err, ErrLiveStateRevisionConflict) &&
-				len(rejected.Rejection.Details) > 0 {
-				var current store.LiveSessionState
-				if decodeErr := json.Unmarshal(rejected.Rejection.Details, &current); decodeErr != nil {
-					return errors.Join(rejection.err, decodeErr)
-				}
-				return &RevisionConflictError{Current: state(current)}
-			}
-			return rejection.err
-		}
+	sentinel := timingRejections.Sentinel(rejected.Rejection.Code)
+	if sentinel == nil {
+		return errors.New(unavailable)
 	}
-	return errors.New(unavailable)
-}
-
-var timingRejections = []struct {
-	err  error
-	code string
-}{
-	{ErrOperatorRequired, "operator_required"},
-	{ErrProducerRequired, "producer_required"},
-	{ErrSessionNotFound, "session_not_found"},
-	{ErrLiveStateRevisionConflict, "live_state_revision_conflict"},
-	{ErrSessionLifecycleTransition, "session_lifecycle_transition"},
-	{ErrEventNotActive, "event_not_active"},
-	{ErrSessionScopeRequired, "session_scope_required"},
-	{ErrTargetPreviewStale, "target_preview_stale"},
-	{ErrTargetConfirmation, "target_confirmation_required"},
-	{ErrHardBoundaryConfirmation, "hard_boundary_confirmation_required"},
-	{ErrPresetNotConfigured, "preset_not_configured"},
-	{ErrTargetBeforeNow, "target_before_now"},
-	{ErrNoCountdownTarget, "no_countdown_target"},
-	{ErrPullForwardPreviewStale, "pull_forward_preview_stale"},
-	{ErrPullForwardConfirmation, "pull_forward_confirmation_required"},
-	{ErrReinstatePreviewStale, "reinstate_preview_stale"},
-	{ErrReinstateConfirmation, "reinstate_confirmation_required"},
-	{ErrReinstatePlacement, "reinstate_placement_invalid"},
+	if errors.Is(sentinel, ErrLiveStateRevisionConflict) && len(rejected.Rejection.Details) > 0 {
+		var current store.LiveSessionState
+		if decodeErr := json.Unmarshal(rejected.Rejection.Details, &current); decodeErr != nil {
+			return errors.Join(sentinel, decodeErr)
+		}
+		return &RevisionConflictError{Current: state(current)}
+	}
+	return sentinel
 }
 
 func correctionRejection(
@@ -1159,29 +1153,35 @@ func sessionRejection(
 	return command.Reject(current, rejection, returnErr), nil
 }
 
+// sessionTransitionRejections classifies the failures a live Session
+// transition can return from the store.
+var sessionTransitionRejections = command.RejectionTable{
+	Rejections: []command.Rejection{
+		{Err: ErrSessionNotFound, Code: "session_not_found"},
+		{Err: ErrLiveStateRevisionConflict, Code: "live_state_revision_conflict"},
+		{Err: ErrSessionLifecycleTransition, Code: "session_lifecycle_transition"},
+		{Err: ErrEventNotActive, Code: "event_not_active"},
+		{Err: ErrSessionScopeRequired, Code: "session_scope_required"},
+		{Err: ErrDeferredEntriesConfirmation, Code: "deferred_entries_confirmation_required"},
+		{Err: ErrDeferredEntriesPreviewStale, Code: "deferred_entries_preview_stale"},
+		{Err: ErrCancelConfirmation, Code: "cancel_confirmation_required"},
+		{Err: ErrCancellationText, Code: "cancellation_text_invalid"},
+	},
+}
+
+// sessionGuardRejections names the codes a command guard records before any
+// transition runs. Restoring a receipt must know them; classifying a transition
+// failure must not, because the matching guard has already decided.
+var sessionGuardRejections = command.RejectionTable{
+	Rejections: []command.Rejection{
+		{Err: ErrOperatorRequired, Code: "operator_required"},
+		{Err: ErrLiveDetailConfirmation, Code: "live_detail_confirmation_required"},
+		{Err: ErrLiveDetailFields, Code: "live_detail_fields_invalid"},
+	},
+}
+
 func rejectionCode(err error) (string, bool) {
-	switch {
-	case errors.Is(err, ErrSessionNotFound):
-		return "session_not_found", true
-	case errors.Is(err, ErrLiveStateRevisionConflict):
-		return "live_state_revision_conflict", true
-	case errors.Is(err, ErrSessionLifecycleTransition):
-		return "session_lifecycle_transition", true
-	case errors.Is(err, ErrEventNotActive):
-		return "event_not_active", true
-	case errors.Is(err, ErrSessionScopeRequired):
-		return "session_scope_required", true
-	case errors.Is(err, ErrDeferredEntriesConfirmation):
-		return "deferred_entries_confirmation_required", true
-	case errors.Is(err, ErrDeferredEntriesPreviewStale):
-		return "deferred_entries_preview_stale", true
-	case errors.Is(err, ErrCancelConfirmation):
-		return "cancel_confirmation_required", true
-	case errors.Is(err, ErrCancellationText):
-		return "cancellation_text_invalid", true
-	default:
-		return "", false
-	}
+	return sessionTransitionRejections.Code(err)
 }
 
 func restoreRejected(err error) (State, error) {
@@ -1189,42 +1189,22 @@ func restoreRejected(err error) (State, error) {
 	if !errors.As(err, &rejected) {
 		return State{}, err
 	}
-	switch rejected.Rejection.Code {
-	case "operator_required":
-		return State{}, ErrOperatorRequired
-	case "session_not_found":
-		return State{}, ErrSessionNotFound
-	case "live_state_revision_conflict":
-		var current store.LiveSessionState
-		if len(rejected.Rejection.Details) == 0 {
-			return State{}, ErrLiveStateRevisionConflict
-		}
-		if decodeErr := json.Unmarshal(rejected.Rejection.Details, &current); decodeErr != nil {
-			return State{}, errors.New("decode stale Session state")
-		}
-		found := state(current)
-		return found, &RevisionConflictError{Current: found}
-	case "session_lifecycle_transition":
-		return State{}, ErrSessionLifecycleTransition
-	case "event_not_active":
-		return State{}, ErrEventNotActive
-	case "session_scope_required":
-		return State{}, ErrSessionScopeRequired
-	case "deferred_entries_confirmation_required":
-		return State{}, ErrDeferredEntriesConfirmation
-	case "deferred_entries_preview_stale":
-		return State{}, ErrDeferredEntriesPreviewStale
-	case "cancel_confirmation_required":
-		return State{}, ErrCancelConfirmation
-	case "cancellation_text_invalid":
-		return State{}, ErrCancellationText
-	case "live_detail_confirmation_required":
-		return State{}, ErrLiveDetailConfirmation
-	case "live_detail_fields_invalid":
-		return State{}, ErrLiveDetailFields
-	default:
+	sentinel := sessionTransitionRejections.Sentinel(rejected.Rejection.Code)
+	if sentinel == nil {
+		sentinel = sessionGuardRejections.Sentinel(rejected.Rejection.Code)
+	}
+	if sentinel == nil {
 		return State{}, errors.New("session command unavailable")
 	}
+	if !errors.Is(sentinel, ErrLiveStateRevisionConflict) || len(rejected.Rejection.Details) == 0 {
+		return State{}, sentinel
+	}
+	var current store.LiveSessionState
+	if decodeErr := json.Unmarshal(rejected.Rejection.Details, &current); decodeErr != nil {
+		return State{}, errors.New("decode stale Session state")
+	}
+	found := state(current)
+	return found, &RevisionConflictError{Current: found}
 }
 
 func state(stored store.LiveSessionState) State {

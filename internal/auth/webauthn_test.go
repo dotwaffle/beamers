@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	virtualwebauthn "github.com/descope/virtualwebauthn"
+
+	"github.com/dotwaffle/beamers/internal/store"
 )
 
 func TestWebAuthnCeremoniesHaveABoundedMemory(t *testing.T) {
@@ -42,6 +44,26 @@ func TestWebAuthnRejectsIPAddressRelyingParty(t *testing.T) {
 	)
 	if !errors.Is(err, ErrInvalidAccountDetails) {
 		t.Fatalf("IP-address Relying Party error = %v, want %v", err, ErrInvalidAccountDetails)
+	}
+}
+
+// TestRevokeUnknownWebAuthnCredentialKeepsItsReplayedError pins the one
+// rejection code auth classifies from a storage sentinel but replays as its
+// own error. The Crew-facing handler distinguishes a missing Credential by
+// auth.ErrInvalidSession, so a replayed receipt must keep surfacing that and
+// not the storage sentinel the fresh application returns.
+func TestRevokeUnknownWebAuthnCredentialKeepsItsReplayedError(t *testing.T) {
+	service, account := openAccountTestService(t)
+
+	err := service.RevokeWebAuthnCredential(t.Context(), account, 4321, "revoke-unknown-webauthn")
+	if !errors.Is(err, store.ErrInvalidSession) {
+		t.Fatalf("revoke unknown WebAuthn Credential error = %v, want %v", err, store.ErrInvalidSession)
+	}
+	replayErr := service.RevokeWebAuthnCredential(
+		t.Context(), account, 4321, "revoke-unknown-webauthn",
+	)
+	if !errors.Is(replayErr, ErrInvalidSession) {
+		t.Fatalf("replayed revoke error = %v, want %v", replayErr, ErrInvalidSession)
 	}
 }
 

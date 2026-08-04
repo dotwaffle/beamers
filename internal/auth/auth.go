@@ -1077,31 +1077,31 @@ func accountRejectionExecution[T any](reason error) command.Execution[T] {
 	return command.Reject(zero, rejection, reason)
 }
 
+// accountRejections is the single source for Account command rejection codes
+// in both directions. An unclassified failure records "unavailable", which no
+// sentinel claims, so a replay of it reports the command as unavailable rather
+// than inventing a specific cause.
+var accountRejections = command.RejectionTable{
+	Rejections: []command.Rejection{
+		{Err: ErrAdministratorRequired, Code: "administrator_required"},
+		{Err: ErrInvalidAccountDetails, Code: "invalid_account_details"},
+		{Err: ErrAccountExists, Code: "account_exists"},
+		{Err: ErrDisableAccountNotFound, Code: "account_not_found"},
+		{Err: ErrDisableReasonRequired, Code: "disable_reason_required"},
+		{Err: ErrRecoveryReasonRequired, Code: "recovery_reason_required"},
+		{Err: ErrRecoveryAccountNotFound, Code: "recovery_account_not_found"},
+		{Err: ErrLastAdministrator, Code: "last_administrator"},
+		{Err: ErrFinalCredential, Code: "final_credential"},
+		{Err: store.ErrInvalidSession, Code: "credential_not_found", Restored: ErrInvalidSession},
+	},
+}
+
 func accountRejection(reason error) store.CommandRejection {
-	switch {
-	case errors.Is(reason, ErrAdministratorRequired):
-		return store.CommandRejection{Code: "administrator_required"}
-	case errors.Is(reason, ErrInvalidAccountDetails):
-		return store.CommandRejection{Code: "invalid_account_details"}
-	case errors.Is(reason, ErrAccountExists):
-		return store.CommandRejection{Code: "account_exists"}
-	case errors.Is(reason, ErrDisableAccountNotFound):
-		return store.CommandRejection{Code: "account_not_found"}
-	case errors.Is(reason, ErrDisableReasonRequired):
-		return store.CommandRejection{Code: "disable_reason_required"}
-	case errors.Is(reason, ErrRecoveryReasonRequired):
-		return store.CommandRejection{Code: "recovery_reason_required"}
-	case errors.Is(reason, ErrRecoveryAccountNotFound):
-		return store.CommandRejection{Code: "recovery_account_not_found"}
-	case errors.Is(reason, ErrLastAdministrator):
-		return store.CommandRejection{Code: "last_administrator"}
-	case errors.Is(reason, ErrFinalCredential):
-		return store.CommandRejection{Code: "final_credential"}
-	case errors.Is(reason, store.ErrInvalidSession):
-		return store.CommandRejection{Code: "credential_not_found"}
-	default:
+	rejection, known := accountRejections.Rejection(reason)
+	if !known {
 		return store.CommandRejection{Code: "unavailable"}
 	}
+	return rejection
 }
 
 func restoreRejected(err error) error {
@@ -1109,30 +1109,10 @@ func restoreRejected(err error) error {
 	if !errors.As(err, &rejected) {
 		return err
 	}
-	switch rejected.Rejection.Code {
-	case "administrator_required":
-		return ErrAdministratorRequired
-	case "invalid_account_details":
-		return ErrInvalidAccountDetails
-	case "account_exists":
-		return ErrAccountExists
-	case "account_not_found":
-		return ErrDisableAccountNotFound
-	case "disable_reason_required":
-		return ErrDisableReasonRequired
-	case "recovery_reason_required":
-		return ErrRecoveryReasonRequired
-	case "recovery_account_not_found":
-		return ErrRecoveryAccountNotFound
-	case "last_administrator":
-		return ErrLastAdministrator
-	case "final_credential":
-		return ErrFinalCredential
-	case "credential_not_found":
-		return ErrInvalidSession
-	default:
-		return errors.New("Account command unavailable")
+	if sentinel := accountRejections.Sentinel(rejected.Rejection.Code); sentinel != nil {
+		return sentinel
 	}
+	return errors.New("Account command unavailable")
 }
 
 func validDisableReason(value string) bool {
