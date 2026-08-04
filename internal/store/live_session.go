@@ -692,7 +692,7 @@ func (transaction *CommandTx) requireActiveEvent(ctx context.Context, eventID in
 }
 
 func requireSessionControlScope(ctx context.Context, identity *ent.Session) error {
-	laneIDs, _, err := sessionPlacement(ctx, identity)
+	laneIDs, err := sessionLanes(ctx, identity)
 	if err != nil {
 		return err
 	}

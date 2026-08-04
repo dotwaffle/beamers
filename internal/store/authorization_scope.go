@@ -32,7 +32,7 @@ func (transaction *CommandTx) SessionLaneScope(
 	if err != nil {
 		return authz.Facts{}, opaqueError("load Session scope", err)
 	}
-	laneIDs, _, err := sessionPlacement(systemContext(ctx), found)
+	laneIDs, err := sessionLanes(systemContext(ctx), found)
 	if err != nil {
 		return authz.Facts{}, err
 	}

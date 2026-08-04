@@ -248,15 +248,19 @@ func previewReinstateSession(
 	}, nil
 }
 
-func sessionPlacement(
+// sessionLanes resolves the Lanes a Session currently occupies from its latest
+// Published Version, with any forecast Lanes applied over it. Its callers judge
+// Lane scope, which is the only part of placement they need.
+func sessionLanes(
 	ctx context.Context,
 	identity *ent.Session,
-) ([]int, []int, error) {
+) ([]int, error) {
 	version, err := identity.QueryPublishedVersions().Order(ent.Desc("published_revision")).First(ctx)
 	if err != nil {
-		return nil, nil, opaqueError("load current Session placement", err)
+		return nil, opaqueError("load current Session placement", err)
 	}
-	return sessionPlacementFromVersion(ctx, identity, version)
+	laneIDs, _, err := sessionPlacementFromVersion(ctx, identity, version)
+	return laneIDs, err
 }
 
 func sessionPlacementFromVersion(
