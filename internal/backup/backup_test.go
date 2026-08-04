@@ -21,6 +21,7 @@ import (
 	_ "github.com/dotwaffle/beamers/ent/runtime"
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/command"
+	"github.com/dotwaffle/beamers/internal/diskspace"
 	"github.com/dotwaffle/beamers/internal/store"
 
 	_ "modernc.org/sqlite"
@@ -157,6 +158,46 @@ func TestSanitizedBackupIncludesConfiguredAttachmentsAndRemovesCredentials(t *te
 		filepath.Join(restoredDataDir, "beamers.db"),
 	); err != nil {
 		t.Fatalf("validate restored database: %v", err)
+	}
+}
+
+func TestPreflightDiskSpaceRefusesWhenInsufficient(t *testing.T) {
+	dataDir := filepath.Join(t.TempDir(), "installation")
+	if err := store.Initialize(t.Context(), dataDir); err != nil {
+		t.Fatalf("initialize installation: %v", err)
+	}
+	outputPath := filepath.Join(t.TempDir(), "backup.zip")
+
+	err := preflightDiskSpace(dataDir, "", outputPath, func(string, uint64) error {
+		return fmt.Errorf("stub: %w", diskspace.ErrInsufficientSpace)
+	})
+	if !errors.Is(err, diskspace.ErrInsufficientSpace) {
+		t.Fatalf("preflightDiskSpace error = %v, want ErrInsufficientSpace", err)
+	}
+}
+
+func TestPreflightDiskSpaceAllowsSufficientCapacity(t *testing.T) {
+	dataDir := filepath.Join(t.TempDir(), "installation")
+	if err := store.Initialize(t.Context(), dataDir); err != nil {
+		t.Fatalf("initialize installation: %v", err)
+	}
+	outputPath := filepath.Join(t.TempDir(), "backup.zip")
+
+	var observedPath string
+	var observedNeeded uint64
+	err := preflightDiskSpace(dataDir, "", outputPath, func(path string, needed uint64) error {
+		observedPath, observedNeeded = path, needed
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("preflightDiskSpace: %v", err)
+	}
+	if observedPath != filepath.Dir(outputPath) {
+		t.Fatalf("preflight checked %q, want %q", observedPath, filepath.Dir(outputPath))
+	}
+	if observedNeeded < backupDiskSpaceMarginBytes {
+		t.Fatalf("preflight needed %d bytes, want at least the %d byte margin",
+			observedNeeded, backupDiskSpaceMarginBytes)
 	}
 }
 

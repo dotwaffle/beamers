@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dotwaffle/beamers/internal/diskspace"
 	"github.com/dotwaffle/beamers/internal/store"
 )
 
@@ -150,6 +151,11 @@ func CreateWithStorage(
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return Manifest{}, fmt.Errorf("inspect Backup output: %w", err)
 	}
+	if err := preflightDiskSpace(
+		input.DataDir, input.AttachmentsDir, input.OutputPath, diskspace.RequireFree,
+	); err != nil {
+		return Manifest{}, err
+	}
 
 	workDir, err := os.MkdirTemp(filepath.Dir(input.OutputPath), ".beamers-backup-*")
 	if err != nil {
@@ -269,6 +275,42 @@ func LastCompletedAt(dataDir string) (time.Time, bool, error) {
 		return time.Time{}, false, fmt.Errorf("parse Backup completion marker: %w", err)
 	}
 	return completedAt, true, nil
+}
+
+// backupDiskSpaceMarginBytes covers the ZIP central directory, manifest,
+// and filesystem metadata overhead the size estimate below does not
+// itself account for.
+const backupDiskSpaceMarginBytes = 64 << 20
+
+// preflightDiskSpace refuses to start a Backup when the filesystem holding
+// its output cannot plausibly hold one. The estimate sums the current
+// database and Attachment Store sizes: Sanitized mode never grows the
+// database, and Store compression is not counted, so this is
+// conservative rather than exact. requireFree is an explicit dependency
+// (rather than calling diskspace.RequireFree directly) so tests can
+// exercise the refusal path without needing a filesystem that is
+// actually full.
+func preflightDiskSpace(
+	dataDir, attachmentsDir, outputPath string,
+	requireFree func(path string, neededBytes uint64) error,
+) error {
+	var databasePath string
+	if dataDir != "" {
+		databasePath = filepath.Join(dataDir, "beamers.db")
+	}
+	databaseBytes, err := diskspace.FileSize(databasePath)
+	if err != nil {
+		return err
+	}
+	attachmentsBytes, err := diskspace.DirSize(attachmentsDir)
+	if err != nil {
+		return err
+	}
+	needed := databaseBytes + attachmentsBytes + backupDiskSpaceMarginBytes
+	if err := requireFree(filepath.Dir(outputPath), needed); err != nil {
+		return fmt.Errorf("preflight Backup disk space: %w", err)
+	}
+	return nil
 }
 
 func installArchive(staged, output string, syncParent func(string) error) error {
