@@ -199,7 +199,9 @@ func buildPublicScheduleFixture(
 		if lifecycle == session.LifecycleLive {
 			client.SessionRun.Create().
 				SetSessionID(identity.ID).SetActualStart(plannedStart).
-				SetSnapshotJSON(publicScheduleTestSnapshotJSON(plannedStart)).
+				SetSnapshotJSON(publicScheduleTestSnapshotJSON(
+					plannedStart, lanes[index], locations[index],
+				)).
 				SaveX(ctx)
 		}
 		if sessionType == sessionpublishedversion.TypeCompetition {
@@ -213,11 +215,13 @@ func buildPublicScheduleFixture(
 	return publicScheduleFixture{eventID: event.ID, locationIDs: locations, laneIDs: lanes}
 }
 
-func publicScheduleTestSnapshotJSON(plannedStart time.Time) string {
+func publicScheduleTestSnapshotJSON(plannedStart time.Time, laneID, locationID int) string {
 	return fmt.Sprintf(
 		`{"type":"Presentation","timing_policy":"FixedEnd",`+
-			`"planned_start":%q,"planned_end":%q,"lane_ids":[],"location_ids":[]}`,
+			`"planned_start":%q,"planned_end":%q,"lane_ids":[%d],"location_ids":[%d]}`,
 		plannedStart.Format(time.RFC3339Nano),
 		plannedStart.Add(time.Hour).Format(time.RFC3339Nano),
+		laneID,
+		locationID,
 	)
 }

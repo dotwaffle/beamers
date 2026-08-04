@@ -297,7 +297,13 @@ func (installation *SQLite) LoadDisplayStatus(
 	if err != nil {
 		return DisplayStatus{}, err
 	}
-	return loadDisplayStatus(internalContext, installation.readClient(), found, routing)
+	inputs, err := loadDisplayStatusInputs(
+		internalContext, installation.readClient(), routing, []*ent.Display{found},
+	)
+	if err != nil {
+		return DisplayStatus{}, err
+	}
+	return displayStatus(found, inputs)
 }
 
 // ListDisplayStatuses returns one snapshot's Active Event and crew-visible Assignment summaries.
@@ -319,9 +325,13 @@ func (installation *SQLite) ListDisplayStatuses(ctx context.Context) (int, []Dis
 	if err != nil {
 		return 0, nil, opaqueError("list Displays", err)
 	}
+	inputs, err := loadDisplayStatusInputs(internalContext, client, routing, found)
+	if err != nil {
+		return 0, nil, err
+	}
 	result := make([]DisplayStatus, 0, len(found))
 	for _, item := range found {
-		status, statusErr := loadDisplayStatus(internalContext, client, item, routing)
+		status, statusErr := displayStatus(item, inputs)
 		if statusErr != nil {
 			return 0, nil, statusErr
 		}
@@ -362,12 +372,107 @@ func loadDisplayRouting(ctx context.Context, client *ent.Client) (displayRouting
 	return result, nil
 }
 
-func loadDisplayStatus(
+// displayStatusInputs are the Active Event facts every Display status row
+// shares. Loading them once per snapshot is what keeps the crew Displays list
+// from re-reading the Event for every enrolled Display.
+type displayStatusInputs struct {
+	Routing         displayRouting
+	Assignments     map[int]*ent.DisplayAssignment
+	LocationNames   map[int]*ent.LocationPublishedVersion
+	ProgramChannels map[int]int
+}
+
+func loadDisplayStatusInputs(
 	ctx context.Context,
 	client *ent.Client,
-	found *ent.Display,
 	routing displayRouting,
+	displays []*ent.Display,
+) (displayStatusInputs, error) {
+	inputs := displayStatusInputs{Routing: routing}
+	if routing.ActiveEventID == 0 || len(displays) == 0 {
+		return inputs, nil
+	}
+	displayIDs := make([]int, 0, len(displays))
+	for _, item := range displays {
+		displayIDs = append(displayIDs, item.ID)
+	}
+	assignments, err := client.DisplayAssignment.Query().
+		Where(
+			displayassignment.DisplayIDIn(displayIDs...),
+			displayassignment.EventIDEQ(routing.ActiveEventID),
+		).
+		All(ctx)
+	if err != nil {
+		return displayStatusInputs{}, opaqueError("load Active Event Display Assignment", err)
+	}
+	inputs.Assignments = make(map[int]*ent.DisplayAssignment, len(assignments))
+	locationIDs := make([]int, 0, len(assignments))
+	for _, assignment := range assignments {
+		inputs.Assignments[assignment.DisplayID] = assignment
+		locationIDs = append(locationIDs, assignment.LocationID)
+	}
+	if len(locationIDs) == 0 {
+		return inputs, nil
+	}
+	published, err := client.LocationPublishedVersion.Query().
+		Where(
+			locationpublishedversion.LocationIDIn(locationIDs...),
+			latestPublishedVersion(
+				locationpublishedversion.Table,
+				locationpublishedversion.FieldLocationID,
+			),
+		).
+		All(ctx)
+	if err != nil {
+		return displayStatusInputs{}, opaqueError(
+			"load Published Display Assignment Location name", err,
+		)
+	}
+	inputs.LocationNames = make(map[int]*ent.LocationPublishedVersion, len(published))
+	for _, version := range published {
+		inputs.LocationNames[version.LocationID] = version
+	}
+	// One Program Channel is routed per Location, not per Display, so a
+	// Location with twenty Displays resolves it once.
+	inputs.ProgramChannels, err = loadDisplayStatusProgramChannels(ctx, client, inputs)
+	if err != nil {
+		return displayStatusInputs{}, err
+	}
+	return inputs, nil
+}
+
+func loadDisplayStatusProgramChannels(
+	ctx context.Context,
+	client *ent.Client,
+	inputs displayStatusInputs,
+) (map[int]int, error) {
+	routed := make(map[int]struct{})
+	for _, assignment := range inputs.Assignments {
+		version := inputs.LocationNames[assignment.LocationID]
+		if assignment.ViewKey != "competition-output" || version == nil || version.Retired {
+			continue
+		}
+		routed[assignment.LocationID] = struct{}{}
+	}
+	if len(routed) == 0 {
+		return nil, nil
+	}
+	routing, err := loadProgramChannelRouting(ctx, client, inputs.Routing.ActiveEventID)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[int]int, len(routed))
+	for locationID := range routed {
+		result[locationID] = routing.channelAt(locationID)
+	}
+	return result, nil
+}
+
+func displayStatus(
+	found *ent.Display,
+	inputs displayStatusInputs,
 ) (DisplayStatus, error) {
+	routing := inputs.Routing
 	status := DisplayStatus{
 		ID: found.ID, Name: found.Name, Standby: true,
 		ActiveEventID: routing.ActiveEventID, EventName: routing.EventName,
@@ -397,25 +502,16 @@ func loadDisplayStatus(
 	if routing.ActiveEventID == 0 {
 		return status, nil
 	}
-	assignment, err := client.DisplayAssignment.Query().Where(
-		displayassignment.DisplayIDEQ(found.ID),
-		displayassignment.EventIDEQ(routing.ActiveEventID),
-	).WithLocation().Only(ctx)
-	if ent.IsNotFound(err) {
+	assignment := inputs.Assignments[found.ID]
+	if assignment == nil {
 		return status, nil
 	}
-	if err != nil {
-		return DisplayStatus{}, opaqueError("load Active Event Display Assignment", err)
-	}
-	assignedLocation := assignment.Edges.Location
-	if assignedLocation == nil {
-		return DisplayStatus{}, opaqueError("load Display Assignment Location", errors.New("missing Location"))
-	}
-	published, err := assignedLocation.QueryPublishedVersions().
-		Order(ent.Desc(locationpublishedversion.FieldPublishedRevision)).
-		First(ctx)
-	if err != nil {
-		return DisplayStatus{}, opaqueError("load Published Display Assignment Location name", err)
+	published := inputs.LocationNames[assignment.LocationID]
+	if published == nil {
+		return DisplayStatus{}, opaqueError(
+			"load Published Display Assignment Location name",
+			errors.New("missing Published Location"),
+		)
 	}
 	if published.Retired {
 		return status, nil
@@ -426,12 +522,7 @@ func loadDisplayStatus(
 	status.ViewKey = assignment.ViewKey
 	status.DisplayGroupKeys = assignment.DisplayGroupKeys
 	if status.ViewKey == "competition-output" {
-		status.ProgramChannelID, err = competitionOutputProgramChannelID(
-			ctx, client, routing.ActiveEventID, assignment.LocationID,
-		)
-		if err != nil {
-			return DisplayStatus{}, err
-		}
+		status.ProgramChannelID = inputs.ProgramChannels[assignment.LocationID]
 	}
 	return status, nil
 }

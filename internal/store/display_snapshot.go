@@ -527,29 +527,158 @@ func displaySessionState(input displaySessionInput) (DisplaySessionState, error)
 	return result, nil
 }
 
-func loadDisplaySession(
+// programChannelRouting answers which Session drives the Program Channel at a
+// Location. It is built from one whole-Event load so that a caller resolving
+// several Locations - the crew Displays list resolves one per assigned
+// Location - pays for the Event once rather than once per Location.
+type programChannelRouting struct {
+	sessions []programChannelSession
+}
+
+type programChannelSession struct {
+	id          int
+	lifecycle   string
+	locationIDs []int
+}
+
+func loadProgramChannelRouting(
 	ctx context.Context,
 	client *ent.Client,
-	published PublishedSession,
-) (DisplaySessionState, error) {
-	identity, err := client.Session.Get(ctx, published.ID)
+	eventID int,
+) (programChannelRouting, error) {
+	published, err := loadCrewRundown(ctx, client, eventID)
 	if err != nil {
-		return DisplaySessionState{}, opaqueError("load Display Session identity", err)
+		return programChannelRouting{}, err
 	}
-	baselines, err := sessionBaselineStarts(ctx, client, []int{published.ID})
+	ceremonies := make([]int, 0, len(published.Sessions))
+	for _, publishedSession := range published.Sessions {
+		if publishedSession.Type == "Ceremony" {
+			ceremonies = append(ceremonies, publishedSession.ID)
+		}
+	}
+	locked, err := lockedCeremonySessions(ctx, client, eventID, ceremonies)
 	if err != nil {
-		return DisplaySessionState{}, err
+		return programChannelRouting{}, err
 	}
-	runs, err := latestSessionRuns(ctx, client, []int{published.ID})
+	program := make([]PublishedSession, 0, len(published.Sessions))
+	for _, publishedSession := range published.Sessions {
+		if publishedSession.Type == "Competition" || locked[publishedSession.ID] {
+			program = append(program, publishedSession)
+		}
+	}
+	states, err := loadDisplaySessions(ctx, client, program)
 	if err != nil {
-		return DisplaySessionState{}, err
+		return programChannelRouting{}, err
 	}
-	return displaySessionState(displaySessionInput{
-		Published:     published,
-		BaselineStart: baselines[published.ID],
-		Identity:      identity,
-		Run:           runs[published.ID],
-	})
+	routing := programChannelRouting{sessions: make([]programChannelSession, 0, len(states))}
+	for _, state := range states {
+		routing.sessions = append(routing.sessions, programChannelSession{
+			id: state.ID, lifecycle: state.Lifecycle, locationIDs: state.LocationIDs,
+		})
+	}
+	return routing, nil
+}
+
+// channelAt selects the Live Program Channel Session at a Location, or the
+// first eligible one when none is Live.
+func (routing programChannelRouting) channelAt(locationID int) int {
+	selected := 0
+	for _, item := range routing.sessions {
+		if !slices.Contains(item.locationIDs, locationID) {
+			continue
+		}
+		if selected == 0 {
+			selected = item.id
+		}
+		if item.lifecycle == "Live" {
+			return item.id
+		}
+	}
+	return selected
+}
+
+func lockedCeremonySessions(
+	ctx context.Context,
+	client *ent.Client,
+	eventID int,
+	sessionIDs []int,
+) (map[int]bool, error) {
+	if len(sessionIDs) == 0 {
+		return map[int]bool{}, nil
+	}
+	found, err := client.Prizegiving.Query().
+		Where(
+			prizegiving.EventIDEQ(eventID),
+			prizegiving.CeremonySessionIDIn(sessionIDs...),
+			prizegiving.LockedEQ(true),
+		).
+		All(ctx)
+	if err != nil {
+		return nil, opaqueError("check locked Prizegiving Program Channels", err)
+	}
+	result := make(map[int]bool, len(found))
+	for _, item := range found {
+		result[item.CeremonySessionID] = true
+	}
+	return result, nil
+}
+
+// loadDisplaySessions projects several Published Sessions with the identity,
+// Baseline, and Run lookups batched across all of them.
+func loadDisplaySessions(
+	ctx context.Context,
+	client *ent.Client,
+	published []PublishedSession,
+) ([]DisplaySessionState, error) {
+	if len(published) == 0 {
+		return nil, nil
+	}
+	sessionIDs := make([]int, 0, len(published))
+	for _, item := range published {
+		sessionIDs = append(sessionIDs, item.ID)
+	}
+	identities, err := client.Session.Query().Where(session.IDIn(sessionIDs...)).All(ctx)
+	if err != nil {
+		return nil, opaqueError("load Display Session identity", err)
+	}
+	identitiesByID := make(map[int]*ent.Session, len(identities))
+	running := make([]int, 0, len(identities))
+	for _, identity := range identities {
+		identitiesByID[identity.ID] = identity
+		if identity.Lifecycle == session.LifecycleLive ||
+			identity.Lifecycle == session.LifecycleEnded {
+			running = append(running, identity.ID)
+		}
+	}
+	baselines, err := sessionBaselineStarts(ctx, client, sessionIDs)
+	if err != nil {
+		return nil, err
+	}
+	runs, err := latestSessionRuns(ctx, client, running)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]DisplaySessionState, 0, len(published))
+	for _, item := range published {
+		identity := identitiesByID[item.ID]
+		if identity == nil {
+			return nil, opaqueError(
+				"load Display Session identity",
+				errors.New("missing Session"),
+			)
+		}
+		state, stateErr := displaySessionState(displaySessionInput{
+			Published:     item,
+			BaselineStart: baselines[item.ID],
+			Identity:      identity,
+			Run:           runs[item.ID],
+		})
+		if stateErr != nil {
+			return nil, stateErr
+		}
+		result = append(result, state)
+	}
+	return result, nil
 }
 
 func competitionOutputProgramChannelID(
@@ -557,39 +686,11 @@ func competitionOutputProgramChannelID(
 	client *ent.Client,
 	eventID, locationID int,
 ) (int, error) {
-	published, err := loadCrewRundown(ctx, client, eventID)
+	routing, err := loadProgramChannelRouting(ctx, client, eventID)
 	if err != nil {
 		return 0, err
 	}
-	selected := 0
-	for _, publishedSession := range published.Sessions {
-		programSession, programErr := isProgramChannelSession(
-			ctx,
-			client,
-			eventID,
-			publishedSession,
-		)
-		if programErr != nil {
-			return 0, programErr
-		}
-		if !programSession {
-			continue
-		}
-		sessionState, sessionErr := loadDisplaySession(ctx, client, publishedSession)
-		if sessionErr != nil {
-			return 0, sessionErr
-		}
-		if !slices.Contains(sessionState.LocationIDs, locationID) {
-			continue
-		}
-		if selected == 0 {
-			selected = publishedSession.ID
-		}
-		if sessionState.Lifecycle == "Live" {
-			return publishedSession.ID, nil
-		}
-	}
-	return selected, nil
+	return routing.channelAt(locationID), nil
 }
 
 func isProgramChannelSession(
