@@ -156,7 +156,7 @@ templ Administration(page AdministrationPage) {
 											</select>
 										</label>
 										@FieldError(page.Errors, AdministrationFieldID("disable-account", account.ID, "reason"))
-										<button type="submit">Disable Account</button>
+										<button class="btn-destructive" type="submit">Disable Account</button>
 									</form>
 									<form method="post" action="/backstage/administration">
 										<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
@@ -402,6 +402,7 @@ templ Administration(page AdministrationPage) {
 									<input type="hidden" name="command_id" value={ page.ActivationCommandID }/>
 									<button
 										id={ AdministrationFieldID("activate", page.Preflight.EventID, "confirmation") }
+										class="btn-commit"
 										type="submit"
 										{ page.Errors.Attributes(AdministrationFieldID("activate", page.Preflight.EventID, "confirmation"))... }
 									>Activate Event</button>
@@ -442,7 +443,7 @@ templ Administration(page AdministrationPage) {
 												Prune this alias. Its slug becomes reusable; stale links may break or retarget.
 											</label>
 											@FieldError(page.Errors, AdministrationFieldID("prune-event-slug-alias", alias.ID, "confirmed"))
-											<button type="submit">Prune Event Slug Alias</button>
+											<button class="btn-destructive" type="submit">Prune Event Slug Alias</button>
 										</form>
 									</li>
 								}

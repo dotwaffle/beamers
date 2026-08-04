@@ -284,7 +284,7 @@ templ CompetitionVoting(page CompetitionVotingPage) {
 							<input type="hidden" name="command_id" value={ page.CommandID + "-close" }/>
 							<input type="hidden" name="action" value="close"/>
 							<input type="hidden" name="expected_revision" value={ strconv.Itoa(page.Window.Revision) }/>
-							<button type="submit">Close Voting Window</button>
+							<button class="btn-destructive" type="submit">Close Voting Window</button>
 						</form>
 					}
 				</main>
@@ -361,7 +361,7 @@ templ VotingKeys(page VotingKeyPage) {
 														<input type="hidden" name="command_id" value={ page.CommandID + "-revoke-" + strconv.Itoa(item.ID) }/>
 														<input type="hidden" name="action" value="revoke"/>
 														<input type="hidden" name="key_id" value={ strconv.Itoa(item.ID) }/>
-														<button type="submit">Revoke</button>
+														<button class="btn-destructive" type="submit">Revoke</button>
 													</form>
 												}
 											</td>

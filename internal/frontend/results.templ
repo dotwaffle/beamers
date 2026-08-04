@@ -831,7 +831,7 @@ templ ResultsCorrection(page ResultsPage, correction ResultsCorrectionPage) {
 				<input type="hidden" name="correction_scope" value={ string(correction.Scope) }/>
 				<input type="hidden" name="correction_scope_session_id" value={ strconv.Itoa(correction.ScopeSessionID) }/>
 				<input type="hidden" name="expected_correction_revision" value={ strconv.Itoa(correction.Current.Revision) }/>
-				<button type="submit">Publish Results Correction</button>
+				<button class="btn-commit" type="submit">Publish Results Correction</button>
 			</form>
 		}
 	</section>

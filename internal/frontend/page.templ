@@ -475,7 +475,7 @@ templ ProfilePage(
 											<input type="hidden" name="action" value="revoke-webauthn"/>
 											<input type="hidden" name="credential_id" value={ strconv.Itoa(credential.ID) }/>
 											<input type="hidden" name="command_id" value={ credentialCommandID + "-revoke-" + strconv.Itoa(credential.ID) }/>
-											<button type="submit">Revoke</button>
+											<button class="btn-destructive" type="submit">Revoke</button>
 										</form>
 									}
 								</li>

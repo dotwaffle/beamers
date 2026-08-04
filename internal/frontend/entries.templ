@@ -536,7 +536,7 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 													}
 											</select>
 											@FieldError(page.Errors, WorkflowFieldID("assign-submitter", entry.ID, 0, 0, "account_id"))
-											<button type="submit">Assign Submitter Account</button>
+											<button class="btn-secondary" type="submit">Assign Submitter Account</button>
 										</form>
 									}
 									<form class="stack" method="post">
@@ -556,7 +556,7 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 										<input type="hidden" name="command_id" value={ page.CommandID }/>
 										<input type="hidden" name="entry_id" value={ strconv.Itoa(entry.ID) }/>
 										<input type="hidden" name="expected_revision" value={ strconv.Itoa(entry.Revision) }/>
-										<button type="submit">Review Entry</button>
+										<button class="btn-secondary" type="submit">Review Entry</button>
 									</form>
 									<form method="post">
 										<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
@@ -576,7 +576,7 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 											Confirm live disposition override
 										</label>
 										@FieldError(page.Errors, WorkflowFieldID("change-disposition", entry.ID, 0, 0, "confirmed_live_override"))
-										<button type="submit">Change disposition</button>
+										<button class="btn-secondary" type="submit">Change disposition</button>
 									</form>
 								}
 								<form method="post">
@@ -586,7 +586,7 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 									<input type="hidden" name="entry_id" value={ strconv.Itoa(entry.ID) }/>
 									<input type="hidden" name="expected_revision" value={ strconv.Itoa(entry.Revision) }/>
 									@workflowInput(page, "record-technical-failure", entry.ID, 0, 0, "crew_reason", "Technical Failure Crew Reason", "text", "", true)
-									<button type="submit">Record Technical Failure</button>
+									<button class="btn-secondary" type="submit">Record Technical Failure</button>
 								</form>
 								if page.Producer {
 									<form method="post">
@@ -598,7 +598,7 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 										@workflowSelect(page, "resolve-entry", entry.ID, 0, "result_disposition", "Final resolution", []string{"Eligible", "Disqualified", "Withheld"}, "Eligible")
 										@workflowInput(page, "resolve-entry", entry.ID, 0, 0, "crew_reason", "Crew Reason", "text", "", true)
 										@workflowInput(page, "resolve-entry", entry.ID, 0, 0, "public_disqualification_message", "Public disqualification message", "text", "", false)
-										<button type="submit">Resolve Entry</button>
+										<button class="btn-destructive" type="submit">Resolve Entry</button>
 									</form>
 									<form method="post">
 										<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
@@ -619,7 +619,7 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 										</label>
 										@FieldError(page.Errors, WorkflowFieldID("entry-release-hold", entry.ID, 0, 0, "hold"))
 										@workflowInput(page, "entry-release-hold", entry.ID, 0, 0, "crew_reason", "Crew Reason", "text", "", true)
-										<button type="submit">Set Entry Release Hold</button>
+										<button class="btn-secondary" type="submit">Set Entry Release Hold</button>
 									</form>
 								}
 								if page.Program.Owner != nil && page.Program.Owner.AccountID == page.AccountID {
@@ -631,7 +631,7 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 										<input type="hidden" name="expected_revision" value={ strconv.Itoa(entry.Revision) }/>
 										<input type="hidden" name="expected_program_revision" value={ strconv.Itoa(page.Program.Channel.Revision) }/>
 										<input type="hidden" name="expected_control_revision" value={ strconv.Itoa(page.Program.ControlRevision) }/>
-										<button type="submit">Defer Entry</button>
+										<button class="btn-secondary" type="submit">Defer Entry</button>
 									</form>
 								}
 								if page.Producer {
@@ -659,9 +659,11 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 											/>
 											Crew Only Release Eligibility
 										</label>
-										<button type="submit">Upload immutable Version</button>
+										<button class="btn-secondary" type="submit">Upload immutable Version</button>
 									</form>
 								}
+								<details>
+									<summary>Attachment Versions and Reopen Windows</summary>
 								<h4>Attachment Versions</h4>
 								if len(entryAttachmentVersions(page.Attachments.Versions, entry.ID)) == 0 {
 									<p>No Attachment Versions.</p>
@@ -713,7 +715,7 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 													Primary Attachment
 												</label>
 												@FieldError(page.Errors, WorkflowFieldID("attachment-readiness", entry.ID, version.ID, 0, "primary"))
-												<button type="submit">Set Final and Primary</button>
+												<button class="btn-secondary" type="submit">Set Final and Primary</button>
 											</form>
 											<form method="post">
 												<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
@@ -733,7 +735,7 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 													Release Hold
 												</label>
 												@FieldError(page.Errors, WorkflowFieldID("version-release-hold", 0, version.ID, 0, "hold"))
-												<button type="submit">Set Version Release Hold</button>
+												<button class="btn-secondary" type="submit">Set Version Release Hold</button>
 											</form>
 										}
 									</section>
@@ -759,9 +761,10 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 										<input type="hidden" name="entry_id" value={ strconv.Itoa(entry.ID) }/>
 										@workflowInput(page, "create-reopen-window", entry.ID, 0, 0, "reason", "Reopen reason", "text", "", true)
 										@workflowInput(page, "create-reopen-window", entry.ID, 0, 0, "expires_at", "Expires at (" + page.Event.Timezone + ")", "datetime-local", "", true)
-										<button type="submit">Create bounded Reopen Window</button>
+										<button class="btn-secondary" type="submit">Create bounded Reopen Window</button>
 									</form>
 								}
+								</details>
 							</article>
 						}
 					</section>

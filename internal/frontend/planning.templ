@@ -664,7 +664,7 @@ templ Planning(page PlanningPage) {
 										{ page.Errors.Attributes("publish-note")... }
 									>{ page.Form.Get("publish_note") }</textarea>
 									@FieldError(page.Errors, "publish-note")
-									<button type="submit">Publish reviewed selection</button>
+									<button class="btn-commit" type="submit">Publish reviewed selection</button>
 								</form>
 							}
 						}

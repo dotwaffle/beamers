@@ -214,7 +214,7 @@ templ Installation(page InstallationPage) {
 									Abandon this prepared Restore
 								</label>
 								@FieldError(page.Errors, "installation-cancel-restore-acknowledge-cancellation")
-								<button type="submit">Cancel Prepared Restore</button>
+								<button class="btn-destructive" type="submit">Cancel Prepared Restore</button>
 							</form>
 						} else {
 							<p>No Restore is prepared.</p>

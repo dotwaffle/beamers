@@ -3484,7 +3484,7 @@ func ResultsCorrection(page ResultsPage, correction ResultsCorrectionPage) templ
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 315, "\"> <button type=\"submit\">Publish Results Correction</button></form>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 315, "\"> <button class=\"btn-commit\" type=\"submit\">Publish Results Correction</button></form>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
