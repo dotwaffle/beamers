@@ -14,9 +14,10 @@ type TrackPublishedVersion struct {
 	ent.Schema
 }
 
-// Mixin applies the fail-closed authorization tripwire to TrackPublishedVersion.
+// Mixin applies the fail-closed authorization tripwire and the append-only
+// invariant to TrackPublishedVersion.
 func (TrackPublishedVersion) Mixin() []ent.Mixin {
-	return []ent.Mixin{AuthorizationTripwire{}}
+	return []ent.Mixin{AuthorizationTripwire{}, AppendOnly{}}
 }
 
 // Fields defines Published Track version persistence.

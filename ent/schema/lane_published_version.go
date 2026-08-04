@@ -14,9 +14,10 @@ type LanePublishedVersion struct {
 	ent.Schema
 }
 
-// Mixin applies the fail-closed authorization tripwire to LanePublishedVersion.
+// Mixin applies the fail-closed authorization tripwire and the append-only
+// invariant to LanePublishedVersion.
 func (LanePublishedVersion) Mixin() []ent.Mixin {
-	return []ent.Mixin{AuthorizationTripwire{}}
+	return []ent.Mixin{AuthorizationTripwire{}, AppendOnly{}}
 }
 
 // Hooks enforce Event ownership across the immutable Lane placement.

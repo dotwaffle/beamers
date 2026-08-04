@@ -16,9 +16,10 @@ type ResultsPublication struct {
 	ent.Schema
 }
 
-// Mixin applies the fail-closed authorization tripwire to ResultsPublication.
+// Mixin applies the fail-closed authorization tripwire and the append-only
+// invariant to ResultsPublication.
 func (ResultsPublication) Mixin() []ent.Mixin {
-	return []ent.Mixin{AuthorizationTripwire{}}
+	return []ent.Mixin{AuthorizationTripwire{}, AppendOnly{}}
 }
 
 // Fields define one immutable publication manifest.
