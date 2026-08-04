@@ -53,6 +53,10 @@ type Plan[T any] struct {
 	Identity store.CommandIdentity
 	Replay   func(string) (T, error)
 	Apply    func(*store.CommandTx) (Execution[T], error)
+	// Applied runs after a fresh application commits and never after a replay,
+	// so a caller can adopt in-memory state that only the applying execution
+	// produced. It runs before Notify.
+	Applied func()
 	// Notify synchronously publishes a best-effort freshness hint after success.
 	Notify func()
 }
@@ -129,11 +133,13 @@ func Execute[T any](ctx context.Context, plan Plan[T]) (T, error) {
 	if err := transaction.Commit(); err != nil {
 		return zero, errors.Join(execution.returnError, err)
 	}
-	if execution.returnError == nil &&
-		execution.rejection == nil &&
-		!execution.rejected &&
-		plan.Notify != nil {
-		plan.Notify()
+	if execution.returnError == nil && execution.rejection == nil && !execution.rejected {
+		if plan.Applied != nil {
+			plan.Applied()
+		}
+		if plan.Notify != nil {
+			plan.Notify()
+		}
 	}
 	return execution.value, execution.returnError
 }
