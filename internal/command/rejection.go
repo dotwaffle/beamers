@@ -40,6 +40,27 @@ func (table RejectionTable) Code(err error) (string, bool) {
 	return "", false
 }
 
+// Return picks the error a fresh command application should return for a
+// failure this table classifies. It stops at the same first match Code
+// would record, so it never returns a later entry's Restored error for one
+// Code would classify under an earlier entry. That match's Restored error
+// comes back when set, so the fresh outcome agrees with what a replay of
+// the same rejection restores. Any other error, including one this table
+// does not classify, comes back unchanged so callers keep whatever context
+// they wrapped it with.
+func (table RejectionTable) Return(err error) error {
+	for _, known := range table.Rejections {
+		if !errors.Is(err, known.Err) {
+			continue
+		}
+		if known.Restored != nil {
+			return known.Restored
+		}
+		return err
+	}
+	return err
+}
+
 // Sentinel returns the domain error a durable rejection code stands for, or
 // nil when this table does not know the code.
 func (table RejectionTable) Sentinel(code string) error {

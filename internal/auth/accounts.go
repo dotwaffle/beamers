@@ -504,7 +504,10 @@ func (service *Service) DisableAccount(
 func accountRejectionExecution[T any](reason error) command.Execution[T] {
 	rejection := accountRejection(reason)
 	var zero T
-	return command.Reject(zero, rejection, reason)
+	// A fresh application must return the same error a replay restores, so a
+	// code that classifies from a storage sentinel but restores its own
+	// error (credential_not_found, below) reports consistently either way.
+	return command.Reject(zero, rejection, accountRejections.Return(reason))
 }
 
 // accountRejections is the single source for Account command rejection codes
