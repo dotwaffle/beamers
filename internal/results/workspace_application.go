@@ -6,7 +6,7 @@ import (
 	"errors"
 
 	"github.com/dotwaffle/beamers/internal/auth"
-	"github.com/dotwaffle/beamers/internal/viewer"
+	"github.com/dotwaffle/beamers/internal/authz"
 )
 
 // Workspace is the ordinary event-scoped Results preparation and release view.
@@ -89,7 +89,7 @@ func (service *Service) Workspace(
 	if request.EventID <= 0 {
 		return Workspace{}, ErrInvalidInput
 	}
-	if !actor.HasCapability(request.EventID, viewer.ViewResults) {
+	if !authz.Holds(actor.Identity(), request.EventID, authz.ViewResults) {
 		return Workspace{}, ErrViewRequired
 	}
 	event, err := service.storage.FindCrewEvent(

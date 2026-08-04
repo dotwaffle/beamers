@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
-	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
 var (
@@ -66,7 +66,7 @@ func (service *Service) Get(
 	if eventID <= 0 || sessionID <= 0 {
 		return Draft{}, ErrInvalidInput
 	}
-	if !actor.HasCapability(eventID, viewer.ViewResults) {
+	if !authz.Holds(actor.Identity(), eventID, authz.ViewResults) {
 		return Draft{}, ErrViewRequired
 	}
 	found, err := service.storage.LoadCompetitionResultsDraft(
