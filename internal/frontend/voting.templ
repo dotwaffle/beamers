@@ -226,6 +226,18 @@ func ballotValue(page VotingBallotPage, entryID, fallback int) int {
 	return fallback
 }
 
+// votingMethodLabel names a Voting Window's Method for display. Range1To5 is
+// the only Method the settings form currently offers -- its option there
+// reads "Range 1–5" -- and generic CamelCase splitting would render it as
+// the malformed "Range1 To5", so it gets an explicit mapping; any other
+// value falls back to the generic splitter rather than failing closed.
+func votingMethodLabel(method string) string {
+	if method == "Range1To5" {
+		return "Range 1–5"
+	}
+	return humanizeIdentifier(method)
+}
+
 templ CompetitionVoting(page CompetitionVotingPage) {
 	<!doctype html>
 	<html lang="en">
@@ -239,7 +251,7 @@ templ CompetitionVoting(page CompetitionVotingPage) {
 					if page.Message != "" {
 						@ErrorFlash(page.Message)
 					}
-					<p>Window: { page.Window.State }. Method: { humanizeIdentifier(page.Window.Method) }. Self-Vote Policy: { page.Window.SelfVotePolicy }.</p>
+					<p>Window: { page.Window.State }. Method: { votingMethodLabel(page.Window.Method) }. Self-Vote Policy: { page.Window.SelfVotePolicy }.</p>
 					<p>
 						Eligible: { strconv.Itoa(page.Participation.Eligible) }.
 						Participating: { strconv.Itoa(page.Participation.Participating) }.
