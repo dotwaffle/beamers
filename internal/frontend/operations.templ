@@ -102,7 +102,7 @@ templ Operations(page OperationsPage) {
 									<h3>{ session.Title }</h3>
 									@StateAxes(page.Rundown.PublishedRevision > 0, session.Lifecycle, session.AudienceVisibility)
 								</div>
-								<p>{ session.Lifecycle } · revision { strconv.Itoa(session.LiveStateRevision) }</p>
+								<p>revision <code>{ strconv.Itoa(session.LiveStateRevision) }</code></p>
 								if session.Lifecycle == rundown.SessionScheduled && page.OperableSessionIDs[session.ID] {
 									@sessionOperationForm(page, session, "start-session", "Start Session")
 									@cancelSessionForm(page, session)
@@ -237,7 +237,7 @@ templ Operations(page OperationsPage) {
 									}
 								</ul>
 							} else {
-								<p>No deferred Entries.</p>
+								@EmptyState("No deferred Entries.")
 							}
 							<form method="post" action={ operationsPath(page.Event.ID) }>
 								<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
@@ -349,7 +349,7 @@ templ Operations(page OperationsPage) {
 						if !page.DisplaysAvailable {
 							<p>Display operations are unavailable while this Event is not active.</p>
 						} else if len(page.Displays) == 0 {
-							<p>No enrolled Displays.</p>
+							@EmptyState("No enrolled Displays. Enroll one below.")
 						} else {
 							for _, display := range page.Displays {
 								<article data-display-id={ strconv.Itoa(display.ID) }>
@@ -367,8 +367,8 @@ templ Operations(page OperationsPage) {
 									}
 									<p>
 										Applied Event #{ strconv.Itoa(display.AppliedActiveEventID) },
-										activation generation { strconv.Itoa(display.AppliedActivationGeneration) },
-										Published revision { strconv.Itoa(display.AppliedPublishedRevision) }.
+										activation generation <code>{ strconv.Itoa(display.AppliedActivationGeneration) }</code>,
+										Published revision <code>{ strconv.Itoa(display.AppliedPublishedRevision) }</code>.
 									</p>
 									if page.CanAdministerDisplays {
 										<form class="stack" method="post" action={ operationsPath(page.Event.ID) }>

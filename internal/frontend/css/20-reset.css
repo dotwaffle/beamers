@@ -20,7 +20,9 @@ body {
  */
 h1,
 h2,
-h3 {
+h3,
+h4,
+h5 {
   font-family: var(--heading-font);
   line-height: var(--leading-tight);
   text-wrap: balance;
@@ -40,12 +42,29 @@ h3 {
   font-size: var(--text-h3);
 }
 
+/* h4 and h5 sit below h3's fluid clamp: sub-sections such as Attachment
+ * Versions inside an Entry card, never a Region's own heading rank. */
+h4 {
+  font-size: var(--text-lead);
+}
+
+h5 {
+  font-size: var(--text-body);
+}
+
 h1.hero {
   font-size: var(--text-hero);
 }
 
 p {
   max-width: var(--measure);
+}
+
+/* Digests, revision counters, and other identifiers read as data rather than
+ * prose, so they take the fixed monospace face at a slightly reduced size. */
+code {
+  font-family: var(--mono-font);
+  font-size: var(--text-small);
 }
 
 .eyebrow {

@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"maps"
 	"mime/multipart"
@@ -3949,8 +3950,8 @@ func TestLiveCompetitionBallotUpdatesAndSurvivesRestart(t *testing.T) {
 	}
 	resultsPage = getFrontendPage(t, administrator, server.address, resultsPath)
 	if resultsPage.status != http.StatusOK ||
-		!strings.Contains(resultsPage.body, "Draft revision 2") ||
-		!strings.Contains(resultsPage.body, "Ready: false") ||
+		!strings.Contains(resultsPage.body, "Draft revision <code>2</code>") ||
+		!strings.Contains(resultsPage.body, `data-tone="draft">Not Ready</span>`) ||
 		!strings.Contains(resultsPage.body, "Voting Tally: 1") ||
 		!strings.Contains(resultsPage.body, "4 total from 1 Ballots") ||
 		strings.Contains(resultsPage.body, "Release standalone Results") {
@@ -4048,7 +4049,7 @@ func TestLiveCompetitionBallotUpdatesAndSurvivesRestart(t *testing.T) {
 	}
 	restartedResults := getFrontendPage(t, administrator, server.address, resultsPath)
 	if restartedResults.status != http.StatusOK ||
-		!strings.Contains(restartedResults.body, "Draft revision 3") ||
+		!strings.Contains(restartedResults.body, "Draft revision <code>3</code>") ||
 		!strings.Contains(restartedResults.body, "Voting Tally: 1") ||
 		!strings.Contains(
 			restartedResults.body,
@@ -4778,7 +4779,7 @@ func TestBrowserAdministersAccountsAndEventGrants(t *testing.T) {
 		t.Fatalf("browser self-grant = %d %q", selfGranted.status, selfGranted.body)
 	}
 	page = getFrontendPage(t, administrator, server.address, path)
-	if !strings.Contains(page.body, "Event #2, Account #1: Observer") {
+	if !strings.Contains(page.body, "<td data-numeric>#2</td><td data-numeric>#1</td><td>Observer</td>") {
 		t.Fatalf("browser self-grant absent: %q", page.body)
 	}
 
@@ -4817,6 +4818,14 @@ func TestBrowserAdministersAccountsAndEventGrants(t *testing.T) {
 	}
 	if !strings.Contains(page.body, `name="action" value="disable-account"`) {
 		t.Fatalf("administration page lacks Disable Account: %q", page.body)
+	}
+	if !strings.Contains(page.body, `<th scope="row" id="administration-account-row-2">`) ||
+		!strings.Contains(page.body, `aria-describedby="administration-account-row-2">Disable Account`) ||
+		!strings.Contains(page.body, `aria-describedby="administration-account-row-2">Issue Recovery Token`) {
+		t.Fatalf(
+			"administration Accounts row lacks identity association: %q",
+			page.body,
+		)
 	}
 	disabled := postFrontendForm(t, administrator, server.address, path, url.Values{
 		"csrf_token": {requireFrontendCSRF(t, page)},
@@ -5043,10 +5052,11 @@ func TestBrowserOperatesSessionDurably(t *testing.T) {
 		t.Fatalf("browser Start Session = %d %q", started.status, started.body)
 	}
 	page = getFrontendPage(t, operator, server.address, path)
-	if !strings.Contains(page.body, "Live") ||
-		!strings.Contains(page.body, `name="action" value="end-session"`) ||
-		!strings.Contains(page.body, `name="expected_live_state_revision" value="1"`) {
-		t.Fatalf("started browser Session = %d %q", page.status, page.body)
+	startedArticle := frontendSessionArticle(t, page.body, sessionID)
+	if !strings.Contains(startedArticle, "Live") ||
+		!strings.Contains(startedArticle, `name="action" value="end-session"`) ||
+		!strings.Contains(startedArticle, `name="expected_live_state_revision" value="1"`) {
+		t.Fatalf("started browser Session = %d %q", page.status, startedArticle)
 	}
 	stale := postFrontendForm(t, operator, server.address, path, url.Values{
 		"csrf_token":                   {requireFrontendCSRF(t, page)},
@@ -5066,10 +5076,11 @@ func TestBrowserOperatesSessionDurably(t *testing.T) {
 	server.stop(t)
 	server = startBeamersWithPublicListener(t, bin, dataDir)
 	page = getFrontendPage(t, operator, server.address, path)
+	restartedArticle := frontendSessionArticle(t, page.body, sessionID)
 	if page.status != http.StatusOK ||
-		!strings.Contains(page.body, "Opening Keynote") ||
-		!strings.Contains(page.body, "Live") {
-		t.Fatalf("restarted browser Session = %d %q", page.status, page.body)
+		!strings.Contains(restartedArticle, "Opening Keynote") ||
+		!strings.Contains(restartedArticle, "Live") {
+		t.Fatalf("restarted browser Session = %d %q", page.status, restartedArticle)
 	}
 	ended := postFrontendForm(t, operator, server.address, path, url.Values{
 		"csrf_token":                   {requireFrontendCSRF(t, page)},
@@ -5082,8 +5093,10 @@ func TestBrowserOperatesSessionDurably(t *testing.T) {
 		t.Fatalf("browser End Session = %d %q", ended.status, ended.body)
 	}
 	page = getFrontendPage(t, operator, server.address, path)
-	if !strings.Contains(page.body, "Ended · revision 2") {
-		t.Fatalf("ended browser Session = %d %q", page.status, page.body)
+	endedArticle := frontendSessionArticle(t, page.body, sessionID)
+	if !strings.Contains(endedArticle, `data-tone="ended">Ended</span>`) ||
+		!strings.Contains(endedArticle, "revision <code>2</code>") {
+		t.Fatalf("ended browser Session = %d %q", page.status, endedArticle)
 	}
 	server.stop(t)
 }
@@ -5303,9 +5316,11 @@ func TestBrowserPreviewsAdjustsCancelsAndReinstatesSession(t *testing.T) {
 		t.Fatalf("browser Cancel Session = %d %q", canceled.status, canceled.body)
 	}
 	page = getFrontendPage(t, producer, server.address, path)
-	if !strings.Contains(page.body, "Canceled · revision 3") ||
-		!strings.Contains(page.body, `name="action" value="preview-reinstate"`) {
-		t.Fatalf("canceled browser Session = %d %q", page.status, page.body)
+	canceledArticle := frontendSessionArticle(t, page.body, sessionID)
+	if !strings.Contains(canceledArticle, `data-tone="canceled">Canceled</span>`) ||
+		!strings.Contains(canceledArticle, "revision <code>3</code>") ||
+		!strings.Contains(canceledArticle, `name="action" value="preview-reinstate"`) {
+		t.Fatalf("canceled browser Session = %d %q", page.status, canceledArticle)
 	}
 	invalidLaneIDs := postFrontendForm(t, producer, server.address, path, url.Values{
 		"csrf_token":                   {requireFrontendCSRF(t, page)},
@@ -5490,8 +5505,10 @@ func TestBrowserPreviewsAdjustsCancelsAndReinstatesSession(t *testing.T) {
 		t.Fatalf("browser Reinstate Session = %d %q", reinstated.status, reinstated.body)
 	}
 	page = getFrontendPage(t, producer, server.address, path)
-	if !strings.Contains(page.body, "Scheduled · revision 4") {
-		t.Fatalf("reinstated browser Session = %d %q", page.status, page.body)
+	reinstatedArticle := frontendSessionArticle(t, page.body, sessionID)
+	if !strings.Contains(reinstatedArticle, `data-tone="neutral">Scheduled</span>`) ||
+		!strings.Contains(reinstatedArticle, "revision <code>4</code>") {
+		t.Fatalf("reinstated browser Session = %d %q", page.status, reinstatedArticle)
 	}
 	server.stop(t)
 }
@@ -6333,8 +6350,8 @@ func TestBrowserPlansAndPublishesEvent(t *testing.T) {
 		`name="location_name"`,
 		`name="csv_data"`,
 		`name="icalendar_data"`,
-		"Draft revision 0",
-		"Published revision 0",
+		"<dt>Draft revision</dt><dd>0</dd>",
+		"<dt>Published revision</dt><dd>0</dd>",
 	} {
 		if page.status != http.StatusOK || !strings.Contains(page.body, want) {
 			t.Fatalf("planning page lacks %q: %d %q", want, page.status, page.body)
@@ -6419,9 +6436,50 @@ func TestBrowserPlansAndPublishesEvent(t *testing.T) {
 	}
 
 	page = getFrontendPage(t, administrator, server.address, path)
-	if !strings.Contains(page.body, "Draft revision 1") ||
+	if !strings.Contains(page.body, "<dt>Draft revision</dt><dd>1</dd>") ||
 		!strings.Contains(page.body, "Opening Ceremony") {
 		t.Fatalf("reviewable Draft = %d %q", page.status, page.body)
+	}
+	invalidSessionTime := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":              {requireFrontendCSRF(t, page)},
+		"action":                  {"draft"},
+		"command_id":              {"browser-invalid-session-time"},
+		"expected_draft_revision": {"1"},
+		"session_id":              {"1"},
+		"base_session": {html.UnescapeString(
+			frontendNamedValues(page.body, "base_session").Get("base_session"),
+		)},
+		"session_title":       {"Opening Ceremony"},
+		"session_type":        {"Ceremony"},
+		"audience_visibility": {"Public"},
+		"planned_start":       {"not-a-time"},
+		"planned_end":         {"2026-08-21T10:30"},
+		"timing_policy":       {"FixedEnd"},
+		"minimum_duration":    {"15m"},
+		"start_boundary":      {"Hard"},
+		"end_boundary":        {"Soft"},
+	})
+	if invalidSessionTime.status != http.StatusUnprocessableEntity {
+		t.Fatalf("invalid materialized Session time = %d %q",
+			invalidSessionTime.status, invalidSessionTime.body)
+	}
+	assertAccessibleFormErrors(t, invalidSessionTime, nil)
+	sessionStartFieldID := "session-1-planned-start"
+	sessionStartZoneID := sessionStartFieldID + "-zone"
+	wantDescribedBy := `aria-describedby="` + sessionStartZoneID + " " + sessionStartFieldID + `-error"`
+	if !strings.Contains(invalidSessionTime.body, `id="`+sessionStartFieldID+`-error"`) ||
+		!strings.Contains(invalidSessionTime.body, wantDescribedBy) {
+		t.Fatalf(
+			"invalid materialized Session time lacks merged aria-describedby %q: %q",
+			wantDescribedBy, invalidSessionTime.body,
+		)
+	}
+	if got := strings.Count(
+		invalidSessionTime.body,
+		`id="`+sessionStartFieldID+`"`,
+	); got != 1 {
+		t.Fatalf("invalid materialized Session time has %d %q inputs, want 1",
+			got, sessionStartFieldID)
 	}
 	stale := postFrontendForm(t, administrator, server.address, path, url.Values{
 		"csrf_token":              {requireFrontendCSRF(t, page)},
@@ -6445,8 +6503,8 @@ func TestBrowserPlansAndPublishesEvent(t *testing.T) {
 	})
 	if preview.status != http.StatusOK ||
 		!strings.Contains(preview.body, "Confirm publish") ||
-		!strings.Contains(preview.body, "Draft revision 1") ||
-		!strings.Contains(preview.body, "Published revision 0") ||
+		!strings.Contains(preview.body, "<dt>Draft revision</dt><dd>1</dd>") ||
+		!strings.Contains(preview.body, "<dt>Published revision</dt><dd>0</dd>") ||
 		!strings.Contains(preview.body, "Automatically included dependency") ||
 		!strings.Contains(preview.body, "Affected Lanes: Lane #1") ||
 		!strings.Contains(preview.body, "Affected Displays: none currently assigned") {
@@ -6491,7 +6549,7 @@ func TestBrowserPlansAndPublishesEvent(t *testing.T) {
 		t.Fatalf("Publish = %d %q", published.status, published.body)
 	}
 	page = getFrontendPage(t, administrator, server.address, path)
-	if !strings.Contains(page.body, "Published revision 1") ||
+	if !strings.Contains(page.body, "<dt>Published revision</dt><dd>1</dd>") ||
 		!strings.Contains(page.body, "Opening Ceremony") ||
 		!strings.Contains(page.body, "Deferred Track") {
 		t.Fatalf("Published planning page = %d %q", page.status, page.body)
@@ -6509,7 +6567,7 @@ func TestBrowserPlansAndPublishesEvent(t *testing.T) {
 		t.Fatalf("edit materialized Draft = %d %q", edited.status, edited.body)
 	}
 	page = getFrontendPage(t, administrator, server.address, path)
-	if !strings.Contains(page.body, "Draft revision 4") ||
+	if !strings.Contains(page.body, "<dt>Draft revision</dt><dd>4</dd>") ||
 		!strings.Contains(page.body, `value="Hall Alpha"`) {
 		t.Fatalf("edited materialized Draft = %d %q", page.status, page.body)
 	}
@@ -6590,7 +6648,7 @@ func TestBrowserPlansAndPublishesEvent(t *testing.T) {
 		t.Fatalf("CSV import = %d %q", imported.status, imported.body)
 	}
 	page = getFrontendPage(t, administrator, server.address, path)
-	if !strings.Contains(page.body, "Draft revision 5") ||
+	if !strings.Contains(page.body, "<dt>Draft revision</dt><dd>5</dd>") ||
 		!strings.Contains(page.body, "Imported Session") {
 		t.Fatalf("CSV Draft = %d %q", page.status, page.body)
 	}
@@ -6652,7 +6710,7 @@ func TestBrowserPlansAndPublishesEvent(t *testing.T) {
 		t.Fatalf("iCalendar import = %d %q", imported.status, imported.body)
 	}
 	page = getFrontendPage(t, administrator, server.address, path)
-	if !strings.Contains(page.body, "Draft revision 6") ||
+	if !strings.Contains(page.body, "<dt>Draft revision</dt><dd>6</dd>") ||
 		!strings.Contains(page.body, "iCalendar Session") {
 		t.Fatalf("iCalendar Draft = %d %q", page.status, page.body)
 	}
@@ -6791,7 +6849,7 @@ func TestBrowserManagesCompetitionEntries(t *testing.T) {
 		t.Fatalf("review Entry = %d %q", reviewed.status, reviewed.body)
 	}
 	page = getFrontendPage(t, administrator, server.address, path)
-	if !strings.Contains(page.body, "review current: true") {
+	if strings.Contains(page.body, "Review Outdated") {
 		t.Fatalf("reviewed Entry projection = %d %q", page.status, page.body)
 	}
 
@@ -6810,7 +6868,7 @@ func TestBrowserManagesCompetitionEntries(t *testing.T) {
 	}
 	page = getFrontendPage(t, administrator, server.address, path)
 	if !strings.Contains(page.body, "Project Aurora Revised") ||
-		!strings.Contains(page.body, "review current: false") {
+		!strings.Contains(page.body, "Review Outdated") {
 		t.Fatalf("Entry edit did not invalidate review = %d %q", page.status, page.body)
 	}
 	staleEntry := postFrontendForm(t, administrator, server.address, path, url.Values{
@@ -6841,7 +6899,7 @@ func TestBrowserManagesCompetitionEntries(t *testing.T) {
 		t.Fatalf("reject Entry = %d %q", rejected.status, rejected.body)
 	}
 	page = getFrontendPage(t, administrator, server.address, path)
-	if !strings.Contains(page.body, "Disposition: Rejected") {
+	if !strings.Contains(page.body, `data-tone="danger">Rejected</span>`) {
 		t.Fatalf("rejected Entry projection = %d %q", page.status, page.body)
 	}
 
@@ -6906,8 +6964,15 @@ func TestBrowserManagesCompetitionEntries(t *testing.T) {
 		)
 	}
 	page = getFrontendPage(t, administrator, server.address, path)
-	if !strings.Contains(page.body, "review current: true") {
-		t.Fatalf("review before Attachment replacement = %d %q", page.status, page.body)
+	reviewedEntryOneRevision := frontendEntryRevision(t, page.body, 1)
+	entryOneArticle := frontendEntryArticle(t, page.body, 1)
+	wantCurrent := `data-tone="success">Included</span><span>revision <code>` +
+		reviewedEntryOneRevision + `</code></span>`
+	if !strings.Contains(entryOneArticle, wantCurrent) {
+		t.Fatalf(
+			"review before Attachment replacement lacks current Entry #1 %q: %d %q",
+			wantCurrent, page.status, entryOneArticle,
+		)
 	}
 
 	uploadPath := path + "/upload"
@@ -6956,7 +7021,7 @@ func TestBrowserManagesCompetitionEntries(t *testing.T) {
 		t.Fatalf("first browser Attachment upload = %d %q", firstUpload.status, firstUpload.body)
 	}
 	page = getFrontendPage(t, administrator, server.address, path)
-	if !strings.Contains(page.body, "review current: false") {
+	if !strings.Contains(frontendEntryArticle(t, page.body, 1), "Review Outdated") {
 		t.Fatalf("Attachment replacement did not invalidate Entry review: %q", page.body)
 	}
 	foreignVersion := postFrontendForm(t, administrator, server.address, path, url.Values{
@@ -7033,8 +7098,8 @@ func TestBrowserManagesCompetitionEntries(t *testing.T) {
 		t.Fatalf("set Final Primary Attachment = %d %q", ready.status, ready.body)
 	}
 	page = getFrontendPage(t, administrator, server.address, path)
-	if !strings.Contains(page.body, "Final: true") ||
-		!strings.Contains(page.body, "Primary: true") {
+	if !strings.Contains(page.body, `data-tone="success">Final</span>`) ||
+		!strings.Contains(page.body, `data-tone="success">Primary</span>`) {
 		t.Fatalf("Attachment readiness projection = %d %q", page.status, page.body)
 	}
 
@@ -7050,7 +7115,7 @@ func TestBrowserManagesCompetitionEntries(t *testing.T) {
 		t.Fatalf("hold Attachment Version release = %d %q", held.status, held.body)
 	}
 	page = getFrontendPage(t, administrator, server.address, path)
-	if !strings.Contains(page.body, "Release Hold: true") {
+	if !strings.Contains(page.body, `data-tone="warning">Release Held</span>`) {
 		t.Fatalf("Attachment release hold projection = %d %q", page.status, page.body)
 	}
 
@@ -7066,7 +7131,7 @@ func TestBrowserManagesCompetitionEntries(t *testing.T) {
 		t.Fatalf("configure Competition Attachment release = %d %q", policy.status, policy.body)
 	}
 	page = getFrontendPage(t, administrator, server.address, path)
-	if !strings.Contains(page.body, "Competition override: OnEnded") {
+	if !strings.Contains(page.body, "Competition override: On Ended") {
 		t.Fatalf("Competition Attachment release projection = %d %q", page.status, page.body)
 	}
 
@@ -7152,6 +7217,18 @@ func TestBrowserManagesCompetitionEntries(t *testing.T) {
 	assertAccessibleFormErrors(t, invalid, map[string]string{
 		"extend-reopen-window-1-1-expires-at": "Choose an expiry later than the current expiry.",
 	})
+	if !strings.Contains(frontendEntryArticle(t, invalid.body, 1), "<details open>") {
+		t.Fatalf(
+			"invalid Reopen Window extension leaves Entry #1's section collapsed: %q",
+			invalid.body,
+		)
+	}
+	if strings.Contains(frontendEntryArticle(t, invalid.body, 2), "<details open>") {
+		t.Fatalf(
+			"invalid Reopen Window extension expands Entry #2's unrelated section: %q",
+			invalid.body,
+		)
+	}
 	page = getFrontendPage(t, administrator, server.address, path)
 	unbounded := postFrontendForm(t, administrator, server.address, path, url.Values{
 		"csrf_token":        {requireFrontendCSRF(t, page)},
@@ -7298,7 +7375,7 @@ func TestBrowserManagesCompetitionEntries(t *testing.T) {
 	}
 	page = getFrontendPage(t, administrator, server.address, path)
 	if !strings.Contains(page.body, "Projector lost signal") ||
-		!strings.Contains(page.body, "Entry Release Hold: true") {
+		!strings.Contains(page.body, `data-tone="warning">Release Held</span>`) {
 		t.Fatalf("independent Entry exception state = %d %q", page.status, page.body)
 	}
 	setCompetitionSubmissionDeadline(
@@ -7363,7 +7440,7 @@ func TestBrowserManagesCompetitionEntries(t *testing.T) {
 		t.Fatalf("Crew Only Attachment upload = %d %q", crewOnlyUpload.status, crewOnlyUpload.body)
 	}
 	page = getFrontendPage(t, administrator, server.address, path)
-	if !strings.Contains(page.body, "Release Eligibility: CrewOnly") {
+	if !strings.Contains(page.body, "Release Eligibility: Crew Only") {
 		t.Fatalf("immutable Release Eligibility projection = %d %q", page.status, page.body)
 	}
 	if public := getFrontendPage(
@@ -8095,7 +8172,7 @@ func TestAccountSubmissionsHonorPolicyOwnershipAndReopenWindows(t *testing.T) {
 		t.Fatalf("Account review invalidation = %d %q", invalidated.status, invalidated.body)
 	}
 	entriesPage = getFrontendPage(t, administrator, server.address, entriesPath)
-	if !strings.Contains(entriesPage.body, "review current: false") {
+	if !strings.Contains(frontendEntryArticle(t, entriesPage.body, 1), "Review Outdated") {
 		t.Fatalf("Account update retained stale review: %q", entriesPage.body)
 	}
 
@@ -8253,7 +8330,7 @@ func TestAccountSubmissionsHonorPolicyOwnershipAndReopenWindows(t *testing.T) {
 		t.Fatalf("Account upload integrity metadata missing: %q", alexPage.body)
 	}
 	entriesPage = getFrontendPage(t, administrator, server.address, entriesPath)
-	if !strings.Contains(entriesPage.body, "review current: false") {
+	if !strings.Contains(frontendEntryArticle(t, entriesPage.body, 1), "Review Outdated") {
 		t.Fatalf("Account upload retained stale review: %q", entriesPage.body)
 	}
 	closedWindow := postFrontendForm(t, administrator, server.address, entriesPath, url.Values{
@@ -8369,12 +8446,12 @@ func TestBrowserStagesAndReviewsCompetitionResults(t *testing.T) {
 			">Retain this Results explanation.</textarea>",
 		) ||
 		!strings.Contains(invalidDraft.body, ">Retain this Crew Reason.</textarea>") ||
-		!strings.Contains(invalidDraft.body, `<option selected>NoPublicResults</option>`) ||
-		!strings.Contains(invalidDraft.body, `<option selected>Duration</option>`) ||
-		!strings.Contains(invalidDraft.body, `<option selected>CrewOnly</option>`) ||
+		!strings.Contains(invalidDraft.body, `<option value="NoPublicResults" selected>No Public Results</option>`) ||
+		!strings.Contains(invalidDraft.body, `<option value="Duration" selected>Duration</option>`) ||
+		!strings.Contains(invalidDraft.body, `<option value="CrewOnly" selected>Crew Only</option>`) ||
 		!strings.Contains(invalidDraft.body, `name="score_unit" value="seconds"`) ||
-		!strings.Contains(invalidDraft.body, `<option selected>Optional</option>`) ||
-		!strings.Contains(invalidDraft.body, `<option selected>LowerWins</option>`) ||
+		!strings.Contains(invalidDraft.body, `<option value="Optional" selected>Optional</option>`) ||
+		!strings.Contains(invalidDraft.body, `<option value="LowerWins" selected>Lower Wins</option>`) ||
 		!strings.Contains(invalidDraft.body, `name="score" value="1m2s"`) ||
 		!strings.Contains(invalidDraft.body, `name="score" value="59s"`) {
 		t.Fatalf("invalid Results Draft = %d %q", invalidDraft.status, invalidDraft.body)
@@ -8482,8 +8559,8 @@ func TestBrowserStagesAndReviewsCompetitionResults(t *testing.T) {
 		t.Fatalf("save browser Results = %d %q", saved.status, saved.body)
 	}
 	page = getFrontendPage(t, administrator, server.address, path)
-	if !strings.Contains(page.body, "Draft revision 1") ||
-		!strings.Contains(page.body, "Ready: false") {
+	if !strings.Contains(page.body, "Draft revision <code>1</code>") ||
+		!strings.Contains(page.body, `data-tone="draft">Not Ready</span>`) {
 		t.Fatalf("saved browser Results missing revision state: %d %q", page.status, page.body)
 	}
 	staleDraft := save("browser-stale-results", "0", []string{"1", "2"})
@@ -8509,8 +8586,8 @@ func TestBrowserStagesAndReviewsCompetitionResults(t *testing.T) {
 		t.Fatalf("mark browser Results Ready = %d %q", ready.status, ready.body)
 	}
 	page = getFrontendPage(t, administrator, server.address, path)
-	if !strings.Contains(page.body, "Draft revision 1") ||
-		!strings.Contains(page.body, "Ready: true") {
+	if !strings.Contains(page.body, "Draft revision <code>1</code>") ||
+		!strings.Contains(page.body, `data-tone="success">Ready</span>`) {
 		t.Fatalf("reviewed browser Results missing Ready state: %d %q", page.status, page.body)
 	}
 
@@ -8518,8 +8595,8 @@ func TestBrowserStagesAndReviewsCompetitionResults(t *testing.T) {
 		t.Fatalf("save tied browser Results = %d %q", tied.status, tied.body)
 	}
 	page = getFrontendPage(t, administrator, server.address, path)
-	if !strings.Contains(page.body, "Draft revision 2") ||
-		!strings.Contains(page.body, "Ready: false") {
+	if !strings.Contains(page.body, "Draft revision <code>2</code>") ||
+		!strings.Contains(page.body, `data-tone="draft">Not Ready</span>`) {
 		t.Fatalf("changed browser Results did not clear Ready: %d %q", page.status, page.body)
 	}
 
@@ -8574,7 +8651,7 @@ func TestBrowserStagesAndReviewsCompetitionResults(t *testing.T) {
 		t.Fatalf("save browser Competition Awards = %d %q", awarded.status, awarded.body)
 	}
 	page = getFrontendPage(t, administrator, server.address, path)
-	for _, want := range []string{"Draft revision 3", "Audience Choice", "audience-choice"} {
+	for _, want := range []string{"Draft revision <code>3</code>", "Audience Choice", "audience-choice"} {
 		if !strings.Contains(page.body, want) {
 			t.Fatalf("Competition Award page lacks %q: %d %q", want, page.status, page.body)
 		}
@@ -8630,7 +8707,7 @@ func TestBrowserStagesAndReviewsCompetitionResults(t *testing.T) {
 		t.Fatalf("designate browser Prizegiving = %d %q", designated.status, designated.body)
 	}
 	page = getFrontendPage(t, administrator, server.address, path)
-	if !strings.Contains(page.body, "Plan revision 0") ||
+	if !strings.Contains(page.body, "Plan revision <code>0</code>") ||
 		!strings.Contains(page.body, `name="action" value="save-prizegiving-plan"`) {
 		t.Fatalf("designated browser Prizegiving missing plan: %d %q", page.status, page.body)
 	}
@@ -8649,7 +8726,7 @@ func TestBrowserStagesAndReviewsCompetitionResults(t *testing.T) {
 	})
 	if invalidPlan.status != http.StatusUnprocessableEntity ||
 		!strings.Contains(invalidPlan.body, ">Retain this Prizegiving template.</textarea>") ||
-		!strings.Contains(invalidPlan.body, `<option selected>AllAtCue</option>`) ||
+		!strings.Contains(invalidPlan.body, `<option value="AllAtCue" selected>All At Cue</option>`) ||
 		!regexp.MustCompile(
 			`name="plan_competition_session_id" value="`+
 				strconv.FormatInt(competitionID, 10)+`" checked`,
@@ -8676,7 +8753,7 @@ func TestBrowserStagesAndReviewsCompetitionResults(t *testing.T) {
 	}
 	page = getFrontendPage(t, administrator, server.address, path)
 	for _, want := range []string{
-		"Plan revision 1",
+		"Plan revision <code>1</code>",
 		"CompetitionResults",
 		"CompetitionAward",
 		`name="reveal_method"`,
@@ -8711,8 +8788,8 @@ func TestBrowserStagesAndReviewsCompetitionResults(t *testing.T) {
 			invalidEditedPlan.body,
 			`name="sequence_display_order" value="4"`,
 		) ||
-		!strings.Contains(invalidEditedPlan.body, `<option selected>AnimatedScoreBars</option>`) ||
-		!strings.Contains(invalidEditedPlan.body, `<option selected>SequentialPodium</option>`) ||
+		!strings.Contains(invalidEditedPlan.body, `<option value="AnimatedScoreBars" selected>Animated Score Bars</option>`) ||
+		!strings.Contains(invalidEditedPlan.body, `<option value="SequentialPodium" selected>Sequential Podium</option>`) ||
 		!strings.Contains(
 			invalidEditedPlan.body,
 			`name="publication_display_order" value="2"`,
@@ -8752,8 +8829,8 @@ func TestBrowserStagesAndReviewsCompetitionResults(t *testing.T) {
 		t.Fatalf("edit browser Prizegiving plan = %d %q", editedPlan.status, editedPlan.body)
 	}
 	page = getFrontendPage(t, administrator, server.address, path)
-	if !strings.Contains(page.body, "Plan revision 2") ||
-		!regexp.MustCompile(`<option selected>SequentialPodium</option>`).MatchString(page.body) {
+	if !strings.Contains(page.body, "Plan revision <code>2</code>") ||
+		!regexp.MustCompile(`<option value="SequentialPodium" selected>Sequential Podium</option>`).MatchString(page.body) {
 		t.Fatalf("edited browser Prizegiving sequence missing: %d %q", page.status, page.body)
 	}
 
@@ -8769,7 +8846,7 @@ func TestBrowserStagesAndReviewsCompetitionResults(t *testing.T) {
 	}
 	page = getFrontendPage(t, administrator, server.address, path)
 	for _, want := range []string{
-		"Locked: true",
+		`data-tone="warning">Locked</span>`,
 		"Preview locked Results",
 		"Rehearse locked Results",
 		"Open Prizegiving Program Control",
@@ -9019,7 +9096,7 @@ func TestBrowserPublishesAndCorrectsStandaloneResults(t *testing.T) {
 
 	scopePath := "/results/events/1/standalone/" + strconv.FormatInt(competitionID, 10)
 	htmlPath := "/events/beamconf-2099/results"
-	html := getFrontendPage(t, authenticatedClient(t), server.publicAddress, htmlPath)
+	htmlResults := getFrontendPage(t, authenticatedClient(t), server.publicAddress, htmlPath)
 	text := getFrontendPage(t, authenticatedClient(t), server.publicAddress, scopePath+"/results.txt")
 	jsonRevisionOne := getFrontendPage(
 		t,
@@ -9028,7 +9105,7 @@ func TestBrowserPublishesAndCorrectsStandaloneResults(t *testing.T) {
 		scopePath+"/revisions/1/results.json",
 	)
 	for label, response := range map[string]frontendResponse{
-		"HTML": html, "text": text, "JSON": jsonRevisionOne,
+		"HTML": htmlResults, "text": text, "JSON": jsonRevisionOne,
 	} {
 		if response.status != http.StatusOK ||
 			!strings.Contains(response.body, "Standalone Winner") {
@@ -9049,8 +9126,8 @@ func TestBrowserPublishesAndCorrectsStandaloneResults(t *testing.T) {
 		t, authenticatedClient(t), server.publicAddress, htmlPath,
 	)
 	if htmlAfterRestart.status != http.StatusOK ||
-		htmlAfterRestart.body != html.body ||
-		htmlAfterRestart.header.Get("ETag") != html.header.Get("ETag") {
+		htmlAfterRestart.body != htmlResults.body ||
+		htmlAfterRestart.header.Get("ETag") != htmlResults.header.Get("ETag") {
 		t.Fatalf(
 			"standalone Results after restart = %d %q %q",
 			htmlAfterRestart.status,
@@ -9134,7 +9211,7 @@ func TestBrowserPublishesAndCorrectsStandaloneResults(t *testing.T) {
 		t.Fatalf("save browser Results Correction = %d %q", correction.status, correction.body)
 	}
 	page = getFrontendPage(t, administrator, server.address, path)
-	if !strings.Contains(page.body, "Correction revision 1") ||
+	if !strings.Contains(page.body, "Correction revision <code>1</code>") ||
 		!strings.Contains(page.body, "Draft") {
 		t.Fatalf("saved browser Results Correction unavailable: %d %q", page.status, page.body)
 	}
@@ -9235,7 +9312,11 @@ func TestBrowserPublishesAndCorrectsStandaloneResults(t *testing.T) {
 		t.Fatalf("save browser Event Awards = %d %q", eventAwards.status, eventAwards.body)
 	}
 	page = getFrontendPage(t, administrator, server.address, path)
-	for _, want := range []string{"Community Award", "Standalone path revision 1", "Ready: false"} {
+	for _, want := range []string{
+		"Community Award",
+		"Standalone path revision <code>1</code>",
+		`data-tone="draft">Not Ready</span>`,
+	} {
 		if !strings.Contains(page.body, want) {
 			t.Fatalf("browser Event Awards lack %q: %d %q", want, page.status, page.body)
 		}
@@ -9729,6 +9810,47 @@ func frontendEntryRevision(t *testing.T, body string, entryID int) string {
 		t.Fatalf("Entry #%d revision not found in %q", entryID, body)
 	}
 	return match[1]
+}
+
+// frontendEntryArticle isolates one Entry's <article id="entry-N">...</article>
+// fragment, so an assertion cannot pass on account of a different Entry's
+// markup elsewhere on the same Competition Entries page.
+func frontendEntryArticle(t *testing.T, body string, entryID int) string {
+	t.Helper()
+	start := strings.Index(body, `id="entry-`+strconv.Itoa(entryID)+`"`)
+	if start == -1 {
+		t.Fatalf("Entry #%d article not found in %q", entryID, body)
+	}
+	rest := body[start:]
+	end := strings.Index(rest, `<article id="entry-`)
+	if end == -1 {
+		end = strings.Index(rest, "</section>")
+	}
+	if end == -1 {
+		t.Fatalf("Entry #%d article has no closing boundary in %q", entryID, body)
+	}
+	return rest[:end]
+}
+
+// frontendSessionArticle isolates one Session's <article id="session-N">
+// fragment on the Operations page, so a lifecycle badge and revision found
+// independently cannot combine to pass an assertion for the wrong Session.
+func frontendSessionArticle(t *testing.T, body string, sessionID int64) string {
+	t.Helper()
+	marker := `id="session-` + strconv.FormatInt(sessionID, 10) + `"`
+	start := strings.Index(body, marker)
+	if start == -1 {
+		t.Fatalf("Session #%d article not found in %q", sessionID, body)
+	}
+	rest := body[start:]
+	end := strings.Index(rest, `<article`)
+	if end == -1 {
+		end = strings.Index(rest, "</section>")
+	}
+	if end == -1 {
+		t.Fatalf("Session #%d article has no closing boundary in %q", sessionID, body)
+	}
+	return rest[:end]
 }
 
 func frontendPresentationRevision(t *testing.T, body string, sessionID int64) string {

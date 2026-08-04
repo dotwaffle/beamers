@@ -89,7 +89,7 @@ templ Submissions(page SubmissionsPage) {
 				<section aria-labelledby="participation-voting">
 					<h2 id="participation-voting">Voting</h2>
 					if len(page.Ballots) == 0 {
-						<p>No open Ballots.</p>
+						@EmptyState("No open Ballots.")
 					} else {
 						for _, ballot := range page.Ballots {
 							<p>
@@ -102,7 +102,7 @@ templ Submissions(page SubmissionsPage) {
 				</section>
 				<h2>Presentations</h2>
 				if len(page.Presentations) == 0 {
-					<p>No assigned Presentations.</p>
+					@EmptyState("No assigned Presentations.")
 				}
 				for _, found := range page.Presentations {
 					<section id={ "presentation-" + strconv.Itoa(found.SessionID) }>
@@ -184,7 +184,7 @@ templ Submissions(page SubmissionsPage) {
 						</form>
 						<h4>Attachment Versions</h4>
 						if len(submittedVersions(page.Attachments.Versions, attachments.TargetPresentation, found.SessionID)) == 0 {
-							<p>No Attachment Versions.</p>
+							@EmptyState("No Attachment Versions.")
 						}
 						for _, version := range submittedVersions(page.Attachments.Versions, attachments.TargetPresentation, found.SessionID) {
 							<p>
@@ -204,7 +204,7 @@ templ Submissions(page SubmissionsPage) {
 				}
 				<h2>Entries</h2>
 				if len(page.Competitions) == 0 {
-					<p>No published Competitions are accepting submissions.</p>
+					@EmptyState("No published Competitions are accepting submissions.")
 				}
 				for _, found := range page.Competitions {
 					<section id={ "competition-" + strconv.Itoa(found.SessionID) }>
@@ -318,7 +318,7 @@ templ Submissions(page SubmissionsPage) {
 								</form>
 								<h5>Attachment Versions</h5>
 								if len(submittedVersions(page.Attachments.Versions, attachments.TargetEntry, entry.ID)) == 0 {
-									<p>No Attachment Versions.</p>
+									@EmptyState("No Attachment Versions.")
 								}
 								for _, version := range submittedVersions(page.Attachments.Versions, attachments.TargetEntry, entry.ID) {
 									<p>

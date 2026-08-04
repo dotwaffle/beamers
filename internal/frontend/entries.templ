@@ -32,6 +32,21 @@ type CompetitionEntriesPage struct {
 	Errors          FormErrors
 }
 
+// entryDispositionTone maps an Entry Disposition onto a badge tone. Pending is
+// deliberately neutral: it is the ordinary condition before a Crew Member has
+// acted, and toning it would leave Included with no remaining emphasis to
+// claim.
+func entryDispositionTone(disposition competition.Disposition) string {
+	switch disposition {
+	case competition.DispositionIncluded:
+		return "success"
+	case competition.DispositionRejected:
+		return "danger"
+	default:
+		return "neutral"
+	}
+}
+
 func WorkflowFieldID(action string, targetID, versionID, windowID int, field string) string {
 	result := action
 	for _, id := range []int{targetID, versionID, windowID} {
@@ -132,6 +147,32 @@ func entryAttachmentVersions(values []attachments.Version, entryID int) []attach
 		}
 	}
 	return result
+}
+
+// attachmentSectionOpen reports whether the collapsed Attachment Versions and
+// Reopen Windows section for entryID contains a form that just failed
+// validation, so it renders expanded rather than silently hiding the error
+// behind a closed <details>.
+func (page CompetitionEntriesPage) attachmentSectionOpen(
+	entryID int,
+	versions []attachments.Version,
+) bool {
+	if len(page.Errors) == 0 {
+		return false
+	}
+	switch page.SubmittedAction {
+	case "attachment-readiness", "create-reopen-window",
+		"extend-reopen-window", "close-reopen-window":
+		return page.Form.Get("entry_id") == strconv.Itoa(entryID)
+	case "version-release-hold":
+		versionID := page.Form.Get("version_id")
+		for _, version := range versions {
+			if strconv.Itoa(version.ID) == versionID {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func entryReopenWindows(values []store.ReopenWindow, entryID int) []store.ReopenWindow {
@@ -298,7 +339,7 @@ templ workflowSelect(
 	>
 		for _, option := range options {
 			<option value={ option } selected?={ page.value(action, entryID, versionID, 0, field, fallback) == option }>
-				{ option }
+				{ humanizeIdentifier(option) }
 			</option>
 		}
 	</select>
@@ -317,7 +358,7 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 					<h1>Competition Entries and Attachments</h1>
 					<p><a href={ "/backstage/events/" + strconv.Itoa(page.Event.ID) + "/competitions/" + strconv.Itoa(page.State.SessionID) + "/voting" }>Competition Voting</a></p>
 					<p><strong>Submission Deadline:</strong> @EventTime(page.State.SubmissionDeadline, page.Event.Timezone, page.Event.EventLocale)</p>
-					<p><strong>Submission Eligibility:</strong> { string(page.State.EffectiveSubmissionEligibility) }</p>
+					<p><strong>Submission Eligibility:</strong> { humanizeIdentifier(string(page.State.EffectiveSubmissionEligibility)) }</p>
 					<p>Forecast Time is managed independently in Program Control.</p>
 					@ErrorSummary(page.Errors)
 					<section aria-labelledby="start-preflight">
@@ -394,7 +435,7 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 					<section>
 						<h2>Entry order</h2>
 						<p>
-							Policy: { string(page.State.EntryOrder.Policy) }.
+							Policy: { humanizeIdentifier(string(page.State.EntryOrder.Policy)) }.
 							Canonical order:
 							if len(page.State.EntryOrder.EntryIDs) == 0 {
 								{ "none" }
@@ -437,14 +478,14 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 						<p>
 							Current: { page.Program.Channel.Current.Title };
 							Next: { page.Program.Channel.Next.Title };
-							Program revision { strconv.Itoa(page.Program.Channel.Revision) }
+							Program revision <code>{ strconv.Itoa(page.Program.Channel.Revision) }</code>
 						</p>
 					</section>
 					<section>
 						<h2>Attachment Release Policy</h2>
-						<p>Event default: { string(page.Attachments.EventRelease.Policy) }</p>
+						<p>Event default: { humanizeIdentifier(string(page.Attachments.EventRelease.Policy)) }</p>
 						if page.Attachments.CompetitionRelease.Override {
-							<p>Competition override: { string(page.Attachments.CompetitionRelease.Policy) }</p>
+							<p>Competition override: { humanizeIdentifier(string(page.Attachments.CompetitionRelease.Policy)) }</p>
 						} else {
 							<p>Competition override: none</p>
 						}
@@ -488,27 +529,31 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 					<section>
 						<h2>Entries</h2>
 						if len(page.State.Entries) == 0 {
-							<p>No Entries yet.</p>
+							@EmptyState("No Entries yet. Create one below.")
 						}
 						for _, entry := range page.State.Entries {
-							<article>
+							<article id={ "entry-" + strconv.Itoa(entry.ID) }>
 								<h3>{ entry.Name }</h3>
 								<p>{ entry.PublicDetails }</p>
 								<p><strong>Crew notes:</strong> { entry.CrewNotes }</p>
-								<p>
-									Disposition: { string(entry.Disposition) };
-									revision { strconv.Itoa(entry.Revision) };
-									review current: { strconv.FormatBool(entry.ReviewCurrent) }
+								<p class="cluster">
+									@Badge(entryDispositionTone(entry.Disposition), string(entry.Disposition))
+									if !entry.ReviewCurrent {
+										@Badge("warning", "Review Outdated")
+									}
+									<span>revision <code>{ strconv.Itoa(entry.Revision) }</code></span>
 								</p>
 								if entry.SubmitterAccountID == 0 {
 									<p><strong>Submitter:</strong> Crew Managed</p>
 								} else {
 									<p><strong>Submitter Account:</strong> #{ strconv.Itoa(entry.SubmitterAccountID) }</p>
 								}
-								<p>
-									Presentation: { entry.PresentationStatus };
-									Result: { entry.ResultDisposition };
-									Entry Release Hold: { strconv.FormatBool(entry.ReleaseHold) }
+								<p class="cluster">
+									<span>Presentation: { entry.PresentationStatus }</span>
+									<span>Result: { entry.ResultDisposition }</span>
+									if entry.ReleaseHold {
+										@Badge("warning", "Release Held")
+									}
 								</p>
 								if entry.TechnicalFailureReason != "" {
 									<p><strong>Technical Failure:</strong> { entry.TechnicalFailureReason }</p>
@@ -536,7 +581,7 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 													}
 											</select>
 											@FieldError(page.Errors, WorkflowFieldID("assign-submitter", entry.ID, 0, 0, "account_id"))
-											<button type="submit">Assign Submitter Account</button>
+											<button class="btn-secondary" type="submit">Assign Submitter Account</button>
 										</form>
 									}
 									<form class="stack" method="post">
@@ -556,7 +601,7 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 										<input type="hidden" name="command_id" value={ page.CommandID }/>
 										<input type="hidden" name="entry_id" value={ strconv.Itoa(entry.ID) }/>
 										<input type="hidden" name="expected_revision" value={ strconv.Itoa(entry.Revision) }/>
-										<button type="submit">Review Entry</button>
+										<button class="btn-secondary" type="submit">Review Entry</button>
 									</form>
 									<form method="post">
 										<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
@@ -576,7 +621,7 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 											Confirm live disposition override
 										</label>
 										@FieldError(page.Errors, WorkflowFieldID("change-disposition", entry.ID, 0, 0, "confirmed_live_override"))
-										<button type="submit">Change disposition</button>
+										<button class="btn-secondary" type="submit">Change disposition</button>
 									</form>
 								}
 								<form method="post">
@@ -586,7 +631,7 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 									<input type="hidden" name="entry_id" value={ strconv.Itoa(entry.ID) }/>
 									<input type="hidden" name="expected_revision" value={ strconv.Itoa(entry.Revision) }/>
 									@workflowInput(page, "record-technical-failure", entry.ID, 0, 0, "crew_reason", "Technical Failure Crew Reason", "text", "", true)
-									<button type="submit">Record Technical Failure</button>
+									<button class="btn-secondary" type="submit">Record Technical Failure</button>
 								</form>
 								if page.Producer {
 									<form method="post">
@@ -598,7 +643,7 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 										@workflowSelect(page, "resolve-entry", entry.ID, 0, "result_disposition", "Final resolution", []string{"Eligible", "Disqualified", "Withheld"}, "Eligible")
 										@workflowInput(page, "resolve-entry", entry.ID, 0, 0, "crew_reason", "Crew Reason", "text", "", true)
 										@workflowInput(page, "resolve-entry", entry.ID, 0, 0, "public_disqualification_message", "Public disqualification message", "text", "", false)
-										<button type="submit">Resolve Entry</button>
+										<button class="btn-destructive" type="submit">Resolve Entry</button>
 									</form>
 									<form method="post">
 										<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
@@ -619,7 +664,7 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 										</label>
 										@FieldError(page.Errors, WorkflowFieldID("entry-release-hold", entry.ID, 0, 0, "hold"))
 										@workflowInput(page, "entry-release-hold", entry.ID, 0, 0, "crew_reason", "Crew Reason", "text", "", true)
-										<button type="submit">Set Entry Release Hold</button>
+										<button class="btn-secondary" type="submit">Set Entry Release Hold</button>
 									</form>
 								}
 								if page.Program.Owner != nil && page.Program.Owner.AccountID == page.AccountID {
@@ -631,7 +676,7 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 										<input type="hidden" name="expected_revision" value={ strconv.Itoa(entry.Revision) }/>
 										<input type="hidden" name="expected_program_revision" value={ strconv.Itoa(page.Program.Channel.Revision) }/>
 										<input type="hidden" name="expected_control_revision" value={ strconv.Itoa(page.Program.ControlRevision) }/>
-										<button type="submit">Defer Entry</button>
+										<button class="btn-secondary" type="submit">Defer Entry</button>
 									</form>
 								}
 								if page.Producer {
@@ -659,12 +704,14 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 											/>
 											Crew Only Release Eligibility
 										</label>
-										<button type="submit">Upload immutable Version</button>
+										<button class="btn-secondary" type="submit">Upload immutable Version</button>
 									</form>
 								}
+								<details open?={ page.attachmentSectionOpen(entry.ID, entryAttachmentVersions(page.Attachments.Versions, entry.ID)) }>
+									<summary>Attachment Versions and Reopen Windows</summary>
 								<h4>Attachment Versions</h4>
 								if len(entryAttachmentVersions(page.Attachments.Versions, entry.ID)) == 0 {
-									<p>No Attachment Versions.</p>
+									@EmptyState("No Attachment Versions.")
 								}
 								for _, version := range entryAttachmentVersions(page.Attachments.Versions, entry.ID) {
 									<section>
@@ -674,12 +721,18 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 												{ version.OriginalFilename }
 											</a>
 										</p>
-										<p>SHA-256: { version.SHA256 }</p>
-										<p>
-											Final: { strconv.FormatBool(version.Final) };
-											Primary: { strconv.FormatBool(version.Primary) };
-											Release Eligibility: { string(version.ReleaseEligibility) };
-											Release Hold: { strconv.FormatBool(version.ReleaseHold) }
+										<p>SHA-256: <code>{ version.SHA256 }</code></p>
+										<p class="cluster">
+											if version.Final {
+												@Badge("success", "Final")
+											}
+											if version.Primary {
+												@Badge("success", "Primary")
+											}
+											if version.ReleaseHold {
+												@Badge("warning", "Release Held")
+											}
+											<span>Release Eligibility: { humanizeIdentifier(string(version.ReleaseEligibility)) }</span>
 										</p>
 										if page.Producer {
 											<form method="post">
@@ -713,7 +766,7 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 													Primary Attachment
 												</label>
 												@FieldError(page.Errors, WorkflowFieldID("attachment-readiness", entry.ID, version.ID, 0, "primary"))
-												<button type="submit">Set Final and Primary</button>
+												<button class="btn-secondary" type="submit">Set Final and Primary</button>
 											</form>
 											<form method="post">
 												<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
@@ -733,7 +786,7 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 													Release Hold
 												</label>
 												@FieldError(page.Errors, WorkflowFieldID("version-release-hold", 0, version.ID, 0, "hold"))
-												<button type="submit">Set Version Release Hold</button>
+												<button class="btn-secondary" type="submit">Set Version Release Hold</button>
 											</form>
 										}
 									</section>
@@ -759,9 +812,10 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 										<input type="hidden" name="entry_id" value={ strconv.Itoa(entry.ID) }/>
 										@workflowInput(page, "create-reopen-window", entry.ID, 0, 0, "reason", "Reopen reason", "text", "", true)
 										@workflowInput(page, "create-reopen-window", entry.ID, 0, 0, "expires_at", "Expires at (" + page.Event.Timezone + ")", "datetime-local", "", true)
-										<button type="submit">Create bounded Reopen Window</button>
+										<button class="btn-secondary" type="submit">Create bounded Reopen Window</button>
 									</form>
 								}
+								</details>
 							</article>
 						}
 					</section>

@@ -213,14 +213,14 @@ templ Results(page ResultsPage) {
 					<p>{ page.Event.Name }</p>
 					@ErrorSummary(page.Errors)
 					if len(page.Competitions) == 0 {
-						<p>No published Competitions are available.</p>
+						@EmptyState("No published Competitions are available.")
 					}
 					for _, competition := range page.Competitions {
 						<section>
 							<h2>{ competition.Session.Title }</h2>
-							<p>
-								Draft revision { strconv.Itoa(competition.Draft.Revision) }.
-								Ready: { strconv.FormatBool(competition.Draft.Ready) }.
+							<p class="cluster">
+								<span>Draft revision <code>{ strconv.Itoa(competition.Draft.Revision) }</code></span>
+								@Badge(readinessTone(competition.Draft.Ready), readinessLabel(competition.Draft.Ready))
 							</p>
 							if competition.Draft.VotingTally != nil {
 								<p>
@@ -250,9 +250,9 @@ templ Results(page ResultsPage) {
 										name="disposition"
 										{ page.Errors.Attributes(ResultsFieldID("save-results-draft", competition.Session.ID, "disposition"))... }
 									>
-										<option selected?={ page.value("save-results-draft", competition.Session.ID, "disposition", string(competition.Draft.Disposition)) == string(results.Pending) }>Pending</option>
-										<option selected?={ page.value("save-results-draft", competition.Session.ID, "disposition", string(competition.Draft.Disposition)) == string(results.Publish) }>Publish</option>
-										<option selected?={ page.value("save-results-draft", competition.Session.ID, "disposition", string(competition.Draft.Disposition)) == string(results.NoPublicResults) }>NoPublicResults</option>
+										<option value={ string(results.Pending) } selected?={ page.value("save-results-draft", competition.Session.ID, "disposition", string(competition.Draft.Disposition)) == string(results.Pending) }>{ humanizeIdentifier(string(results.Pending)) }</option>
+										<option value={ string(results.Publish) } selected?={ page.value("save-results-draft", competition.Session.ID, "disposition", string(competition.Draft.Disposition)) == string(results.Publish) }>{ humanizeIdentifier(string(results.Publish)) }</option>
+										<option value={ string(results.NoPublicResults) } selected?={ page.value("save-results-draft", competition.Session.ID, "disposition", string(competition.Draft.Disposition)) == string(results.NoPublicResults) }>{ humanizeIdentifier(string(results.NoPublicResults)) }</option>
 									</select>
 									@FieldError(page.Errors, ResultsFieldID("save-results-draft", competition.Session.ID, "disposition"))
 									<label for={ ResultsFieldID("save-results-draft", competition.Session.ID, "no_public_reason") }>Crew Reason</label>
@@ -286,9 +286,9 @@ templ Results(page ResultsPage) {
 											name="score_type"
 											{ page.Errors.Attributes(ResultsFieldID("save-results-draft", competition.Session.ID, "score_type"))... }
 										>
-											<option selected?={ page.value("save-results-draft", competition.Session.ID, "score_type", string(competition.Draft.Score.Type)) == string(results.None) }>None</option>
-											<option selected?={ page.value("save-results-draft", competition.Session.ID, "score_type", string(competition.Draft.Score.Type)) == string(results.Decimal) }>Decimal</option>
-											<option selected?={ page.value("save-results-draft", competition.Session.ID, "score_type", string(competition.Draft.Score.Type)) == string(results.Duration) }>Duration</option>
+											<option value={ string(results.None) } selected?={ page.value("save-results-draft", competition.Session.ID, "score_type", string(competition.Draft.Score.Type)) == string(results.None) }>{ humanizeIdentifier(string(results.None)) }</option>
+											<option value={ string(results.Decimal) } selected?={ page.value("save-results-draft", competition.Session.ID, "score_type", string(competition.Draft.Score.Type)) == string(results.Decimal) }>{ humanizeIdentifier(string(results.Decimal)) }</option>
+											<option value={ string(results.Duration) } selected?={ page.value("save-results-draft", competition.Session.ID, "score_type", string(competition.Draft.Score.Type)) == string(results.Duration) }>{ humanizeIdentifier(string(results.Duration)) }</option>
 										</select>
 										@FieldError(page.Errors, ResultsFieldID("save-results-draft", competition.Session.ID, "score_type"))
 										<label for={ ResultsFieldID("save-results-draft", competition.Session.ID, "score_visibility") }>Visibility</label>
@@ -297,8 +297,8 @@ templ Results(page ResultsPage) {
 											name="score_visibility"
 											{ page.Errors.Attributes(ResultsFieldID("save-results-draft", competition.Session.ID, "score_visibility"))... }
 										>
-											<option selected?={ page.value("save-results-draft", competition.Session.ID, "score_visibility", string(competition.Draft.Score.Visibility)) == string(results.ScorePublic) }>Public</option>
-											<option selected?={ page.value("save-results-draft", competition.Session.ID, "score_visibility", string(competition.Draft.Score.Visibility)) == string(results.ScoreCrewOnly) }>CrewOnly</option>
+											<option value={ string(results.ScorePublic) } selected?={ page.value("save-results-draft", competition.Session.ID, "score_visibility", string(competition.Draft.Score.Visibility)) == string(results.ScorePublic) }>{ humanizeIdentifier(string(results.ScorePublic)) }</option>
+											<option value={ string(results.ScoreCrewOnly) } selected?={ page.value("save-results-draft", competition.Session.ID, "score_visibility", string(competition.Draft.Score.Visibility)) == string(results.ScoreCrewOnly) }>{ humanizeIdentifier(string(results.ScoreCrewOnly)) }</option>
 										</select>
 										@FieldError(page.Errors, ResultsFieldID("save-results-draft", competition.Session.ID, "score_visibility"))
 										<label for={ ResultsFieldID("save-results-draft", competition.Session.ID, "score_unit") }>Unit</label>
@@ -325,8 +325,8 @@ templ Results(page ResultsPage) {
 											name="score_requirement"
 											{ page.Errors.Attributes(ResultsFieldID("save-results-draft", competition.Session.ID, "score_requirement"))... }
 										>
-											<option selected?={ page.value("save-results-draft", competition.Session.ID, "score_requirement", string(competition.Draft.Score.Requirement)) == string(results.ScoreOptional) }>Optional</option>
-											<option selected?={ page.value("save-results-draft", competition.Session.ID, "score_requirement", string(competition.Draft.Score.Requirement)) == string(results.ScoreRequired) }>Required</option>
+											<option value={ string(results.ScoreOptional) } selected?={ page.value("save-results-draft", competition.Session.ID, "score_requirement", string(competition.Draft.Score.Requirement)) == string(results.ScoreOptional) }>{ humanizeIdentifier(string(results.ScoreOptional)) }</option>
+											<option value={ string(results.ScoreRequired) } selected?={ page.value("save-results-draft", competition.Session.ID, "score_requirement", string(competition.Draft.Score.Requirement)) == string(results.ScoreRequired) }>{ humanizeIdentifier(string(results.ScoreRequired)) }</option>
 										</select>
 										@FieldError(page.Errors, ResultsFieldID("save-results-draft", competition.Session.ID, "score_requirement"))
 										<label for={ ResultsFieldID("save-results-draft", competition.Session.ID, "score_interpretation") }>Interpretation</label>
@@ -335,9 +335,9 @@ templ Results(page ResultsPage) {
 											name="score_interpretation"
 											{ page.Errors.Attributes(ResultsFieldID("save-results-draft", competition.Session.ID, "score_interpretation"))... }
 										>
-											<option selected?={ page.value("save-results-draft", competition.Session.ID, "score_interpretation", string(competition.Draft.Score.Interpretation)) == string(results.Informational) }>Informational</option>
-											<option selected?={ page.value("save-results-draft", competition.Session.ID, "score_interpretation", string(competition.Draft.Score.Interpretation)) == string(results.HigherWins) }>HigherWins</option>
-											<option selected?={ page.value("save-results-draft", competition.Session.ID, "score_interpretation", string(competition.Draft.Score.Interpretation)) == string(results.LowerWins) }>LowerWins</option>
+											<option value={ string(results.Informational) } selected?={ page.value("save-results-draft", competition.Session.ID, "score_interpretation", string(competition.Draft.Score.Interpretation)) == string(results.Informational) }>{ humanizeIdentifier(string(results.Informational)) }</option>
+											<option value={ string(results.HigherWins) } selected?={ page.value("save-results-draft", competition.Session.ID, "score_interpretation", string(competition.Draft.Score.Interpretation)) == string(results.HigherWins) }>{ humanizeIdentifier(string(results.HigherWins)) }</option>
+											<option value={ string(results.LowerWins) } selected?={ page.value("save-results-draft", competition.Session.ID, "score_interpretation", string(competition.Draft.Score.Interpretation)) == string(results.LowerWins) }>{ humanizeIdentifier(string(results.LowerWins)) }</option>
 										</select>
 										@FieldError(page.Errors, ResultsFieldID("save-results-draft", competition.Session.ID, "score_interpretation"))
 									</fieldset>
@@ -357,8 +357,8 @@ templ Results(page ResultsPage) {
 													name="standing"
 													{ page.Errors.Attributes(ResultsFieldID("save-results-draft", competition.Session.ID, "standing_"+strconv.Itoa(row.Entry.ID)))... }
 												>
-													<option selected?={ page.valueAt("save-results-draft", competition.Session.ID, "standing", index, string(row.Standing.Standing)) == string(results.Placed) }>Placed</option>
-													<option selected?={ page.valueAt("save-results-draft", competition.Session.ID, "standing", index, string(row.Standing.Standing)) == string(results.Unplaced) }>Unplaced</option>
+													<option value={ string(results.Placed) } selected?={ page.valueAt("save-results-draft", competition.Session.ID, "standing", index, string(row.Standing.Standing)) == string(results.Placed) }>{ humanizeIdentifier(string(results.Placed)) }</option>
+													<option value={ string(results.Unplaced) } selected?={ page.valueAt("save-results-draft", competition.Session.ID, "standing", index, string(row.Standing.Standing)) == string(results.Unplaced) }>{ humanizeIdentifier(string(results.Unplaced)) }</option>
 												</select>
 												@FieldError(page.Errors, ResultsFieldID("save-results-draft", competition.Session.ID, "standing_"+strconv.Itoa(row.Entry.ID)))
 												<label for={ ResultsFieldID("save-results-draft", competition.Session.ID, "placement_"+strconv.Itoa(row.Entry.ID)) }>Placement</label>
@@ -467,9 +467,9 @@ templ Results(page ResultsPage) {
 									</form>
 								}
 							} else {
-								<p>
-									Plan revision { strconv.Itoa(prizegiving.Plan.Revision) }.
-									Locked: { strconv.FormatBool(prizegiving.Plan.Locked) }.
+								<p class="cluster">
+									<span>Plan revision <code>{ strconv.Itoa(prizegiving.Plan.Revision) }</code></span>
+									@Badge(lockedTone(prizegiving.Plan.Locked), lockedLabel(prizegiving.Plan.Locked))
 								</p>
 								if page.Producer && !prizegiving.Plan.Locked {
 									<form method="post">
@@ -504,9 +504,9 @@ templ Results(page ResultsPage) {
 												name="release_policy"
 												{ page.Errors.Attributes(ResultsFieldID("save-prizegiving-plan", prizegiving.Session.ID, "release_policy"))... }
 											>
-												<option selected?={ page.value("save-prizegiving-plan", prizegiving.Session.ID, "release_policy", string(prizegiving.Plan.ReleasePolicy)) == string(results.ResultsProgressiveOnReveal) }>ProgressiveOnReveal</option>
-												<option selected?={ page.value("save-prizegiving-plan", prizegiving.Session.ID, "release_policy", string(prizegiving.Plan.ReleasePolicy)) == string(results.ResultsAllAtCue) }>AllAtCue</option>
-												<option selected?={ page.value("save-prizegiving-plan", prizegiving.Session.ID, "release_policy", string(prizegiving.Plan.ReleasePolicy)) == string(results.ResultsAtCeremonyEnd) }>AtCeremonyEnd</option>
+												<option value={ string(results.ResultsProgressiveOnReveal) } selected?={ page.value("save-prizegiving-plan", prizegiving.Session.ID, "release_policy", string(prizegiving.Plan.ReleasePolicy)) == string(results.ResultsProgressiveOnReveal) }>{ humanizeIdentifier(string(results.ResultsProgressiveOnReveal)) }</option>
+												<option value={ string(results.ResultsAllAtCue) } selected?={ page.value("save-prizegiving-plan", prizegiving.Session.ID, "release_policy", string(prizegiving.Plan.ReleasePolicy)) == string(results.ResultsAllAtCue) }>{ humanizeIdentifier(string(results.ResultsAllAtCue)) }</option>
+												<option value={ string(results.ResultsAtCeremonyEnd) } selected?={ page.value("save-prizegiving-plan", prizegiving.Session.ID, "release_policy", string(prizegiving.Plan.ReleasePolicy)) == string(results.ResultsAtCeremonyEnd) }>{ humanizeIdentifier(string(results.ResultsAtCeremonyEnd)) }</option>
 											</select>
 										</label>
 										@FieldError(page.Errors, ResultsFieldID("save-prizegiving-plan", prizegiving.Session.ID, "release_policy"))
@@ -572,7 +572,7 @@ templ Results(page ResultsPage) {
 								}
 								if prizegiving.Preview != nil {
 									<article>
-										<h3>{ string(prizegiving.Preview.Mode) }</h3>
+										<h3>{ humanizeIdentifier(string(prizegiving.Preview.Mode)) }</h3>
 										<p><strong>{ prizegiving.Preview.Watermark }</strong></p>
 										<pre>{ prizegiving.Preview.ResultsText }</pre>
 									</article>
@@ -618,9 +618,9 @@ templ Results(page ResultsPage) {
 							</form>
 						}
 						for _, state := range page.EventAwards.PathStates {
-							<p>
-								{ string(state.ReleasePath.Kind) } path revision { strconv.Itoa(state.Revision) }.
-								Ready: { strconv.FormatBool(state.Ready) }.
+							<p class="cluster">
+								<span>{ humanizeIdentifier(string(state.ReleasePath.Kind)) } path revision <code>{ strconv.Itoa(state.Revision) }</code></span>
+								@Badge(readinessTone(state.Ready), readinessLabel(state.Ready))
 							</p>
 							if page.Producer && !state.Ready {
 								<form method="post">
@@ -653,7 +653,7 @@ templ Results(page ResultsPage) {
 								<p>Standalone Event Awards Preflight passed without changing release state.</p>
 							} else {
 								for _, finding := range page.EventAwardsPreflight.Findings {
-									<p class="error" role="alert">{ finding.Code }: { finding.Message }</p>
+									@ErrorFlash(finding.Code + ": " + finding.Message)
 								}
 							}
 						}
@@ -667,6 +667,53 @@ templ Results(page ResultsPage) {
 func resultsEventAwardsPreflightPath(eventID int) string {
 	return "/backstage/events/" + strconv.Itoa(eventID) +
 		"/results?event_awards_preflight=true"
+}
+
+// readinessLabel and readinessTone name and tone a Ready boolean as a badge,
+// so it is never confused for an internal Go value. Ready is orthogonal to
+// the adjacent Draft/Published revision language, so the false case reads
+// "Not Ready" rather than "Draft" -- reusing "Draft" here would collide with
+// the lifecycle-stage noun printed beside it and lose the readiness signal.
+func readinessLabel(ready bool) string {
+	if ready {
+		return "Ready"
+	}
+	return "Not Ready"
+}
+
+func readinessTone(ready bool) string {
+	if ready {
+		return "success"
+	}
+	return "draft"
+}
+
+// lockedLabel and lockedTone name and tone a Prizegiving Plan's Locked
+// boolean as a badge.
+func lockedLabel(locked bool) string {
+	if locked {
+		return "Locked"
+	}
+	return "Unlocked"
+}
+
+func lockedTone(locked bool) string {
+	if locked {
+		return "warning"
+	}
+	return "neutral"
+}
+
+// correctionStatusTone maps a Correction's review status onto a badge tone.
+func correctionStatusTone(status results.CorrectionStatus) string {
+	switch status {
+	case results.CorrectionReady:
+		return "success"
+	case results.CorrectionPublished:
+		return "ended"
+	default:
+		return "draft"
+	}
 }
 
 func resultsEventAwardPrizegivingPath(ceremonyID int) string {
@@ -768,13 +815,13 @@ templ ResultsCorrection(page ResultsPage, correction ResultsCorrectionPage) {
 	<section>
 		<h3>Results Correction</h3>
 		<p>
-			Publication revision { strconv.Itoa(correction.PublicationRevision) }.
+			Publication revision <code>{ strconv.Itoa(correction.PublicationRevision) }</code>.
 			Preserved releases: { strconv.Itoa(correction.PublicationHistoryCount) }.
 		</p>
 		if correction.Current.Revision > 0 {
-			<p>
-				Correction revision { strconv.Itoa(correction.Current.Revision) }.
-				{ string(correction.Current.Status) }.
+			<p class="cluster">
+				<span>Correction revision <code>{ strconv.Itoa(correction.Current.Revision) }</code></span>
+				@Badge(correctionStatusTone(correction.Current.Status), string(correction.Current.Status))
 			</p>
 		}
 		if page.Producer && correction.Current.Status != results.CorrectionReady {
@@ -831,7 +878,7 @@ templ ResultsCorrection(page ResultsPage, correction ResultsCorrectionPage) {
 				<input type="hidden" name="correction_scope" value={ string(correction.Scope) }/>
 				<input type="hidden" name="correction_scope_session_id" value={ strconv.Itoa(correction.ScopeSessionID) }/>
 				<input type="hidden" name="expected_correction_revision" value={ strconv.Itoa(correction.Current.Revision) }/>
-				<button type="submit">Publish Results Correction</button>
+				<button class="btn-commit" type="submit">Publish Results Correction</button>
 			</form>
 		}
 	</section>
@@ -865,7 +912,7 @@ templ PrizegivingItemFields(
 	index int,
 ) {
 	<fieldset>
-		<legend>{ string(item.Kind) }</legend>
+		<legend>{ humanizeIdentifier(string(item.Kind)) }</legend>
 		<input type="hidden" name="item_kind" value={ string(item.Kind) }/>
 		<input type="hidden" name="item_competition_session_id" value={ strconv.Itoa(item.CompetitionSessionID) }/>
 		<input type="hidden" name="item_award_key" value={ item.AwardKey }/>
@@ -886,9 +933,9 @@ templ PrizegivingItemFields(
 			name="reveal_method"
 			{ page.Errors.Attributes(ResultsFieldID("save-prizegiving-plan", ceremonyID, "reveal_method_"+strconv.Itoa(index)))... }
 		>
-			<option selected?={ page.valueAt("save-prizegiving-plan", ceremonyID, "reveal_method", index, string(item.RevealMethod)) == string(results.RevealStatic) }>StaticResult</option>
-			<option selected?={ page.valueAt("save-prizegiving-plan", ceremonyID, "reveal_method", index, string(item.RevealMethod)) == string(results.RevealSequentialPodium) }>SequentialPodium</option>
-			<option selected?={ page.valueAt("save-prizegiving-plan", ceremonyID, "reveal_method", index, string(item.RevealMethod)) == string(results.RevealAnimatedScoreBars) }>AnimatedScoreBars</option>
+			<option value={ string(results.RevealStatic) } selected?={ page.valueAt("save-prizegiving-plan", ceremonyID, "reveal_method", index, string(item.RevealMethod)) == string(results.RevealStatic) }>{ humanizeIdentifier(string(results.RevealStatic)) }</option>
+			<option value={ string(results.RevealSequentialPodium) } selected?={ page.valueAt("save-prizegiving-plan", ceremonyID, "reveal_method", index, string(item.RevealMethod)) == string(results.RevealSequentialPodium) }>{ humanizeIdentifier(string(results.RevealSequentialPodium)) }</option>
+			<option value={ string(results.RevealAnimatedScoreBars) } selected?={ page.valueAt("save-prizegiving-plan", ceremonyID, "reveal_method", index, string(item.RevealMethod)) == string(results.RevealAnimatedScoreBars) }>{ humanizeIdentifier(string(results.RevealAnimatedScoreBars)) }</option>
 		</select>
 		@FieldError(page.Errors, ResultsFieldID("save-prizegiving-plan", ceremonyID, "reveal_method_"+strconv.Itoa(index)))
 		<label for={ ResultsFieldID("save-prizegiving-plan", ceremonyID, "publication_display_order_"+strconv.Itoa(index)) }>Publication order</label>

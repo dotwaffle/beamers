@@ -66,6 +66,14 @@ func AdministrationFieldID(action string, targetID int, field string) string {
 	return prefix + "-" + strings.ReplaceAll(field, "_", "-")
 }
 
+// administrationAccountRowID names an Accounts table row's identity cell, so
+// the row's action buttons can reference it with aria-describedby: their
+// visible names ("Disable Account", "Issue Recovery Token") do not otherwise
+// say which Account they act on.
+func administrationAccountRowID(accountID int) string {
+	return "administration-account-row-" + strconv.Itoa(accountID)
+}
+
 func (page AdministrationPage) submitted(action string, targetID int) bool {
 	if page.SubmittedAction != action {
 		return false
@@ -121,7 +129,7 @@ templ Administration(page AdministrationPage) {
 					<h1>Accounts, Event Grants, and activation</h1>
 					@ErrorSummary(page.Errors)
 					if page.RecoveryToken != nil {
-						<section role="status">
+						<section class="success" role="status">
 							<h2>Administrator Recovery Token</h2>
 							<p>Give this token to the verified Account owner now. It will not be shown again.</p>
 							<p><code data-recovery-token>{ page.RecoveryToken.Token }</code></p>
@@ -130,56 +138,80 @@ templ Administration(page AdministrationPage) {
 					}
 					<section>
 						<h2>Accounts</h2>
-						<ul>
-							for _, account := range page.Accounts {
-								<li>
-									#{ strconv.Itoa(account.ID) } <strong>{ "@" + account.Handle }</strong> — { account.Name }
-									if account.Administrator {
-										<span> · Administrator</span>
-									}
-									<form method="post" action="/backstage/administration">
-										<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
-										<input type="hidden" name="action" value="disable-account"/>
-										<input type="hidden" name="command_id" value={ page.DisableCommandIDs[account.ID] }/>
-										<input type="hidden" name="account_id" value={ strconv.Itoa(account.ID) }/>
-										<label>
-											Reason
-											<select
-												id={ AdministrationFieldID("disable-account", account.ID, "reason") }
-												name="reason"
-												{ page.Errors.Attributes(AdministrationFieldID("disable-account", account.ID, "reason"))... }
-											>
-												<option value="crew_departed" selected?={ page.selected("disable-account", account.ID, "reason", "crew_departed", "crew_departed") }>Crew departed</option>
-												<option value="access_revoked" selected?={ page.selected("disable-account", account.ID, "reason", "access_revoked", "crew_departed") }>Access revoked</option>
-												<option value="account_compromised" selected?={ page.selected("disable-account", account.ID, "reason", "account_compromised", "crew_departed") }>Account compromised</option>
-												<option value="duplicate_account" selected?={ page.selected("disable-account", account.ID, "reason", "duplicate_account", "crew_departed") }>Duplicate Account</option>
-											</select>
-										</label>
-										@FieldError(page.Errors, AdministrationFieldID("disable-account", account.ID, "reason"))
-										<button type="submit">Disable Account</button>
-									</form>
-									<form method="post" action="/backstage/administration">
-										<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
-										<input type="hidden" name="action" value="issue-recovery-token"/>
-										<input type="hidden" name="command_id" value={ page.RecoveryCommandIDs[account.ID] }/>
-										<input type="hidden" name="account_id" value={ strconv.Itoa(account.ID) }/>
-										<label>
-											Offline verification
-											<input
-												id={ AdministrationFieldID("issue-recovery-token", account.ID, "reason") }
-												name="reason"
-												value={ page.value("issue-recovery-token", account.ID, "reason", "") }
-												maxlength="1000"
-												required
-												{ page.Errors.Attributes(AdministrationFieldID("issue-recovery-token", account.ID, "reason"))... }
-											/>
-										</label>
-										@FieldError(page.Errors, AdministrationFieldID("issue-recovery-token", account.ID, "reason"))
-										<button type="submit">Issue Recovery Token</button>
-									</form>
-								</li>
-							}
-						</ul>
+						if len(page.Accounts) == 0 {
+							@EmptyState("No Accounts yet. Create one below.")
+						} else {
+							<div data-density="compact">
+								<div class="table-scroll">
+									<table>
+										<caption>Accounts and their administrative actions</caption>
+										<thead>
+											<tr>
+												<th scope="col">Account</th>
+												<th scope="col">Disable</th>
+												<th scope="col">Recovery Token</th>
+											</tr>
+										</thead>
+										<tbody>
+											for _, account := range page.Accounts {
+												<tr>
+													<th scope="row" id={ administrationAccountRowID(account.ID) }>
+														#{ strconv.Itoa(account.ID) } <strong>{ "@" + account.Handle }</strong> — { account.Name }
+														if account.Administrator {
+															@Badge("crew", "Administrator")
+														}
+													</th>
+													<td>
+														<form method="post" action="/backstage/administration">
+															<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+															<input type="hidden" name="action" value="disable-account"/>
+															<input type="hidden" name="command_id" value={ page.DisableCommandIDs[account.ID] }/>
+															<input type="hidden" name="account_id" value={ strconv.Itoa(account.ID) }/>
+															<label>
+																Reason
+																<select
+																	id={ AdministrationFieldID("disable-account", account.ID, "reason") }
+																	name="reason"
+																	{ page.Errors.Attributes(AdministrationFieldID("disable-account", account.ID, "reason"))... }
+																>
+																	<option value="crew_departed" selected?={ page.selected("disable-account", account.ID, "reason", "crew_departed", "crew_departed") }>Crew departed</option>
+																	<option value="access_revoked" selected?={ page.selected("disable-account", account.ID, "reason", "access_revoked", "crew_departed") }>Access revoked</option>
+																	<option value="account_compromised" selected?={ page.selected("disable-account", account.ID, "reason", "account_compromised", "crew_departed") }>Account compromised</option>
+																	<option value="duplicate_account" selected?={ page.selected("disable-account", account.ID, "reason", "duplicate_account", "crew_departed") }>Duplicate Account</option>
+																</select>
+															</label>
+															@FieldError(page.Errors, AdministrationFieldID("disable-account", account.ID, "reason"))
+															<button class="btn-destructive" type="submit" aria-describedby={ administrationAccountRowID(account.ID) }>Disable Account</button>
+														</form>
+													</td>
+													<td>
+														<form method="post" action="/backstage/administration">
+															<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+															<input type="hidden" name="action" value="issue-recovery-token"/>
+															<input type="hidden" name="command_id" value={ page.RecoveryCommandIDs[account.ID] }/>
+															<input type="hidden" name="account_id" value={ strconv.Itoa(account.ID) }/>
+															<label>
+																Offline verification
+																<input
+																	id={ AdministrationFieldID("issue-recovery-token", account.ID, "reason") }
+																	name="reason"
+																	value={ page.value("issue-recovery-token", account.ID, "reason", "") }
+																	maxlength="1000"
+																	required
+																	{ page.Errors.Attributes(AdministrationFieldID("issue-recovery-token", account.ID, "reason"))... }
+																/>
+															</label>
+															@FieldError(page.Errors, AdministrationFieldID("issue-recovery-token", account.ID, "reason"))
+															<button class="btn-secondary" type="submit" aria-describedby={ administrationAccountRowID(account.ID) }>Issue Recovery Token</button>
+														</form>
+													</td>
+												</tr>
+											}
+										</tbody>
+									</table>
+								</div>
+							</div>
+						}
 						<form class="stack" method="post" action="/backstage/administration">
 							<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
 							<input type="hidden" name="action" value="create-account"/>
@@ -225,24 +257,45 @@ templ Administration(page AdministrationPage) {
 					</section>
 					<section>
 						<h2>Event Grants</h2>
-						<ul>
-							for _, grant := range page.Grants {
-								<li>
-									Event #{ strconv.Itoa(grant.EventID) },
-									Account #{ strconv.Itoa(grant.AccountID) }:
-									{ grant.Role }
-									if len(grant.LaneIDs) > 0 {
-										<span> · Lanes { commaSeparatedIDs(grant.LaneIDs) }</span>
-									}
-									if len(grant.DisplayGroupKeys) > 0 {
-										<span> · Display groups { strings.Join(grant.DisplayGroupKeys, ", ") }</span>
-									}
-									if len(grant.Capabilities) > 0 {
-										<span> · Capabilities { strings.Join(grant.Capabilities, ", ") }</span>
-									}
-								</li>
-							}
-						</ul>
+						if len(page.Grants) == 0 {
+							@EmptyState("No Event Grants yet. Grant one below.")
+						} else {
+							<div data-density="compact">
+								<div class="table-scroll">
+									<table>
+										<caption>Event Grants by Account</caption>
+										<thead>
+											<tr>
+												<th scope="col">Event</th>
+												<th scope="col">Account</th>
+												<th scope="col">Role</th>
+												<th scope="col">Scope</th>
+											</tr>
+										</thead>
+										<tbody>
+											for _, grant := range page.Grants {
+												<tr>
+													<td data-numeric>#{ strconv.Itoa(grant.EventID) }</td>
+													<td data-numeric>#{ strconv.Itoa(grant.AccountID) }</td>
+													<td>{ grant.Role }</td>
+													<td>
+														if len(grant.LaneIDs) > 0 {
+															<span>Lanes { commaSeparatedIDs(grant.LaneIDs) }</span>
+														}
+														if len(grant.DisplayGroupKeys) > 0 {
+															<span> · Display groups { strings.Join(grant.DisplayGroupKeys, ", ") }</span>
+														}
+														if len(grant.Capabilities) > 0 {
+															<span> · Capabilities { strings.Join(grant.Capabilities, ", ") }</span>
+														}
+													</td>
+												</tr>
+											}
+										</tbody>
+									</table>
+								</div>
+							</div>
+						}
 						<form class="stack" method="post" action="/backstage/administration">
 							<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
 							<input type="hidden" name="action" value="grant"/>
@@ -333,7 +386,7 @@ templ Administration(page AdministrationPage) {
 					<section>
 						<h2>Events and activation</h2>
 						if page.ActiveEvent.EventID == 0 {
-							<p>No Active Event.</p>
+							@EmptyState("No Active Event. Preflight and activate an Event below.")
 						} else {
 							<p>
 								Active Event #{ strconv.Itoa(page.ActiveEvent.EventID) },
@@ -402,6 +455,7 @@ templ Administration(page AdministrationPage) {
 									<input type="hidden" name="command_id" value={ page.ActivationCommandID }/>
 									<button
 										id={ AdministrationFieldID("activate", page.Preflight.EventID, "confirmation") }
+										class="btn-commit"
 										type="submit"
 										{ page.Errors.Attributes(AdministrationFieldID("activate", page.Preflight.EventID, "confirmation"))... }
 									>Activate Event</button>
@@ -413,7 +467,7 @@ templ Administration(page AdministrationPage) {
 					<section>
 						<h2>Event Slug Aliases</h2>
 						if len(page.SlugAliases) == 0 {
-							<p>No retained Event Slug Aliases.</p>
+							@EmptyState("No retained Event Slug Aliases.")
 						}
 						if len(page.SlugAliases) > 0 {
 							<ul>
@@ -442,7 +496,7 @@ templ Administration(page AdministrationPage) {
 												Prune this alias. Its slug becomes reusable; stale links may break or retarget.
 											</label>
 											@FieldError(page.Errors, AdministrationFieldID("prune-event-slug-alias", alias.ID, "confirmed"))
-											<button type="submit">Prune Event Slug Alias</button>
+											<button class="btn-destructive" type="submit">Prune Event Slug Alias</button>
 										</form>
 									</li>
 								}

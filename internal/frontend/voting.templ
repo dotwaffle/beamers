@@ -73,9 +73,9 @@ templ VotingRedemption(page VotingRedemptionPage) {
 				@ErrorSummary(page.Errors)
 				if page.Message != "" {
 					if page.Success {
-						<p role="status">{ page.Message }</p>
+						@SuccessFlash(page.Message)
 					} else if len(page.Errors) == 0 {
-						<p class="error" role="alert">{ page.Message }</p>
+						@ErrorFlash(page.Message)
 					}
 				}
 				<form class="stack" method="post" action="/voting">
@@ -226,6 +226,18 @@ func ballotValue(page VotingBallotPage, entryID, fallback int) int {
 	return fallback
 }
 
+// votingMethodLabel names a Voting Window's Method for display. Range1To5 is
+// the only Method the settings form currently offers -- its option there
+// reads "Range 1–5" -- and generic CamelCase splitting would render it as
+// the malformed "Range1 To5", so it gets an explicit mapping; any other
+// value falls back to the generic splitter rather than failing closed.
+func votingMethodLabel(method string) string {
+	if method == "Range1To5" {
+		return "Range 1–5"
+	}
+	return humanizeIdentifier(method)
+}
+
 templ CompetitionVoting(page CompetitionVotingPage) {
 	<!doctype html>
 	<html lang="en">
@@ -237,9 +249,9 @@ templ CompetitionVoting(page CompetitionVotingPage) {
 				<main id="main-content" tabindex="-1">
 					<h1>{ page.Window.Title } Voting</h1>
 					if page.Message != "" {
-						<p class="error" role="alert">{ page.Message }</p>
+						@ErrorFlash(page.Message)
 					}
-					<p>Window: { page.Window.State }. Method: { page.Window.Method }. Self-Vote Policy: { page.Window.SelfVotePolicy }.</p>
+					<p>Window: { page.Window.State }. Method: { votingMethodLabel(page.Window.Method) }. Self-Vote Policy: { page.Window.SelfVotePolicy }.</p>
 					<p>
 						Eligible: { strconv.Itoa(page.Participation.Eligible) }.
 						Participating: { strconv.Itoa(page.Participation.Participating) }.
@@ -284,7 +296,7 @@ templ CompetitionVoting(page CompetitionVotingPage) {
 							<input type="hidden" name="command_id" value={ page.CommandID + "-close" }/>
 							<input type="hidden" name="action" value="close"/>
 							<input type="hidden" name="expected_revision" value={ strconv.Itoa(page.Window.Revision) }/>
-							<button type="submit">Close Voting Window</button>
+							<button class="btn-destructive" type="submit">Close Voting Window</button>
 						</form>
 					}
 				</main>
@@ -305,7 +317,7 @@ templ VotingKeys(page VotingKeyPage) {
 					<h1>{ page.Event.Name } Voting Keys</h1>
 					<p>Event #{ strconv.Itoa(page.Event.ID) }</p>
 					if page.Message != "" {
-						<p class="error" role="alert">{ page.Message }</p>
+						@ErrorFlash(page.Message)
 					}
 					<form class="stack" method="post">
 						<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
@@ -335,7 +347,7 @@ templ VotingKeys(page VotingKeyPage) {
 					<section>
 						<h2>Key inventory</h2>
 						if len(page.Keys) == 0 {
-							<p>No Voting Keys issued.</p>
+							@EmptyState("No Voting Keys issued. Issue printable keys above.")
 						} else {
 							<div class="table-scroll">
 							<table>
@@ -361,7 +373,7 @@ templ VotingKeys(page VotingKeyPage) {
 														<input type="hidden" name="command_id" value={ page.CommandID + "-revoke-" + strconv.Itoa(item.ID) }/>
 														<input type="hidden" name="action" value="revoke"/>
 														<input type="hidden" name="key_id" value={ strconv.Itoa(item.ID) }/>
-														<button type="submit">Revoke</button>
+														<button class="btn-destructive" type="submit">Revoke</button>
 													</form>
 												}
 											</td>

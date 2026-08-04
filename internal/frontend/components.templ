@@ -2,6 +2,8 @@ package frontend
 
 import (
 	"strconv"
+	"strings"
+	"unicode"
 
 	"github.com/dotwaffle/beamers/internal/rundown"
 )
@@ -42,6 +44,20 @@ templ Metric(label, value string) {
 // appear. An unstyled sentence reads as an error next to populated Regions.
 templ EmptyState(message string) {
 	<p class="empty">{ message }</p>
+}
+
+// SuccessFlash reports a completed action. It pairs with ErrorFlash: a filled
+// signal bar announced through role="status" rather than the role="alert" a
+// failure uses, so a completed action does not interrupt the same way a
+// failure does.
+templ SuccessFlash(message string) {
+	<p class="success" role="status">{ message }</p>
+}
+
+// ErrorFlash reports a failed action inline, matching the signal-bar
+// treatment of ErrorSummary without repeating its list-and-heading structure.
+templ ErrorFlash(message string) {
+	<p class="error" role="alert">{ message }</p>
 }
 
 // publicationLabel names the publication axis. Published is stated explicitly
@@ -122,4 +138,20 @@ func visibilityTone(visibility rundown.AudienceVisibility) string {
 		return "crew"
 	}
 	return "neutral"
+}
+
+// humanizeIdentifier splits an exported Go identifier's CamelCase spelling
+// into separate Title Case words, so an enum's programmatic name -- read
+// directly off the wire as its stored string value -- never reaches a Crew
+// Member verbatim. It leaves an already-spaced or already-lowercase string
+// alone, so it is safe to apply unconditionally.
+func humanizeIdentifier(identifier string) string {
+	var words strings.Builder
+	for i, r := range identifier {
+		if i > 0 && unicode.IsUpper(r) {
+			words.WriteByte(' ')
+		}
+		words.WriteRune(r)
+	}
+	return words.String()
 }

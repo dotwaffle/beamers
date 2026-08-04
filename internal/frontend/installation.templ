@@ -59,7 +59,7 @@ templ Installation(page InstallationPage) {
 					<h1>Installation health</h1>
 					@ErrorSummary(page.Errors)
 					if page.Message != "" {
-						<p role="status">{ page.Message }</p>
+						@SuccessFlash(page.Message)
 					}
 					<section>
 						<h2>Diagnostics</h2>
@@ -214,10 +214,10 @@ templ Installation(page InstallationPage) {
 									Abandon this prepared Restore
 								</label>
 								@FieldError(page.Errors, "installation-cancel-restore-acknowledge-cancellation")
-								<button type="submit">Cancel Prepared Restore</button>
+								<button class="btn-destructive" type="submit">Cancel Prepared Restore</button>
 							</form>
 						} else {
-							<p>No Restore is prepared.</p>
+							@EmptyState("No Restore is prepared.")
 						}
 					</section>
 				</main>
