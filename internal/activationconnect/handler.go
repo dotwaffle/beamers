@@ -4,7 +4,6 @@ package activationconnect
 import (
 	"context"
 	"errors"
-	"math"
 
 	"connectrpc.com/connect"
 
@@ -110,9 +109,9 @@ func (handler *Handler) GetActiveEvent(
 func validateRequest(message any) error {
 	switch request := message.(type) {
 	case *activationv1.PreflightRequest:
-		return positiveID(request.GetEventId())
+		return connectapi.PositiveID("event_id", request.GetEventId())
 	case *activationv1.ActivateRequest:
-		if err := positiveID(request.GetEventId()); err != nil {
+		if err := connectapi.PositiveID("event_id", request.GetEventId()); err != nil {
 			return err
 		}
 		if err := command.ValidateID(request.GetCommandId()); err != nil {
@@ -132,13 +131,6 @@ func validateRequest(message any) error {
 	default:
 		return errors.New("unsupported Activation request")
 	}
-}
-
-func positiveID(value int64) error {
-	if value <= 0 || value > math.MaxInt {
-		return errors.New("event_id must be a positive supported integer")
-	}
-	return nil
 }
 
 func confirmation(found activation.Confirmation) *activationv1.Confirmation {

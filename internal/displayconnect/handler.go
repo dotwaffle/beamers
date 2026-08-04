@@ -13,6 +13,7 @@ import (
 	displayv1 "github.com/dotwaffle/beamers/gen/beamers/display/v1"
 	"github.com/dotwaffle/beamers/gen/beamers/display/v1/displayv1connect"
 	programv1 "github.com/dotwaffle/beamers/gen/beamers/program/v1"
+	"github.com/dotwaffle/beamers/internal/connectapi"
 	"github.com/dotwaffle/beamers/internal/displays"
 	"github.com/dotwaffle/beamers/internal/displaystream"
 	"github.com/dotwaffle/beamers/internal/displayviews"
@@ -322,8 +323,8 @@ func sessionMessage(found displays.Session) *displayv1.DisplaySession {
 		Id: int64(found.ID), Title: found.Title, Speaker: found.Speaker,
 		PublicDetails: found.PublicDetails,
 		Lifecycle:     found.Lifecycle, LiveStateRevision: int64(found.LiveStateRevision),
-		LocationIds: ints64(found.LocationIDs), LaneIds: ints64(found.LaneIDs),
-		TrackIds: ints64(found.TrackIDs), Unavailable: found.Unavailable,
+		LocationIds: connectapi.Int64s(found.LocationIDs), LaneIds: connectapi.Int64s(found.LaneIDs),
+		TrackIds: connectapi.Int64s(found.TrackIDs), Unavailable: found.Unavailable,
 		AvailabilityMessage: found.AvailabilityMessage,
 		PresentedStartLabel: string(found.PresentedStartLabel),
 		PresentedEndLabel:   string(found.PresentedEndLabel),
@@ -443,12 +444,4 @@ func overrideRevision(found *displays.DisplayOverride) int64 {
 		return 0
 	}
 	return int64(found.Revision)
-}
-
-func ints64(values []int) []int64 {
-	result := make([]int64, 0, len(values))
-	for _, value := range values {
-		result = append(result, int64(value))
-	}
-	return result
 }

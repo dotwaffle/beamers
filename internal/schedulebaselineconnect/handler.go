@@ -4,7 +4,6 @@ package schedulebaselineconnect
 import (
 	"context"
 	"errors"
-	"math"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -121,9 +120,9 @@ func previewResponse(preview schedulebaseline.Preview) *schedulebaselinev1.Previ
 func validateRequest(message any) error {
 	switch request := message.(type) {
 	case *schedulebaselinev1.PreviewRequest:
-		return positiveID(request.GetEventId())
+		return connectapi.PositiveID("event_id", request.GetEventId())
 	case *schedulebaselinev1.CaptureRequest:
-		if err := positiveID(request.GetEventId()); err != nil {
+		if err := connectapi.PositiveID("event_id", request.GetEventId()); err != nil {
 			return err
 		}
 		if err := command.ValidateID(request.GetCommandId()); err != nil {
@@ -140,13 +139,6 @@ func validateRequest(message any) error {
 	default:
 		return errors.New("unsupported Public Schedule Baseline request")
 	}
-}
-
-func positiveID(value int64) error {
-	if value <= 0 || value > math.MaxInt {
-		return errors.New("event_id must be a positive supported integer")
-	}
-	return nil
 }
 
 func connectError(err error) error {
