@@ -252,6 +252,58 @@ func TestPublicProfileIsPrivateByDefaultAndDetachedOnDisable(t *testing.T) {
 	}
 }
 
+// TestUpdateProfileReplayDoesNotRegressSessionCache guards against a
+// command-replay clobbering the emergency-authentication session cache with
+// stale data: replaying an earlier UpdateProfile command (same CommandID
+// and payload) must not overwrite the cache with that command's original
+// Display Name once a later command has changed it.
+func TestUpdateProfileReplayDoesNotRegressSessionCache(t *testing.T) {
+	service, _ := openAccountTestService(t)
+	if _, err := service.Register(
+		t.Context(),
+		"replay-owner",
+		"Original Name",
+		"replay correct horse battery staple",
+	); err != nil {
+		t.Fatalf("register replay owner: %v", err)
+	}
+	session, err := service.SignIn(
+		t.Context(),
+		"replay-owner",
+		"replay correct horse battery staple",
+	)
+	if err != nil {
+		t.Fatalf("sign in replay owner: %v", err)
+	}
+	authenticated, err := service.Authenticate(t.Context(), session.Token)
+	if err != nil {
+		t.Fatalf("authenticate replay owner: %v", err)
+	}
+	if err = service.UpdateProfile(
+		t.Context(), authenticated, "Alice", false, nil, "update-a",
+	); err != nil {
+		t.Fatalf("apply command A: %v", err)
+	}
+	if err = service.UpdateProfile(
+		t.Context(), authenticated, "Bob", false, nil, "update-b",
+	); err != nil {
+		t.Fatalf("apply command B: %v", err)
+	}
+	// Replay command A: same CommandID and payload as the first call, so
+	// command.Execute takes the Replay path instead of re-applying.
+	if err = service.UpdateProfile(
+		t.Context(), authenticated, "Alice", false, nil, "update-a",
+	); err != nil {
+		t.Fatalf("replay command A: %v", err)
+	}
+	service.sessionMu.RLock()
+	cachedName := service.sessions[tokenDigest(session.Token)].account.Name
+	service.sessionMu.RUnlock()
+	if cachedName != "Bob" {
+		t.Fatalf("session cache Name = %q, want %q (regressed by a stale replay)", cachedName, "Bob")
+	}
+}
+
 func TestCreateAccountRetryDoesNotRetainPasswordIdentity(t *testing.T) {
 	service, administrator := openAccountTestService(t)
 

@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -863,6 +864,11 @@ func (service *Service) UpdateProfile(
 	if validateErr := command.ValidateID(commandID); validateErr != nil {
 		return ErrInvalidAccountDetails
 	}
+	// Canonicalize EntryIDs before hashing so equivalent submissions (same
+	// Entries in a different order, or with duplicates) share one command
+	// identity instead of colliding as a payload mismatch. This mirrors the
+	// canonicalization the store applies before persisting.
+	entryIDs = slices.Compact(slices.Sorted(slices.Values(entryIDs)))
 	payload, err := json.Marshal(struct {
 		DisplayName string `json:"display_name"`
 		Published   bool   `json:"published"`
@@ -902,18 +908,25 @@ func (service *Service) UpdateProfile(
 			}
 			return command.Success(struct{}{}, string(encoded)), nil
 		},
+		// Applied fires only after a fresh Apply commits, never after a
+		// Replay of an earlier command. Adopting displayName into the
+		// session cache here (rather than from command.Execute's return
+		// value) guards against a replayed older command clobbering the
+		// cache with its own stale, historical Display Name.
+		Applied: func() {
+			service.sessionMu.Lock()
+			for token, session := range service.sessions {
+				if session.account.ID == actor.ID {
+					session.account.Name = displayName
+					service.sessions[token] = session
+				}
+			}
+			service.sessionMu.Unlock()
+		},
 	})
 	if err != nil {
 		return err
 	}
-	service.sessionMu.Lock()
-	for token, session := range service.sessions {
-		if session.account.ID == actor.ID {
-			session.account.Name = displayName
-			service.sessions[token] = session
-		}
-	}
-	service.sessionMu.Unlock()
 	return nil
 }
 
