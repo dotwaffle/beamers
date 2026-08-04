@@ -136,6 +136,16 @@ A missing or damaged database makes `serve` enter its documented local recovery 
 It sends `SIGTERM` to the Beamers process and gives it the 30-second budget configured with `--shutdown-timeout`, with `TimeoutStopSec=35s` as the platform kill deadline that budget must fit inside.
 `MemoryMax=4G` leaves half of the [reference hardware](capacity.md)'s 8 GB for the OS, Litestream, and other host processes while still covering the rated capacity envelope; a unit that exceeds it is killed rather than pushing the host into swap or OOM-killing something else.
 
+Because the unit carries no readiness awareness of its own, add an external watchdog that polls `/readyz` and restarts the service on sustained failure, for example a companion timer unit running:
+
+```sh
+curl --fail --silent --show-error --max-time 2 \
+  https://127.0.0.1:8443/readyz \
+  || systemctl restart beamers.service
+```
+
+Beamers does not implement `sd_notify` watchdog pings; systemd's own `Restart=on-failure` only reacts to the process exiting, not to a running-but-unready process.
+
 ## Run with Docker Compose
 
 Load the externally obtained image without contacting a registry:
@@ -171,6 +181,27 @@ The image declares the same volume so an ad hoc container does not write authori
 
 Compose uses an exec-form entrypoint, leaves Beamers as PID 1, sends `SIGTERM`, and enforces `stop_grace_period: 35s` as the platform kill deadline around the process's own 30-second `--shutdown-timeout`.
 `mem_limit: 4G` matches the systemd profile's bound: half of the [reference hardware](capacity.md)'s 8 GB, leaving headroom for the host while covering the rated capacity envelope.
+
+Compose's `healthcheck` only affects `docker compose up --wait` and `docker ps` status; Compose does not restart a container that is running but reports unhealthy.
+An installation that stops passing `/readyz` while the process keeps running needs an external watchdog (a host-level `docker inspect --format '{{.State.Health.Status}}'` poll, or a systemd unit wrapping Compose) to force a restart; do not assume `restart: unless-stopped` alone covers this case, since it only restarts a container that has exited.
+
+### Recover a Docker deployment locally
+
+A storage failure inside the container does not present as a normal HTTP error; the port stays open but `/readyz` fails and `beamers serve` reports recovery mode in its logs.
+Reach the offline recovery CLI by executing into the running container:
+
+```sh
+docker compose exec beamers sh
+beamers restore preview \
+  --input=/var/lib/beamers/BACKUP.zip \
+  --data-dir=/var/lib/beamers/data
+# review the printed plan, then apply the journal path it reports
+beamers restore apply \
+  --journal=/var/lib/beamers/data.beamers-restore.json \
+  --acknowledge-replacement
+```
+
+The container image is read-only outside the mounted `beamers-data` volume and `/tmp`, so recovery commands can only write inside `/var/lib/beamers`, matching what a restore or export needs.
 
 ## Back up and restore configuration
 
