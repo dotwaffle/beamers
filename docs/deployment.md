@@ -203,17 +203,23 @@ An installation that stops passing `/readyz` while the process keeps running nee
 ### Recover a Docker deployment locally
 
 A storage failure inside the container does not present as a normal HTTP error; the port stays open but `/readyz` fails and `beamers serve` reports recovery mode in its logs.
-Reach the offline recovery CLI by executing into the running container:
+Use `docker compose exec beamers sh` to inspect logs or run read-only diagnostics while the container keeps running.
+`serve` holds an exclusive lock on the installation for as long as the container runs, including while it is in recovery mode, so `restore preview` and `restore apply` cannot run inside that same running container: both need the same lock and fail with an in-use error.
+
+Stop the service before cutover, then run the restore as a one-off container against the named volume, the same pattern used for `init` and `bootstrap`:
 
 ```sh
-docker compose exec beamers sh
-beamers restore preview \
+docker compose stop beamers
+docker compose run --rm --no-deps beamers \
+  restore preview \
   --input=/var/lib/beamers/BACKUP.zip \
   --data-dir=/var/lib/beamers/data
 # review the printed plan, then apply the journal path it reports
-beamers restore apply \
+docker compose run --rm --no-deps beamers \
+  restore apply \
   --journal=/var/lib/beamers/data.beamers-restore.json \
   --acknowledge-replacement
+docker compose up --detach --pull never --wait
 ```
 
 The container image is read-only outside the mounted `beamers-data` volume and `/tmp`, so recovery commands can only write inside `/var/lib/beamers`, matching what a restore or export needs.
