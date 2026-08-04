@@ -6959,8 +6959,14 @@ func TestBrowserManagesCompetitionEntries(t *testing.T) {
 		)
 	}
 	page = getFrontendPage(t, administrator, server.address, path)
-	if !strings.Contains(page.body, `</span><span>revision <code>`) {
-		t.Fatalf("review before Attachment replacement = %d %q", page.status, page.body)
+	reviewedEntryOneRevision := frontendEntryRevision(t, page.body, 1)
+	wantCurrent := `data-tone="success">Included</span><span>revision <code>` +
+		reviewedEntryOneRevision + `</code></span>`
+	if !strings.Contains(page.body, wantCurrent) {
+		t.Fatalf(
+			"review before Attachment replacement lacks current Entry #1 %q: %d %q",
+			wantCurrent, page.status, page.body,
+		)
 	}
 
 	uploadPath := path + "/upload"
