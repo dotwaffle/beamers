@@ -40,6 +40,10 @@ func (installation *SQLite) ListVotingKeys(
 	ctx context.Context,
 	eventID int,
 ) ([]VotingKey, error) {
+	if err := requireActor(ctx, "SQLite.ListVotingKeys"); err != nil {
+		return []VotingKey(nil), err
+	}
+
 	found, err := installation.reader.VotingKey.Query().
 		Where(votingkey.EventIDEQ(eventID)).
 		Order(ent.Asc(votingkey.FieldID)).
@@ -61,6 +65,10 @@ func (transaction *CommandTx) CreateVotingKey(
 	ctx context.Context,
 	params VotingKeyParams,
 ) (VotingKey, error) {
+	if err := requireActor(ctx, "CommandTx.CreateVotingKey"); err != nil {
+		return VotingKey{}, err
+	}
+
 	created, err := transaction.transaction.VotingKey.Create().
 		SetEventID(params.EventID).
 		SetTokenHash(params.TokenHash).
@@ -83,6 +91,10 @@ func (transaction *CommandTx) RedeemVotingKey(
 	eventID, accountID int,
 	now time.Time,
 ) (VotingKey, error) {
+	if err := requireActor(ctx, "CommandTx.RedeemVotingKey"); err != nil {
+		return VotingKey{}, err
+	}
+
 	key, err := transaction.transaction.VotingKey.Query().Where(
 		votingkey.TokenHashEQ(tokenHash),
 		votingkey.EventIDEQ(eventID),
@@ -147,6 +159,10 @@ func (transaction *CommandTx) RevokeVotingKey(
 	eventID, keyID int,
 	now time.Time,
 ) (VotingKey, error) {
+	if err := requireActor(ctx, "CommandTx.RevokeVotingKey"); err != nil {
+		return VotingKey{}, err
+	}
+
 	found, err := transaction.transaction.VotingKey.Query().Where(
 		votingkey.IDEQ(keyID),
 		votingkey.EventIDEQ(eventID),

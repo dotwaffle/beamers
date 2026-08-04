@@ -37,6 +37,10 @@ type CSVImportSession struct {
 
 // LoadCSVImportState returns current state for a side-effect-free preview.
 func (installation *SQLite) LoadCSVImportState(ctx context.Context, eventID int) (CSVImportState, error) {
+	if err := requireActor(ctx, "SQLite.LoadCSVImportState"); err != nil {
+		return CSVImportState{}, err
+	}
+
 	return loadCSVImportState(
 		ctx, eventID,
 		importreference.SourceFormatCSV,
@@ -49,6 +53,10 @@ func (installation *SQLite) LoadCSVImportState(ctx context.Context, eventID int)
 
 // LoadCSVImportState returns transaction-consistent state for confirmation.
 func (transaction *CommandTx) LoadCSVImportState(ctx context.Context, eventID int) (CSVImportState, error) {
+	if err := requireActor(ctx, "CommandTx.LoadCSVImportState"); err != nil {
+		return CSVImportState{}, err
+	}
+
 	return loadCSVImportState(
 		ctx, eventID,
 		importreference.SourceFormatCSV,
@@ -179,6 +187,10 @@ func loadCSVImportState(
 
 // LoadICalendarImportState returns current state for an iCalendar preview.
 func (installation *SQLite) LoadICalendarImportState(ctx context.Context, eventID int) (CSVImportState, error) {
+	if err := requireActor(ctx, "SQLite.LoadICalendarImportState"); err != nil {
+		return CSVImportState{}, err
+	}
+
 	return loadCSVImportState(
 		ctx, eventID, importreference.SourceFormatICalendar,
 		installation.client.Event, installation.client.Rundown,
@@ -190,6 +202,10 @@ func (installation *SQLite) LoadICalendarImportState(ctx context.Context, eventI
 
 // LoadICalendarImportState returns transaction-consistent iCalendar state.
 func (transaction *CommandTx) LoadICalendarImportState(ctx context.Context, eventID int) (CSVImportState, error) {
+	if err := requireActor(ctx, "CommandTx.LoadICalendarImportState"); err != nil {
+		return CSVImportState{}, err
+	}
+
 	return loadCSVImportState(
 		ctx, eventID, importreference.SourceFormatICalendar,
 		transaction.transaction.Event, transaction.transaction.Rundown,
@@ -207,6 +223,10 @@ func (transaction *CommandTx) CreateCSVImportReferences(
 	changes []DraftChangeResult,
 	now time.Time,
 ) error {
+	if err := requireActor(ctx, "CommandTx.CreateCSVImportReferences"); err != nil {
+		return err
+	}
+
 	return transaction.createImportReferences(ctx, eventID, importreference.SourceFormatCSV, externalKeys, changes, now)
 }
 
@@ -218,6 +238,10 @@ func (transaction *CommandTx) CreateICalendarImportReferences(
 	changes []DraftChangeResult,
 	now time.Time,
 ) error {
+	if err := requireActor(ctx, "CommandTx.CreateICalendarImportReferences"); err != nil {
+		return err
+	}
+
 	return transaction.createImportReferences(ctx, eventID, importreference.SourceFormatICalendar, externalKeys, changes, now)
 }
 

@@ -33,6 +33,10 @@ type WebAuthnAccount struct {
 
 // PasswordActive reports whether one enabled Account has an active password Credential.
 func (installation *SQLite) PasswordActive(ctx context.Context, accountID int) (bool, error) {
+	if err := requireActor(ctx, "SQLite.PasswordActive"); err != nil {
+		return false, err
+	}
+
 	found, err := installation.client.PasswordCredential.Query().
 		Where(
 			passwordcredential.AccountIDEQ(accountID),
@@ -51,6 +55,10 @@ func (installation *SQLite) ListWebAuthnCredentials(
 	ctx context.Context,
 	accountID int,
 ) ([]WebAuthnCredential, error) {
+	if err := requireActor(ctx, "SQLite.ListWebAuthnCredentials"); err != nil {
+		return []WebAuthnCredential(nil), err
+	}
+
 	found, err := installation.client.WebAuthnCredential.Query().
 		Where(
 			webauthncredential.AccountIDEQ(accountID),
@@ -73,6 +81,10 @@ func (installation *SQLite) WebAuthnAccountByID(
 	ctx context.Context,
 	accountID int,
 ) (WebAuthnAccount, error) {
+	if err := requireActor(ctx, "SQLite.WebAuthnAccountByID"); err != nil {
+		return WebAuthnAccount{}, err
+	}
+
 	return installation.webAuthnAccount(ctx, account.IDEQ(accountID))
 }
 
@@ -81,6 +93,10 @@ func (installation *SQLite) WebAuthnAccountByName(
 	ctx context.Context,
 	normalizedName string,
 ) (WebAuthnAccount, error) {
+	if err := requireActor(ctx, "SQLite.WebAuthnAccountByName"); err != nil {
+		return WebAuthnAccount{}, err
+	}
+
 	return installation.webAuthnAccount(ctx, account.NormalizedNameEQ(normalizedName))
 }
 
@@ -125,6 +141,10 @@ func (transaction *CommandTx) AddWebAuthnCredential(
 	attachment string,
 	now time.Time,
 ) (WebAuthnCredential, error) {
+	if err := requireActor(ctx, "CommandTx.AddWebAuthnCredential"); err != nil {
+		return WebAuthnCredential{}, err
+	}
+
 	if _, err := transaction.transaction.Account.Query().
 		Where(account.IDEQ(accountID), account.DisabledAtIsNil()).
 		Only(ctx); err != nil {
@@ -157,6 +177,10 @@ func (installation *SQLite) CreateWebAuthnSession(
 	now time.Time,
 	expiresAt time.Time,
 ) (AccountCredential, []string, error) {
+	if err := requireActor(ctx, "SQLite.CreateWebAuthnSession"); err != nil {
+		return AccountCredential{}, []string(nil), err
+	}
+
 	type webAuthnSession struct {
 		credential AccountCredential
 		revoked    []string
@@ -211,6 +235,10 @@ func (transaction *CommandTx) RemovePassword(
 	accountID int,
 	now time.Time,
 ) (int, error) {
+	if err := requireActor(ctx, "CommandTx.RemovePassword"); err != nil {
+		return 0, err
+	}
+
 	credential, err := transaction.transaction.PasswordCredential.Query().Where(
 		passwordcredential.AccountIDEQ(accountID),
 		passwordcredential.RevokedAtIsNil(),
@@ -245,6 +273,10 @@ func (transaction *CommandTx) RevokeWebAuthnCredential(
 	credentialID int,
 	now time.Time,
 ) error {
+	if err := requireActor(ctx, "CommandTx.RevokeWebAuthnCredential"); err != nil {
+		return err
+	}
+
 	stored, err := transaction.transaction.WebAuthnCredential.Query().Where(
 		webauthncredential.IDEQ(credentialID),
 		webauthncredential.AccountIDEQ(accountID),

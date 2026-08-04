@@ -12,7 +12,6 @@ import (
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/prizegivingvalue"
 	"github.com/dotwaffle/beamers/internal/store"
-	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
 var (
@@ -104,7 +103,7 @@ func (service *Service) GetPrizegivingPlan(
 	if eventID <= 0 || ceremonySessionID <= 0 {
 		return PrizegivingPlan{}, ErrInvalidInput
 	}
-	if !actor.HasCapability(eventID, viewer.ViewResults) {
+	if !authz.Holds(actor.Identity(), eventID, authz.ViewResults) {
 		return PrizegivingPlan{}, ErrViewRequired
 	}
 	found, err := service.storage.LoadPrizegivingPlan(
@@ -325,7 +324,7 @@ func (service *Service) PreviewPrizegiving(
 			mode != PrizegivingPreviewModeRehearsal {
 		return PrizegivingPreview{}, ErrInvalidInput
 	}
-	if !actor.HasCapability(eventID, viewer.ViewResults) {
+	if !authz.Holds(actor.Identity(), eventID, authz.ViewResults) {
 		return PrizegivingPreview{}, ErrViewRequired
 	}
 	found, err := service.storage.LoadPrizegivingPreview(

@@ -31,6 +31,10 @@ func (installation *SQLite) RecordHostInterfaceMode(
 	target string,
 	enabled bool,
 ) error {
+	if err := requireActor(ctx, "SQLite.RecordHostInterfaceMode"); err != nil {
+		return err
+	}
+
 	if installation == nil || installation.client == nil {
 		return ErrUninitialized
 	}
@@ -75,6 +79,10 @@ func (installation *SQLite) RecordHostInterfaceMode(
 
 // ListAuditEntries returns installation-lifetime history in creation order.
 func (installation *SQLite) ListAuditEntries(ctx context.Context) ([]AuditEntry, error) {
+	if err := requireActor(ctx, "SQLite.ListAuditEntries"); err != nil {
+		return []AuditEntry(nil), err
+	}
+
 	found, err := installation.client.AuditEntry.Query().
 		WithActor().
 		Order(ent.Asc("id")).

@@ -25,6 +25,10 @@ func (transaction *CommandTx) SessionLaneScope(
 	ctx context.Context,
 	eventID, sessionID int,
 ) (authz.Facts, error) {
+	if err := requireActor(ctx, "CommandTx.SessionLaneScope"); err != nil {
+		return authz.Facts{}, err
+	}
+
 	found, err := transaction.transaction.Session.Query().
 		Where(session.IDEQ(sessionID), session.EventIDEQ(eventID)).
 		Only(ctx)
@@ -58,6 +62,10 @@ func (transaction *CommandTx) LiveSessionLaneScope(
 	ctx context.Context,
 	eventID, sessionID int,
 ) (authz.Facts, error) {
+	if err := requireActor(ctx, "CommandTx.LiveSessionLaneScope"); err != nil {
+		return authz.Facts{}, err
+	}
+
 	found, err := transaction.transaction.Session.Query().
 		Where(session.IDEQ(sessionID), session.EventIDEQ(eventID)).
 		Only(ctx)
@@ -91,6 +99,10 @@ func (transaction *CommandTx) StageMessageScope(
 	ctx context.Context,
 	params ActivateStageMessageParams,
 ) (authz.Facts, error) {
+	if err := requireActor(ctx, "CommandTx.StageMessageScope"); err != nil {
+		return authz.Facts{}, err
+	}
+
 	if err := transaction.requireActiveEvent(ctx, params.EventID); err != nil {
 		return authz.Facts{}, err
 	}
@@ -114,6 +126,10 @@ func (transaction *CommandTx) TechnicalDifficultiesScope(
 	ctx context.Context,
 	params ActivateTechnicalDifficultiesParams,
 ) (authz.Facts, error) {
+	if err := requireActor(ctx, "CommandTx.TechnicalDifficultiesScope"); err != nil {
+		return authz.Facts{}, err
+	}
+
 	if err := transaction.requireActiveEvent(ctx, params.EventID); err != nil {
 		return authz.Facts{}, err
 	}
@@ -130,6 +146,10 @@ func (transaction *CommandTx) PriorityOverrideScope(
 	ctx context.Context,
 	params ActivatePriorityOverrideParams,
 ) (authz.Facts, error) {
+	if err := requireActor(ctx, "CommandTx.PriorityOverrideScope"); err != nil {
+		return authz.Facts{}, err
+	}
+
 	if err := transaction.requireActiveEvent(ctx, params.EventID); err != nil {
 		return authz.Facts{}, err
 	}
@@ -149,6 +169,10 @@ func (transaction *CommandTx) ClearDisplayOverrideScope(
 	ctx context.Context,
 	eventID, overrideID int,
 ) (authz.Facts, error) {
+	if err := requireActor(ctx, "CommandTx.ClearDisplayOverrideScope"); err != nil {
+		return authz.Facts{}, err
+	}
+
 	found, err := transaction.transaction.DisplayOverride.Query().
 		Where(
 			displayoverride.IDEQ(overrideID),

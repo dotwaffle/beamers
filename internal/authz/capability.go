@@ -165,6 +165,17 @@ var capabilities = map[Capability]class{
 	ManageResults:  classGrantable,
 }
 
+// Holds reports whether identity holds capability for eventID, expanding
+// roles to Capabilities exactly as the table evaluator does.
+//
+// It exists for the read entrypoints ADR 0061 says reuse this evaluator: a
+// read has no Command Receipt to commit, so it has no Capability Table row
+// to evaluate against, and asks the capability question directly instead of
+// through Evaluate or EvaluateCapabilities.
+func Holds(identity viewer.Identity, eventID int, capability Capability) bool {
+	return holds(identity, eventID, capability)
+}
+
 // Known reports whether capability is in the closed enum.
 func Known(capability Capability) bool {
 	_, ok := capabilities[capability]

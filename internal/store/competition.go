@@ -263,6 +263,10 @@ type AttachmentReadiness struct {
 
 // LoadCompetition returns current published Competition configuration and Entries.
 func (installation *SQLite) LoadCompetition(ctx context.Context, eventID, sessionID int) (CompetitionState, error) {
+	if err := requireActor(ctx, "SQLite.LoadCompetition"); err != nil {
+		return CompetitionState{}, err
+	}
+
 	state, found, err := loadCompetitionConfiguration(
 		ctx, installation.client.Session, installation.client.Event, eventID, sessionID,
 	)
@@ -306,6 +310,10 @@ func (installation *SQLite) LoadAccountCompetitionSubmissions(
 	accountID int,
 	now time.Time,
 ) ([]SubmissionCompetition, error) {
+	if err := requireActor(ctx, "SQLite.LoadAccountCompetitionSubmissions"); err != nil {
+		return []SubmissionCompetition(nil), err
+	}
+
 	enabled, err := installation.client.Account.Query().
 		Where(account.IDEQ(accountID), account.DisabledAtIsNil()).
 		Exist(ctx)
@@ -392,6 +400,10 @@ func (installation *SQLite) LoadAccountCompetitionSubmissions(
 
 // ListSubmissionAccounts returns enabled Accounts for Producer assignment.
 func (installation *SQLite) ListSubmissionAccounts(ctx context.Context) ([]SubmissionAccount, error) {
+	if err := requireActor(ctx, "SQLite.ListSubmissionAccounts"); err != nil {
+		return []SubmissionAccount(nil), err
+	}
+
 	found, err := installation.client.Account.Query().
 		Where(account.DisabledAtIsNil()).
 		WithProfile().
@@ -419,6 +431,10 @@ func (installation *SQLite) PreflightCompetitionStart(
 	ctx context.Context,
 	eventID, sessionID int,
 ) (CompetitionPreflight, error) {
+	if err := requireActor(ctx, "SQLite.PreflightCompetitionStart"); err != nil {
+		return CompetitionPreflight{}, err
+	}
+
 	return withReadTx(ctx, installation.client, "Competition Preflight", func(transaction *ent.Tx) (CompetitionPreflight, error) {
 		return loadCompetitionPreflight(ctx, transaction.Client(), eventID, sessionID, false)
 	})
@@ -429,6 +445,10 @@ func (transaction *CommandTx) PreflightCompetitionStart(
 	ctx context.Context,
 	eventID, sessionID int,
 ) (CompetitionPreflight, error) {
+	if err := requireActor(ctx, "CommandTx.PreflightCompetitionStart"); err != nil {
+		return CompetitionPreflight{}, err
+	}
+
 	return loadCompetitionPreflight(ctx, transaction.transaction.Client(), eventID, sessionID, true)
 }
 
@@ -561,6 +581,10 @@ func loadCompetitionPreflight(
 
 // CreateCompetitionEntry creates one Entry using the effective default disposition.
 func (transaction *CommandTx) CreateCompetitionEntry(ctx context.Context, params CreateCompetitionEntryParams) (CompetitionEntry, error) {
+	if err := requireActor(ctx, "CommandTx.CreateCompetitionEntry"); err != nil {
+		return CompetitionEntry{}, err
+	}
+
 	state, _, err := transaction.competitionConfiguration(ctx, params.EventID, params.SessionID)
 	if err != nil {
 		return CompetitionEntry{}, err
@@ -576,6 +600,10 @@ func (transaction *CommandTx) CreateSubmittedCompetitionEntry(
 	ctx context.Context,
 	params CreateSubmittedCompetitionEntryParams,
 ) (CompetitionEntry, error) {
+	if err := requireActor(ctx, "CommandTx.CreateSubmittedCompetitionEntry"); err != nil {
+		return CompetitionEntry{}, err
+	}
+
 	state, _, err := transaction.competitionConfiguration(
 		ctx,
 		params.EventID,
@@ -645,6 +673,10 @@ func (transaction *CommandTx) createCompetitionEntry(
 
 // UpdateCompetitionEntry changes retained Entry content before the Deadline.
 func (transaction *CommandTx) UpdateCompetitionEntry(ctx context.Context, params UpdateCompetitionEntryParams) (CompetitionEntry, error) {
+	if err := requireActor(ctx, "CommandTx.UpdateCompetitionEntry"); err != nil {
+		return CompetitionEntry{}, err
+	}
+
 	state, _, err := transaction.competitionConfiguration(ctx, params.EventID, params.SessionID)
 	if err != nil {
 		return CompetitionEntry{}, err
@@ -685,6 +717,10 @@ func (transaction *CommandTx) UpdateSubmittedCompetitionEntry(
 	ctx context.Context,
 	params UpdateSubmittedCompetitionEntryParams,
 ) (CompetitionEntry, error) {
+	if err := requireActor(ctx, "CommandTx.UpdateSubmittedCompetitionEntry"); err != nil {
+		return CompetitionEntry{}, err
+	}
+
 	if _, _, err := transaction.competitionConfiguration(
 		ctx,
 		params.EventID,
@@ -747,6 +783,10 @@ func (transaction *CommandTx) AssignCompetitionEntrySubmitter(
 	ctx context.Context,
 	params AssignCompetitionEntrySubmitterParams,
 ) (CompetitionEntry, error) {
+	if err := requireActor(ctx, "CommandTx.AssignCompetitionEntrySubmitter"); err != nil {
+		return CompetitionEntry{}, err
+	}
+
 	entry, err := transaction.competitionEntry(
 		ctx,
 		params.EventID,
@@ -786,6 +826,10 @@ func (transaction *CommandTx) ConfigureCompetitionSubmissionEligibility(
 	ctx context.Context,
 	params ConfigureSubmissionEligibilityParams,
 ) (SubmissionEligibility, error) {
+	if err := requireActor(ctx, "CommandTx.ConfigureCompetitionSubmissionEligibility"); err != nil {
+		return SubmissionEligibility{}, err
+	}
+
 	state, found, err := transaction.competitionConfiguration(
 		ctx,
 		params.EventID,
@@ -825,6 +869,10 @@ func (transaction *CommandTx) ConfigureCompetitionReadiness(
 	ctx context.Context,
 	params ConfigureCompetitionReadinessParams,
 ) (CompetitionReadiness, error) {
+	if err := requireActor(ctx, "CommandTx.ConfigureCompetitionReadiness"); err != nil {
+		return CompetitionReadiness{}, err
+	}
+
 	_, found, err := transaction.competitionConfiguration(ctx, params.EventID, params.SessionID)
 	if err != nil {
 		return CompetitionReadiness{}, err
@@ -848,6 +896,10 @@ func (transaction *CommandTx) ReviewCompetitionEntry(
 	ctx context.Context,
 	params ReviewCompetitionEntryParams,
 ) (CompetitionEntry, error) {
+	if err := requireActor(ctx, "CommandTx.ReviewCompetitionEntry"); err != nil {
+		return CompetitionEntry{}, err
+	}
+
 	if _, _, err := transaction.competitionConfiguration(
 		ctx, params.EventID, params.SessionID,
 	); err != nil {
@@ -897,6 +949,10 @@ func (transaction *CommandTx) SetEntryAttachmentReadiness(
 	ctx context.Context,
 	params SetEntryAttachmentReadinessParams,
 ) (AttachmentReadiness, error) {
+	if err := requireActor(ctx, "CommandTx.SetEntryAttachmentReadiness"); err != nil {
+		return AttachmentReadiness{}, err
+	}
+
 	if _, _, err := transaction.competitionConfiguration(
 		ctx, params.EventID, params.SessionID,
 	); err != nil {
@@ -971,6 +1027,10 @@ func (transaction *CommandTx) ChangeCompetitionEntryDisposition(
 	ctx context.Context,
 	params ChangeCompetitionEntryDispositionParams,
 ) (CompetitionEntry, error) {
+	if err := requireActor(ctx, "CommandTx.ChangeCompetitionEntryDisposition"); err != nil {
+		return CompetitionEntry{}, err
+	}
+
 	state, found, err := transaction.competitionConfiguration(ctx, params.EventID, params.SessionID)
 	if err != nil {
 		return CompetitionEntry{}, err

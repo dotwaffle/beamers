@@ -30,6 +30,10 @@ func (transaction *CommandTx) UpdateDisplayConfiguration(
 	ctx context.Context,
 	params UpdateDisplayConfigurationParams,
 ) (DisplayConfigurationState, error) {
+	if err := requireActor(ctx, "CommandTx.UpdateDisplayConfiguration"); err != nil {
+		return DisplayConfigurationState{}, err
+	}
+
 	updated, err := transaction.transaction.Event.UpdateOneID(params.EventID).
 		Where(event.RevisionEQ(params.ExpectedEventRevision)).
 		SetDisplayConfiguration(params.Configuration).
@@ -54,6 +58,10 @@ func (installation *SQLite) FindDisplayConfiguration(
 	accountID int,
 	eventID int,
 ) (DisplayConfigurationState, error) {
+	if err := requireActor(ctx, "SQLite.FindDisplayConfiguration"); err != nil {
+		return DisplayConfigurationState{}, err
+	}
+
 	found, err := installation.client.Event.Query().Where(
 		event.IDEQ(eventID),
 		event.HasGrantsWith(eventgrant.AccountIDEQ(accountID)),

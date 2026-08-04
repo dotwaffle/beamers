@@ -60,7 +60,7 @@ func (service *Service) GetEventAwards(
 	if eventID <= 0 {
 		return EventAwardsDraft{}, ErrInvalidInput
 	}
-	if !actor.HasCapability(eventID, viewer.ViewResults) {
+	if !authz.Holds(actor.Identity(), eventID, authz.ViewResults) {
 		return EventAwardsDraft{}, ErrViewRequired
 	}
 	found, err := service.storage.LoadEventAwardsDraft(actor.Context(ctx), eventID)

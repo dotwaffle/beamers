@@ -91,6 +91,10 @@ func (installationStore *SQLite) LoadDisplaySnapshot(
 	credentialHash string,
 	now time.Time,
 ) (DisplaySnapshotState, error) {
+	if err := requireActor(ctx, "SQLite.LoadDisplaySnapshot"); err != nil {
+		return DisplaySnapshotState{}, err
+	}
+
 	transaction, err := installationStore.reader.Tx(ctx)
 	if err != nil {
 		return DisplaySnapshotState{}, opaqueError("begin Display Snapshot", err)

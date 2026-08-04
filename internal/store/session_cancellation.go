@@ -27,6 +27,10 @@ func (transaction *CommandTx) CancelSession(
 	ctx context.Context,
 	params CancelSessionParams,
 ) (LiveSessionState, error) {
+	if err := requireActor(ctx, "CommandTx.CancelSession"); err != nil {
+		return LiveSessionState{}, err
+	}
+
 	if err := transaction.requireActiveEvent(ctx, params.EventID); err != nil {
 		return LiveSessionState{}, err
 	}

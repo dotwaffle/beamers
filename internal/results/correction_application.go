@@ -11,7 +11,6 @@ import (
 	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
-	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
 var (
@@ -125,7 +124,7 @@ func (service *Service) GetCorrection(
 		!validCorrectionScope(scope) {
 		return Correction{}, ErrInvalidInput
 	}
-	if !actor.HasCapability(eventID, viewer.ViewResults) {
+	if !authz.Holds(actor.Identity(), eventID, authz.ViewResults) {
 		return Correction{}, ErrViewRequired
 	}
 	found, err := service.storage.LoadResultsCorrection(
@@ -153,7 +152,7 @@ func (service *Service) GetCorrectionHistory(
 		!validCorrectionScope(scope) {
 		return CorrectionHistory{}, ErrInvalidInput
 	}
-	if !actor.HasCapability(eventID, viewer.ViewResults) {
+	if !authz.Holds(actor.Identity(), eventID, authz.ViewResults) {
 		return CorrectionHistory{}, ErrViewRequired
 	}
 	storedCorrections, err := service.storage.ListResultsCorrectionHistory(

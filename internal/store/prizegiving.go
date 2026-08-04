@@ -154,6 +154,10 @@ func (transaction *CommandTx) LoadStandaloneResultsReleaseState(
 	ctx context.Context,
 	eventID, competitionSessionID int,
 ) (PrizegivingCompetitionPreflightState, error) {
+	if err := requireActor(ctx, "CommandTx.LoadStandaloneResultsReleaseState"); err != nil {
+		return PrizegivingCompetitionPreflightState{}, err
+	}
+
 	found, err := transaction.transaction.Session.Query().
 		Where(
 			session.IDEQ(competitionSessionID),
@@ -214,6 +218,10 @@ func (installation *SQLite) LoadPrizegivingPlan(
 	ctx context.Context,
 	eventID, ceremonySessionID int,
 ) (PrizegivingPlan, error) {
+	if err := requireActor(ctx, "SQLite.LoadPrizegivingPlan"); err != nil {
+		return PrizegivingPlan{}, err
+	}
+
 	found, err := installation.client.Prizegiving.Query().
 		Where(
 			prizegiving.EventIDEQ(eventID),
@@ -234,6 +242,10 @@ func (installation *SQLite) LoadPrizegivingPreview(
 	ctx context.Context,
 	eventID, ceremonySessionID int,
 ) (PrizegivingPreviewState, error) {
+	if err := requireActor(ctx, "SQLite.LoadPrizegivingPreview"); err != nil {
+		return PrizegivingPreviewState{}, err
+	}
+
 	plan, err := installation.LoadPrizegivingPlan(ctx, eventID, ceremonySessionID)
 	if err != nil {
 		return PrizegivingPreviewState{}, err
@@ -294,6 +306,10 @@ func (transaction *CommandTx) LoadPrizegivingPlan(
 	ctx context.Context,
 	eventID, ceremonySessionID int,
 ) (PrizegivingPlan, error) {
+	if err := requireActor(ctx, "CommandTx.LoadPrizegivingPlan"); err != nil {
+		return PrizegivingPlan{}, err
+	}
+
 	found, err := transaction.transaction.Prizegiving.Query().
 		Where(
 			prizegiving.EventIDEQ(eventID),
@@ -314,6 +330,10 @@ func (transaction *CommandTx) LoadPrizegivingPreflightState(
 	ctx context.Context,
 	eventID, ceremonySessionID int,
 ) (PrizegivingPreflightState, error) {
+	if err := requireActor(ctx, "CommandTx.LoadPrizegivingPreflightState"); err != nil {
+		return PrizegivingPreflightState{}, err
+	}
+
 	plan, err := transaction.LoadPrizegivingPlan(ctx, eventID, ceremonySessionID)
 	if err != nil {
 		return PrizegivingPreflightState{}, err
@@ -390,6 +410,10 @@ func (transaction *CommandTx) LoadPrizegivingDefaultOrderState(
 	eventID, ceremonySessionID int,
 	competitionSessionIDs []int,
 ) (PrizegivingDefaultOrderState, error) {
+	if err := requireActor(ctx, "CommandTx.LoadPrizegivingDefaultOrderState"); err != nil {
+		return PrizegivingDefaultOrderState{}, err
+	}
+
 	state := PrizegivingDefaultOrderState{
 		Competitions: make(
 			[]PrizegivingCompetitionOrderState,
@@ -438,6 +462,10 @@ func (transaction *CommandTx) SavePrizegivingPlan(
 	ctx context.Context,
 	params SavePrizegivingPlanParams,
 ) (PrizegivingPlan, error) {
+	if err := requireActor(ctx, "CommandTx.SavePrizegivingPlan"); err != nil {
+		return PrizegivingPlan{}, err
+	}
+
 	if params.ReleasePolicy == "" {
 		params.ReleasePolicy = prizegivingvalue.ReleaseProgressiveOnReveal
 	}
@@ -589,6 +617,10 @@ func (transaction *CommandTx) LockPrizegivingPlan(
 	lockedByAccountID int,
 	lockedAt time.Time,
 ) (PrizegivingPlan, error) {
+	if err := requireActor(ctx, "CommandTx.LockPrizegivingPlan"); err != nil {
+		return PrizegivingPlan{}, err
+	}
+
 	found, err := transaction.transaction.Prizegiving.Query().
 		Where(
 			prizegiving.EventIDEQ(eventID),

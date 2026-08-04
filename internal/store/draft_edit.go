@@ -119,6 +119,10 @@ func (transaction *CommandTx) EditDraft(
 	ctx context.Context,
 	params EditDraftParams,
 ) (EditDraftResult, error) {
+	if err := requireActor(ctx, "CommandTx.EditDraft"); err != nil {
+		return EditDraftResult{}, err
+	}
+
 	current, err := transaction.transaction.Rundown.Query().
 		Where(rundown.EventIDEQ(params.EventID)).
 		Only(ctx)

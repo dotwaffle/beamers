@@ -116,6 +116,10 @@ func (transaction *CommandTx) ConfigureEventAttachmentRelease(
 	ctx context.Context,
 	params ConfigureEventAttachmentReleaseParams,
 ) (AttachmentReleaseConfiguration, error) {
+	if err := requireActor(ctx, "CommandTx.ConfigureEventAttachmentRelease"); err != nil {
+		return AttachmentReleaseConfiguration{}, err
+	}
+
 	if !validAttachmentReleasePolicy(params.Policy) {
 		return AttachmentReleaseConfiguration{}, ErrAttachmentReleasePolicy
 	}
@@ -182,6 +186,10 @@ func (transaction *CommandTx) ConfigureCompetitionAttachmentRelease(
 	ctx context.Context,
 	params ConfigureCompetitionAttachmentReleaseParams,
 ) (CompetitionAttachmentReleaseConfiguration, error) {
+	if err := requireActor(ctx, "CommandTx.ConfigureCompetitionAttachmentRelease"); err != nil {
+		return CompetitionAttachmentReleaseConfiguration{}, err
+	}
+
 	if params.Override && !validAttachmentReleasePolicy(params.Policy) {
 		return CompetitionAttachmentReleaseConfiguration{}, ErrAttachmentReleasePolicy
 	}
@@ -234,6 +242,10 @@ func (transaction *CommandTx) FireEventAttachmentReleaseCue(
 	previewFingerprint string,
 	now time.Time,
 ) (AttachmentReleaseConfiguration, error) {
+	if err := requireActor(ctx, "CommandTx.FireEventAttachmentReleaseCue"); err != nil {
+		return AttachmentReleaseConfiguration{}, err
+	}
+
 	found, err := transaction.transaction.Event.Query().Where(event.IDEQ(eventID)).Only(ctx)
 	if ent.IsNotFound(err) {
 		return AttachmentReleaseConfiguration{}, ErrUploadTargetNotFound
@@ -274,6 +286,10 @@ func (installationStore *SQLite) PreviewEventAttachmentReleaseCue(
 	ctx context.Context,
 	eventID int,
 ) (AttachmentReleaseCuePreview, error) {
+	if err := requireActor(ctx, "SQLite.PreviewEventAttachmentReleaseCue"); err != nil {
+		return AttachmentReleaseCuePreview{}, err
+	}
+
 	return attachmentReleaseCuePreview(ctx, installationStore.client, eventID)
 }
 
@@ -421,6 +437,10 @@ func (transaction *CommandTx) SetAttachmentVersionRelease(
 	ctx context.Context,
 	params SetAttachmentVersionReleaseParams,
 ) (AttachmentVersion, error) {
+	if err := requireActor(ctx, "CommandTx.SetAttachmentVersionRelease"); err != nil {
+		return AttachmentVersion{}, err
+	}
+
 	version, err := transaction.transaction.AttachmentVersion.Query().
 		Where(attachmentversion.IDEQ(params.VersionID)).
 		WithAttachment().
@@ -452,6 +472,10 @@ func (transaction *CommandTx) SetAttachmentVersionRelease(
 func (installationStore *SQLite) LoadReleasedAttachmentVersions(
 	ctx context.Context,
 ) ([]AttachmentVersion, error) {
+	if err := requireActor(ctx, "SQLite.LoadReleasedAttachmentVersions"); err != nil {
+		return []AttachmentVersion(nil), err
+	}
+
 	active, err := installationStore.client.Installation.Query().
 		Where(installation.ActiveEventIDNotNil()).
 		Only(ctx)
@@ -523,6 +547,10 @@ func (installationStore *SQLite) LoadFinalFileVersions(
 	ctx context.Context,
 	eventID int,
 ) ([]FinalFileVersion, error) {
+	if err := requireActor(ctx, "SQLite.LoadFinalFileVersions"); err != nil {
+		return []FinalFileVersion(nil), err
+	}
+
 	foundEvent, err := installationStore.client.Event.Get(ctx, eventID)
 	if ent.IsNotFound(err) {
 		return nil, ErrUploadTargetNotFound
@@ -594,6 +622,10 @@ func (installationStore *SQLite) LoadReleasedAttachmentVersion(
 	ctx context.Context,
 	versionID int,
 ) (AttachmentVersion, error) {
+	if err := requireActor(ctx, "SQLite.LoadReleasedAttachmentVersion"); err != nil {
+		return AttachmentVersion{}, err
+	}
+
 	versions, err := installationStore.LoadReleasedAttachmentVersions(ctx)
 	if err != nil {
 		return AttachmentVersion{}, err

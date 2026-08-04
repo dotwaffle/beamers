@@ -636,8 +636,7 @@ func confirmationMatches(confirmation PublishConfirmation, preview PublishPrevie
 }
 
 func canReadEvent(actor auth.Account, eventID int) bool {
-	_, exists := actor.EventRoles[eventID]
-	return exists
+	return authz.Holds(actor.Identity(), eventID, authz.ViewEventCrew)
 }
 
 // CrewRundown is the current Published structural projection for authorized crew.

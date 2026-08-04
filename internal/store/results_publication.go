@@ -134,6 +134,10 @@ func (transaction *CommandTx) AppendResultsPublication(
 	ctx context.Context,
 	params AppendResultsPublicationParams,
 ) (ResultsPublication, error) {
+	if err := requireActor(ctx, "CommandTx.AppendResultsPublication"); err != nil {
+		return ResultsPublication{}, err
+	}
+
 	current, found, err := loadResultsPublication(
 		ctx,
 		transaction.transaction.Client(),
@@ -258,6 +262,10 @@ func (transaction *CommandTx) LoadResultsPublicationRenderSource(
 	eventID int,
 	lock PrizegivingPreflightLock,
 ) (ResultsPublicationRenderSource, error) {
+	if err := requireActor(ctx, "CommandTx.LoadResultsPublicationRenderSource"); err != nil {
+		return ResultsPublicationRenderSource{}, err
+	}
+
 	return loadResultsPublicationRenderSource(
 		ctx,
 		transaction.transaction.Client(),
@@ -272,6 +280,10 @@ func (installation *SQLite) LoadResultsPublicationRenderSource(
 	eventID int,
 	lock PrizegivingPreflightLock,
 ) (ResultsPublicationRenderSource, error) {
+	if err := requireActor(ctx, "SQLite.LoadResultsPublicationRenderSource"); err != nil {
+		return ResultsPublicationRenderSource{}, err
+	}
+
 	return loadResultsPublicationRenderSource(
 		ctx,
 		installation.client,
@@ -428,6 +440,10 @@ func (installation *SQLite) LoadResultsPublication(
 	scope ResultsPublicationScope,
 	scopeSessionID int,
 ) (ResultsPublication, error) {
+	if err := requireActor(ctx, "SQLite.LoadResultsPublication"); err != nil {
+		return ResultsPublication{}, err
+	}
+
 	found, _, err := loadResultsPublication(
 		ctx,
 		installation.client,
@@ -445,6 +461,10 @@ func (installation *SQLite) LoadResultsPublicationRevision(
 	scope ResultsPublicationScope,
 	scopeSessionID, revision int,
 ) (ResultsPublication, bool, error) {
+	if err := requireActor(ctx, "SQLite.LoadResultsPublicationRevision"); err != nil {
+		return ResultsPublication{}, false, err
+	}
+
 	found, err := installation.client.ResultsPublication.Query().
 		Where(
 			resultspublication.EventIDEQ(eventID),
@@ -472,6 +492,10 @@ func (installation *SQLite) ListResultsPublicationHistory(
 	scope ResultsPublicationScope,
 	scopeSessionID int,
 ) ([]ResultsPublication, error) {
+	if err := requireActor(ctx, "SQLite.ListResultsPublicationHistory"); err != nil {
+		return []ResultsPublication(nil), err
+	}
+
 	found, err := installation.client.ResultsPublication.Query().
 		Where(
 			resultspublication.EventIDEQ(eventID),
@@ -497,6 +521,10 @@ func (transaction *CommandTx) LoadResultsPublication(
 	scope ResultsPublicationScope,
 	scopeSessionID int,
 ) (ResultsPublication, error) {
+	if err := requireActor(ctx, "CommandTx.LoadResultsPublication"); err != nil {
+		return ResultsPublication{}, err
+	}
+
 	found, _, err := loadResultsPublication(
 		ctx,
 		transaction.transaction.Client(),
@@ -512,6 +540,10 @@ func (transaction *CommandTx) LoadEventResultsAggregateState(
 	ctx context.Context,
 	eventID int,
 ) (EventResultsAggregateState, error) {
+	if err := requireActor(ctx, "CommandTx.LoadEventResultsAggregateState"); err != nil {
+		return EventResultsAggregateState{}, err
+	}
+
 	client := transaction.transaction.Client()
 	sessions, err := client.Session.Query().
 		Where(session.EventIDEQ(eventID)).

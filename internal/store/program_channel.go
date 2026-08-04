@@ -177,6 +177,10 @@ func (installation *SQLite) LoadProgramChannelAt(
 	eventID, sessionID int,
 	observedAt time.Time,
 ) (ProgramChannelState, error) {
+	if err := requireActor(ctx, "SQLite.LoadProgramChannelAt"); err != nil {
+		return ProgramChannelState{}, err
+	}
+
 	return withReadTx(
 		ctx, installation.readClient(), "load Program Channel",
 		func(transaction *ent.Tx) (ProgramChannelState, error) {
@@ -203,6 +207,10 @@ func (transaction *CommandTx) LoadProgramChannelAt(
 	eventID, sessionID int,
 	observedAt time.Time,
 ) (ProgramChannelState, error) {
+	if err := requireActor(ctx, "CommandTx.LoadProgramChannelAt"); err != nil {
+		return ProgramChannelState{}, err
+	}
+
 	return loadProgramChannel(
 		ctx, transaction.transaction.Client(), eventID, sessionID, observedAt,
 	)
@@ -213,6 +221,10 @@ func (transaction *CommandTx) TakeProgramItem(
 	ctx context.Context,
 	params TakeProgramItemParams,
 ) (ProgramChannelState, error) {
+	if err := requireActor(ctx, "CommandTx.TakeProgramItem"); err != nil {
+		return ProgramChannelState{}, err
+	}
+
 	if err := transaction.requireActiveEvent(ctx, params.EventID); err != nil {
 		return ProgramChannelState{}, err
 	}
@@ -305,6 +317,10 @@ func (transaction *CommandTx) ApplyPrizegivingResultAction(
 	ctx context.Context,
 	params PrizegivingResultActionParams,
 ) (ProgramChannelState, error) {
+	if err := requireActor(ctx, "CommandTx.ApplyPrizegivingResultAction"); err != nil {
+		return ProgramChannelState{}, err
+	}
+
 	if err := transaction.requireActiveEvent(ctx, params.EventID); err != nil {
 		return ProgramChannelState{}, err
 	}
@@ -371,6 +387,10 @@ func (transaction *CommandTx) SkipPrizegivingResultFromStage(
 	ctx context.Context,
 	params SkipPrizegivingResultFromStageParams,
 ) (ProgramChannelState, error) {
+	if err := requireActor(ctx, "CommandTx.SkipPrizegivingResultFromStage"); err != nil {
+		return ProgramChannelState{}, err
+	}
+
 	if err := transaction.requireActiveEvent(ctx, params.EventID); err != nil {
 		return ProgramChannelState{}, err
 	}

@@ -67,6 +67,10 @@ func (installationStore *SQLite) PreviewReinstateSession(
 	laneIDs []int,
 	locationIDs []int,
 ) (ReinstatePreview, error) {
+	if err := requireActor(ctx, "SQLite.PreviewReinstateSession"); err != nil {
+		return ReinstatePreview{}, err
+	}
+
 	return withReadTx(ctx, installationStore.client, "Reinstate Session preview", func(transaction *ent.Tx) (ReinstatePreview, error) {
 		return previewReinstateSession(
 			ctx, transaction.Client(), eventID, sessionID,
@@ -80,6 +84,10 @@ func (transaction *CommandTx) ReinstateSession(
 	ctx context.Context,
 	params ReinstateSessionParams,
 ) (ReinstateSessionResult, error) {
+	if err := requireActor(ctx, "CommandTx.ReinstateSession"); err != nil {
+		return ReinstateSessionResult{}, err
+	}
+
 	if !params.Confirmed {
 		return ReinstateSessionResult{}, ErrReinstateConfirmation
 	}

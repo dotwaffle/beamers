@@ -34,6 +34,10 @@ func (transaction *CommandTx) CreateInstallationThemeRevision(
 	createdByAccountID int,
 	now time.Time,
 ) (InstallationThemeRevision, error) {
+	if err := requireActor(ctx, "CommandTx.CreateInstallationThemeRevision"); err != nil {
+		return InstallationThemeRevision{}, err
+	}
+
 	created, err := transaction.transaction.InstallationThemeRevision.Create().
 		SetConfig(config).
 		SetCreatedByAccountID(createdByAccountID).
@@ -51,6 +55,10 @@ func (transaction *CommandTx) ActivateInstallationThemeRevision(
 	revisionID int,
 	expectedActiveRevisionID int,
 ) (InstallationThemeRevision, error) {
+	if err := requireActor(ctx, "CommandTx.ActivateInstallationThemeRevision"); err != nil {
+		return InstallationThemeRevision{}, err
+	}
+
 	var selected InstallationThemeRevision
 	if revisionID > 0 {
 		found, err := transaction.transaction.InstallationThemeRevision.Get(ctx, revisionID)
@@ -94,6 +102,10 @@ func (installationStore *SQLite) LoadInstallationThemeRevision(
 	ctx context.Context,
 	revisionID int,
 ) (InstallationThemeRevision, error) {
+	if err := requireActor(ctx, "SQLite.LoadInstallationThemeRevision"); err != nil {
+		return InstallationThemeRevision{}, err
+	}
+
 	return loadInstallationThemeRevision(ctx, installationStore.client, revisionID)
 }
 
@@ -102,6 +114,10 @@ func (transaction *CommandTx) LoadInstallationThemeRevision(
 	ctx context.Context,
 	revisionID int,
 ) (InstallationThemeRevision, error) {
+	if err := requireActor(ctx, "CommandTx.LoadInstallationThemeRevision"); err != nil {
+		return InstallationThemeRevision{}, err
+	}
+
 	return loadInstallationThemeRevision(ctx, transaction.transaction.Client(), revisionID)
 }
 
@@ -124,6 +140,10 @@ func loadInstallationThemeRevision(
 func (installationStore *SQLite) ListInstallationThemeRevisions(
 	ctx context.Context,
 ) ([]InstallationThemeRevision, error) {
+	if err := requireActor(ctx, "SQLite.ListInstallationThemeRevisions"); err != nil {
+		return []InstallationThemeRevision(nil), err
+	}
+
 	found, err := installationStore.client.InstallationThemeRevision.Query().
 		Order(ent.Desc(installationthemerevision.FieldID)).
 		All(ctx)
@@ -141,6 +161,10 @@ func (installationStore *SQLite) ListInstallationThemeRevisions(
 func (installationStore *SQLite) LoadActiveInstallationThemeRevision(
 	ctx context.Context,
 ) (InstallationThemeRevision, error) {
+	if err := requireActor(ctx, "SQLite.LoadActiveInstallationThemeRevision"); err != nil {
+		return InstallationThemeRevision{}, err
+	}
+
 	return loadActiveInstallationThemeRevision(
 		ctx,
 		installationStore.client,
@@ -152,6 +176,10 @@ func (installationStore *SQLite) LoadActiveInstallationThemeRevision(
 func (transaction *CommandTx) LoadActiveInstallationThemeRevision(
 	ctx context.Context,
 ) (InstallationThemeRevision, error) {
+	if err := requireActor(ctx, "CommandTx.LoadActiveInstallationThemeRevision"); err != nil {
+		return InstallationThemeRevision{}, err
+	}
+
 	return loadActiveInstallationThemeRevision(
 		ctx,
 		transaction.transaction.Client(),

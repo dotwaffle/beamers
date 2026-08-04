@@ -48,6 +48,10 @@ func (installationStore *SQLite) RecordDisplayAcknowledgment(
 	credentialHash string,
 	applied DisplayAcknowledgment,
 ) (DisplayAcknowledgment, error) {
+	if err := requireActor(ctx, "SQLite.RecordDisplayAcknowledgment"); err != nil {
+		return DisplayAcknowledgment{}, err
+	}
+
 	return withTx(ctx, installationStore.client, "Display acknowledgment", func(transaction *ent.Tx) (DisplayAcknowledgment, error) {
 		return recordDisplayAcknowledgment(ctx, transaction, credentialHash, applied)
 	})

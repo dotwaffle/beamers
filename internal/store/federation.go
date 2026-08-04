@@ -31,6 +31,10 @@ func (transaction *CommandTx) LinkFederatedIdentity(
 	subject string,
 	now time.Time,
 ) (FederatedIdentity, error) {
+	if err := requireActor(ctx, "CommandTx.LinkFederatedIdentity"); err != nil {
+		return FederatedIdentity{}, err
+	}
+
 	if _, err := transaction.transaction.Account.Query().
 		Where(account.IDEQ(accountID), account.DisabledAtIsNil()).
 		Only(ctx); err != nil {
@@ -76,6 +80,10 @@ func (installation *SQLite) ListFederatedIdentities(
 	ctx context.Context,
 	accountID int,
 ) ([]FederatedIdentity, error) {
+	if err := requireActor(ctx, "SQLite.ListFederatedIdentities"); err != nil {
+		return []FederatedIdentity(nil), err
+	}
+
 	found, err := installation.client.FederatedIdentity.Query().
 		Where(
 			federatedidentity.AccountIDEQ(accountID),
@@ -101,6 +109,10 @@ func (installation *SQLite) CreateFederatedSession(
 	ctx context.Context,
 	params FederatedSessionParams,
 ) (AccountCredential, []string, bool, error) {
+	if err := requireActor(ctx, "SQLite.CreateFederatedSession"); err != nil {
+		return AccountCredential{}, []string(nil), false, err
+	}
+
 	result, err := withTx(ctx, installation.client, "federated sign-in", func(transaction *ent.Tx) (federatedSessionResult, error) {
 		return createFederatedSession(ctx, transaction, params)
 	})

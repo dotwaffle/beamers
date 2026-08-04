@@ -46,6 +46,10 @@ func (installationStore *SQLite) PreviewPullForward(
 	eventID int,
 	sessionID int,
 ) (PullForwardPreview, error) {
+	if err := requireActor(ctx, "SQLite.PreviewPullForward"); err != nil {
+		return PullForwardPreview{}, err
+	}
+
 	return withReadTx(ctx, installationStore.client, "Pull Forward preview", func(transaction *ent.Tx) (PullForwardPreview, error) {
 		return previewPullForward(ctx, transaction.Client(), eventID, sessionID)
 	})
@@ -56,6 +60,10 @@ func (transaction *CommandTx) PullForward(
 	ctx context.Context,
 	params PullForwardParams,
 ) (PullForwardAdjustment, error) {
+	if err := requireActor(ctx, "CommandTx.PullForward"); err != nil {
+		return PullForwardAdjustment{}, err
+	}
+
 	if !params.Confirmed {
 		return PullForwardAdjustment{}, ErrPullForwardConfirmation
 	}

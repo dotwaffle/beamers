@@ -151,6 +151,10 @@ func (transaction *CommandTx) StartSession(
 	expectedRevision int,
 	now time.Time,
 ) (LiveSessionState, error) {
+	if err := requireActor(ctx, "CommandTx.StartSession"); err != nil {
+		return LiveSessionState{}, err
+	}
+
 	if err := transaction.requireActiveEvent(ctx, eventID); err != nil {
 		return LiveSessionState{}, err
 	}
@@ -244,6 +248,10 @@ func (transaction *CommandTx) EndSession(
 	deferredEntriesFingerprint string,
 	now time.Time,
 ) (LiveSessionState, error) {
+	if err := requireActor(ctx, "CommandTx.EndSession"); err != nil {
+		return LiveSessionState{}, err
+	}
+
 	if err := transaction.requireActiveEvent(ctx, eventID); err != nil {
 		return LiveSessionState{}, err
 	}
@@ -406,6 +414,10 @@ func (transaction *CommandTx) CorrectLiveDetails(
 	ctx context.Context,
 	params LiveDetailCorrectionParams,
 ) (LiveDetailCorrection, error) {
+	if err := requireActor(ctx, "CommandTx.CorrectLiveDetails"); err != nil {
+		return LiveDetailCorrection{}, err
+	}
+
 	if err := transaction.requireActiveEvent(ctx, params.EventID); err != nil {
 		return LiveDetailCorrection{}, err
 	}
@@ -615,6 +627,10 @@ func (installationStore *SQLite) LoadSessionHistory(
 	eventID int,
 	sessionID int,
 ) (SessionHistory, error) {
+	if err := requireActor(ctx, "SQLite.LoadSessionHistory"); err != nil {
+		return SessionHistory{}, err
+	}
+
 	identity, err := installationStore.client.Session.Query().Where(
 		session.IDEQ(sessionID), session.EventIDEQ(eventID),
 	).Only(ctx)

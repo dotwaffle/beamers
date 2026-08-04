@@ -68,6 +68,10 @@ func (installationStore *SQLite) PreviewSessionTarget(
 	adjustment sessiontarget.Adjustment,
 	now time.Time,
 ) (SessionTargetPreview, error) {
+	if err := requireActor(ctx, "SQLite.PreviewSessionTarget"); err != nil {
+		return SessionTargetPreview{}, err
+	}
+
 	return withReadTx(ctx, installationStore.client, "Adjust Target preview", func(transaction *ent.Tx) (SessionTargetPreview, error) {
 		return previewSessionTarget(ctx, transaction.Client(), eventID, sessionID, adjustment, now)
 	})
@@ -78,6 +82,10 @@ func (transaction *CommandTx) AdjustSessionTarget(
 	ctx context.Context,
 	params AdjustSessionTargetParams,
 ) (SessionTargetAdjustment, error) {
+	if err := requireActor(ctx, "CommandTx.AdjustSessionTarget"); err != nil {
+		return SessionTargetAdjustment{}, err
+	}
+
 	if !params.Confirmed {
 		return SessionTargetAdjustment{}, ErrTargetConfirmation
 	}

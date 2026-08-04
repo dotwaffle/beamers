@@ -278,6 +278,10 @@ func (installation *SQLite) StartupError() error {
 
 // Ready reports whether storage remains usable and on the supported schema.
 func (installation *SQLite) Ready(ctx context.Context) error {
+	if err := requireActor(ctx, "SQLite.Ready"); err != nil {
+		return err
+	}
+
 	if installation.startupErr != nil {
 		return installation.startupErr
 	}

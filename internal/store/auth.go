@@ -53,6 +53,10 @@ const MaxActiveSessionsPerAccount = 8
 
 // SetupRequired reports whether the installation has no Account Credential.
 func (installation *SQLite) SetupRequired(ctx context.Context) (bool, error) {
+	if err := requireActor(ctx, "SQLite.SetupRequired"); err != nil {
+		return false, err
+	}
+
 	credentials, err := activeCredentialCount(ctx, installation.client)
 	if err != nil {
 		return false, err
@@ -85,6 +89,10 @@ type AccountProfile struct {
 
 // ReleasedProfileEntries lists Entries eligible for Public Profile selection.
 func (installation *SQLite) ReleasedProfileEntries(ctx context.Context) ([]ProfileEntry, error) {
+	if err := requireActor(ctx, "SQLite.ReleasedProfileEntries"); err != nil {
+		return []ProfileEntry(nil), err
+	}
+
 	found, err := installation.client.ReleasedProfileEntry.Query().All(ctx)
 	if err != nil {
 		return nil, opaqueError("read released Profile Entries", err)
@@ -113,6 +121,10 @@ func (installation *SQLite) AccountReducedEffects(
 	ctx context.Context,
 	accountID int,
 ) (bool, error) {
+	if err := requireActor(ctx, "SQLite.AccountReducedEffects"); err != nil {
+		return false, err
+	}
+
 	preference, err := installation.client.AccountPreference.Query().
 		Where(accountpreference.AccountIDEQ(accountID)).
 		Only(ctx)
@@ -131,6 +143,10 @@ func (installation *SQLite) SetAccountReducedEffects(
 	accountID int,
 	enabled bool,
 ) error {
+	if err := requireActor(ctx, "SQLite.SetAccountReducedEffects"); err != nil {
+		return err
+	}
+
 	preference, err := installation.client.AccountPreference.Query().
 		Where(accountpreference.AccountIDEQ(accountID)).
 		Only(ctx)
@@ -202,6 +218,10 @@ type RecoveryTokenParams struct {
 // RegistrationOpen reports whether visitors may create Accounts. Visitors have
 // no viewer identity, so the read states its decision explicitly.
 func (installation *SQLite) RegistrationOpen(ctx context.Context) (bool, error) {
+	if err := requireActor(ctx, "SQLite.RegistrationOpen"); err != nil {
+		return false, err
+	}
+
 	found, err := installation.client.RegistrationPolicy.Query().Only(ctx)
 	if ent.IsNotFound(err) {
 		return true, nil
@@ -214,6 +234,10 @@ func (installation *SQLite) RegistrationOpen(ctx context.Context) (bool, error) 
 
 // SetRegistrationOpen updates the installation Registration Policy.
 func (installation *SQLite) SetRegistrationOpen(ctx context.Context, open bool) error {
+	if err := requireActor(ctx, "SQLite.SetRegistrationOpen"); err != nil {
+		return err
+	}
+
 	found, err := installation.client.RegistrationPolicy.Query().Only(ctx)
 	if ent.IsNotFound(err) {
 		_, err = installation.client.RegistrationPolicy.Create().
@@ -233,6 +257,10 @@ func (installation *SQLite) RegisterAccount(
 	ctx context.Context,
 	params CreateAccountParams,
 ) (AccountCredential, error) {
+	if err := requireActor(ctx, "SQLite.RegisterAccount"); err != nil {
+		return AccountCredential{}, err
+	}
+
 	return withTx(ctx, installation.client, "Account registration", func(transaction *ent.Tx) (AccountCredential, error) {
 		return registerAccount(ctx, transaction, params)
 	})
@@ -282,6 +310,10 @@ func (installation *SQLite) AccountProfile(
 	ctx context.Context,
 	accountID int,
 ) (AccountProfile, bool, error) {
+	if err := requireActor(ctx, "SQLite.AccountProfile"); err != nil {
+		return AccountProfile{}, false, err
+	}
+
 	found, err := installation.client.AccountProfile.Query().
 		Where(accountprofile.AccountIDEQ(accountID)).
 		Only(ctx)
@@ -301,6 +333,10 @@ func (installation *SQLite) PublicProfile(
 	ctx context.Context,
 	normalizedHandle string,
 ) (AccountProfile, bool, error) {
+	if err := requireActor(ctx, "SQLite.PublicProfile"); err != nil {
+		return AccountProfile{}, false, err
+	}
+
 	found, err := installation.client.AccountProfile.Query().
 		Where(
 			accountprofile.NormalizedHandleEQ(normalizedHandle),
@@ -332,6 +368,10 @@ func (transaction *CommandTx) UpdateAccountProfile(
 	ctx context.Context,
 	params UpdateAccountProfileParams,
 ) (AccountProfile, error) {
+	if err := requireActor(ctx, "CommandTx.UpdateAccountProfile"); err != nil {
+		return AccountProfile{}, err
+	}
+
 	entryIDs := slices.Compact(slices.Sorted(slices.Values(params.EntryIDs)))
 	selectedEntries := make([]profilevalue.Entry, 0, len(entryIDs))
 	if len(entryIDs) != 0 {
@@ -413,6 +453,10 @@ func (transaction *CommandTx) DisableAccount(
 	accountID int,
 	now time.Time,
 ) (DisabledAccount, error) {
+	if err := requireActor(ctx, "CommandTx.DisableAccount"); err != nil {
+		return DisabledAccount{}, err
+	}
+
 	authorizedContext := ctx
 	target, err := transaction.transaction.Account.Query().Where(
 		account.IDEQ(accountID),
@@ -506,6 +550,10 @@ func (transaction *CommandTx) CreateAccount(
 	ctx context.Context,
 	params CreateAccountParams,
 ) (AccountCredential, error) {
+	if err := requireActor(ctx, "CommandTx.CreateAccount"); err != nil {
+		return AccountCredential{}, err
+	}
+
 	created, err := transaction.transaction.Account.Create().
 		SetName(params.Name).
 		SetNormalizedName(params.NormalizedName).
@@ -537,6 +585,10 @@ func (installation *SQLite) IssueBootstrap(
 	now time.Time,
 	expiresAt time.Time,
 ) error {
+	if err := requireActor(ctx, "SQLite.IssueBootstrap"); err != nil {
+		return err
+	}
+
 	return withVoidTx(ctx, installation.client, "bootstrap issuance", func(transaction *ent.Tx) error {
 		credentialCount, err := activeCredentialCount(ctx, transaction.Client())
 		if err != nil {
@@ -574,6 +626,10 @@ func (installation *SQLite) BootstrapAdministrator(
 	ctx context.Context,
 	params BootstrapAdministratorParams,
 ) (AccountCredential, error) {
+	if err := requireActor(ctx, "SQLite.BootstrapAdministrator"); err != nil {
+		return AccountCredential{}, err
+	}
+
 	return withTx(ctx, installation.client, "Administrator bootstrap", func(transaction *ent.Tx) (AccountCredential, error) {
 		return bootstrapAdministrator(ctx, transaction, params)
 	})
@@ -675,6 +731,10 @@ func (installation *SQLite) FindAccountCredential(
 	ctx context.Context,
 	normalizedName string,
 ) (AccountCredential, bool, error) {
+	if err := requireActor(ctx, "SQLite.FindAccountCredential"); err != nil {
+		return AccountCredential{}, false, err
+	}
+
 	found, err := installation.client.PasswordCredential.Query().
 		Where(
 			passwordcredential.RevokedAtIsNil(),
@@ -700,6 +760,10 @@ func (installation *SQLite) FindAccountCredential(
 
 // ListAccounts returns enabled Accounts in stable creation order.
 func (installation *SQLite) ListAccounts(ctx context.Context) ([]AccountCredential, error) {
+	if err := requireActor(ctx, "SQLite.ListAccounts"); err != nil {
+		return []AccountCredential(nil), err
+	}
+
 	found, err := installation.client.Account.Query().
 		Where(account.DisabledAtIsNil()).
 		Order(ent.Asc(account.FieldID)).
@@ -721,6 +785,10 @@ func (transaction *CommandTx) ReplaceRecoveryCodes(
 	codeHashes []string,
 	now time.Time,
 ) error {
+	if err := requireActor(ctx, "CommandTx.ReplaceRecoveryCodes"); err != nil {
+		return err
+	}
+
 	if _, err := transaction.transaction.RecoveryCode.Delete().
 		Where(recoverycode.AccountIDEQ(accountID)).
 		Exec(ctx); err != nil {
@@ -744,6 +812,10 @@ func (transaction *CommandTx) IssueRecoveryToken(
 	ctx context.Context,
 	params RecoveryTokenParams,
 ) error {
+	if err := requireActor(ctx, "CommandTx.IssueRecoveryToken"); err != nil {
+		return err
+	}
+
 	authorizedContext := ctx
 	target, err := transaction.transaction.Account.Query().Where(
 		account.IDEQ(params.AccountID),
@@ -798,6 +870,10 @@ func (installation *SQLite) FindRecoveryTarget(
 	ctx context.Context,
 	normalizedName string,
 ) (AccountCredential, error) {
+	if err := requireActor(ctx, "SQLite.FindRecoveryTarget"); err != nil {
+		return AccountCredential{}, err
+	}
+
 	found, err := findEnabledRecoveryAccount(ctx, installation.client, normalizedName)
 	if err != nil {
 		return AccountCredential{}, err
@@ -811,6 +887,10 @@ func (transaction *CommandTx) RecoverAccount(
 	ctx context.Context,
 	params RecoverAccountParams,
 ) (AccountCredential, error) {
+	if err := requireActor(ctx, "CommandTx.RecoverAccount"); err != nil {
+		return AccountCredential{}, err
+	}
+
 	client := transaction.transaction.Client()
 	found, codeID, tokenID, err := findRecoveryAccount(
 		ctx,
@@ -965,6 +1045,10 @@ func (installation *SQLite) CreateAccountSession(
 	now time.Time,
 	expiresAt time.Time,
 ) ([]string, error) {
+	if err := requireActor(ctx, "SQLite.CreateAccountSession"); err != nil {
+		return []string(nil), err
+	}
+
 	return withTx(ctx, installation.client, "Account session creation", func(transaction *ent.Tx) ([]string, error) {
 		return createBoundedAccountSession(ctx, transaction, accountID, tokenHash, now, expiresAt)
 	})
@@ -1032,6 +1116,10 @@ func (installation *SQLite) CountAccountSessions(
 	ctx context.Context,
 	now time.Time,
 ) (AccountSessionCounts, error) {
+	if err := requireActor(ctx, "SQLite.CountAccountSessions"); err != nil {
+		return AccountSessionCounts{}, err
+	}
+
 	stored, err := installation.client.AccountSession.Query().Count(ctx)
 	if err != nil {
 		return AccountSessionCounts{}, opaqueError("count stored Account sessions", err)
@@ -1055,6 +1143,10 @@ func (installation *SQLite) FindAccountSession(
 	tokenHash string,
 	now time.Time,
 ) (AccountCredential, error) {
+	if err := requireActor(ctx, "SQLite.FindAccountSession"); err != nil {
+		return AccountCredential{}, err
+	}
+
 	session, err := installation.client.AccountSession.Query().
 		Where(
 			accountsession.TokenHashEQ(tokenHash),
@@ -1131,6 +1223,10 @@ func (installation *SQLite) RevokeAccountSession(
 	tokenHash string,
 	now time.Time,
 ) error {
+	if err := requireActor(ctx, "SQLite.RevokeAccountSession"); err != nil {
+		return err
+	}
+
 	if _, err := installation.client.AccountSession.Update().
 		Where(
 			accountsession.TokenHashEQ(tokenHash),

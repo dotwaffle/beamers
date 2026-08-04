@@ -58,6 +58,10 @@ func (installation *SQLite) LoadPresentationSubmission(
 	ctx context.Context,
 	eventID, sessionID int,
 ) (PresentationSubmission, error) {
+	if err := requireActor(ctx, "SQLite.LoadPresentationSubmission"); err != nil {
+		return PresentationSubmission{}, err
+	}
+
 	found, version, foundEvent, err := loadPresentationSubmission(
 		ctx,
 		installation.client,
@@ -75,6 +79,10 @@ func (installation *SQLite) LoadAccountPresentationSubmissions(
 	ctx context.Context,
 	accountID int,
 ) ([]PresentationSubmission, error) {
+	if err := requireActor(ctx, "SQLite.LoadAccountPresentationSubmissions"); err != nil {
+		return []PresentationSubmission(nil), err
+	}
+
 	enabled, err := installation.client.Account.Query().
 		Where(account.IDEQ(accountID), account.DisabledAtIsNil()).
 		Exist(ctx)
@@ -118,6 +126,10 @@ func (transaction *CommandTx) AssignPresentationSubmitter(
 	ctx context.Context,
 	params AssignPresentationSubmitterParams,
 ) (PresentationSubmission, error) {
+	if err := requireActor(ctx, "CommandTx.AssignPresentationSubmitter"); err != nil {
+		return PresentationSubmission{}, err
+	}
+
 	found, version, foundEvent, err := loadPresentationSubmission(
 		ctx,
 		transaction.transaction.Client(),
@@ -155,6 +167,10 @@ func (transaction *CommandTx) UpdatePresentationSubmission(
 	ctx context.Context,
 	params UpdatePresentationSubmissionParams,
 ) (PresentationSubmission, error) {
+	if err := requireActor(ctx, "CommandTx.UpdatePresentationSubmission"); err != nil {
+		return PresentationSubmission{}, err
+	}
+
 	found, version, foundEvent, err := loadPresentationSubmission(
 		ctx,
 		transaction.transaction.Client(),

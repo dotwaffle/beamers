@@ -61,6 +61,10 @@ func (installationStore *SQLite) LoadPublicScheduleBaselineState(
 	ctx context.Context,
 	eventID int,
 ) (PublicScheduleBaselineState, error) {
+	if err := requireActor(ctx, "SQLite.LoadPublicScheduleBaselineState"); err != nil {
+		return PublicScheduleBaselineState{}, err
+	}
+
 	return loadPublicScheduleBaselineState(ctx, installationStore.client, eventID)
 }
 
@@ -69,6 +73,10 @@ func (transaction *CommandTx) LoadPublicScheduleBaselineState(
 	ctx context.Context,
 	eventID int,
 ) (PublicScheduleBaselineState, error) {
+	if err := requireActor(ctx, "CommandTx.LoadPublicScheduleBaselineState"); err != nil {
+		return PublicScheduleBaselineState{}, err
+	}
+
 	return loadPublicScheduleBaselineState(ctx, transaction.transaction.Client(), eventID)
 }
 
@@ -158,6 +166,10 @@ func (transaction *CommandTx) CapturePublicScheduleBaseline(
 	ctx context.Context,
 	params PublicScheduleBaselineCaptureParams,
 ) (PublicScheduleBaselineCaptureResult, error) {
+	if err := requireActor(ctx, "CommandTx.CapturePublicScheduleBaseline"); err != nil {
+		return PublicScheduleBaselineCaptureResult{}, err
+	}
+
 	state, err := transaction.LoadPublicScheduleBaselineState(ctx, params.EventID)
 	if err != nil {
 		return PublicScheduleBaselineCaptureResult{}, err
