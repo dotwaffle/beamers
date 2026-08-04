@@ -122,11 +122,13 @@ The client secret is not stored in browser configuration or Backups.
 
 ## Configure continuous replication
 
-Add `--replica-url=LITESTREAM-URL` to continuously replicate the authoritative SQLite database to remote storage:
+Add `--replica-url=LITESTREAM-URL` to continuously replicate the authoritative SQLite database to a second local or mounted-remote path:
 
 ```sh
---replica-url=s3://BUCKET/beamers.db
+--replica-url=file:///mnt/offsite/beamers.db
 ```
+
+Version one accepts only an absolute, credential-free `file:` URL with no host, user info, query, or fragment; mount the actual destination (a network share, a synced block device, and so on) at that path yourself.
 
 This covers **the database only**.
 It does not replicate the Attachment Store; a Litestream replica alone cannot restore uploaded files.
