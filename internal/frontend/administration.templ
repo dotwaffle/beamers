@@ -66,6 +66,14 @@ func AdministrationFieldID(action string, targetID int, field string) string {
 	return prefix + "-" + strings.ReplaceAll(field, "_", "-")
 }
 
+// administrationAccountRowID names an Accounts table row's identity cell, so
+// the row's action buttons can reference it with aria-describedby: their
+// visible names ("Disable Account", "Issue Recovery Token") do not otherwise
+// say which Account they act on.
+func administrationAccountRowID(accountID int) string {
+	return "administration-account-row-" + strconv.Itoa(accountID)
+}
+
 func (page AdministrationPage) submitted(action string, targetID int) bool {
 	if page.SubmittedAction != action {
 		return false
@@ -147,12 +155,12 @@ templ Administration(page AdministrationPage) {
 										<tbody>
 											for _, account := range page.Accounts {
 												<tr>
-													<td>
+													<th scope="row" id={ administrationAccountRowID(account.ID) }>
 														#{ strconv.Itoa(account.ID) } <strong>{ "@" + account.Handle }</strong> — { account.Name }
 														if account.Administrator {
 															@Badge("crew", "Administrator")
 														}
-													</td>
+													</th>
 													<td>
 														<form method="post" action="/backstage/administration">
 															<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
@@ -173,7 +181,7 @@ templ Administration(page AdministrationPage) {
 																</select>
 															</label>
 															@FieldError(page.Errors, AdministrationFieldID("disable-account", account.ID, "reason"))
-															<button class="btn-destructive" type="submit">Disable Account</button>
+															<button class="btn-destructive" type="submit" aria-describedby={ administrationAccountRowID(account.ID) }>Disable Account</button>
 														</form>
 													</td>
 													<td>
@@ -194,7 +202,7 @@ templ Administration(page AdministrationPage) {
 																/>
 															</label>
 															@FieldError(page.Errors, AdministrationFieldID("issue-recovery-token", account.ID, "reason"))
-															<button class="btn-secondary" type="submit">Issue Recovery Token</button>
+															<button class="btn-secondary" type="submit" aria-describedby={ administrationAccountRowID(account.ID) }>Issue Recovery Token</button>
 														</form>
 													</td>
 												</tr>

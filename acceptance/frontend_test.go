@@ -4819,6 +4819,14 @@ func TestBrowserAdministersAccountsAndEventGrants(t *testing.T) {
 	if !strings.Contains(page.body, `name="action" value="disable-account"`) {
 		t.Fatalf("administration page lacks Disable Account: %q", page.body)
 	}
+	if !strings.Contains(page.body, `<th scope="row" id="administration-account-row-2">`) ||
+		!strings.Contains(page.body, `aria-describedby="administration-account-row-2">Disable Account`) ||
+		!strings.Contains(page.body, `aria-describedby="administration-account-row-2">Issue Recovery Token`) {
+		t.Fatalf(
+			"administration Accounts row lacks identity association: %q",
+			page.body,
+		)
+	}
 	disabled := postFrontendForm(t, administrator, server.address, path, url.Values{
 		"csrf_token": {requireFrontendCSRF(t, page)},
 		"action":     {"disable-account"},
