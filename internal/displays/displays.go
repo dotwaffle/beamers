@@ -1040,16 +1040,32 @@ func status(found store.DisplayStatus, cursor displaystream.Cursor, now time.Tim
 	return result
 }
 
+// Delivery states name how faithfully a Display is presenting the output it was
+// assigned. They are part of the wire contract, so callers that classify a
+// Display name these constants rather than restating the strings.
+const (
+	// DeliveryOffline means the Display has not acknowledged output recently.
+	DeliveryOffline = "offline"
+	// DeliveryUnstable means the Display renders or keeps time unreliably.
+	DeliveryUnstable = "unstable"
+	// DeliveryExcessivelySkewed means the Display's clock is too far out.
+	DeliveryExcessivelySkewed = "excessively_skewed"
+	// DeliveryLagging means the Display has not yet applied current output.
+	DeliveryLagging = "lagging"
+	// DeliveryApplied means the Display is presenting current output.
+	DeliveryApplied = "applied"
+)
+
 func displayDeliveryState(found store.DisplayStatus, cursor displaystream.Cursor, now time.Time) string {
 	if found.AppliedAt == nil || now.Sub(*found.AppliedAt) > displayOfflineAfter {
-		return "offline"
+		return DeliveryOffline
 	}
 	if found.RendererUnstable ||
 		time.Duration(found.ClockUncertaintyMilliseconds)*time.Millisecond > unstableClockUncertainty {
-		return "unstable"
+		return DeliveryUnstable
 	}
 	if abs64(found.ClockOffsetMilliseconds) > excessiveClockSkew.Milliseconds() {
-		return "excessively_skewed"
+		return DeliveryExcessivelySkewed
 	}
 	if found.AppliedProtocolVersion != protocolVersion ||
 		found.AppliedAssetVersion != AssetVersion() ||
@@ -1060,9 +1076,9 @@ func displayDeliveryState(found store.DisplayStatus, cursor displaystream.Cursor
 		found.AppliedActivationGeneration != found.ActivationGeneration ||
 		found.AppliedPublishedRevision != found.PublishedRevision ||
 		found.AppliedStandby != found.Standby {
-		return "lagging"
+		return DeliveryLagging
 	}
-	return "applied"
+	return DeliveryApplied
 }
 
 func abs64(value int64) int64 {

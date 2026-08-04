@@ -39,6 +39,10 @@ var (
 	ErrEntryRevision = store.ErrCompetitionEntryRevision
 	// ErrEntryDefer means the Entry is not the current canonical Next item.
 	ErrEntryDefer = store.ErrCompetitionEntryDefer
+	// ErrEntryOrderRevision means Take observed a stale Locked Entry Order.
+	ErrEntryOrderRevision = store.ErrEntryOrderRevision
+	// ErrEntryOrderPreviewStale means Take observed a stale Entry Order preview.
+	ErrEntryOrderPreviewStale = store.ErrEntryOrderPreviewStale
 	// ErrCommandConflict means a Command ID was reused with another payload.
 	ErrCommandConflict = store.ErrCommandConflict
 	// ErrResultTransition means the requested Result action is not valid now.
@@ -72,11 +76,11 @@ type Owner struct {
 
 // State is the complete control projection for one Program Channel.
 type State struct {
-	Channel           store.ProgramChannelState
+	Channel           Channel
 	ControlRevision   int
 	Owner             *Owner
 	HandoverRequester *Owner
-	Preview           store.ProgramItem
+	Preview           Item
 }
 
 // ControlInput changes volatile Program Channel ownership.
@@ -91,7 +95,7 @@ type ControlInput struct {
 // SelectPreviewInput changes only the current owner's process-local Preview.
 type SelectPreviewInput struct {
 	EventID, SessionID int
-	Item               store.ProgramItem
+	Item               Item
 	CommandID          string
 	ExpectedRevision   int
 }
@@ -102,7 +106,7 @@ type TakeInput struct {
 	CommandID                  string
 	ExpectedRevision           int
 	ExpectedControlRevision    int
-	Item                       store.ProgramItem
+	Item                       Item
 	ExpectedEntryOrderRevision int
 	EntryOrderFingerprint      string
 }
@@ -135,7 +139,7 @@ type ResultActionInput struct {
 	EventID, SessionID      int
 	CommandID               string
 	Action                  ResultAction
-	Item                    store.ProgramItem
+	Item                    Item
 	ExpectedProgramRevision int
 	ExpectedControlRevision int
 }
@@ -410,7 +414,7 @@ func (service *Service) resultIdentity(
 	}
 }
 
-func programItemIdentity(item store.ProgramItem) []string {
+func programItemIdentity(item Item) []string {
 	parts := []string{
 		string(item.Kind),
 		strconv.Itoa(item.EntryID),
@@ -624,29 +628,48 @@ type progressiveReconciliationIdentity struct {
 	States         []results.ResultItemStageState `json:"states"`
 }
 
-// Control applies one explicit process-local ownership transition.
-func (service *Service) Control(
+// controlCommand is the varying work of one process-local ownership command.
+type controlCommand struct {
+	identity  store.CommandIdentity
+	eventID   int
+	sessionID int
+	// unavailable is the failure a replayed rejection restores to when this
+	// package no longer recognizes its recorded code.
+	unavailable string
+	// apply decides the command's outcome against the ownership state held for
+	// the Program Channel and its current durable output.
+	apply func(controlState, store.ProgramChannelState) (command.Execution[controlState], error)
+}
+
+// runControlCommand owns the authority check, the Program Channel lock, and
+// the receipt handling that every process-local ownership command shares.
+// Ownership lives in this process only, so the durable command exists to record
+// the decision and to keep a retried command from changing it twice.
+func (service *Service) runControlCommand(
 	ctx context.Context,
 	actor auth.Account,
-	input ControlInput,
+	channelCommand controlCommand,
 ) (State, error) {
-	if err := command.ValidateID(input.CommandID); err != nil {
+	if err := command.ValidateID(channelCommand.identity.CommandID); err != nil {
 		return State{}, err
 	}
-	identity := service.controlIdentity(actor, input)
-	if !actor.CanOperateEvent(input.EventID) {
-		return State{}, service.auditOperatorRejection(actor.Context(ctx), identity)
+	if !actor.CanOperateEvent(channelCommand.eventID) {
+		return State{}, service.auditOperatorRejection(
+			actor.Context(ctx), channelCommand.identity,
+		)
 	}
 	if _, err := service.storage.LoadProgramChannelAt(
-		actor.Context(ctx), input.EventID, input.SessionID, service.now().UTC(),
+		actor.Context(ctx), channelCommand.eventID, channelCommand.sessionID,
+		service.now().UTC(),
 	); err != nil {
 		return State{}, err
 	}
-	owned := service.controlFor(input.SessionID)
+	owned := service.controlFor(channelCommand.sessionID)
 	owned.mu.Lock()
 	defer owned.mu.Unlock()
 	channel, err := service.storage.LoadProgramChannelAt(
-		actor.Context(ctx), input.EventID, input.SessionID, service.now().UTC(),
+		actor.Context(ctx), channelCommand.eventID, channelCommand.sessionID,
+		service.now().UTC(),
 	)
 	if err != nil {
 		return State{}, err
@@ -654,7 +677,7 @@ func (service *Service) Control(
 	current := owned.state
 	var executionState controlState
 	next, err := command.Execute(actor.Context(ctx), command.Plan[controlState]{
-		Storage: service.storage, Identity: identity,
+		Storage: service.storage, Identity: channelCommand.identity,
 		Applied: func() { owned.state = executionState },
 		Notify: func() {
 			if service.notifyProgram != nil {
@@ -670,86 +693,189 @@ func (service *Service) Control(
 			return executionState, nil
 		},
 		Apply: func(_ *store.CommandTx) (command.Execution[controlState], error) {
-			if current.revision != input.ExpectedRevision {
-				return controlRejection(current, rejectionControlRevision, ErrControlRevision), nil
+			execution, applyErr := channelCommand.apply(current, channel)
+			if applyErr != nil {
+				return command.Execution[controlState]{}, applyErr
 			}
-			transitioned, transitionErr := transitionControl(current, actor, input, channel)
-			if transitionErr != nil {
-				rejection := store.CommandRejection{
-					Code: controlErrorCode(transitionErr), Message: transitionErr.Error(),
-				}
-				return command.Reject(current, rejection, transitionErr), nil
-			}
-			transitioned.revision++
-			encoded, encodeErr := json.Marshal(controlReceiptFrom(transitioned))
-			if encodeErr != nil {
-				return command.Execution[controlState]{}, errors.New("encode Program control outcome")
-			}
-			executionState = transitioned
-			return command.Success(transitioned, string(encoded)), nil
+			executionState = execution.Value()
+			return execution, nil
 		},
 	})
 	if err != nil {
 		var rejected *store.RejectedCommandError
 		if errors.As(err, &rejected) {
-			err = controlError(rejected.Rejection.Code)
+			err = rejectionError(rejected.Rejection.Code, channelCommand.unavailable)
 		}
 		return service.state(channel, current), err
 	}
 	return service.state(channel, next), nil
 }
 
-func transitionControl(
-	control controlState,
+// Control applies one explicit process-local ownership transition.
+func (service *Service) Control(
+	ctx context.Context,
 	actor auth.Account,
 	input ControlInput,
-	channel store.ProgramChannelState,
-) (controlState, error) {
-	switch input.Action {
-	case ControlClaim:
-		if control.hasOwner && control.owner.AccountID != actor.ID {
-			return control, ErrControlOwned
-		}
-		control.owner = owner(actor, true)
-		control.hasOwner = true
-		if control.preview.Kind == "" {
-			control.preview = channel.Next
-		}
-	case ControlRequestHandover:
-		if !control.hasOwner || control.owner.AccountID == actor.ID {
-			return control, ErrHandoverUnavailable
-		}
-		control.requester = owner(actor, true)
-		control.hasRequest = true
-	case ControlHandover:
-		if !control.hasOwner || control.owner.AccountID != actor.ID || !control.hasRequest {
-			return control, ErrHandoverUnavailable
-		}
-		control.owner = control.requester
-		control.hasRequest = false
-	case ControlTakeover:
-		if !input.Confirmed {
-			return control, ErrTakeoverConfirmation
-		}
-		if control.hasOwner && control.owner.AccountID == actor.ID {
-			control.owner.Connected = true
-		} else {
-			control.owner = owner(actor, true)
-			control.hasOwner = true
-		}
-		control.hasRequest = false
-		if control.preview.Kind == "" {
-			control.preview = channel.Next
-		}
-	case ControlDisconnect:
-		if !control.hasOwner || control.owner.AccountID != actor.ID {
-			return control, ErrControlOwnerRequired
-		}
-		control.owner.Connected = false
-	default:
-		return control, ErrHandoverUnavailable
+) (State, error) {
+	return service.runControlCommand(ctx, actor, controlCommand{
+		identity:    service.controlIdentity(actor, input),
+		eventID:     input.EventID,
+		sessionID:   input.SessionID,
+		unavailable: "program control command rejected",
+		apply: func(
+			current controlState,
+			channel store.ProgramChannelState,
+		) (command.Execution[controlState], error) {
+			return applyControl(controlTransitionInput{
+				control: current, actor: actor, input: input, channel: channel,
+			})
+		},
+	})
+}
+
+func applyControl(
+	transition controlTransitionInput,
+) (command.Execution[controlState], error) {
+	current := transition.control
+	if current.revision != transition.input.ExpectedRevision {
+		return controlRejection(current, rejectionControlRevision, ErrControlRevision), nil
 	}
-	return control, nil
+	transitioned, transitionErr := transitionControl(transition)
+	if transitionErr != nil {
+		rejection := store.CommandRejection{
+			Code: controlErrorCode(transitionErr), Message: transitionErr.Error(),
+		}
+		return command.Reject(current, rejection, transitionErr), nil
+	}
+	transitioned.revision++
+	encoded, encodeErr := json.Marshal(controlReceiptFrom(transitioned))
+	if encodeErr != nil {
+		return command.Execution[controlState]{}, errors.New("encode Program control outcome")
+	}
+	return command.Success(transitioned, string(encoded)), nil
+}
+
+// controlTransitionInput is the complete context of one ownership action.
+type controlTransitionInput struct {
+	control controlState
+	actor   auth.Account
+	input   ControlInput
+	channel store.ProgramChannelState
+}
+
+// owned reports whether the acting Crew Member is the current Control Owner.
+func (input controlTransitionInput) owned() bool {
+	return input.control.hasOwner && input.control.owner.AccountID == input.actor.ID
+}
+
+// controlTransition is one ownership action's availability guard and the
+// change it makes once that guard admits it.
+type controlTransition struct {
+	guard func(controlTransitionInput) error
+	apply func(controlTransitionInput) controlState
+}
+
+// controlTransitions is the single source for which ownership actions are
+// available in which state. Every action states its own precondition, so an
+// unavailable transition can never fall through into a state change.
+var controlTransitions = map[ControlAction]controlTransition{
+	ControlClaim: {
+		guard: func(input controlTransitionInput) error {
+			if input.control.hasOwner && !input.owned() {
+				return ErrControlOwned
+			}
+			return nil
+		},
+		apply: func(input controlTransitionInput) controlState {
+			control := input.control
+			control.owner = owner(input.actor, true)
+			control.hasOwner = true
+			return withDefaultedPreview(control, input.channel)
+		},
+	},
+	ControlRequestHandover: {
+		guard: func(input controlTransitionInput) error {
+			if !input.control.hasOwner || input.owned() {
+				return ErrHandoverUnavailable
+			}
+			return nil
+		},
+		apply: func(input controlTransitionInput) controlState {
+			control := input.control
+			control.requester = owner(input.actor, true)
+			control.hasRequest = true
+			return control
+		},
+	},
+	ControlHandover: {
+		guard: func(input controlTransitionInput) error {
+			if !input.owned() || !input.control.hasRequest {
+				return ErrHandoverUnavailable
+			}
+			return nil
+		},
+		apply: func(input controlTransitionInput) controlState {
+			control := input.control
+			control.owner = control.requester
+			control.hasRequest = false
+			return control
+		},
+	},
+	ControlTakeover: {
+		guard: func(input controlTransitionInput) error {
+			if !input.input.Confirmed {
+				return ErrTakeoverConfirmation
+			}
+			return nil
+		},
+		apply: func(input controlTransitionInput) controlState {
+			control := input.control
+			if input.owned() {
+				control.owner.Connected = true
+			} else {
+				control.owner = owner(input.actor, true)
+				control.hasOwner = true
+			}
+			control.hasRequest = false
+			return withDefaultedPreview(control, input.channel)
+		},
+	},
+	ControlDisconnect: {
+		guard: func(input controlTransitionInput) error {
+			if !input.owned() {
+				return ErrControlOwnerRequired
+			}
+			return nil
+		},
+		apply: func(input controlTransitionInput) controlState {
+			control := input.control
+			control.owner.Connected = false
+			return control
+		},
+	},
+}
+
+// withDefaultedPreview adopts the canonical Next item for a Crew Member who has
+// not selected a Preview yet.
+func withDefaultedPreview(
+	control controlState,
+	channel store.ProgramChannelState,
+) controlState {
+	if control.preview.Kind == "" {
+		control.preview = channel.Next
+	}
+	return control
+}
+
+func transitionControl(input controlTransitionInput) (controlState, error) {
+	transition, available := controlTransitions[input.input.Action]
+	if !available {
+		return input.control, ErrHandoverUnavailable
+	}
+	if err := transition.guard(input); err != nil {
+		return input.control, err
+	}
+	return transition.apply(input), nil
 }
 
 // SelectPreview changes no durable state.
@@ -758,77 +884,133 @@ func (service *Service) SelectPreview(
 	actor auth.Account,
 	input SelectPreviewInput,
 ) (State, error) {
-	if err := command.ValidateID(input.CommandID); err != nil {
-		return State{}, err
+	return service.runControlCommand(ctx, actor, controlCommand{
+		identity:    service.previewIdentity(actor, input),
+		eventID:     input.EventID,
+		sessionID:   input.SessionID,
+		unavailable: "program Preview command rejected",
+		apply: func(
+			control controlState,
+			channel store.ProgramChannelState,
+		) (command.Execution[controlState], error) {
+			return applySelectPreview(previewSelection{
+				control: control, actor: actor, input: input, channel: channel,
+			})
+		},
+	})
+}
+
+// previewSelection is the complete context of one Preview selection.
+type previewSelection struct {
+	control controlState
+	actor   auth.Account
+	input   SelectPreviewInput
+	channel store.ProgramChannelState
+}
+
+func applySelectPreview(
+	selection previewSelection,
+) (command.Execution[controlState], error) {
+	control := selection.control
+	if control.revision != selection.input.ExpectedRevision {
+		return controlRejection(control, rejectionControlRevision, ErrControlRevision), nil
 	}
-	identity := service.previewIdentity(actor, input)
-	if !actor.CanOperateEvent(input.EventID) {
-		return State{}, service.auditOperatorRejection(actor.Context(ctx), identity)
+	if !control.hasOwner || control.owner.AccountID != selection.actor.ID {
+		return controlRejection(
+			control, rejectionControlOwnerRequired, ErrControlOwnerRequired,
+		), nil
+	}
+	item, selectable := selectItem(selection.channel.Items, storedItem(selection.input.Item))
+	if !selectable {
+		return controlRejection(control, rejectionPreviewItemInvalid, ErrPreviewItem), nil
+	}
+	next := control
+	next.preview = item
+	next.revision++
+	encoded, encodeErr := json.Marshal(controlReceiptFrom(next))
+	if encodeErr != nil {
+		return command.Execution[controlState]{}, errors.New("encode Program Preview outcome")
+	}
+	return command.Success(next, string(encoded)), nil
+}
+
+// channelCommand is the varying work of one durable Program Channel command.
+type channelCommand struct {
+	identity  store.CommandIdentity
+	eventID   int
+	sessionID int
+	// notify publishes freshness hints for the projections this command changed.
+	notify func(takeReceipt)
+	// apply runs the command's guards and durable work with the ownership state
+	// held for the Program Channel.
+	apply func(*store.CommandTx, controlState) (command.Execution[takeReceipt], error)
+}
+
+// runChannelCommand owns the authority check, the Program Channel lock, and the
+// receipt handling that every durable Program Channel command shares. Adopting
+// the new Preview belongs to a fresh application only: a replayed command must
+// return its original outcome without moving live control again.
+func (service *Service) runChannelCommand(
+	ctx context.Context,
+	actor auth.Account,
+	durableCommand channelCommand,
+) (TakeResult, error) {
+	if err := command.ValidateID(durableCommand.identity.CommandID); err != nil {
+		return TakeResult{}, err
+	}
+	if !actor.CanOperateEvent(durableCommand.eventID) {
+		return TakeResult{}, service.auditOperatorRejection(
+			actor.Context(ctx), durableCommand.identity,
+		)
 	}
 	if _, err := service.storage.LoadProgramChannelAt(
-		actor.Context(ctx), input.EventID, input.SessionID, service.now().UTC(),
+		actor.Context(ctx), durableCommand.eventID, durableCommand.sessionID,
+		service.now().UTC(),
 	); err != nil {
-		return State{}, err
+		return TakeResult{}, err
 	}
-	owned := service.controlFor(input.SessionID)
+	owned := service.controlFor(durableCommand.sessionID)
 	owned.mu.Lock()
 	defer owned.mu.Unlock()
-	channel, err := service.storage.LoadProgramChannelAt(
-		actor.Context(ctx), input.EventID, input.SessionID, service.now().UTC(),
-	)
-	if err != nil {
-		return State{}, err
-	}
 	control := owned.state
-	var executionState controlState
-	selected, err := command.Execute(actor.Context(ctx), command.Plan[controlState]{
-		Storage: service.storage, Identity: identity,
-		Applied: func() { owned.state = executionState },
-		Notify: func() {
-			if service.notifyProgram != nil {
-				service.notifyProgram()
-			}
+	committed := false
+	var receipt takeReceipt
+	outcome, err := command.Execute(actor.Context(ctx), command.Plan[takeReceipt]{
+		Storage:  service.storage,
+		Identity: durableCommand.identity,
+		Applied: func() {
+			owned.state = receipt.Control.control()
+			committed = true
 		},
-		Replay: func(outcome string) (controlState, error) {
-			var receipt controlReceipt
-			if decodeErr := store.DecodeCommandReceipt(outcome, &receipt); decodeErr != nil {
-				return controlState{}, decodeErr
+		Notify: func() { durableCommand.notify(receipt) },
+		Replay: func(outcome string) (takeReceipt, error) {
+			var replayed takeReceipt
+			if decodeErr := store.DecodeCommandReceipt(outcome, &replayed); decodeErr != nil {
+				return takeReceipt{}, decodeErr
 			}
-			executionState = receipt.control()
-			return executionState, nil
+			receipt = replayed
+			return replayed, nil
 		},
-		Apply: func(_ *store.CommandTx) (command.Execution[controlState], error) {
-			if control.revision != input.ExpectedRevision {
-				return controlRejection(control, rejectionControlRevision, ErrControlRevision), nil
+		Apply: func(transaction *store.CommandTx) (command.Execution[takeReceipt], error) {
+			execution, applyErr := durableCommand.apply(transaction, control)
+			if applyErr != nil {
+				return command.Execution[takeReceipt]{}, applyErr
 			}
-			if !control.hasOwner || control.owner.AccountID != actor.ID {
-				return controlRejection(
-					control, rejectionControlOwnerRequired, ErrControlOwnerRequired,
-				), nil
-			}
-			item, ok := selectItem(channel.Items, input.Item)
-			if !ok {
-				return controlRejection(control, rejectionPreviewItemInvalid, ErrPreviewItem), nil
-			}
-			next := control
-			next.preview = item
-			next.revision++
-			encoded, encodeErr := json.Marshal(controlReceiptFrom(next))
-			if encodeErr != nil {
-				return command.Execution[controlState]{}, errors.New("encode Program Preview outcome")
-			}
-			executionState = next
-			return command.Success(next, string(encoded)), nil
+			receipt = execution.Value()
+			return execution, nil
 		},
 	})
 	if err != nil {
 		var rejected *store.RejectedCommandError
 		if errors.As(err, &rejected) {
-			err = rejectionError(rejected.Rejection.Code, "program Preview command rejected")
+			err = takeError(rejected.Rejection.Code)
 		}
-		return service.state(channel, control), err
+		return TakeResult{}, err
 	}
-	return service.state(channel, selected), nil
+	return TakeResult{
+		State:     service.state(outcome.Channel, outcome.Control.control()),
+		Committed: committed,
+	}, nil
 }
 
 // Take commits Program Output and refreshes its affected live projections.
@@ -837,160 +1019,127 @@ func (service *Service) Take(
 	actor auth.Account,
 	input TakeInput,
 ) (TakeResult, error) {
-	if err := command.ValidateID(input.CommandID); err != nil {
-		return TakeResult{}, err
-	}
 	identity := service.takeIdentity(actor, input)
-	if !actor.CanOperateEvent(input.EventID) {
-		return TakeResult{}, service.auditOperatorRejection(actor.Context(ctx), identity)
-	}
-	if _, err := service.storage.LoadProgramChannelAt(
-		actor.Context(ctx), input.EventID, input.SessionID, service.now().UTC(),
-	); err != nil {
-		return TakeResult{}, err
-	}
-	owned := service.controlFor(input.SessionID)
-	owned.mu.Lock()
-	defer owned.mu.Unlock()
-	control := owned.state
-	committed := false
-	var executionReceipt takeReceipt
-	outcome, err := command.Execute(actor.Context(ctx), command.Plan[takeReceipt]{
-		Storage: service.storage, Identity: identity,
-		Applied: func() { owned.state = executionReceipt.Control.control() },
-		Notify: func() {
-			service.notifyOutput(executionReceipt.Channel.Output.Kind == store.ProgramItemEntry)
+	return service.runChannelCommand(ctx, actor, channelCommand{
+		identity: identity, eventID: input.EventID, sessionID: input.SessionID,
+		notify: func(receipt takeReceipt) {
+			service.notifyOutput(receipt.Channel.Output.Kind == store.ProgramItemEntry)
 		},
-		Replay: func(outcome string) (takeReceipt, error) {
-			var replayed takeReceipt
-			if err := store.DecodeCommandReceipt(outcome, &replayed); err != nil {
-				return takeReceipt{}, err
-			}
-			executionReceipt = replayed
-			return replayed, nil
-		},
-		Apply: func(transaction *store.CommandTx) (command.Execution[takeReceipt], error) {
-			if control.revision != input.ExpectedControlRevision {
-				return takeRejection(
-					store.ProgramChannelState{},
-					control,
-					rejectionControlRevision,
-					ErrControlRevision,
-				), nil
-			}
-			if !control.hasOwner || control.owner.AccountID != actor.ID {
-				return takeRejection(
-					store.ProgramChannelState{},
-					control,
-					rejectionControlOwnerRequired,
-					ErrControlOwnerRequired,
-				), nil
-			}
-			if !control.preview.SameIdentity(input.Item) {
-				return takeRejection(
-					store.ProgramChannelState{},
-					control,
-					rejectionPreviewItemInvalid,
-					ErrPreviewItem,
-				), nil
-			}
-			current, loadErr := transaction.LoadProgramChannelAt(
-				actor.Context(ctx), input.EventID, input.SessionID, identity.Now,
-			)
-			if loadErr != nil {
-				return command.Execution[takeReceipt]{}, loadErr
-			}
-			if current.Revision != input.ExpectedRevision {
-				return takeRejection(
-					current, control, rejectionProgramRevision, ErrProgramRevision,
-				), nil
-			}
-			if unresolvedResultInOutput(current.Output) {
-				return takeRejection(
-					current,
-					control,
-					rejectionResultRevealRunning,
-					ErrResultRevealRunning,
-				), nil
-			}
-			selected, valid := selectItem(current.Items, input.Item)
-			if !valid {
-				return takeRejection(
-					current, control, rejectionProgramItemInvalid, ErrProgramItem,
-				), nil
-			}
-			var resultState *store.PrizegivingStageState
-			if selected.Kind == store.ProgramItemResult {
-				next, transitionErr := results.TakePrizegivingResultItem(
-					lockedResultItem(selected),
-					resultItemStageState(selected),
-					identity.Now,
-				)
-				if transitionErr != nil {
-					return takeRejection( //nolint:nilerr // The rejection is a persisted command outcome.
-						current,
-						control,
-						rejectionProgramItemInvalid,
-						ErrProgramItem,
-					), nil
-				}
-				converted := prizegivingStageState(next)
-				resultState = &converted
-			}
-			taken, takeErr := transaction.TakeProgramItem(actor.Context(ctx), store.TakeProgramItemParams{
-				EventID: input.EventID, SessionID: input.SessionID,
-				ExpectedRevision: input.ExpectedRevision, Item: selected,
-				ExpectedEntryOrderRevision: input.ExpectedEntryOrderRevision,
-				EntryOrderFingerprint:      input.EntryOrderFingerprint,
-				Now:                        identity.Now,
-				ResultState:                resultState,
+		apply: func(
+			transaction *store.CommandTx,
+			control controlState,
+		) (command.Execution[takeReceipt], error) {
+			return applyTake(ctx, actor, takeApplication{
+				input: input, now: identity.Now, control: control, transaction: transaction,
 			})
-			if takeErr != nil {
-				switch {
-				case errors.Is(takeErr, store.ErrEntryOrderRevision):
-					return takeRejection(
-						current,
-						control,
-						rejectionEntryOrderRevision,
-						store.ErrEntryOrderRevision,
-					), nil
-				case errors.Is(takeErr, store.ErrEntryOrderPreviewStale):
-					return takeRejection(
-						current,
-						control,
-						rejectionEntryOrderStale,
-						store.ErrEntryOrderPreviewStale,
-					), nil
-				}
-				return command.Execution[takeReceipt]{}, takeErr
-			}
-			nextControl := control
-			nextControl.preview = taken.Next
-			nextControl.revision++
-			result := takeReceipt{
-				Channel: taken,
-				Control: controlReceiptFrom(nextControl),
-			}
-			committed = true
-			executionReceipt = result
-			encoded, encodeErr := json.Marshal(result)
-			if encodeErr != nil {
-				return command.Execution[takeReceipt]{}, errors.New("encode Program Output outcome")
-			}
-			return command.Success(result, string(encoded)), nil
 		},
 	})
-	if err != nil {
-		var rejected *store.RejectedCommandError
-		if errors.As(err, &rejected) {
-			err = takeError(rejected.Rejection.Code)
-		}
-		return TakeResult{}, err
+}
+
+// takeApplication is the complete context of one durable Take.
+type takeApplication struct {
+	input       TakeInput
+	now         time.Time
+	control     controlState
+	transaction *store.CommandTx
+}
+
+func applyTake(
+	ctx context.Context,
+	actor auth.Account,
+	application takeApplication,
+) (command.Execution[takeReceipt], error) {
+	input, control := application.input, application.control
+	if control.revision != input.ExpectedControlRevision {
+		return takeRejection(
+			store.ProgramChannelState{}, control, rejectionControlRevision, ErrControlRevision,
+		), nil
 	}
-	return TakeResult{
-		State:     service.state(outcome.Channel, outcome.Control.control()),
-		Committed: committed,
-	}, nil
+	if !control.hasOwner || control.owner.AccountID != actor.ID {
+		return takeRejection(
+			store.ProgramChannelState{},
+			control,
+			rejectionControlOwnerRequired,
+			ErrControlOwnerRequired,
+		), nil
+	}
+	if !control.preview.SameIdentity(storedItem(input.Item)) {
+		return takeRejection(
+			store.ProgramChannelState{}, control, rejectionPreviewItemInvalid, ErrPreviewItem,
+		), nil
+	}
+	current, loadErr := application.transaction.LoadProgramChannelAt(
+		actor.Context(ctx), input.EventID, input.SessionID, application.now,
+	)
+	if loadErr != nil {
+		return command.Execution[takeReceipt]{}, loadErr
+	}
+	if current.Revision != input.ExpectedRevision {
+		return takeRejection(
+			current, control, rejectionProgramRevision, ErrProgramRevision,
+		), nil
+	}
+	if unresolvedResultInOutput(current.Output) {
+		return takeRejection(
+			current, control, rejectionResultRevealRunning, ErrResultRevealRunning,
+		), nil
+	}
+	selected, valid := selectItem(current.Items, storedItem(input.Item))
+	if !valid {
+		return takeRejection(
+			current, control, rejectionProgramItemInvalid, ErrProgramItem,
+		), nil
+	}
+	resultState, takeable := takenResultState(selected, application.now)
+	if !takeable {
+		return takeRejection(
+			current, control, rejectionProgramItemInvalid, ErrProgramItem,
+		), nil
+	}
+	taken, takeErr := application.transaction.TakeProgramItem(
+		actor.Context(ctx),
+		store.TakeProgramItemParams{
+			EventID: input.EventID, SessionID: input.SessionID,
+			ExpectedRevision: input.ExpectedRevision, Item: selected,
+			ExpectedEntryOrderRevision: input.ExpectedEntryOrderRevision,
+			EntryOrderFingerprint:      input.EntryOrderFingerprint,
+			Now:                        application.now,
+			ResultState:                resultState,
+		},
+	)
+	if takeErr != nil {
+		switch {
+		case errors.Is(takeErr, store.ErrEntryOrderRevision):
+			return takeRejection(
+				current, control, rejectionEntryOrderRevision, store.ErrEntryOrderRevision,
+			), nil
+		case errors.Is(takeErr, store.ErrEntryOrderPreviewStale):
+			return takeRejection(
+				current, control, rejectionEntryOrderStale, store.ErrEntryOrderPreviewStale,
+			), nil
+		}
+		return command.Execution[takeReceipt]{}, takeErr
+	}
+	return channelExecution(taken, control, "encode Program Output outcome")
+}
+
+// takenResultState returns the durable presentation state a Result Item enters
+// when it is taken, and reports whether the Item may be taken at all.
+func takenResultState(
+	selected store.ProgramItem,
+	now time.Time,
+) (*store.PrizegivingStageState, bool) {
+	if selected.Kind != store.ProgramItemResult {
+		return nil, true
+	}
+	next, transitionErr := results.TakePrizegivingResultItem(
+		lockedResultItem(selected), resultItemStageState(selected), now,
+	)
+	if transitionErr != nil {
+		return nil, false
+	}
+	converted := prizegivingStageState(next)
+	return &converted, true
 }
 
 // DeferEntry advances the cursor while serializing the change through Control Owner.
@@ -999,117 +1148,88 @@ func (service *Service) DeferEntry(
 	actor auth.Account,
 	input DeferEntryInput,
 ) (TakeResult, error) {
-	if err := command.ValidateID(input.CommandID); err != nil {
-		return TakeResult{}, err
-	}
 	identity := service.deferIdentity(actor, input)
-	if !actor.CanOperateEvent(input.EventID) {
-		return TakeResult{}, service.auditOperatorRejection(actor.Context(ctx), identity)
-	}
-	if _, err := service.storage.LoadProgramChannelAt(
-		actor.Context(ctx), input.EventID, input.SessionID, service.now().UTC(),
-	); err != nil {
-		return TakeResult{}, err
-	}
-	owned := service.controlFor(input.SessionID)
-	owned.mu.Lock()
-	defer owned.mu.Unlock()
-	control := owned.state
-	committed := false
-	var executionReceipt takeReceipt
-	outcome, err := command.Execute(actor.Context(ctx), command.Plan[takeReceipt]{
-		Storage:  service.storage,
-		Identity: identity,
-		Applied:  func() { owned.state = executionReceipt.Control.control() },
-		Notify: func() {
+	return service.runChannelCommand(ctx, actor, channelCommand{
+		identity: identity, eventID: input.EventID, sessionID: input.SessionID,
+		notify: func(takeReceipt) {
 			if service.notifyProgram != nil {
 				service.notifyProgram()
 			}
 		},
-		Replay: func(outcome string) (takeReceipt, error) {
-			var replayed takeReceipt
-			if err := store.DecodeCommandReceipt(outcome, &replayed); err != nil {
-				return takeReceipt{}, err
-			}
-			executionReceipt = replayed
-			return replayed, nil
-		},
-		Apply: func(transaction *store.CommandTx) (command.Execution[takeReceipt], error) {
-			current, loadErr := transaction.LoadProgramChannelAt(
-				actor.Context(ctx), input.EventID, input.SessionID, identity.Now,
-			)
-			if loadErr != nil {
-				return command.Execution[takeReceipt]{}, loadErr
-			}
-			if control.revision != input.ExpectedControlRevision {
-				return takeRejection(
-					current, control, rejectionControlRevision, ErrControlRevision,
-				), nil
-			}
-			if !control.hasOwner || control.owner.AccountID != actor.ID {
-				return takeRejection(
-					current, control, rejectionControlOwnerRequired, ErrControlOwnerRequired,
-				), nil
-			}
-			if current.Revision != input.ExpectedProgramRevision {
-				return takeRejection(
-					current, control, rejectionProgramRevision, ErrProgramRevision,
-				), nil
-			}
-			if _, deferErr := transaction.DeferCompetitionEntry(
-				actor.Context(ctx),
-				store.DeferCompetitionEntryParams{
-					EventID: input.EventID, SessionID: input.SessionID, EntryID: input.EntryID,
-					ExpectedEntryRevision:   input.ExpectedEntryRevision,
-					ExpectedProgramRevision: input.ExpectedProgramRevision,
-					Now:                     identity.Now,
-				},
-			); deferErr != nil {
-				switch {
-				case errors.Is(deferErr, store.ErrCompetitionEntryRevision):
-					return takeRejection(
-						current, control, rejectionEntryRevision, ErrEntryRevision,
-					), nil
-				case errors.Is(deferErr, store.ErrCompetitionEntryDefer):
-					return takeRejection(
-						current, control, rejectionEntryDefer, ErrEntryDefer,
-					), nil
-				}
-				return command.Execution[takeReceipt]{}, deferErr
-			}
-			deferred, loadErr := transaction.LoadProgramChannelAt(
-				actor.Context(ctx), input.EventID, input.SessionID, identity.Now,
-			)
-			if loadErr != nil {
-				return command.Execution[takeReceipt]{}, loadErr
-			}
-			nextControl := control
-			nextControl.preview = deferred.Next
-			nextControl.revision++
-			result := takeReceipt{
-				Channel: deferred,
-				Control: controlReceiptFrom(nextControl),
-			}
-			encoded, encodeErr := json.Marshal(result)
-			if encodeErr != nil {
-				return command.Execution[takeReceipt]{}, errors.New("encode Program Defer outcome")
-			}
-			committed = true
-			executionReceipt = result
-			return command.Success(result, string(encoded)), nil
+		apply: func(
+			transaction *store.CommandTx,
+			control controlState,
+		) (command.Execution[takeReceipt], error) {
+			return applyDeferEntry(ctx, actor, deferApplication{
+				input: input, now: identity.Now, control: control, transaction: transaction,
+			})
 		},
 	})
-	if err != nil {
-		var rejected *store.RejectedCommandError
-		if errors.As(err, &rejected) {
-			err = takeError(rejected.Rejection.Code)
-		}
-		return TakeResult{}, err
+}
+
+// deferApplication is the complete context of one durable Defer Entry.
+type deferApplication struct {
+	input       DeferEntryInput
+	now         time.Time
+	control     controlState
+	transaction *store.CommandTx
+}
+
+func applyDeferEntry(
+	ctx context.Context,
+	actor auth.Account,
+	application deferApplication,
+) (command.Execution[takeReceipt], error) {
+	input, control := application.input, application.control
+	current, loadErr := application.transaction.LoadProgramChannelAt(
+		actor.Context(ctx), input.EventID, input.SessionID, application.now,
+	)
+	if loadErr != nil {
+		return command.Execution[takeReceipt]{}, loadErr
 	}
-	return TakeResult{
-		State:     service.state(outcome.Channel, outcome.Control.control()),
-		Committed: committed,
-	}, nil
+	if control.revision != input.ExpectedControlRevision {
+		return takeRejection(
+			current, control, rejectionControlRevision, ErrControlRevision,
+		), nil
+	}
+	if !control.hasOwner || control.owner.AccountID != actor.ID {
+		return takeRejection(
+			current, control, rejectionControlOwnerRequired, ErrControlOwnerRequired,
+		), nil
+	}
+	if current.Revision != input.ExpectedProgramRevision {
+		return takeRejection(
+			current, control, rejectionProgramRevision, ErrProgramRevision,
+		), nil
+	}
+	if _, deferErr := application.transaction.DeferCompetitionEntry(
+		actor.Context(ctx),
+		store.DeferCompetitionEntryParams{
+			EventID: input.EventID, SessionID: input.SessionID, EntryID: input.EntryID,
+			ExpectedEntryRevision:   input.ExpectedEntryRevision,
+			ExpectedProgramRevision: input.ExpectedProgramRevision,
+			Now:                     application.now,
+		},
+	); deferErr != nil {
+		switch {
+		case errors.Is(deferErr, store.ErrCompetitionEntryRevision):
+			return takeRejection(
+				current, control, rejectionEntryRevision, ErrEntryRevision,
+			), nil
+		case errors.Is(deferErr, store.ErrCompetitionEntryDefer):
+			return takeRejection(
+				current, control, rejectionEntryDefer, ErrEntryDefer,
+			), nil
+		}
+		return command.Execution[takeReceipt]{}, deferErr
+	}
+	deferred, loadErr := application.transaction.LoadProgramChannelAt(
+		actor.Context(ctx), input.EventID, input.SessionID, application.now,
+	)
+	if loadErr != nil {
+		return command.Execution[takeReceipt]{}, loadErr
+	}
+	return channelExecution(deferred, control, "encode Program Defer outcome")
 }
 
 // ActOnResult applies a pure Prizegiving Result transition and refreshes its
@@ -1119,61 +1239,37 @@ func (service *Service) ActOnResult(
 	actor auth.Account,
 	input ResultActionInput,
 ) (TakeResult, error) {
-	if err := command.ValidateID(input.CommandID); err != nil {
-		return TakeResult{}, err
-	}
 	identity := service.resultIdentity(actor, input)
-	if !actor.CanOperateEvent(input.EventID) {
-		return TakeResult{}, service.auditOperatorRejection(actor.Context(ctx), identity)
-	}
-	if _, err := service.storage.LoadProgramChannelAt(
-		actor.Context(ctx),
-		input.EventID,
-		input.SessionID,
-		service.now().UTC(),
-	); err != nil {
-		return TakeResult{}, err
-	}
-	owned := service.controlFor(input.SessionID)
-	owned.mu.Lock()
-	defer owned.mu.Unlock()
-	control := owned.state
-	committed := false
-	var executionReceipt takeReceipt
-	outcome, err := command.Execute(actor.Context(ctx), command.Plan[takeReceipt]{
-		Storage:  service.storage,
-		Identity: identity,
-		Applied:  func() { owned.state = executionReceipt.Control.control() },
-		Notify: func() {
-			service.notifyOutput(false)
-		},
-		Replay: func(outcome string) (takeReceipt, error) {
-			var replayed takeReceipt
-			if err := store.DecodeCommandReceipt(outcome, &replayed); err != nil {
-				return takeReceipt{}, err
-			}
-			executionReceipt = replayed
-			return replayed, nil
-		},
-		Apply: func(transaction *store.CommandTx) (command.Execution[takeReceipt], error) {
-			execution, applied, applyErr := service.applyResultAction(
-				ctx, actor, input, identity.Now, control, transaction, &executionReceipt,
-			)
-			committed = applied
-			return execution, applyErr
+	return service.runChannelCommand(ctx, actor, channelCommand{
+		identity: identity, eventID: input.EventID, sessionID: input.SessionID,
+		notify: func(takeReceipt) { service.notifyOutput(false) },
+		apply: func(
+			transaction *store.CommandTx,
+			control controlState,
+		) (command.Execution[takeReceipt], error) {
+			return service.applyResultAction(ctx, actor, resultApplication{
+				input: input, now: identity.Now, control: control, transaction: transaction,
+			})
 		},
 	})
-	if err != nil {
-		var rejected *store.RejectedCommandError
-		if errors.As(err, &rejected) {
-			err = takeError(rejected.Rejection.Code)
-		}
-		return TakeResult{}, err
+}
+
+// channelExecution commits one advanced Program Channel with the Preview its
+// Control Owner inherits from the new canonical Next item.
+func channelExecution(
+	channel store.ProgramChannelState,
+	control controlState,
+	encodeFailure string,
+) (command.Execution[takeReceipt], error) {
+	next := control
+	next.preview = channel.Next
+	next.revision++
+	result := takeReceipt{Channel: channel, Control: controlReceiptFrom(next)}
+	encoded, encodeErr := json.Marshal(result)
+	if encodeErr != nil {
+		return command.Execution[takeReceipt]{}, errors.New(encodeFailure)
 	}
-	return TakeResult{
-		State:     service.state(outcome.Channel, outcome.Control.control()),
-		Committed: committed,
-	}, nil
+	return command.Success(result, string(encoded)), nil
 }
 
 func (service *Service) notifyOutput(voting bool) {
@@ -1188,69 +1284,61 @@ func (service *Service) notifyOutput(voting bool) {
 	}
 }
 
+// resultApplication is the complete context of one durable Result action.
+type resultApplication struct {
+	input       ResultActionInput
+	now         time.Time
+	control     controlState
+	transaction *store.CommandTx
+}
+
 func (service *Service) applyResultAction(
 	ctx context.Context,
 	actor auth.Account,
-	input ResultActionInput,
-	now time.Time,
-	control controlState,
-	transaction *store.CommandTx,
-	executionReceipt *takeReceipt,
-) (command.Execution[takeReceipt], bool, error) {
-	current, err := transaction.LoadProgramChannelAt(
-		actor.Context(ctx), input.EventID, input.SessionID, now,
+	application resultApplication,
+) (command.Execution[takeReceipt], error) {
+	input, control := application.input, application.control
+	current, err := application.transaction.LoadProgramChannelAt(
+		actor.Context(ctx), input.EventID, input.SessionID, application.now,
 	)
 	if err != nil {
-		return command.Execution[takeReceipt]{}, false, err
+		return command.Execution[takeReceipt]{}, err
 	}
 	selected, code, validationErr := validateResultAction(
 		actor, input, current, control,
 	)
 	if validationErr != nil {
-		return takeRejection(current, control, code, validationErr), false, nil
+		return takeRejection(current, control, code, validationErr), nil
 	}
-	nextState, presentation, transitionErr := transitionResult(
-		input.Action, selected, current, now,
-	)
+	nextState, presentation, transitionErr := transitionResult(resultTransitionInput{
+		action: input.Action, selected: selected, channel: current, now: application.now,
+	})
 	if transitionErr != nil {
 		code = rejectionResultTransition
 		if errors.Is(transitionErr, results.ErrResultRevealRunning) {
 			code = rejectionResultRevealRunning
 		}
-		return takeRejection(current, control, code, transitionErr), false, nil
+		return takeRejection(current, control, code, transitionErr), nil
 	}
-	updated, err := persistResultAction(
-		ctx, actor, input, now, transaction, selected, nextState, presentation,
-	)
+	updated, err := persistResultAction(ctx, actor, resultPersistence{
+		input: input, now: application.now, transaction: application.transaction,
+		selected: selected, state: nextState, presentation: presentation,
+	})
 	if err != nil {
-		return command.Execution[takeReceipt]{}, false, err
+		return command.Execution[takeReceipt]{}, err
 	}
 	_, _, publicationErr := service.publications.ReconcilePrizegivingPublication(
 		actor.Context(ctx),
 		actor,
-		transaction,
+		application.transaction,
 		results.ReconcilePrizegivingPublicationInput{
-			EventID: input.EventID, CeremonySessionID: input.SessionID, Now: now,
+			EventID: input.EventID, CeremonySessionID: input.SessionID, Now: application.now,
 		},
 	)
 	if publicationErr != nil {
-		return command.Execution[takeReceipt]{}, false, publicationErr
+		return command.Execution[takeReceipt]{}, publicationErr
 	}
-	nextControl := control
-	nextControl.preview = updated.Next
-	nextControl.revision++
-	result := takeReceipt{
-		Channel: updated,
-		Control: controlReceiptFrom(nextControl),
-	}
-	*executionReceipt = result
-	encoded, err := json.Marshal(result)
-	if err != nil {
-		return command.Execution[takeReceipt]{}, false, errors.New(
-			"encode Prizegiving Result outcome",
-		)
-	}
-	return command.Success(result, string(encoded)), true, nil
+	return channelExecution(updated, control, "encode Prizegiving Result outcome")
 }
 
 func validateResultAction(
@@ -1268,7 +1356,7 @@ func validateResultAction(
 	if current.Revision != input.ExpectedProgramRevision {
 		return store.ProgramItem{}, rejectionProgramRevision, ErrProgramRevision
 	}
-	selected, valid := selectItem(current.Items, input.Item)
+	selected, valid := selectItem(current.Items, storedItem(input.Item))
 	if !valid || selected.Kind != store.ProgramItemResult {
 		return store.ProgramItem{}, rejectionProgramItemInvalid, ErrProgramItem
 	}
@@ -1279,33 +1367,41 @@ func validateResultAction(
 	return selected, "", nil
 }
 
+// resultPersistence is one decided Result transition awaiting its durable write.
+type resultPersistence struct {
+	input        ResultActionInput
+	now          time.Time
+	transaction  *store.CommandTx
+	selected     store.ProgramItem
+	state        results.ResultItemStageState
+	presentation store.PrizegivingPresentationRun
+}
+
 func persistResultAction(
 	ctx context.Context,
 	actor auth.Account,
-	input ResultActionInput,
-	now time.Time,
-	transaction *store.CommandTx,
-	selected store.ProgramItem,
-	nextState results.ResultItemStageState,
-	presentation store.PrizegivingPresentationRun,
+	persistence resultPersistence,
 ) (store.ProgramChannelState, error) {
+	input := persistence.input
 	if input.Action == ResultSkipFromStage {
-		return transaction.SkipPrizegivingResultFromStage(
+		return persistence.transaction.SkipPrizegivingResultFromStage(
 			actor.Context(ctx),
 			store.SkipPrizegivingResultFromStageParams{
 				EventID: input.EventID, SessionID: input.SessionID,
 				ExpectedRevision: input.ExpectedProgramRevision,
-				Item:             selected, State: prizegivingStageState(nextState),
+				Item:             persistence.selected,
+				State:            prizegivingStageState(persistence.state),
 			},
 		)
 	}
-	return transaction.ApplyPrizegivingResultAction(
+	return persistence.transaction.ApplyPrizegivingResultAction(
 		actor.Context(ctx),
 		store.PrizegivingResultActionParams{
 			EventID: input.EventID, SessionID: input.SessionID,
 			ExpectedRevision: input.ExpectedProgramRevision,
-			Item:             selected, State: prizegivingStageState(nextState),
-			Presentation: presentation, ObservedAt: now,
+			Item:             persistence.selected,
+			State:            prizegivingStageState(persistence.state),
+			Presentation:     persistence.presentation, ObservedAt: persistence.now,
 		},
 	)
 }
@@ -1317,46 +1413,112 @@ func unresolvedResultInOutput(item store.ProgramItem) bool {
 		item.Result.Status != prizegivingvalue.StageSkipped
 }
 
-func transitionResult(
-	action ResultAction,
-	selected store.ProgramItem,
-	current store.ProgramChannelState,
-	now time.Time,
-) (
+// resultTransitionInput is the complete context of one Result stage action.
+type resultTransitionInput struct {
+	action   ResultAction
+	selected store.ProgramItem
+	channel  store.ProgramChannelState
+	now      time.Time
+}
+
+// locked returns the immutable Result truth the action presents.
+func (input resultTransitionInput) locked() results.LockedResultItem {
+	return lockedResultItem(input.selected)
+}
+
+// stage returns the acted item's current presentation state.
+func (input resultTransitionInput) stage() results.ResultItemStageState {
+	return resultItemStageState(input.selected)
+}
+
+// resultTransition is one Result action's stage guard and the presentation
+// change it makes once that guard admits it.
+type resultTransition struct {
+	staged func(resultTransitionInput) bool
+	apply  func(resultTransitionInput) (
+		results.ResultItemStageState,
+		store.PrizegivingPresentationRun,
+		error,
+	)
+}
+
+// actedItemIsOutput admits actions that present what is already on stage.
+func actedItemIsOutput(input resultTransitionInput) bool {
+	return input.channel.Output.SameIdentity(input.selected)
+}
+
+// actedItemIsNext admits actions that omit an item before it reaches stage.
+func actedItemIsNext(input resultTransitionInput) bool {
+	return input.channel.Next.SameIdentity(input.selected)
+}
+
+// resultTransitions is the single source for which Result action is available
+// against which stage position.
+var resultTransitions = map[ResultAction]resultTransition{
+	ResultReveal: {
+		staged: actedItemIsOutput,
+		apply: func(input resultTransitionInput) (
+			results.ResultItemStageState,
+			store.PrizegivingPresentationRun,
+			error,
+		) {
+			next, presentation, err := results.StartPrizegivingReveal(
+				input.locked(), input.stage(), input.now,
+			)
+			return next, prizegivingPresentationRun(false, presentation), err
+		},
+	},
+	ResultReplayReveal: {
+		staged: actedItemIsOutput,
+		apply: func(input resultTransitionInput) (
+			results.ResultItemStageState,
+			store.PrizegivingPresentationRun,
+			error,
+		) {
+			next, presentation, err := results.ReplayPrizegivingReveal(
+				input.locked(), input.stage(), input.now,
+			)
+			return next, prizegivingPresentationRun(true, presentation), err
+		},
+	},
+	ResultSkipToFinal: {
+		staged: actedItemIsOutput,
+		apply: func(input resultTransitionInput) (
+			results.ResultItemStageState,
+			store.PrizegivingPresentationRun,
+			error,
+		) {
+			next, err := results.SkipPrizegivingResultToFinal(
+				input.locked(), input.stage(), input.now,
+			)
+			return next, existingPresentationRun(input.channel.Output), err
+		},
+	},
+	ResultSkipFromStage: {
+		staged: actedItemIsNext,
+		apply: func(input resultTransitionInput) (
+			results.ResultItemStageState,
+			store.PrizegivingPresentationRun,
+			error,
+		) {
+			next, err := results.SkipPrizegivingResultFromStage(
+				input.locked(), input.stage(), input.now,
+			)
+			return next, store.PrizegivingPresentationRun{}, err
+		},
+	},
+}
+
+func transitionResult(input resultTransitionInput) (
 	results.ResultItemStageState,
 	store.PrizegivingPresentationRun,
 	error,
 ) {
-	item := lockedResultItem(selected)
-	state := resultItemStageState(selected)
-	switch action {
-	case ResultReveal:
-		if !current.Output.SameIdentity(selected) {
-			return state, store.PrizegivingPresentationRun{}, results.ErrResultItemTransition
-		}
-		next, presentation, err := results.StartPrizegivingReveal(item, state, now)
-		return next, prizegivingPresentationRun(false, presentation), err
-	case ResultReplayReveal:
-		if !current.Output.SameIdentity(selected) {
-			return state, store.PrizegivingPresentationRun{}, results.ErrResultItemTransition
-		}
-		next, presentation, err := results.ReplayPrizegivingReveal(item, state, now)
-		return next, prizegivingPresentationRun(true, presentation), err
-	case ResultSkipToFinal:
-		if !current.Output.SameIdentity(selected) {
-			return state, store.PrizegivingPresentationRun{}, results.ErrResultItemTransition
-		}
-		next, err := results.SkipPrizegivingResultToFinal(item, state, now)
-		return next, existingPresentationRun(current.Output), err
-	case ResultSkipFromStage:
-		if !current.Next.SameIdentity(selected) {
-			return state, store.PrizegivingPresentationRun{}, results.ErrResultItemTransition
-		}
-		next, err := results.SkipPrizegivingResultFromStage(item, state, now)
-		return next, store.PrizegivingPresentationRun{}, err
-	default:
-		return state, store.PrizegivingPresentationRun{}, results.ErrResultItemTransition
+	transition, available := resultTransitions[input.action]
+	if !available || !transition.staged(input) {
+		return input.stage(), store.PrizegivingPresentationRun{}, results.ErrResultItemTransition
 	}
+	return transition.apply(input)
 }
 
 func prizegivingPresentationRun(
@@ -1382,9 +1544,13 @@ func existingPresentationRun(
 }
 
 func (service *Service) state(channel store.ProgramChannelState, control controlState) State {
-	result := State{Channel: channel, ControlRevision: control.revision, Preview: control.preview}
+	result := State{
+		Channel:         exposedChannel(channel),
+		ControlRevision: control.revision,
+		Preview:         exposedItem(control.preview),
+	}
 	if result.Preview.Kind == "" {
-		result.Preview = channel.Next
+		result.Preview = result.Channel.Next
 	}
 	if control.hasOwner {
 		copied := control.owner
