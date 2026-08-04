@@ -205,6 +205,20 @@ templ planningEditInput(
 	field, label, inputType, fallback string,
 	required bool,
 ) {
+	@planningEditInputDescribed(page, target, id, field, label, inputType, fallback, required, "")
+}
+
+// planningEditInputDescribed is planningEditInput with an optional
+// aria-describedby target, for inputs paired with a hint such as a resolved
+// timezone that the label text does not already carry.
+templ planningEditInputDescribed(
+	page PlanningPage,
+	target string,
+	id int,
+	field, label, inputType, fallback string,
+	required bool,
+	describedBy string,
+) {
 	<label for={ PlanningFieldID(target, id, field) }>{ label }</label>
 	<input
 		id={ PlanningFieldID(target, id, field) }
@@ -212,9 +226,18 @@ templ planningEditInput(
 		name={ field }
 		value={ page.draftValue(target, id, field, fallback) }
 		required?={ required }
+		if describedBy != "" {
+			aria-describedby={ describedBy }
+		}
 		{ page.Errors.Attributes(PlanningFieldID(target, id, field))... }
 	/>
 	@FieldError(page.Errors, PlanningFieldID(target, id, field))
+}
+
+// planningZoneID names the hint span reporting the resolved timezone for a
+// datetime-local input, so the input's aria-describedby can reach it.
+func planningZoneID(target string, id int, field string) string {
+	return PlanningFieldID(target, id, field) + "-zone"
 }
 
 templ planningEditTextarea(
@@ -500,21 +523,21 @@ templ Planning(page PlanningPage) {
 								@planningEditSelect(page, "session", session.ID, "audience_visibility", "Audience visibility", []string{"Public", "CrewOnly"}, string(session.AudienceVisibility))
 								@planningEditTextarea(page, "session", session.ID, "public_details", "Public details", session.PublicDetails)
 								@planningEditTextarea(page, "session", session.ID, "crew_notes", "Crew notes", session.CrewNotes)
-								@planningEditInput(page, "session", session.ID, "planned_start", "Planned start", "datetime-local", planningDateTime(session.PlannedStart, page.Event.Timezone), true)
-								<span>{ planningZone(session.PlannedStart, page.Event.Timezone) }</span>
+								@planningEditInputDescribed(page, "session", session.ID, "planned_start", "Planned start", "datetime-local", planningDateTime(session.PlannedStart, page.Event.Timezone), true, planningZoneID("session", session.ID, "planned_start"))
+								<span id={ planningZoneID("session", session.ID, "planned_start") }>{ planningZone(session.PlannedStart, page.Event.Timezone) }</span>
 								@planningEditSelect(page, "session", session.ID, "planned_start_occurrence", "Planned start occurrence", []string{"", "Earlier", "Later"}, "")
-								@planningEditInput(page, "session", session.ID, "planned_end", "Planned end", "datetime-local", planningDateTime(session.PlannedEnd, page.Event.Timezone), true)
-								<span>{ planningZone(session.PlannedEnd, page.Event.Timezone) }</span>
+								@planningEditInputDescribed(page, "session", session.ID, "planned_end", "Planned end", "datetime-local", planningDateTime(session.PlannedEnd, page.Event.Timezone), true, planningZoneID("session", session.ID, "planned_end"))
+								<span id={ planningZoneID("session", session.ID, "planned_end") }>{ planningZone(session.PlannedEnd, page.Event.Timezone) }</span>
 								@planningEditSelect(page, "session", session.ID, "planned_end_occurrence", "Planned end occurrence", []string{"", "Earlier", "Later"}, "")
 								@planningEditSelect(page, "session", session.ID, "timing_policy", "Timing policy", []string{"FixedEnd", "FixedDuration", "ManualEnd"}, string(session.TimingPolicy))
 								@planningEditInput(page, "session", session.ID, "minimum_duration", "Minimum duration", "text", session.MinimumDuration.String(), true)
 								@planningEditSelect(page, "session", session.ID, "start_boundary", "Start boundary", []string{"Soft", "Hard"}, string(session.StartBoundary))
 								@planningEditSelect(page, "session", session.ID, "end_boundary", "End boundary", []string{"Soft", "Hard"}, string(session.EndBoundary))
-								@planningEditInput(page, "session", session.ID, "upload_deadline", "Presentation upload deadline", "datetime-local", planningDateTime(session.UploadDeadline, page.Event.Timezone), false)
-								<span>{ planningZone(session.UploadDeadline, page.Event.Timezone) }</span>
+								@planningEditInputDescribed(page, "session", session.ID, "upload_deadline", "Presentation upload deadline", "datetime-local", planningDateTime(session.UploadDeadline, page.Event.Timezone), false, planningZoneID("session", session.ID, "upload_deadline"))
+								<span id={ planningZoneID("session", session.ID, "upload_deadline") }>{ planningZone(session.UploadDeadline, page.Event.Timezone) }</span>
 								@planningEditSelect(page, "session", session.ID, "upload_deadline_occurrence", "Upload deadline occurrence", []string{"", "Earlier", "Later"}, "")
-								@planningEditInput(page, "session", session.ID, "submission_deadline", "Competition submission deadline", "datetime-local", planningDateTime(session.SubmissionDeadline, page.Event.Timezone), false)
-								<span>{ planningZone(session.SubmissionDeadline, page.Event.Timezone) }</span>
+								@planningEditInputDescribed(page, "session", session.ID, "submission_deadline", "Competition submission deadline", "datetime-local", planningDateTime(session.SubmissionDeadline, page.Event.Timezone), false, planningZoneID("session", session.ID, "submission_deadline"))
+								<span id={ planningZoneID("session", session.ID, "submission_deadline") }>{ planningZone(session.SubmissionDeadline, page.Event.Timezone) }</span>
 								@planningEditSelect(page, "session", session.ID, "submission_deadline_occurrence", "Submission deadline occurrence", []string{"", "Earlier", "Later"}, "")
 								@planningEditSelect(page, "session", session.ID, "session_entry_default_disposition", "New Entry disposition", []string{"", "Pending", "Included"}, string(session.EntryDefault))
 								<fieldset
