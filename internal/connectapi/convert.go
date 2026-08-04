@@ -55,6 +55,24 @@ func PositiveInts(field string, values []int64) ([]int, error) {
 	return result, nil
 }
 
+// NonNegativeRevision checks one protobuf revision, count, or offset for
+// validators that do not need the narrowed value.
+func NonNegativeRevision(field string, value int64) error {
+	_, err := NonNegativeInt(field, value)
+	return err
+}
+
+// FirstInvalid returns the first failed check, so one rejection names one
+// field instead of concatenating every complaint about the request.
+func FirstInvalid(checks ...error) error {
+	for _, err := range checks {
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // NonNegativeInt narrows one protobuf count or offset, which may be zero.
 func NonNegativeInt(field string, value int64) (int, error) {
 	if value < 0 || value > math.MaxInt {

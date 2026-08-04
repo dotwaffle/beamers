@@ -1151,9 +1151,10 @@ func registerResultsRoutes(
 	if err := registerConnectRoute(mux, connectRouteConfig{
 		name: "results", authentication: authentication, listenerAddress: listenerAddress,
 		tracerProvider: tracerProvider, meterProvider: meterProvider, propagator: propagator,
-		errorInterceptor: resultsconnect.ErrorInterceptor(),
-		maxBodyBytes:     maxResultsRPCBodyBytes,
-		contract:         crewRoute(),
+		errorInterceptor:      resultsconnect.ErrorInterceptor(),
+		validationInterceptor: resultsconnect.ValidationInterceptor(),
+		maxBodyBytes:          maxResultsRPCBodyBytes,
+		contract:              crewRoute(),
 		build: func(options ...connect.HandlerOption) (string, http.Handler) {
 			return resultsv1connect.NewResultsServiceHandler(adapter, options...)
 		},

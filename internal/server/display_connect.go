@@ -37,7 +37,9 @@ func registerDisplayConnectRoutes(
 	return registerConnectRoute(mux, connectRouteConfig{
 		name: "display", authenticationLayer: authentication, listenerAddress: listenerAddress,
 		tracerProvider: tracerProvider, meterProvider: meterProvider, propagator: propagator,
-		maxBodyBytes: maxDisplayRPCBodyBytes, contract: displayRoute(),
+		errorInterceptor:      displayconnect.ErrorInterceptor(),
+		validationInterceptor: displayconnect.ValidationInterceptor(),
+		maxBodyBytes:          maxDisplayRPCBodyBytes, contract: displayRoute(),
 		build: func(options ...connect.HandlerOption) (string, http.Handler) {
 			return displayv1connect.NewDisplayServiceHandler(adapter, options...)
 		},
