@@ -82,5 +82,7 @@ go test ./internal/server -run '^TestCapacityEnvelope$' -count=1 -timeout 15m
 ```
 
 `GET /diagnostics` and authenticated `GET /admin/diagnostics` expose bounded capacity counts.
-Crossing the tested Location or Lane, Session plus Entry, or Display count changes capacity status to `warning`; Beamers still commits valid data.
+Crossing the tested Location or Lane, Session, Entry, or Display count changes capacity status to `warning`; Beamers still commits valid data.
+The Session and Entry tested maxima are reported separately (`sessions` and `entries` warning codes) because the certified profiles above represent nearly all of their `SessionsAndEntries` envelope as Competition Entries under two real Sessions; a combined figure would otherwise imply Sessions themselves were exercised at Entry scale.
+The Session tested maximum instead reflects a realistic Session fixture, not the certified profiles' Entry-heavy envelope.
 Crew and downstream public-reader concurrency are delivery-topology measurements verified by the workload, not installation counts the origin can infer through a coalescing cache.

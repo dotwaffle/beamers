@@ -445,7 +445,10 @@ func runCombinedCapacity(
 		probe.token,
 	)
 	runCapacityLoad(t, target, duration, certify)
-	if profile.Envelope.SessionsAndEntries >= testedSessionsEntries {
+	// prepareCapacityFixture always creates exactly two real Sessions; the
+	// rest of the envelope is Competition Entries, so only the Entry
+	// tested-maximum can be crossed here.
+	if profile.Envelope.SessionsAndEntries-2 >= testedEntries {
 		verifyCapacityWarning(
 			t,
 			application,
@@ -2690,8 +2693,7 @@ func verifyCapacityWarning(
 		!slices.ContainsFunc(
 			diagnostics.Capacity.Warnings,
 			func(warning capacityWarning) bool {
-				return warning.Code == "sessions_and_entries" &&
-					warning.Observed == envelope.SessionsAndEntries+1
+				return warning.Code == "entries" && warning.Observed == after.Entries
 			},
 		) {
 		t.Fatalf("capacity diagnostics = %+v", diagnostics.Capacity)
