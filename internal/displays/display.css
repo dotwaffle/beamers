@@ -600,6 +600,14 @@ body {
 	line-height: 1;
 }
 
+/* The incoming frame itself crossfades on an ordinary snapshot re-render
+   (a forecast nudge, a lifecycle change) when the Theme selects the fade
+   transition. An Override firing is excluded via [data-override-kind], so
+   it always remains an intentional hard cut regardless of the Theme's
+   transition choice. */
+.display-transition-fade:not([data-override-kind]) {
+	animation: display-fade 250ms ease-out;
+}
 .display-transition-fade [data-rotation-page]:not([hidden]) {
 	animation: display-fade 250ms ease-out;
 }

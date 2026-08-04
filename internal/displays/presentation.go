@@ -267,6 +267,13 @@ func displaySessionKicker(session Session) string {
 	return "UP NEXT · " + session.DisplayPresentedStart
 }
 
+// displaySessionID carries a Session's identity into the entry document so
+// the client renderer can match it against the outgoing DOM on reconnect,
+// preserving rotation position across a repaint.
+func displaySessionID(session Session) string {
+	return strconv.Itoa(session.ID)
+}
+
 // displayLifecycleBadge reports whether a Session earns a lifecycle badge.
 // Scheduled and Ended are the unmarked default state and would only add noise.
 func displayLifecycleBadge(session Session) bool {

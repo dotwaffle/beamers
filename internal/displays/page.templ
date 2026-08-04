@@ -303,7 +303,7 @@ templ displaySessionRegion(
 	collapsed bool,
 	slot string,
 ) {
-	<article data-rotation-page?={ rotationPage } hidden?={ collapsed } data-slot={ slot } data-lifecycle={ session.Lifecycle }>
+	<article data-rotation-page?={ rotationPage } hidden?={ collapsed } data-slot={ slot } data-lifecycle={ session.Lifecycle } data-session-id={ displaySessionID(session) }>
 		if session.Unavailable {
 			<p>{ session.AvailabilityMessage }</p>
 		} else {

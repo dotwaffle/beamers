@@ -326,10 +326,12 @@ function renderSnapshot(snapshot, offset) {
     serverMilliseconds: Date.now() + offset,
     monotonicMilliseconds: performance.now(),
   };
-  if (document.querySelector("main")?.dataset.renderKey === renderKey) {
+  const outgoingMain = document.querySelector("main");
+  if (outgoingMain?.dataset.renderKey === renderKey) {
     clockReference = candidateClockReference;
     return;
   }
+  const survivingRotationSessionId = activeRotationSessionId(outgoingMain);
   const main = document.createElement("main");
   const startRegionUpdates = [];
   main.dataset.renderKey = renderKey;
@@ -428,7 +430,7 @@ function renderSnapshot(snapshot, offset) {
     startUpdates();
   }
   startProgressUpdates(main);
-  startRotation(main, composition.layout.rotationSeconds);
+  startRotation(main, composition.layout.rotationSeconds, survivingRotationSessionId);
 }
 
 function scheduleTrackedUpdate(callback, delay) {
@@ -608,7 +610,10 @@ function renderWidget(region, widget, snapshot, theme, candidateClockReference) 
       const article = document.createElement("article");
       article.dataset.rotationPage = "true";
       article.dataset.slot = "rotation";
-      article.hidden = region.children.length > 0;
+      article.dataset.sessionId = String(session.id ?? "");
+      // Left hidden here: startRotation chooses which page opens, carrying
+      // the outgoing frame's rotation position forward when it can.
+      article.hidden = true;
       renderSession(article, snapshot, session);
       region.append(article);
     }
@@ -885,13 +890,27 @@ function appendLifecycleBadge(parent, session) {
   parent.append(badge);
 }
 
-function startRotation(main, seconds) {
+// startRotation opens the page identified by preferredSessionId when one of
+// the freshly rendered pages carries that Session, so a snapshot re-render
+// (a forecast nudge, a lifecycle change) does not yank the Display back to
+// the first page. Absent or unmatched, it falls back to the first page,
+// matching an intentional hard cut such as an Override clearing.
+function startRotation(main, seconds, preferredSessionId) {
   clearTimeout(rotationTimer);
   const pages = findRotationPages(main);
+  if (pages.length === 0) {
+    return;
+  }
+  let active = preferredSessionId === undefined
+    ? -1
+    : pages.findIndex((page) => page.dataset.sessionId === preferredSessionId);
+  if (active < 0) {
+    active = 0;
+  }
+  pages[active].hidden = false;
   if (pages.length < 2 || !Number.isInteger(seconds) || seconds < 5 || seconds > 300) {
     return;
   }
-  let active = 0;
   const advance = () => {
     pages[active].hidden = true;
     active = (active + 1) % pages.length;
@@ -913,6 +932,17 @@ function findRotationPages(main) {
     }
   }
   return pages;
+}
+
+// activeRotationSessionId reads the outgoing frame's visible rotation page,
+// before it is replaced, so its Session identity can be carried into the
+// incoming frame's rotation.
+function activeRotationSessionId(main) {
+  if (!main) {
+    return undefined;
+  }
+  const active = findRotationPages(main).find((page) => !page.hidden);
+  return active?.dataset.sessionId;
 }
 
 function appendSessionSchedule(parent, snapshot, session) {

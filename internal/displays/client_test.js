@@ -166,6 +166,77 @@ test("rotation advances configured pages without replacing persistent regions", 
   assert.equal(rotation.children[1].hidden, false);
 });
 
+test("rotation position survives a snapshot re-render, carried from the outgoing DOM", async () => {
+  const composition = displayComposition({
+    key: "event-overview",
+    rotationSeconds: 30,
+    regions: [
+      {name: "schedule", widget: "rotation", persistent: false},
+    ],
+  });
+  const firstSnapshot = displaySnapshot({
+    standby: false,
+    viewKey: "event-overview",
+    composition,
+    sessions: [
+      displaySession("Opening Keynote", {id: "1"}),
+      displaySession("Closing Keynote", {id: "2"}),
+    ],
+  });
+  // A forecast nudge changes Session content (and so the render key) without
+  // changing which Sessions exist or their order.
+  const nudgedSnapshot = displaySnapshot({
+    standby: false,
+    viewKey: "event-overview",
+    composition,
+    publishedRevision: "2",
+    sessions: [
+      displaySession("Opening Keynote", {id: "1"}),
+      displaySession("Closing Keynote", {id: "2", forecastEnd: "2099-08-21T09:15:00Z"}),
+    ],
+  });
+  const browser = await startBrowser({snapshots: [firstSnapshot, nudgedSnapshot]});
+
+  // Advance rotation to the second page before the nudge lands.
+  await browser.runTimer((delay) => delay === 30000);
+  const rotatedFrame = browser.document.main;
+  assert.equal(rotatedFrame.children[0].children[0].hidden, true);
+  assert.equal(rotatedFrame.children[0].children[1].hidden, false);
+
+  browser.eventSources[0].emit("invalidate", {
+    data: JSON.stringify({
+      protocol_version: "beamers.display.v1",
+      asset_version: "asset-current",
+      stream_position: 2,
+    }),
+  });
+  await browser.runTimer((delay) => delay === 0);
+
+  const renderedFrame = browser.document.main;
+  assert.notEqual(renderedFrame, rotatedFrame);
+  const rotation = renderedFrame.children[0];
+  assert.equal(rotation.children[0].dataset.sessionId, "1");
+  assert.equal(rotation.children[1].dataset.sessionId, "2");
+  assert.equal(rotation.children[0].hidden, true);
+  assert.equal(rotation.children[1].hidden, false);
+});
+
+test("Override firing hard-cuts rather than crossfading the incoming frame", () => {
+  const stylesheet = fs.readFileSync(
+    new URL("./display.css", `file://${__filename}`),
+    "utf8",
+  );
+  // The incoming-frame crossfade excludes any Override via
+  // [data-override-kind], and every Override branch in client.js sets that
+  // dataset attribute on main, so an Emergency Alert, Urgent Notice, or
+  // Technical Difficulties firing is always a hard cut regardless of the
+  // Theme's transition choice.
+  assert.match(
+    stylesheet,
+    /\.display-transition-fade:not\(\[data-override-kind\]\)\s*\{\s*animation: display-fade/,
+  );
+});
+
 test("timeline renderer uses the projected Event-day geometry", async () => {
   const suppressed = {
     unavailable: true,
@@ -1261,7 +1332,7 @@ function stageTimerSnapshot(overrides = {}) {
   });
 }
 
-function displaySession(title) {
+function displaySession(title, overrides = {}) {
   return {
     title,
     lifecycle: "Scheduled",
@@ -1271,6 +1342,7 @@ function displaySession(title) {
     presentedEnd: "2099-08-21T09:00:00Z",
     presentedStartLabel: "Forecast Start",
     presentedEndLabel: "Forecast End",
+    ...overrides,
   };
 }
 
