@@ -373,9 +373,9 @@ func TestProgramEntryTakeSelectsDisplayProgramAndVotingNotifications(t *testing.
 	if err != nil || claimed.ControlRevision != disconnected.ControlRevision+2 {
 		t.Fatalf("Program state after connection release = %+v, %v", claimed, err)
 	}
-	var entryItem store.ProgramItem
+	var entryItem programcontrol.Item
 	for _, item := range claimed.Channel.Items {
-		if item.Kind == store.ProgramItemEntry {
+		if item.Kind == programcontrol.ItemEntry {
 			entryItem = item
 			break
 		}

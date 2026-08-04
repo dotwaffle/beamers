@@ -39,6 +39,10 @@ var (
 	ErrEntryRevision = store.ErrCompetitionEntryRevision
 	// ErrEntryDefer means the Entry is not the current canonical Next item.
 	ErrEntryDefer = store.ErrCompetitionEntryDefer
+	// ErrEntryOrderRevision means Take observed a stale Locked Entry Order.
+	ErrEntryOrderRevision = store.ErrEntryOrderRevision
+	// ErrEntryOrderPreviewStale means Take observed a stale Entry Order preview.
+	ErrEntryOrderPreviewStale = store.ErrEntryOrderPreviewStale
 	// ErrCommandConflict means a Command ID was reused with another payload.
 	ErrCommandConflict = store.ErrCommandConflict
 	// ErrResultTransition means the requested Result action is not valid now.
@@ -72,11 +76,11 @@ type Owner struct {
 
 // State is the complete control projection for one Program Channel.
 type State struct {
-	Channel           store.ProgramChannelState
+	Channel           Channel
 	ControlRevision   int
 	Owner             *Owner
 	HandoverRequester *Owner
-	Preview           store.ProgramItem
+	Preview           Item
 }
 
 // ControlInput changes volatile Program Channel ownership.
@@ -91,7 +95,7 @@ type ControlInput struct {
 // SelectPreviewInput changes only the current owner's process-local Preview.
 type SelectPreviewInput struct {
 	EventID, SessionID int
-	Item               store.ProgramItem
+	Item               Item
 	CommandID          string
 	ExpectedRevision   int
 }
@@ -102,7 +106,7 @@ type TakeInput struct {
 	CommandID                  string
 	ExpectedRevision           int
 	ExpectedControlRevision    int
-	Item                       store.ProgramItem
+	Item                       Item
 	ExpectedEntryOrderRevision int
 	EntryOrderFingerprint      string
 }
@@ -135,7 +139,7 @@ type ResultActionInput struct {
 	EventID, SessionID      int
 	CommandID               string
 	Action                  ResultAction
-	Item                    store.ProgramItem
+	Item                    Item
 	ExpectedProgramRevision int
 	ExpectedControlRevision int
 }
@@ -410,7 +414,7 @@ func (service *Service) resultIdentity(
 	}
 }
 
-func programItemIdentity(item store.ProgramItem) []string {
+func programItemIdentity(item Item) []string {
 	parts := []string{
 		string(item.Kind),
 		strconv.Itoa(item.EntryID),
@@ -916,7 +920,7 @@ func applySelectPreview(
 			control, rejectionControlOwnerRequired, ErrControlOwnerRequired,
 		), nil
 	}
-	item, selectable := selectItem(selection.channel.Items, selection.input.Item)
+	item, selectable := selectItem(selection.channel.Items, storedItem(selection.input.Item))
 	if !selectable {
 		return controlRejection(control, rejectionPreviewItemInvalid, ErrPreviewItem), nil
 	}
@@ -1059,7 +1063,7 @@ func applyTake(
 			ErrControlOwnerRequired,
 		), nil
 	}
-	if !control.preview.SameIdentity(input.Item) {
+	if !control.preview.SameIdentity(storedItem(input.Item)) {
 		return takeRejection(
 			store.ProgramChannelState{}, control, rejectionPreviewItemInvalid, ErrPreviewItem,
 		), nil
@@ -1080,7 +1084,7 @@ func applyTake(
 			current, control, rejectionResultRevealRunning, ErrResultRevealRunning,
 		), nil
 	}
-	selected, valid := selectItem(current.Items, input.Item)
+	selected, valid := selectItem(current.Items, storedItem(input.Item))
 	if !valid {
 		return takeRejection(
 			current, control, rejectionProgramItemInvalid, ErrProgramItem,
@@ -1352,7 +1356,7 @@ func validateResultAction(
 	if current.Revision != input.ExpectedProgramRevision {
 		return store.ProgramItem{}, rejectionProgramRevision, ErrProgramRevision
 	}
-	selected, valid := selectItem(current.Items, input.Item)
+	selected, valid := selectItem(current.Items, storedItem(input.Item))
 	if !valid || selected.Kind != store.ProgramItemResult {
 		return store.ProgramItem{}, rejectionProgramItemInvalid, ErrProgramItem
 	}
@@ -1540,9 +1544,13 @@ func existingPresentationRun(
 }
 
 func (service *Service) state(channel store.ProgramChannelState, control controlState) State {
-	result := State{Channel: channel, ControlRevision: control.revision, Preview: control.preview}
+	result := State{
+		Channel:         exposedChannel(channel),
+		ControlRevision: control.revision,
+		Preview:         exposedItem(control.preview),
+	}
 	if result.Preview.Kind == "" {
-		result.Preview = channel.Next
+		result.Preview = result.Channel.Next
 	}
 	if control.hasOwner {
 		copied := control.owner

@@ -25,7 +25,6 @@ import (
 	"github.com/dotwaffle/beamers/internal/results"
 	"github.com/dotwaffle/beamers/internal/rundown"
 	"github.com/dotwaffle/beamers/internal/sessioncontrol"
-	"github.com/dotwaffle/beamers/internal/store"
 	"github.com/dotwaffle/beamers/internal/themes"
 	"github.com/dotwaffle/beamers/internal/themevalue"
 	"github.com/dotwaffle/beamers/internal/viewer"
@@ -731,7 +730,7 @@ func seedLiveDemoCompetition(
 			ExpectedRevision: state.Channel.Revision, ExpectedControlRevision: state.ControlRevision,
 			Item: state.Preview,
 		}
-		if state.Preview.Kind == store.ProgramItemEntry {
+		if state.Preview.Kind == programcontrol.ItemEntry {
 			order, orderErr := installation.Competition().PreviewEntryOrder(
 				ctx,
 				producer,
@@ -749,7 +748,7 @@ func seedLiveDemoCompetition(
 			return takeErr
 		}
 		state = taken.State
-		if state.Channel.Output.Kind == store.ProgramItemEntry {
+		if state.Channel.Output.Kind == programcontrol.ItemEntry {
 			return nil
 		}
 	}

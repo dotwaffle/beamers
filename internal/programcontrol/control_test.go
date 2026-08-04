@@ -461,16 +461,13 @@ func TestProgramItemIdentitySeparatesCommandPayloads(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
 		name string
-		item store.ProgramItem
+		item Item
 	}{
-		{name: "standby", item: store.ProgramItem{Kind: store.ProgramItemStandby}},
-		{name: "entry", item: store.ProgramItem{Kind: store.ProgramItemEntry, EntryID: 4}},
-		{
-			name: "retried entry",
-			item: store.ProgramItem{Kind: store.ProgramItemEntry, EntryID: 4, Retry: true},
-		},
-		{name: "jury result", item: resultItem("jury")},
-		{name: "audience result", item: resultItem("audience")},
+		{name: "standby", item: Item{Kind: ItemStandby}},
+		{name: "entry", item: Item{Kind: ItemEntry, EntryID: 4}},
+		{name: "retried entry", item: Item{Kind: ItemEntry, EntryID: 4, Retry: true}},
+		{name: "jury result", item: exposedItem(resultItem("jury"))},
+		{name: "audience result", item: exposedItem(resultItem("audience"))},
 	}
 	seen := make(map[string]string, len(cases))
 	for _, testCase := range cases {
@@ -480,8 +477,8 @@ func TestProgramItemIdentitySeparatesCommandPayloads(t *testing.T) {
 		}
 		seen[identity] = testCase.name
 	}
-	titled := store.ProgramItem{Kind: store.ProgramItemEntry, EntryID: 4, Title: "Aurora"}
-	plain := store.ProgramItem{Kind: store.ProgramItemEntry, EntryID: 4}
+	titled := Item{Kind: ItemEntry, EntryID: 4, Title: "Aurora"}
+	plain := Item{Kind: ItemEntry, EntryID: 4}
 	if !slices.Equal(programItemIdentity(titled), programItemIdentity(plain)) {
 		t.Fatal("Program Item identity depends on a mutable Title")
 	}

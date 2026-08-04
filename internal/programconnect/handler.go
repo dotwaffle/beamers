@@ -15,7 +15,6 @@ import (
 	"github.com/dotwaffle/beamers/internal/displaystream"
 	"github.com/dotwaffle/beamers/internal/displayviews"
 	"github.com/dotwaffle/beamers/internal/programcontrol"
-	"github.com/dotwaffle/beamers/internal/store"
 )
 
 // Handler translates Program control requests without owning domain state.
@@ -303,18 +302,18 @@ func resultAction(value programv1.ResultAction) programcontrol.ResultAction {
 	}[value]
 }
 
-func programItemFromMessage(found *programv1.ProgramItem) store.ProgramItem {
+func programItemFromMessage(found *programv1.ProgramItem) programcontrol.Item {
 	if found == nil {
-		return store.ProgramItem{}
+		return programcontrol.Item{}
 	}
-	return store.ProgramItem{
-		Kind: map[programv1.ProgramItemKind]store.ProgramItemKind{
-			programv1.ProgramItemKind_PROGRAM_ITEM_KIND_STANDBY:  store.ProgramItemStandby,
-			programv1.ProgramItemKind_PROGRAM_ITEM_KIND_UPCOMING: store.ProgramItemUpcoming,
-			programv1.ProgramItemKind_PROGRAM_ITEM_KIND_STARTING: store.ProgramItemStarting,
-			programv1.ProgramItemKind_PROGRAM_ITEM_KIND_ENTRY:    store.ProgramItemEntry,
-			programv1.ProgramItemKind_PROGRAM_ITEM_KIND_ENDING:   store.ProgramItemEnding,
-			programv1.ProgramItemKind_PROGRAM_ITEM_KIND_RESULT:   store.ProgramItemResult,
+	return programcontrol.Item{
+		Kind: map[programv1.ProgramItemKind]programcontrol.ItemKind{
+			programv1.ProgramItemKind_PROGRAM_ITEM_KIND_STANDBY:  programcontrol.ItemStandby,
+			programv1.ProgramItemKind_PROGRAM_ITEM_KIND_UPCOMING: programcontrol.ItemUpcoming,
+			programv1.ProgramItemKind_PROGRAM_ITEM_KIND_STARTING: programcontrol.ItemStarting,
+			programv1.ProgramItemKind_PROGRAM_ITEM_KIND_ENTRY:    programcontrol.ItemEntry,
+			programv1.ProgramItemKind_PROGRAM_ITEM_KIND_ENDING:   programcontrol.ItemEnding,
+			programv1.ProgramItemKind_PROGRAM_ITEM_KIND_RESULT:   programcontrol.ItemResult,
 		}[found.GetKind()],
 		EntryID: int(found.GetEntryId()),
 		Retry:   found.GetRetry(),
@@ -322,7 +321,7 @@ func programItemFromMessage(found *programv1.ProgramItem) store.ProgramItem {
 	}
 }
 
-func programItemMessage(found store.ProgramItem) (*programv1.ProgramItem, error) {
+func programItemMessage(found programcontrol.Item) (*programv1.ProgramItem, error) {
 	if found.Kind == "" {
 		return nil, nil
 	}
@@ -331,13 +330,13 @@ func programItemMessage(found store.ProgramItem) (*programv1.ProgramItem, error)
 		return nil, err
 	}
 	return &programv1.ProgramItem{
-		Kind: map[store.ProgramItemKind]programv1.ProgramItemKind{
-			store.ProgramItemStandby:  programv1.ProgramItemKind_PROGRAM_ITEM_KIND_STANDBY,
-			store.ProgramItemUpcoming: programv1.ProgramItemKind_PROGRAM_ITEM_KIND_UPCOMING,
-			store.ProgramItemStarting: programv1.ProgramItemKind_PROGRAM_ITEM_KIND_STARTING,
-			store.ProgramItemEntry:    programv1.ProgramItemKind_PROGRAM_ITEM_KIND_ENTRY,
-			store.ProgramItemEnding:   programv1.ProgramItemKind_PROGRAM_ITEM_KIND_ENDING,
-			store.ProgramItemResult:   programv1.ProgramItemKind_PROGRAM_ITEM_KIND_RESULT,
+		Kind: map[programcontrol.ItemKind]programv1.ProgramItemKind{
+			programcontrol.ItemStandby:  programv1.ProgramItemKind_PROGRAM_ITEM_KIND_STANDBY,
+			programcontrol.ItemUpcoming: programv1.ProgramItemKind_PROGRAM_ITEM_KIND_UPCOMING,
+			programcontrol.ItemStarting: programv1.ProgramItemKind_PROGRAM_ITEM_KIND_STARTING,
+			programcontrol.ItemEntry:    programv1.ProgramItemKind_PROGRAM_ITEM_KIND_ENTRY,
+			programcontrol.ItemEnding:   programv1.ProgramItemKind_PROGRAM_ITEM_KIND_ENDING,
+			programcontrol.ItemResult:   programv1.ProgramItemKind_PROGRAM_ITEM_KIND_RESULT,
 		}[found.Kind],
 		EntryId: int64(found.EntryID), Title: found.Title, Retry: found.Retry,
 		Result: result,
@@ -369,8 +368,8 @@ func connectError(err error) error {
 	case errors.Is(err, programcontrol.ErrProgramRevision),
 		errors.Is(err, programcontrol.ErrControlRevision),
 		errors.Is(err, programcontrol.ErrEntryRevision),
-		errors.Is(err, store.ErrEntryOrderRevision),
-		errors.Is(err, store.ErrEntryOrderPreviewStale),
+		errors.Is(err, programcontrol.ErrEntryOrderRevision),
+		errors.Is(err, programcontrol.ErrEntryOrderPreviewStale),
 		errors.Is(err, programcontrol.ErrCommandConflict):
 		return connect.NewError(connect.CodeAborted, err)
 	case errors.Is(err, programcontrol.ErrPreviewItem),
