@@ -103,13 +103,27 @@ func (installation *SQLite) CreateFederatedSession(
 	params FederatedSessionParams,
 ) (AccountCredential, []string, bool, error) {
 	ctx = systemContext(ctx)
-	transaction, err := installation.client.Tx(ctx)
+	result, err := withTx(ctx, installation.client, "federated sign-in", func(transaction *ent.Tx) (federatedSessionResult, error) {
+		return createFederatedSession(ctx, transaction, params)
+	})
 	if err != nil {
-		return AccountCredential{}, nil, false, opaqueError("begin federated sign-in", err)
+		return AccountCredential{}, nil, false, err
 	}
-	defer func() {
-		_ = transaction.Rollback()
-	}()
+	return result.credential, result.revoked, result.created, nil
+}
+
+// federatedSessionResult is one committed federated sign-in outcome.
+type federatedSessionResult struct {
+	credential AccountCredential
+	revoked    []string
+	created    bool
+}
+
+func createFederatedSession(
+	ctx context.Context,
+	transaction *ent.Tx,
+	params FederatedSessionParams,
+) (federatedSessionResult, error) {
 	identity, err := transaction.FederatedIdentity.Query().
 		Where(
 			federatedidentity.ProviderEQ(params.Provider),
@@ -122,19 +136,19 @@ func (installation *SQLite) CreateFederatedSession(
 	switch {
 	case ent.IsNotFound(err):
 		if !params.AllowAccountCreation {
-			return AccountCredential{}, nil, false, ErrRegistrationClosed
+			return federatedSessionResult{}, ErrRegistrationClosed
 		}
 		policy, policyErr := transaction.RegistrationPolicy.Query().
 			Where(registrationpolicy.RegistrationOpenEQ(true)).
 			Exist(ctx)
 		if policyErr != nil {
-			return AccountCredential{}, nil, false, opaqueError(
+			return federatedSessionResult{}, opaqueError(
 				"read Registration Policy for federation",
 				policyErr,
 			)
 		}
 		if !policy {
-			return AccountCredential{}, nil, false, ErrRegistrationClosed
+			return federatedSessionResult{}, ErrRegistrationClosed
 		}
 		found, err = transaction.Account.Create().
 			SetName(params.Name).
@@ -144,10 +158,10 @@ func (installation *SQLite) CreateFederatedSession(
 			SetCreatedAt(params.Now).
 			Save(ctx)
 		if ent.IsConstraintError(err) {
-			return AccountCredential{}, nil, false, ErrAccountExists
+			return federatedSessionResult{}, ErrAccountExists
 		}
 		if err != nil {
-			return AccountCredential{}, nil, false, opaqueError("create federated Account", err)
+			return federatedSessionResult{}, opaqueError("create federated Account", err)
 		}
 		_, err = transaction.FederatedIdentity.Create().
 			SetAccountID(found.ID).
@@ -157,27 +171,27 @@ func (installation *SQLite) CreateFederatedSession(
 			SetLastUsedAt(params.Now).
 			Save(ctx)
 		if ent.IsConstraintError(err) {
-			return AccountCredential{}, nil, false, ErrAccountExists
+			return federatedSessionResult{}, ErrAccountExists
 		}
 		if err != nil {
-			return AccountCredential{}, nil, false, opaqueError("create Federated Identity", err)
+			return federatedSessionResult{}, opaqueError("create Federated Identity", err)
 		}
 		created = true
 	case err != nil:
-		return AccountCredential{}, nil, false, opaqueError("read Federated Identity", err)
+		return federatedSessionResult{}, opaqueError("read Federated Identity", err)
 	default:
 		found, err = identity.Edges.AccountOrErr()
 		if err != nil {
-			return AccountCredential{}, nil, false, opaqueError(
+			return federatedSessionResult{}, opaqueError(
 				"read Federated Identity Account",
 				err,
 			)
 		}
 		if identity.RevokedAt != nil || found.DisabledAt != nil {
-			return AccountCredential{}, nil, false, ErrInvalidSession
+			return federatedSessionResult{}, ErrInvalidSession
 		}
 		if _, err = identity.Update().SetLastUsedAt(params.Now).Save(ctx); err != nil {
-			return AccountCredential{}, nil, false, opaqueError(
+			return federatedSessionResult{}, opaqueError(
 				"update Federated Identity use",
 				err,
 			)
@@ -192,12 +206,13 @@ func (installation *SQLite) CreateFederatedSession(
 		params.SessionExpiry,
 	)
 	if err != nil {
-		return AccountCredential{}, nil, false, err
+		return federatedSessionResult{}, err
 	}
-	if err = transaction.Commit(); err != nil {
-		return AccountCredential{}, nil, false, opaqueError("commit federated sign-in", err)
-	}
-	return accountCredential(found, ""), revoked, created, nil
+	return federatedSessionResult{
+		credential: accountCredential(found, ""),
+		revoked:    revoked,
+		created:    created,
+	}, nil
 }
 
 // FederatedSessionParams contains one verified provider identity and new session proof.

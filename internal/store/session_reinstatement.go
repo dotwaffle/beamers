@@ -67,15 +67,12 @@ func (installationStore *SQLite) PreviewReinstateSession(
 	laneIDs []int,
 	locationIDs []int,
 ) (ReinstatePreview, error) {
-	transaction, err := installationStore.client.Tx(ctx)
-	if err != nil {
-		return ReinstatePreview{}, opaqueError("begin Reinstate Session preview", err)
-	}
-	defer func() { _ = transaction.Rollback() }()
-	return previewReinstateSession(
-		ctx, transaction.Client(), eventID, sessionID,
-		forecastStart, laneIDs, locationIDs,
-	)
+	return withReadTx(ctx, installationStore.client, "Reinstate Session preview", func(transaction *ent.Tx) (ReinstatePreview, error) {
+		return previewReinstateSession(
+			ctx, transaction.Client(), eventID, sessionID,
+			forecastStart, laneIDs, locationIDs,
+		)
+	})
 }
 
 // ReinstateSession revalidates and commits one Placement Preview atomically.

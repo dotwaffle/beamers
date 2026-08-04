@@ -46,12 +46,9 @@ func (installationStore *SQLite) PreviewPullForward(
 	eventID int,
 	sessionID int,
 ) (PullForwardPreview, error) {
-	transaction, err := installationStore.client.Tx(ctx)
-	if err != nil {
-		return PullForwardPreview{}, opaqueError("begin Pull Forward preview", err)
-	}
-	defer func() { _ = transaction.Rollback() }()
-	return previewPullForward(ctx, transaction.Client(), eventID, sessionID)
+	return withReadTx(ctx, installationStore.client, "Pull Forward preview", func(transaction *ent.Tx) (PullForwardPreview, error) {
+		return previewPullForward(ctx, transaction.Client(), eventID, sessionID)
+	})
 }
 
 // PullForward revalidates and atomically moves eligible later Forecasts.

@@ -309,35 +309,38 @@ func (installation *SQLite) LoadDisplayStatus(
 // ListDisplayStatuses returns one snapshot's Active Event and crew-visible Assignment summaries.
 func (installation *SQLite) ListDisplayStatuses(ctx context.Context) (int, []DisplayStatus, error) {
 	internalContext := systemContext(ctx)
-	transaction, err := installation.readClient().Tx(internalContext)
-	if err != nil {
-		return 0, nil, opaqueError("begin Display status snapshot", err)
+	type snapshot struct {
+		activeEventID int
+		statuses      []DisplayStatus
 	}
-	defer func() {
-		_ = transaction.Rollback()
-	}()
-	client := transaction.Client()
-	routing, err := loadDisplayRouting(internalContext, client)
-	if err != nil {
-		return 0, nil, err
-	}
-	found, err := client.Display.Query().Order(ent.Asc(display.FieldID)).All(internalContext)
-	if err != nil {
-		return 0, nil, opaqueError("list Displays", err)
-	}
-	inputs, err := loadDisplayStatusInputs(internalContext, client, routing, found)
-	if err != nil {
-		return 0, nil, err
-	}
-	result := make([]DisplayStatus, 0, len(found))
-	for _, item := range found {
-		status, statusErr := displayStatus(item, inputs)
-		if statusErr != nil {
-			return 0, nil, statusErr
+	found, err := withReadTx(internalContext, installation.readClient(), "Display status snapshot", func(transaction *ent.Tx) (snapshot, error) {
+		client := transaction.Client()
+		routing, err := loadDisplayRouting(internalContext, client)
+		if err != nil {
+			return snapshot{}, err
 		}
-		result = append(result, status)
+		displays, err := client.Display.Query().Order(ent.Asc(display.FieldID)).All(internalContext)
+		if err != nil {
+			return snapshot{}, opaqueError("list Displays", err)
+		}
+		inputs, err := loadDisplayStatusInputs(internalContext, client, routing, displays)
+		if err != nil {
+			return snapshot{}, err
+		}
+		result := make([]DisplayStatus, 0, len(displays))
+		for _, item := range displays {
+			status, statusErr := displayStatus(item, inputs)
+			if statusErr != nil {
+				return snapshot{}, statusErr
+			}
+			result = append(result, status)
+		}
+		return snapshot{activeEventID: routing.ActiveEventID, statuses: result}, nil
+	})
+	if err != nil {
+		return 0, nil, err
 	}
-	return routing.ActiveEventID, result, nil
+	return found.activeEventID, found.statuses, nil
 }
 
 type displayRouting struct {
