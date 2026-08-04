@@ -275,7 +275,11 @@ func (service *Service) previewPriority(
 	}
 	result := PriorityPreview{Preview: preview}
 	if kind == store.DisplayOverrideEmergencyAlert {
-		result.ConfirmationFingerprint = store.DisplayOverridePreviewFingerprint(preview)
+		fingerprint, fingerprintErr := store.DisplayOverridePreviewFingerprint(preview)
+		if fingerprintErr != nil {
+			return PriorityPreview{}, fingerprintErr
+		}
+		result.ConfirmationFingerprint = fingerprint
 	}
 	return result, nil
 }
@@ -804,13 +808,14 @@ func (service *Service) degradedEmergencyPreviewLocked(
 		UntilCleared:   true,
 		Displays:       displays,
 	}
+	fingerprint, err := store.DisplayOverridePreviewFingerprint(preview)
+	if err != nil {
+		return PriorityPreview{}, err
+	}
 	return PriorityPreview{
-		Preview: preview,
-		ConfirmationFingerprint: command.PayloadHash(
-			"nondurable",
-			store.DisplayOverridePreviewFingerprint(preview),
-		),
-		Nondurable: true,
+		Preview:                 preview,
+		ConfirmationFingerprint: command.PayloadHash("nondurable", fingerprint),
+		Nondurable:              true,
 	}, nil
 }
 

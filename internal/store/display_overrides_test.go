@@ -455,7 +455,7 @@ func TestPriorityOverridesResolveTargetsAndRequireEmergencyConfirmation(t *testi
 	if err != nil {
 		t.Fatalf("preview Emergency Alert: %v", err)
 	}
-	emergencyParams.ConfirmationFingerprint = DisplayOverridePreviewFingerprint(emergencyPreview)
+	emergencyParams.ConfirmationFingerprint = mustPreviewFingerprint(t, emergencyPreview)
 	addedDisplay := client.Display.Create().
 		SetName("Added after preview").
 		SetEnrolledAt(now).
@@ -479,7 +479,7 @@ func TestPriorityOverridesResolveTargetsAndRequireEmergencyConfirmation(t *testi
 	if err != nil {
 		t.Fatalf("refresh Emergency Alert preview: %v", err)
 	}
-	emergencyParams.ConfirmationFingerprint = DisplayOverridePreviewFingerprint(emergencyPreview)
+	emergencyParams.ConfirmationFingerprint = mustPreviewFingerprint(t, emergencyPreview)
 	emergencyTx := beginCommand(t, installationStore, producerContext)
 	emergency, err := emergencyTx.ActivatePriorityOverride(
 		producerContext,
@@ -528,5 +528,77 @@ func TestPriorityOverridesResolveTargetsAndRequireEmergencyConfirmation(t *testi
 	); err != nil || snapshot.EmergencyAlert != nil ||
 		snapshot.UrgentNotice == nil || snapshot.UrgentNotice.ID != urgent.ID {
 		t.Fatalf("underlying Urgent Notice after Emergency clear = %+v, %v", snapshot, err)
+	}
+}
+
+func mustPreviewFingerprint(t *testing.T, preview DisplayOverridePreview) string {
+	t.Helper()
+	fingerprint, err := DisplayOverridePreviewFingerprint(preview)
+	if err != nil {
+		t.Fatalf("fingerprint Display Override preview: %v", err)
+	}
+	return fingerprint
+}
+
+func TestDisplayOverridePreviewFingerprintDistinguishesPreviews(t *testing.T) {
+	t.Parallel()
+	base := DisplayOverridePreview{
+		Kind:           DisplayOverrideEmergencyAlert,
+		Target:         DisplayOverrideTarget{Type: DisplayOverrideTargetEvent},
+		TargetGroupKey: "event",
+		Text:           "Evacuate",
+		Emphasis:       StageMessageNormal,
+		Presentation:   DisplayOverrideReplace,
+		UntilCleared:   true,
+		Displays: []DisplayOverrideResolvedDisplay{
+			{ID: 1, Name: "Stage", ViewKey: "event-overview"},
+		},
+	}
+	withText := func(text string) DisplayOverridePreview {
+		changed := base
+		changed.Text = text
+		return changed
+	}
+	withDisplays := func(
+		displays ...DisplayOverrideResolvedDisplay,
+	) DisplayOverridePreview {
+		changed := base
+		changed.Displays = displays
+		return changed
+	}
+	expiring := base
+	expiring.UntilCleared = false
+	expiring.ExpiresAt = time.Date(2026, 8, 21, 12, 5, 0, 0, time.UTC)
+	stage := DisplayOverrideResolvedDisplay{ID: 1, Name: "Stage", ViewKey: "event-overview"}
+	foyer := DisplayOverrideResolvedDisplay{ID: 2, Name: "Foyer", ViewKey: "event-overview"}
+	tests := []struct {
+		name    string
+		preview DisplayOverridePreview
+	}{
+		{name: "base", preview: base},
+		{name: "different text", preview: withText("Stand by")},
+		{name: "empty text", preview: withText("")},
+		{name: "extra display", preview: withDisplays(stage, foyer)},
+		{name: "no displays", preview: withDisplays()},
+		{name: "reordered displays", preview: withDisplays(foyer, stage)},
+		{name: "expiring instead of until cleared", preview: expiring},
+	}
+	seen := make(map[string]string, len(tests))
+	for _, test := range tests {
+		fingerprint, err := DisplayOverridePreviewFingerprint(test.preview)
+		if err != nil {
+			t.Fatalf("%s: fingerprint returned error %v", test.name, err)
+		}
+		if len(fingerprint) != 64 {
+			t.Fatalf("%s: fingerprint = %q, want 64 hex characters", test.name, fingerprint)
+		}
+		repeat, err := DisplayOverridePreviewFingerprint(test.preview)
+		if err != nil || repeat != fingerprint {
+			t.Fatalf("%s: repeat fingerprint = %q, %v", test.name, repeat, err)
+		}
+		if other, clash := seen[fingerprint]; clash {
+			t.Fatalf("%s: fingerprint collides with %s", test.name, other)
+		}
+		seen[fingerprint] = test.name
 	}
 }

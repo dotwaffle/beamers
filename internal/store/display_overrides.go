@@ -366,12 +366,14 @@ func priorityOverridePreview(
 }
 
 // DisplayOverridePreviewFingerprint binds normalized content and resolved targets.
-func DisplayOverridePreviewFingerprint(preview DisplayOverridePreview) string {
+// The fingerprint never falls back to a sentinel value: a marshal failure is
+// reported so callers cannot compare one unusable fingerprint against another.
+func DisplayOverridePreviewFingerprint(preview DisplayOverridePreview) (string, error) {
 	encoded, err := json.Marshal(preview)
 	if err != nil {
-		return ""
+		return "", fmt.Errorf("fingerprint display override preview: %w", err)
 	}
-	return fmt.Sprintf("%x", sha256.Sum256(encoded))
+	return fmt.Sprintf("%x", sha256.Sum256(encoded)), nil
 }
 
 func (installationStore *SQLite) activeOverrideEvent(
@@ -682,10 +684,18 @@ func (transaction *CommandTx) ActivatePriorityOverride(
 	if err != nil {
 		return DisplayOverride{}, err
 	}
-	if params.Kind == DisplayOverrideEmergencyAlert &&
-		DisplayOverridePreviewFingerprint(priorityOverridePreview(params, targets)) !=
-			params.ConfirmationFingerprint {
-		return DisplayOverride{}, ErrDisplayOverrideRevision
+	if params.Kind == DisplayOverrideEmergencyAlert {
+		fingerprint, fingerprintErr := DisplayOverridePreviewFingerprint(
+			priorityOverridePreview(params, targets),
+		)
+		if fingerprintErr != nil {
+			return DisplayOverride{}, opaqueError(
+				"confirm Emergency Alert", fingerprintErr,
+			)
+		}
+		if fingerprint != params.ConfirmationFingerprint {
+			return DisplayOverride{}, ErrDisplayOverrideRevision
+		}
 	}
 	create := transaction.transaction.DisplayOverride.Create().
 		SetEventID(params.EventID).
