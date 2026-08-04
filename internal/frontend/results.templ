@@ -180,14 +180,110 @@ func resultsScoreValue(score results.ScoreValue) string {
 	return ""
 }
 
-func resultsAwardRecipientEntryIDs(recipients []results.AwardRecipient) string {
-	values := make([]string, 0, len(recipients))
+// resultsAwardRecipientEntryChecked reports whether one Entry is already an
+// AwardRecipient, for the checkbox picker's initial render.
+func resultsAwardRecipientEntryChecked(recipients []results.AwardRecipient, entryID int) bool {
 	for _, recipient := range recipients {
-		if recipient.EntryID > 0 {
-			values = append(values, strconv.Itoa(recipient.EntryID))
+		if recipient.EntryID == entryID {
+			return true
 		}
 	}
-	return strings.Join(values, ", ")
+	return false
+}
+
+// resultsAwardRecipientOption is one selectable Entry for an Award recipient
+// picker: an ID paired with a label that disambiguates same-named Entries
+// (Entry names are not unique, so the label always carries the Entry ID, and
+// the Event-wide picker also carries the originating Competition's title).
+type resultsAwardRecipientOption struct {
+	ID    int
+	Label string
+}
+
+// resultsEventEntries flattens every Entry across the Event's Competitions,
+// so the Event Award recipient picker can name any Entry regardless of
+// which Competition Session produced it. Each label carries the originating
+// Competition title and the Entry ID, since Entry names repeat both within
+// and across Competitions. The Workspace only lists Included, Eligible
+// Entries, but store validation accepts any Entry belonging to the Event, so
+// existingRecipients is unioned in (by Entry ID, using its stored
+// DisplayName as the label) to keep a previously saved recipient selectable
+// and visible even after it becomes Rejected, Withheld, or Disqualified.
+func resultsEventEntries(
+	competitions []ResultsCompetitionPage,
+	existingRecipients []results.AwardRecipient,
+) []resultsAwardRecipientOption {
+	options := make([]resultsAwardRecipientOption, 0)
+	seen := make(map[int]struct{})
+	for _, page := range competitions {
+		for _, entry := range page.Entries {
+			options = append(options, resultsAwardRecipientOption{
+				ID: entry.Entry.ID,
+				Label: entry.Entry.Name + " — " + page.Session.Title +
+					" (#" + strconv.Itoa(entry.Entry.ID) + ")",
+			})
+			seen[entry.Entry.ID] = struct{}{}
+		}
+	}
+	options = append(options, resultsMissingRecipientOptions(existingRecipients, seen)...)
+	return options
+}
+
+// resultsCompetitionEntries returns one Competition's Entries by Session ID,
+// for the Competition Award recipient picker. Each label carries the Entry
+// ID, since Entry names are not unique within a Competition. See
+// resultsEventEntries for why existingRecipients must be unioned in.
+func resultsCompetitionEntries(
+	competitions []ResultsCompetitionPage,
+	competitionID int,
+	existingRecipients []results.AwardRecipient,
+) []resultsAwardRecipientOption {
+	for _, page := range competitions {
+		if page.Session.ID == competitionID {
+			options := make([]resultsAwardRecipientOption, 0, len(page.Entries))
+			seen := make(map[int]struct{})
+			for _, entry := range page.Entries {
+				options = append(options, resultsAwardRecipientOption{
+					ID:    entry.Entry.ID,
+					Label: entry.Entry.Name + " (#" + strconv.Itoa(entry.Entry.ID) + ")",
+				})
+				seen[entry.Entry.ID] = struct{}{}
+			}
+			options = append(options, resultsMissingRecipientOptions(existingRecipients, seen)...)
+			return options
+		}
+	}
+	return nil
+}
+
+// resultsMissingRecipientOptions returns one picker option per Entry-linked
+// recipient in existingRecipients whose Entry ID is not already in seen, so
+// a recipient that fell out of the Workspace's Included/Eligible projection
+// stays selectable instead of silently dropping out of the picker (and out
+// of the saved Award) the next time the form is submitted.
+func resultsMissingRecipientOptions(
+	existingRecipients []results.AwardRecipient,
+	seen map[int]struct{},
+) []resultsAwardRecipientOption {
+	options := make([]resultsAwardRecipientOption, 0)
+	for _, recipient := range existingRecipients {
+		if recipient.EntryID <= 0 {
+			continue
+		}
+		if _, ok := seen[recipient.EntryID]; ok {
+			continue
+		}
+		seen[recipient.EntryID] = struct{}{}
+		label := recipient.DisplayName
+		if label == "" {
+			label = "Entry #" + strconv.Itoa(recipient.EntryID)
+		}
+		options = append(options, resultsAwardRecipientOption{
+			ID:    recipient.EntryID,
+			Label: label + " (no longer an eligible, included Entry)",
+		})
+	}
+	return options
 }
 
 func resultsAwardRecipientNames(recipients []results.AwardRecipient) string {
@@ -766,13 +862,23 @@ templ EventAwardFields(
 			{ page.Errors.Attributes(ResultsFieldID("save-event-awards", 0, "event_award_name_"+strconv.Itoa(index)))... }
 		/>
 		@FieldError(page.Errors, ResultsFieldID("save-event-awards", 0, "event_award_name_"+strconv.Itoa(index)))
-		<label for={ ResultsFieldID("save-event-awards", 0, "event_award_recipient_entry_ids_"+strconv.Itoa(index)) }>Recipient Entry IDs, comma-separated</label>
-		<input
+		<fieldset
 			id={ ResultsFieldID("save-event-awards", 0, "event_award_recipient_entry_ids_"+strconv.Itoa(index)) }
-			name="event_award_recipient_entry_ids"
-			value={ page.valueAt("save-event-awards", 0, "event_award_recipient_entry_ids", index, resultsAwardRecipientEntryIDs(award.Recipients)) }
 			{ page.Errors.Attributes(ResultsFieldID("save-event-awards", 0, "event_award_recipient_entry_ids_"+strconv.Itoa(index)))... }
-		/>
+		>
+			<legend>Recipient Entries</legend>
+			for _, option := range resultsEventEntries(page.Competitions, award.Recipients) {
+				<label>
+					<input
+						type="checkbox"
+						name={ "event_award_recipient_entry_ids_" + strconv.Itoa(index) }
+						value={ strconv.Itoa(option.ID) }
+						checked?={ page.checked("save-event-awards", 0, "event_award_recipient_entry_ids_"+strconv.Itoa(index), strconv.Itoa(option.ID), resultsAwardRecipientEntryChecked(award.Recipients, option.ID)) }
+					/>
+					{ option.Label }
+				</label>
+			}
+		</fieldset>
 		@FieldError(page.Errors, ResultsFieldID("save-event-awards", 0, "event_award_recipient_entry_ids_"+strconv.Itoa(index)))
 		<label for={ ResultsFieldID("save-event-awards", 0, "event_award_recipient_names_"+strconv.Itoa(index)) }>Other recipient names, one per line</label>
 		<textarea
@@ -982,13 +1088,23 @@ templ CompetitionAwardFields(
 			{ page.Errors.Attributes(ResultsFieldID("save-competition-awards", competitionID, "award_name_"+strconv.Itoa(index)))... }
 		/>
 		@FieldError(page.Errors, ResultsFieldID("save-competition-awards", competitionID, "award_name_"+strconv.Itoa(index)))
-		<label for={ ResultsFieldID("save-competition-awards", competitionID, "award_recipient_entry_ids_"+strconv.Itoa(index)) }>Recipient Entry IDs, comma-separated</label>
-		<input
+		<fieldset
 			id={ ResultsFieldID("save-competition-awards", competitionID, "award_recipient_entry_ids_"+strconv.Itoa(index)) }
-			name="award_recipient_entry_ids"
-			value={ page.valueAt("save-competition-awards", competitionID, "award_recipient_entry_ids", index, resultsAwardRecipientEntryIDs(award.Recipients)) }
 			{ page.Errors.Attributes(ResultsFieldID("save-competition-awards", competitionID, "award_recipient_entry_ids_"+strconv.Itoa(index)))... }
-		/>
+		>
+			<legend>Recipient Entries</legend>
+			for _, option := range resultsCompetitionEntries(page.Competitions, competitionID, award.Recipients) {
+				<label>
+					<input
+						type="checkbox"
+						name={ "award_recipient_entry_ids_" + strconv.Itoa(index) }
+						value={ strconv.Itoa(option.ID) }
+						checked?={ page.checked("save-competition-awards", competitionID, "award_recipient_entry_ids_"+strconv.Itoa(index), strconv.Itoa(option.ID), resultsAwardRecipientEntryChecked(award.Recipients, option.ID)) }
+					/>
+					{ option.Label }
+				</label>
+			}
+		</fieldset>
 		@FieldError(page.Errors, ResultsFieldID("save-competition-awards", competitionID, "award_recipient_entry_ids_"+strconv.Itoa(index)))
 		<label for={ ResultsFieldID("save-competition-awards", competitionID, "award_recipient_names_"+strconv.Itoa(index)) }>Other recipient names, one per line</label>
 		<textarea
