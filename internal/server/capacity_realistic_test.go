@@ -45,9 +45,13 @@ func newCapacityApplicationTB(
 	fixture capacityFixture,
 ) *application {
 	tb.Helper()
-	displayStream, err := displaystream.NewProcess(displaySubscriberQueueCapacity)
-	if err != nil {
-		tb.Fatalf("create Display stream: %v", err)
+	displayStream := fixture.displayStream
+	if displayStream == nil {
+		created, err := displaystream.NewProcess(displaySubscriberQueueCapacity)
+		if err != nil {
+			tb.Fatalf("create Display stream: %v", err)
+		}
+		displayStream = created
 	}
 	programStream, err := displaystream.NewProcess(displaySubscriberQueueCapacity)
 	if err != nil {
@@ -65,8 +69,9 @@ func newCapacityApplicationTB(
 		ListenerAddress: &net.TCPAddr{
 			IP: net.ParseIP("127.0.0.1"), Port: 8080,
 		},
-		DisplayStream: displayStream,
-		ProgramStream: programStream,
+		DisplayStream:  displayStream,
+		ProgramStream:  programStream,
+		ScheduleStream: fixture.scheduleStream,
 	})
 	if err != nil {
 		tb.Fatalf("build realistic capacity application: %v", err)
@@ -128,7 +133,28 @@ func prepareRealisticCapacityFixture(tb testing.TB) capacityFixture {
 	if err := operations.Initialize(t.Context(), dataDir); err != nil {
 		t.Fatalf("initialize realistic installation: %v", err)
 	}
-	installation, err := operations.OpenInstallation(t.Context(), dataDir)
+	// The public Schedule and Crew Rundown builds are memoized against these
+	// stream cursors, so the fixture has to own the streams: the benchmarks
+	// would otherwise measure an installation whose memo can never be
+	// invalidated, and therefore never used either.
+	scheduleStream, err := displaystream.NewProcess(displaySubscriberQueueCapacity)
+	if err != nil {
+		t.Fatalf("create realistic Schedule stream: %v", err)
+	}
+	displayStream, err := displaystream.NewProcess(displaySubscriberQueueCapacity)
+	if err != nil {
+		t.Fatalf("create realistic Display stream: %v", err)
+	}
+	openConfig := operations.OpenConfig{
+		DataDir:          dataDir,
+		NotifyDisplays:   displayStream.Notify,
+		NotifySchedule:   scheduleStream.Notify,
+		SchedulePosition: func() uint64 { return scheduleStream.Cursor().Position },
+		RundownPosition: func() uint64 {
+			return displayStream.Cursor().Position + scheduleStream.Cursor().Position
+		},
+	}
+	installation, err := operations.OpenInstallationWithConfig(t.Context(), openConfig)
 	if err != nil {
 		t.Fatalf("open realistic installation: %v", err)
 	}
@@ -264,7 +290,10 @@ func prepareRealisticCapacityFixture(tb testing.TB) capacityFixture {
 		locationID,
 		realisticSessionDisplays,
 	)
-	installation, err = operations.OpenInstallation(t.Context(), dataDir)
+	// The reopen has to carry the same stream wiring: an installation opened
+	// without it memoizes nothing, and the benchmarks would quietly measure
+	// only the uncached paths.
+	installation, err = operations.OpenInstallationWithConfig(t.Context(), openConfig)
 	if err != nil {
 		t.Fatalf("reopen realistic installation: %v", err)
 	}
@@ -274,6 +303,8 @@ func prepareRealisticCapacityFixture(tb testing.TB) capacityFixture {
 	}
 	return capacityFixture{
 		dataDir:            dataDir,
+		scheduleStream:     scheduleStream,
+		displayStream:      displayStream,
 		installation:       installation,
 		actor:              actor,
 		sessionToken:       session.Token,
@@ -583,6 +614,12 @@ func TestRealisticCapacityFixtureBuildsMixedLifecycleSessions(t *testing.T) {
 // Schedule build against the origin route directly - no coalescing cache
 // front, unlike the load-generator's capacityScheduleCache - against a
 // realistic Session count.
+//
+// Each iteration advances the Schedule stream first, which is what a Publish
+// or a live transition does, so every measured request is a cold build no
+// matter what benchtime the run chooses. Without that the benchmark would
+// measure one build followed by memo hits and quietly stop guarding the
+// build it names.
 func BenchmarkCapacityRealisticPublicScheduleDirect(b *testing.B) {
 	fixture := prepareRealisticCapacityFixture(b)
 	application := newCapacityApplicationTB(b, fixture)
@@ -592,6 +629,7 @@ func BenchmarkCapacityRealisticPublicScheduleDirect(b *testing.B) {
 	scheduleURL := origin.URL + "/events/" + realisticEventSlug + "/schedule"
 
 	for b.Loop() {
+		fixture.scheduleStream.Notify()
 		request, err := http.NewRequestWithContext(b.Context(), http.MethodGet, scheduleURL, http.NoBody)
 		if err != nil {
 			b.Fatal(err)
@@ -611,10 +649,56 @@ func BenchmarkCapacityRealisticPublicScheduleDirect(b *testing.B) {
 	}
 }
 
+// BenchmarkCapacityRealisticPublicScheduleRepeat measures the second and later
+// attendee requests at one Schedule stream cursor - the reload, the
+// If-None-Match revalidation, the wave that follows a Publish once the first
+// request through has built the snapshot.
+//
+// BenchmarkCapacityRealisticPublicScheduleDirect stays the honest measure of
+// the build itself: it creates a fresh fixture per sample and issues exactly
+// one request, so its number is always a cold build and stays comparable with
+// the recorded baseline. This benchmark deliberately measures the memo, and is
+// only meaningful read next to that one.
+func BenchmarkCapacityRealisticPublicScheduleRepeat(b *testing.B) {
+	fixture := prepareRealisticCapacityFixture(b)
+	application := newCapacityApplicationTB(b, fixture)
+	origin := httptest.NewServer(application)
+	b.Cleanup(origin.Close)
+	client := &http.Client{Timeout: 30 * time.Second}
+	scheduleURL := origin.URL + "/events/" + realisticEventSlug + "/schedule"
+	fetch := func() {
+		request, err := http.NewRequestWithContext(b.Context(), http.MethodGet, scheduleURL, http.NoBody)
+		if err != nil {
+			b.Fatal(err)
+		}
+		response, err := client.Do(request)
+		if err != nil {
+			b.Fatal(err)
+		}
+		_, _ = io.Copy(io.Discard, response.Body)
+		if closeErr := response.Body.Close(); closeErr != nil {
+			b.Fatal(closeErr)
+		}
+		if response.StatusCode != http.StatusOK {
+			b.Fatalf("repeat public Schedule status = %d", response.StatusCode)
+		}
+	}
+	fetch()
+
+	for b.Loop() {
+		fetch()
+	}
+}
+
 // BenchmarkCapacityRealisticCrewRundownLoad measures the Crew Rundown read
 // path (backing every Planning, Control, and Entries page) against a
 // realistic Session count, through the same Connect RPC the crew console
 // load generator exercises.
+//
+// Each iteration advances the Display stream first, so every measured request
+// rebuilds the projection rather than reusing the memo. The memoized steady
+// state between changes is a different and much smaller number, and belongs in
+// its own benchmark rather than appearing here whenever benchtime rises.
 func BenchmarkCapacityRealisticCrewRundownLoad(b *testing.B) {
 	fixture := prepareRealisticCapacityFixture(b)
 	application := newCapacityApplicationTB(b, fixture)
@@ -632,6 +716,7 @@ func BenchmarkCapacityRealisticCrewRundownLoad(b *testing.B) {
 	rundownClient := rundownv1connect.NewRundownServiceClient(client, origin.URL)
 
 	for b.Loop() {
+		fixture.displayStream.Notify()
 		if _, err := rundownClient.GetCrewRundown(
 			b.Context(),
 			connect.NewRequest(&rundownv1.GetCrewRundownRequest{

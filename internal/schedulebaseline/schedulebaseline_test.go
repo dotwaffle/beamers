@@ -122,7 +122,7 @@ func TestFirstPublicPublicationEnrollsImmutableBaseline(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create Rundown Commands: %v", err)
 	}
-	rundownQueries, err := rundown.NewQueries(storage)
+	rundownQueries, err := rundown.NewQueries(storage, nil)
 	if err != nil {
 		t.Fatalf("create Rundown Queries: %v", err)
 	}
@@ -169,8 +169,11 @@ func TestFirstPublicPublicationEnrollsImmutableBaseline(t *testing.T) {
 	}); activateErr != nil {
 		t.Fatalf("activate baseline Event: %v", activateErr)
 	}
-	scheduleService, err := schedule.New(storage, func() time.Time {
-		return time.Date(2026, 8, 21, 7, 0, 0, 0, time.UTC)
+	scheduleService, err := schedule.New(schedule.Config{
+		Storage: storage,
+		Now: func() time.Time {
+			return time.Date(2026, 8, 21, 7, 0, 0, 0, time.UTC)
+		},
 	})
 	if err != nil {
 		t.Fatalf("create Schedule service: %v", err)
@@ -285,7 +288,7 @@ func publishBaselineTestRundown(
 	if err != nil {
 		t.Fatalf("create Rundown Commands: %v", err)
 	}
-	queries, err := rundown.NewQueries(storage)
+	queries, err := rundown.NewQueries(storage, nil)
 	if err != nil {
 		t.Fatalf("create Rundown Queries: %v", err)
 	}

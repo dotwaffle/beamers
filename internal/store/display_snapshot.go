@@ -17,10 +17,8 @@ import (
 	"github.com/dotwaffle/beamers/ent/installation"
 	"github.com/dotwaffle/beamers/ent/prizegiving"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
-	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/session"
-	"github.com/dotwaffle/beamers/ent/sessionrun"
 	"github.com/dotwaffle/beamers/internal/publictime"
 )
 
@@ -172,7 +170,11 @@ func (installationStore *SQLite) LoadDisplaySnapshot(
 	}
 	result.Standby = false
 	if overrideErr := loadCurrentDisplayOverrides(
-		internalContext, client, assignment, now, &result,
+		internalContext,
+		displayOverrideSelection{
+			Client: client, Assignment: assignment, Lanes: published.Lanes, Now: now,
+		},
+		&result,
 	); overrideErr != nil {
 		return DisplaySnapshotState{}, overrideErr
 	}
@@ -192,6 +194,17 @@ func (installationStore *SQLite) LoadDisplaySnapshot(
 			sessionIdentities[identity.ID] = identity
 		}
 	}
+	runningIDs := make([]int, 0, len(sessionIDs))
+	for _, identity := range sessionIdentities {
+		if identity.Lifecycle == session.LifecycleLive ||
+			identity.Lifecycle == session.LifecycleEnded {
+			runningIDs = append(runningIDs, identity.ID)
+		}
+	}
+	runs, err := latestSessionRuns(internalContext, client, runningIDs)
+	if err != nil {
+		return DisplaySnapshotState{}, err
+	}
 	for _, publishedSession := range published.Sessions {
 		identity := sessionIdentities[publishedSession.ID]
 		if identity == nil {
@@ -200,17 +213,23 @@ func (installationStore *SQLite) LoadDisplaySnapshot(
 				errors.New("missing Session"),
 			)
 		}
-		sessionState, sessionErr := loadDisplaySessionWithBaseline(
-			internalContext,
-			client,
-			publishedSession,
-			published.baselineStarts[publishedSession.ID],
-			identity,
-		)
+		sessionState, sessionErr := displaySessionState(displaySessionInput{
+			Published:     publishedSession,
+			BaselineStart: published.baselineStarts[publishedSession.ID],
+			Identity:      identity,
+			Run:           runs[publishedSession.ID],
+		})
 		if sessionErr != nil {
 			return DisplaySnapshotState{}, sessionErr
 		}
 		result.Sessions = append(result.Sessions, sessionState)
+		// Only the competition-output view routes a Program Channel, so no
+		// other Display pays for the per-Session Ceremony lookup.
+		if result.ViewKey != "competition-output" ||
+			!slices.Contains(sessionState.LocationIDs, result.LocationID) ||
+			(result.ProgramChannelID != 0 && sessionState.Lifecycle != "Live") {
+			continue
+		}
 		programSession, programErr := isProgramChannelSession(
 			internalContext,
 			client,
@@ -220,22 +239,20 @@ func (installationStore *SQLite) LoadDisplaySnapshot(
 		if programErr != nil {
 			return DisplaySnapshotState{}, programErr
 		}
-		if result.ViewKey == "competition-output" &&
-			programSession &&
-			slices.Contains(sessionState.LocationIDs, result.LocationID) &&
-			(result.ProgramChannelID == 0 || sessionState.Lifecycle == "Live") {
-			channel, channelErr := loadProgramChannel(
-				internalContext, client, result.ActiveEventID, publishedSession.ID, now,
-			)
-			if channelErr != nil {
-				return DisplaySnapshotState{}, channelErr
-			}
-			result.ProgramChannelID = channel.SessionID
-			result.ProgramOutputRevision = channel.Revision
-			result.ProgramOutput = channel.Output
-			if sessionState.Lifecycle == "Live" {
-				break
-			}
+		if !programSession {
+			continue
+		}
+		channel, channelErr := loadProgramChannel(
+			internalContext, client, result.ActiveEventID, publishedSession.ID, now,
+		)
+		if channelErr != nil {
+			return DisplaySnapshotState{}, channelErr
+		}
+		result.ProgramChannelID = channel.SessionID
+		result.ProgramOutputRevision = channel.Revision
+		result.ProgramOutput = channel.Output
+		if sessionState.Lifecycle == "Live" {
+			break
 		}
 	}
 	return result, nil
@@ -291,20 +308,9 @@ func (installationStore *SQLite) loadDisplayRundown(
 	for _, published := range found.Sessions {
 		sessionIDs = append(sessionIDs, published.ID)
 	}
-	baselineStarts := make(map[int]time.Time)
-	if len(sessionIDs) > 0 {
-		entries, queryErr := client.PublicScheduleBaselineEntry.Query().
-			Where(publicschedulebaselineentry.SessionIDIn(sessionIDs...)).
-			All(ctx)
-		if queryErr != nil {
-			return displayRundownState{}, opaqueError(
-				"load Display Public Schedule Baselines",
-				queryErr,
-			)
-		}
-		for _, entry := range entries {
-			baselineStarts[entry.SessionID] = entry.ForecastStart
-		}
+	baselineStarts, err := sessionBaselineStarts(ctx, client, sessionIDs)
+	if err != nil {
+		return displayRundownState{}, err
 	}
 	result := displayRundownState{
 		CrewRundownState: found,
@@ -316,13 +322,23 @@ func (installationStore *SQLite) loadDisplayRundown(
 	return result, nil
 }
 
+// displayOverrideSelection is what deciding which Overrides one Display is
+// currently in scope for depends on. Lanes come from the Rundown the caller
+// already holds, so resolving a Lane-targeted Override to its Location never
+// reloads the Rundown.
+type displayOverrideSelection struct {
+	Client     *ent.Client
+	Assignment *ent.DisplayAssignment
+	Lanes      []PublishedLane
+	Now        time.Time
+}
+
 func loadCurrentDisplayOverrides(
 	ctx context.Context,
-	client *ent.Client,
-	assignment *ent.DisplayAssignment,
-	now time.Time,
+	selection displayOverrideSelection,
 	result *DisplaySnapshotState,
 ) error {
+	client, assignment, now := selection.Client, selection.Assignment, selection.Now
 	hasOverrides, err := client.DisplayOverride.Query().Exist(ctx)
 	if err != nil {
 		return opaqueError("inspect current Display Overrides", err)
@@ -378,14 +394,16 @@ func loadCurrentDisplayOverrides(
 			break
 		}
 	}
-	if err := loadPriorityDisplayOverride(
-		ctx, client, assignment, now, DisplayOverrideUrgentNotice, &result.UrgentNotice,
-	); err != nil {
+	result.UrgentNotice, err = loadPriorityDisplayOverride(
+		ctx, selection, DisplayOverrideUrgentNotice,
+	)
+	if err != nil {
 		return err
 	}
-	if err := loadPriorityDisplayOverride(
-		ctx, client, assignment, now, DisplayOverrideEmergencyAlert, &result.EmergencyAlert,
-	); err != nil {
+	result.EmergencyAlert, err = loadPriorityDisplayOverride(
+		ctx, selection, DisplayOverrideEmergencyAlert,
+	)
+	if err != nil {
 		return err
 	}
 	return nil
@@ -393,12 +411,10 @@ func loadCurrentDisplayOverrides(
 
 func loadPriorityDisplayOverride(
 	ctx context.Context,
-	client *ent.Client,
-	assignment *ent.DisplayAssignment,
-	now time.Time,
+	selection displayOverrideSelection,
 	kind DisplayOverrideKind,
-	result **DisplayOverride,
-) error {
+) (*DisplayOverride, error) {
+	client, assignment, now := selection.Client, selection.Assignment, selection.Now
 	found, err := client.DisplayOverride.Query().
 		Where(
 			displayoverride.EventIDEQ(assignment.EventID),
@@ -412,17 +428,13 @@ func loadPriorityDisplayOverride(
 		Order(ent.Desc(displayoverride.FieldCreatedAt), ent.Desc(displayoverride.FieldID)).
 		All(ctx)
 	if err != nil {
-		return opaqueError("load priority Display Overrides", err)
+		return nil, opaqueError("load priority Display Overrides", err)
 	}
 	for _, candidate := range found {
 		target := displayOverride(candidate).Target
 		laneLocationID := 0
 		if target.Type == DisplayOverrideTargetLane {
-			published, rundownErr := loadCrewRundown(ctx, client, assignment.EventID)
-			if rundownErr != nil {
-				return rundownErr
-			}
-			for _, lane := range published.Lanes {
+			for _, lane := range selection.Lanes {
 				if lane.ID == target.ID {
 					laneLocationID = lane.LocationID
 					break
@@ -433,24 +445,28 @@ func loadPriorityDisplayOverride(
 			ctx, client, assignment.EventID, assignment, target, laneLocationID,
 		)
 		if matchErr != nil {
-			return matchErr
+			return nil, matchErr
 		}
 		if matches {
 			projected := displayOverride(candidate)
-			*result = &projected
-			return nil
+			return &projected, nil
 		}
 	}
-	return nil
+	return nil, nil
 }
 
-func loadDisplaySessionWithBaseline(
-	ctx context.Context,
-	client *ent.Client,
-	published PublishedSession,
-	baselineStart time.Time,
-	identity *ent.Session,
-) (DisplaySessionState, error) {
+// displaySessionInput is everything one Display Session projection depends on,
+// so building it costs no queries and the caller can batch the lookups for a
+// whole Event.
+type displaySessionInput struct {
+	Published     PublishedSession
+	BaselineStart time.Time
+	Identity      *ent.Session
+	Run           *ent.SessionRun
+}
+
+func displaySessionState(input displaySessionInput) (DisplaySessionState, error) {
+	published, identity, baselineStart := input.Published, input.Identity, input.BaselineStart
 	result := DisplaySessionState{
 		ID: published.ID, AudienceVisibility: published.AudienceVisibility,
 		TimerTitle:    published.Title,
@@ -479,32 +495,25 @@ func loadDisplaySessionWithBaseline(
 		result.Speaker = published.Speaker
 		result.PublicDetails = published.PublicDetails
 	}
-	if identity.Lifecycle == session.LifecycleLive ||
-		identity.Lifecycle == session.LifecycleEnded {
-		run, runErr := client.SessionRun.Query().Where(
-			sessionrun.SessionIDEQ(published.ID),
-		).Order(ent.Desc(sessionrun.FieldID)).First(ctx)
-		if runErr != nil && !ent.IsNotFound(runErr) {
-			return DisplaySessionState{}, opaqueError("load Display Session Run", runErr)
+	if run := input.Run; run != nil &&
+		(identity.Lifecycle == session.LifecycleLive ||
+			identity.Lifecycle == session.LifecycleEnded) {
+		var snapshot SessionRunSnapshot
+		if decodeErr := json.Unmarshal([]byte(run.SnapshotJSON), &snapshot); decodeErr != nil {
+			return DisplaySessionState{}, opaqueError("decode Display Session Run Snapshot", decodeErr)
 		}
-		if runErr == nil {
-			var snapshot SessionRunSnapshot
-			if decodeErr := json.Unmarshal([]byte(run.SnapshotJSON), &snapshot); decodeErr != nil {
-				return DisplaySessionState{}, opaqueError("decode Display Session Run Snapshot", decodeErr)
-			}
-			result.ActualStart = run.ActualStart
-			result.TargetAdjustmentSeconds = run.TargetAdjustmentSeconds
-			result.TargetAdjustedAt = run.TargetAdjustedAt
-			result.Type = snapshot.Type
-			result.TimingPolicy = snapshot.TimingPolicy
-			result.RunPlannedStart = snapshot.PlannedStart
-			result.RunPlannedEnd = snapshot.PlannedEnd
-			result.LocationIDs = slices.Clone(snapshot.LocationIDs)
-			result.LaneIDs = slices.Clone(snapshot.LaneIDs)
-			if !run.ActualEnd.IsZero() {
-				actualEnd := run.ActualEnd
-				result.ActualEnd = &actualEnd
-			}
+		result.ActualStart = run.ActualStart
+		result.TargetAdjustmentSeconds = run.TargetAdjustmentSeconds
+		result.TargetAdjustedAt = run.TargetAdjustedAt
+		result.Type = snapshot.Type
+		result.TimingPolicy = snapshot.TimingPolicy
+		result.RunPlannedStart = snapshot.PlannedStart
+		result.RunPlannedEnd = snapshot.PlannedEnd
+		result.LocationIDs = slices.Clone(snapshot.LocationIDs)
+		result.LaneIDs = slices.Clone(snapshot.LaneIDs)
+		if !run.ActualEnd.IsZero() {
+			actualEnd := run.ActualEnd
+			result.ActualEnd = &actualEnd
 		}
 	}
 	result.PublicTime = publicTimeFacts(publicTimeFactsParams{
@@ -518,26 +527,158 @@ func loadDisplaySessionWithBaseline(
 	return result, nil
 }
 
-func loadDisplaySession(
+// programChannelRouting answers which Session drives the Program Channel at a
+// Location. It is built from one whole-Event load so that a caller resolving
+// several Locations - the crew Displays list resolves one per assigned
+// Location - pays for the Event once rather than once per Location.
+type programChannelRouting struct {
+	sessions []programChannelSession
+}
+
+type programChannelSession struct {
+	id          int
+	lifecycle   string
+	locationIDs []int
+}
+
+func loadProgramChannelRouting(
 	ctx context.Context,
 	client *ent.Client,
-	published PublishedSession,
-) (DisplaySessionState, error) {
-	identity, err := client.Session.Get(ctx, published.ID)
+	eventID int,
+) (programChannelRouting, error) {
+	published, err := loadCrewRundown(ctx, client, eventID)
 	if err != nil {
-		return DisplaySessionState{}, opaqueError("load Display Session identity", err)
+		return programChannelRouting{}, err
 	}
-	baseline, err := client.PublicScheduleBaselineEntry.Query().
-		Where(publicschedulebaselineentry.SessionIDEQ(published.ID)).
-		Only(ctx)
-	if err != nil && !ent.IsNotFound(err) {
-		return DisplaySessionState{}, opaqueError("load Public Schedule Baseline entry", err)
+	ceremonies := make([]int, 0, len(published.Sessions))
+	for _, publishedSession := range published.Sessions {
+		if publishedSession.Type == "Ceremony" {
+			ceremonies = append(ceremonies, publishedSession.ID)
+		}
 	}
-	var baselineStart time.Time
-	if err == nil {
-		baselineStart = baseline.ForecastStart
+	locked, err := lockedCeremonySessions(ctx, client, eventID, ceremonies)
+	if err != nil {
+		return programChannelRouting{}, err
 	}
-	return loadDisplaySessionWithBaseline(ctx, client, published, baselineStart, identity)
+	program := make([]PublishedSession, 0, len(published.Sessions))
+	for _, publishedSession := range published.Sessions {
+		if publishedSession.Type == "Competition" || locked[publishedSession.ID] {
+			program = append(program, publishedSession)
+		}
+	}
+	states, err := loadDisplaySessions(ctx, client, program)
+	if err != nil {
+		return programChannelRouting{}, err
+	}
+	routing := programChannelRouting{sessions: make([]programChannelSession, 0, len(states))}
+	for _, state := range states {
+		routing.sessions = append(routing.sessions, programChannelSession{
+			id: state.ID, lifecycle: state.Lifecycle, locationIDs: state.LocationIDs,
+		})
+	}
+	return routing, nil
+}
+
+// channelAt selects the Live Program Channel Session at a Location, or the
+// first eligible one when none is Live.
+func (routing programChannelRouting) channelAt(locationID int) int {
+	selected := 0
+	for _, item := range routing.sessions {
+		if !slices.Contains(item.locationIDs, locationID) {
+			continue
+		}
+		if selected == 0 {
+			selected = item.id
+		}
+		if item.lifecycle == "Live" {
+			return item.id
+		}
+	}
+	return selected
+}
+
+func lockedCeremonySessions(
+	ctx context.Context,
+	client *ent.Client,
+	eventID int,
+	sessionIDs []int,
+) (map[int]bool, error) {
+	if len(sessionIDs) == 0 {
+		return map[int]bool{}, nil
+	}
+	found, err := client.Prizegiving.Query().
+		Where(
+			prizegiving.EventIDEQ(eventID),
+			prizegiving.CeremonySessionIDIn(sessionIDs...),
+			prizegiving.LockedEQ(true),
+		).
+		All(ctx)
+	if err != nil {
+		return nil, opaqueError("check locked Prizegiving Program Channels", err)
+	}
+	result := make(map[int]bool, len(found))
+	for _, item := range found {
+		result[item.CeremonySessionID] = true
+	}
+	return result, nil
+}
+
+// loadDisplaySessions projects several Published Sessions with the identity,
+// Baseline, and Run lookups batched across all of them.
+func loadDisplaySessions(
+	ctx context.Context,
+	client *ent.Client,
+	published []PublishedSession,
+) ([]DisplaySessionState, error) {
+	if len(published) == 0 {
+		return nil, nil
+	}
+	sessionIDs := make([]int, 0, len(published))
+	for _, item := range published {
+		sessionIDs = append(sessionIDs, item.ID)
+	}
+	identities, err := client.Session.Query().Where(session.IDIn(sessionIDs...)).All(ctx)
+	if err != nil {
+		return nil, opaqueError("load Display Session identity", err)
+	}
+	identitiesByID := make(map[int]*ent.Session, len(identities))
+	running := make([]int, 0, len(identities))
+	for _, identity := range identities {
+		identitiesByID[identity.ID] = identity
+		if identity.Lifecycle == session.LifecycleLive ||
+			identity.Lifecycle == session.LifecycleEnded {
+			running = append(running, identity.ID)
+		}
+	}
+	baselines, err := sessionBaselineStarts(ctx, client, sessionIDs)
+	if err != nil {
+		return nil, err
+	}
+	runs, err := latestSessionRuns(ctx, client, running)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]DisplaySessionState, 0, len(published))
+	for _, item := range published {
+		identity := identitiesByID[item.ID]
+		if identity == nil {
+			return nil, opaqueError(
+				"load Display Session identity",
+				errors.New("missing Session"),
+			)
+		}
+		state, stateErr := displaySessionState(displaySessionInput{
+			Published:     item,
+			BaselineStart: baselines[item.ID],
+			Identity:      identity,
+			Run:           runs[item.ID],
+		})
+		if stateErr != nil {
+			return nil, stateErr
+		}
+		result = append(result, state)
+	}
+	return result, nil
 }
 
 func competitionOutputProgramChannelID(
@@ -545,39 +686,11 @@ func competitionOutputProgramChannelID(
 	client *ent.Client,
 	eventID, locationID int,
 ) (int, error) {
-	published, err := loadCrewRundown(ctx, client, eventID)
+	routing, err := loadProgramChannelRouting(ctx, client, eventID)
 	if err != nil {
 		return 0, err
 	}
-	selected := 0
-	for _, publishedSession := range published.Sessions {
-		programSession, programErr := isProgramChannelSession(
-			ctx,
-			client,
-			eventID,
-			publishedSession,
-		)
-		if programErr != nil {
-			return 0, programErr
-		}
-		if !programSession {
-			continue
-		}
-		sessionState, sessionErr := loadDisplaySession(ctx, client, publishedSession)
-		if sessionErr != nil {
-			return 0, sessionErr
-		}
-		if !slices.Contains(sessionState.LocationIDs, locationID) {
-			continue
-		}
-		if selected == 0 {
-			selected = publishedSession.ID
-		}
-		if sessionState.Lifecycle == "Live" {
-			return publishedSession.ID, nil
-		}
-	}
-	return selected, nil
+	return routing.channelAt(locationID), nil
 }
 
 func isProgramChannelSession(

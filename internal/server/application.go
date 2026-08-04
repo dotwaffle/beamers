@@ -533,8 +533,17 @@ func (application *application) openConfig() operations.OpenConfig {
 		DataDir: application.config.DataDir, AttachmentsDir: application.config.AttachmentsDir,
 		NotifyDisplays: application.config.DisplayStream.Notify,
 		NotifySchedule: application.config.ScheduleStream.Notify,
-		NotifyProgram:  application.config.ProgramStream.Notify,
-		NotifyVoting:   application.config.VotingStream.Notify,
+		SchedulePosition: func() uint64 {
+			return application.config.ScheduleStream.Cursor().Position
+		},
+		// Both cursors only ever advance, so their sum advances whenever either
+		// stream reports a change the Crew Rundown can show.
+		RundownPosition: func() uint64 {
+			return application.config.DisplayStream.Cursor().Position +
+				application.config.ScheduleStream.Cursor().Position
+		},
+		NotifyProgram: application.config.ProgramStream.Notify,
+		NotifyVoting:  application.config.VotingStream.Notify,
 	}
 	if application.config.Telemetry != nil && application.config.Telemetry.Enabled() {
 		config.TracerProvider = application.config.TracerProvider

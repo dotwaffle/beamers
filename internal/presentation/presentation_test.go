@@ -245,7 +245,7 @@ func publishPresentationTestSession(
 	if err != nil {
 		t.Fatalf("create Rundown commands: %v", err)
 	}
-	queries, err := rundown.NewQueries(storage)
+	queries, err := rundown.NewQueries(storage, nil)
 	if err != nil {
 		t.Fatalf("create Rundown queries: %v", err)
 	}

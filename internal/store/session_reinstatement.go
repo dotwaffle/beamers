@@ -286,6 +286,33 @@ func sessionPlacementFromVersion(
 	return laneIDs, locationIDs, nil
 }
 
+// sessionPlacementFromEdges resolves the same placement as
+// sessionPlacementFromVersion from an already loaded Published Version, so a
+// caller that eager-loaded the Lane and Location edges in bulk issues no
+// further queries.
+func sessionPlacementFromEdges(
+	identity *ent.Session,
+	version *ent.SessionPublishedVersion,
+) ([]int, []int) {
+	laneIDs := make([]int, 0, len(version.Edges.Lanes))
+	for _, item := range version.Edges.Lanes {
+		laneIDs = append(laneIDs, item.ID)
+	}
+	locationIDs := make([]int, 0, len(version.Edges.Locations))
+	for _, item := range version.Edges.Locations {
+		locationIDs = append(locationIDs, item.ID)
+	}
+	if len(identity.ForecastLaneIds) > 0 {
+		laneIDs = slices.Clone(identity.ForecastLaneIds)
+	}
+	if len(identity.ForecastLocationIds) > 0 {
+		locationIDs = slices.Clone(identity.ForecastLocationIds)
+	}
+	slices.Sort(laneIDs)
+	slices.Sort(locationIDs)
+	return laneIDs, locationIDs
+}
+
 func validatePlacement(
 	ctx context.Context,
 	client *ent.Client,

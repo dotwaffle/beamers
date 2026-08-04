@@ -16,6 +16,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/events"
 	"github.com/dotwaffle/beamers/internal/publictime"
 	"github.com/dotwaffle/beamers/internal/results"
+	"github.com/dotwaffle/beamers/internal/revisioncache"
 	"github.com/dotwaffle/beamers/internal/store"
 )
 
@@ -27,8 +28,10 @@ var ErrSessionUnavailable = errors.New("Session is unavailable")
 
 // Service owns the attendee-safe Schedule query.
 type Service struct {
-	storage *store.SQLite
-	now     func() time.Time
+	storage        *store.SQLite
+	now            func() time.Time
+	streamPosition func() uint64
+	cache          revisioncache.Cache[uint64, store.PublicScheduleState]
 }
 
 // Snapshot is one cacheable public Schedule page model.
@@ -146,15 +149,38 @@ type TimePresentation struct {
 	EventTimezoneLabel string    `json:"event_timezone_label"`
 }
 
+// Config is the explicit dependency set of a public Schedule query.
+type Config struct {
+	Storage *store.SQLite
+	Now     func() time.Time
+	// StreamPosition reports the Schedule stream cursor. Builds are memoized
+	// against it, so it must advance whenever the attendee projection changes.
+	// A nil StreamPosition disables memoization and rebuilds every request.
+	StreamPosition func() uint64
+}
+
 // New creates a public Schedule query with explicit persistence.
-func New(storage *store.SQLite, now func() time.Time) (*Service, error) {
-	if storage == nil {
+func New(config Config) (*Service, error) {
+	if config.Storage == nil {
 		return nil, errors.New("schedule storage is required")
 	}
-	if now == nil {
+	if config.Now == nil {
 		return nil, errors.New("schedule clock is required")
 	}
-	return &Service{storage: storage, now: now}, nil
+	return &Service{
+		storage:        config.Storage,
+		now:            config.Now,
+		streamPosition: config.StreamPosition,
+	}, nil
+}
+
+// publicSchedule returns the Active Event's attendee projection, reusing the
+// build already made at this Schedule stream cursor.
+func (service *Service) publicSchedule(ctx context.Context) (store.PublicScheduleState, error) {
+	if service.streamPosition == nil {
+		return service.storage.LoadPublicSchedule(ctx)
+	}
+	return service.cache.Load(ctx, service.streamPosition(), service.storage.LoadPublicSchedule)
 }
 
 // Current returns the Active Event's cacheable public Schedule snapshot.
@@ -212,10 +238,13 @@ func (service *Service) snapshot(ctx context.Context, upcomingOnly bool, filter 
 	if err != nil {
 		return Snapshot{}, err
 	}
-	state, err := service.storage.LoadPublicSchedule(ctx)
+	state, err := service.publicSchedule(ctx)
 	if err != nil {
 		return Snapshot{}, err
 	}
+	// The cached build is shared by every concurrent request, so this snapshot
+	// sorts and filters its own copy of the Session list.
+	state.Sessions = slices.Clone(state.Sessions)
 	language := scheduleLanguage(state.ContentLanguage, state.EventLocale)
 	result := Snapshot{
 		EventID: state.EventID, EventName: state.EventName,

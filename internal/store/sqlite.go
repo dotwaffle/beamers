@@ -813,6 +813,16 @@ func (installation *SQLite) Close() error {
 	return errors.Join(metricsErr, readerErr, databaseErr, installation.lock.close())
 }
 
+// readClient returns the pooled read-only handle that keeps attendee and crew
+// read traffic off the serialized writer connection. Recovery-mode handles have
+// no reader, so they fall back to whatever handle they were opened with.
+func (installation *SQLite) readClient() *ent.Client {
+	if installation.reader != nil {
+		return installation.reader
+	}
+	return installation.client
+}
+
 func unregister(registration otelmetric.Registration) error {
 	if registration == nil {
 		return nil
