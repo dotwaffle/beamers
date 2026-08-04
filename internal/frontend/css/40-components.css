@@ -168,6 +168,17 @@ button[disabled] {
   color: var(--warning-ink);
 }
 
+/* Due/Warning: a diamond mark. Success and Danger both keep the plain
+ * circle and are never shown as alternatives to each other for the same
+ * fact, so they need no shape of their own; Due/Warning routinely appears
+ * beside Success (e.g. a Release Held badge next to Final/Primary), so it
+ * needs a shape a forced-colors palette cannot flatten away. */
+.badge[data-tone="due"]::before,
+.badge[data-tone="warning"]::before {
+  border-radius: 0;
+  transform: rotate(45deg);
+}
+
 .badge[data-tone="success"] {
   background: var(--success);
   border-color: var(--success);
