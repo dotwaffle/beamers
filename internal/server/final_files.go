@@ -321,7 +321,7 @@ func (handlers finalFilesHandlers) serveFinalFilesArchive(
 		`attachment; filename="beamers-final-files.zip"`,
 	)
 	response.Header().Set("Content-Length", strconv.FormatInt(size, 10))
-	if _, err := io.Copy(response, archive); err != nil {
+	if err := writeArchiveDownload(response, archive); err != nil {
 		handlers.logger.ErrorContext(
 			request.Context(), "write Final Files Export download", "error", err,
 		)

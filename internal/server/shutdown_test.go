@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -204,6 +205,79 @@ func TestShutdownFinalizersUseReserveAfterSynchronizationCancellation(t *testing
 	)
 	if !errors.Is(err, context.DeadlineExceeded) || !storageStarted {
 		t.Fatalf("error=%v storageStarted=%t, want sync timeout and storage closure", err, storageStarted)
+	}
+}
+
+func TestShutdownDrainsEveryListenerResult(t *testing.T) {
+	t.Parallel()
+	publicFailure := errors.New("public listener failed")
+	tests := []struct {
+		name      string
+		results   []error
+		wantError error
+		wantLogs  int
+	}{
+		{
+			name:    "both listeners closed by shutdown",
+			results: []error{http.ErrServerClosed, http.ErrServerClosed},
+		},
+		{
+			name:      "public listener failed on its own",
+			results:   []error{http.ErrServerClosed, publicFailure},
+			wantError: publicFailure,
+			wantLogs:  1,
+		},
+		{
+			name:      "administrative listener failed first",
+			results:   []error{publicFailure, http.ErrServerClosed},
+			wantError: publicFailure,
+			wantLogs:  1,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			results := make(chan error, len(test.results))
+			for _, result := range test.results {
+				results <- result
+			}
+			var logs bytes.Buffer
+			err := drainServeResults(t.Context(), drainInput{
+				logger:  slog.New(slog.NewTextHandler(&logs, nil)),
+				results: results,
+				count:   len(test.results),
+			})
+			if test.wantError == nil && err != nil {
+				t.Fatalf("drain error = %v, want none", err)
+			}
+			if test.wantError != nil && !errors.Is(err, test.wantError) {
+				t.Fatalf("drain error = %v, want %v", err, test.wantError)
+			}
+			if got := strings.Count(logs.String(), "server stopped serving"); got != test.wantLogs {
+				t.Fatalf("logged failures = %d, want %d", got, test.wantLogs)
+			}
+			if len(results) != 0 {
+				t.Fatalf("undrained listener results = %d", len(results))
+			}
+		})
+	}
+}
+
+func TestShutdownDrainStopsWithTheShutdownBudget(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	var logs bytes.Buffer
+	if err := drainServeResults(ctx, drainInput{
+		logger:  slog.New(slog.NewTextHandler(&logs, nil)),
+		results: make(chan error),
+		count:   2,
+	}); err != nil {
+		t.Fatalf("drain error = %v, want none", err)
+	}
+	if !strings.Contains(logs.String(), "before every listener stopped") {
+		t.Fatalf("shutdown drain logs = %q", logs.String())
 	}
 }
 

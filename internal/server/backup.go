@@ -341,7 +341,7 @@ func (handlers archiveHandlers) downloadBackup(
 	response.Header().Set("Content-Length", strconv.FormatInt(info.Size(), 10))
 	response.Header().Set("Cache-Control", "no-store")
 	response.Header().Set("X-Beamers-Backup-Mode", string(manifest.Mode))
-	if _, err = io.Copy(response, archive); err != nil {
+	if err = writeArchiveDownload(response, archive); err != nil {
 		handlers.logger.ErrorContext(request.Context(), "write Backup download", "error", err)
 	}
 }

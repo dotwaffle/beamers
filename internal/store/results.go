@@ -400,6 +400,9 @@ func (transaction *CommandTx) SaveEventAwardsDraft(
 		SetCreatedAt(params.Now.UTC()).
 		Save(ctx)
 	if err != nil {
+		if ent.IsConstraintError(err) {
+			return EventAwardsDraft{}, ErrEventAwardsRevision
+		}
 		return EventAwardsDraft{}, opaqueError("create Event Awards Draft", err)
 	}
 	return eventAwardsDraft(created), nil

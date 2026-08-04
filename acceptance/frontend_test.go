@@ -3236,7 +3236,7 @@ func TestBrowserConfiguresEventDisplays(t *testing.T) {
 		t.Fatalf("invalid Event Display settings = %d %q", invalid.status, invalid.body)
 	}
 	assertAccessibleFormErrors(t, invalid, map[string]string{
-		"session." + strconv.FormatInt(sessionID, 10) + ".threshold-seconds-0": "must be an integer from 1 to 86400",
+		"session." + strconv.FormatInt(sessionID, 10) + ".threshold-seconds-0": "remaining seconds must be between 1 and 86400",
 	})
 
 	stale := postFrontendForm(t, administrator, server.address, path, url.Values{

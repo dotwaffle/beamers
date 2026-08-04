@@ -155,8 +155,11 @@ func TestEmergencyAlertDegradesWithoutOpeningOtherMutationPaths(t *testing.T) {
 		preview.Displays[0].ID != healthy.Display.ID {
 		t.Fatalf("degraded Emergency preview = %+v", preview)
 	}
-	if preview.ConfirmationFingerprint ==
-		store.DisplayOverridePreviewFingerprint(preview.Preview) {
+	durableFingerprint, err := store.DisplayOverridePreviewFingerprint(preview.Preview)
+	if err != nil {
+		t.Fatalf("fingerprint degraded Emergency preview: %v", err)
+	}
+	if preview.ConfirmationFingerprint == durableFingerprint {
 		t.Fatal("degraded confirmation reused the durable fingerprint")
 	}
 	input.PreviewFingerprint = preview.ConfirmationFingerprint
