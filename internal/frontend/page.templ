@@ -534,7 +534,7 @@ templ BackstageLinks(navigation BackstageNavigation) {
 				<strong class="navigation-title">Installation</strong>
 					<ul>
 						<li><a href="/backstage/events/new">Create Event</a></li>
-						<li><a href="/backstage/administration">Accounts, Event Grants, and activation</a></li>
+						<li><a href="/backstage/administration">Accounts and Grants</a></li>
 						<li><a href="/backstage/themes">Installation Theme</a></li>
 					<li><a href="/admin/registration">Registration</a></li>
 					<li><a href="/backstage/installation">Backups and diagnostics</a></li>
@@ -594,14 +594,20 @@ templ Backstage(
 					<h1>Backstage</h1>
 					if navigation.Administrator {
 						<section id="administration">
-							<h2>Accounts, Event Grants, and activation</h2>
+							<h2><a href="/backstage/administration">Accounts, Event Grants, and activation</a></h2>
 						</section>
 					}
 					for _, event := range navigation.Events {
 						<section>
 							<h2>{ event.Name } · { event.Role }</h2>
 							for _, section := range event.Sections {
-								<h3 id={ section.ID }>{ section.Label }</h3>
+								<h3 id={ section.ID }>
+									if section.UnavailableReason == "" {
+										<a href={ templ.SafeURL(section.Href) }>{ section.Label }</a>
+									} else {
+										{ section.Label }
+									}
+								</h3>
 							}
 						</section>
 					}
