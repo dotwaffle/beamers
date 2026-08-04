@@ -20,11 +20,9 @@ func TestSessionMessageCarriesPublicTimePresentation(t *testing.T) {
 		PresentedStart: start, PresentedEnd: end,
 		PresentedStartLabel: publictime.LabelActualStart,
 		PresentedEndLabel:   publictime.LabelForecastEnd,
-		TimelineDay:         "2026-02-07",
-		TimelineOffset:      1250,
-		TimelineWidth:       2500,
-		TimelineLane:        1,
-		TimelineLaneCount:   2,
+		Timeline: displays.TimelineGeometry{
+			Day: "2026-02-07", Offset: 1250, Width: 2500, Lane: 1, LaneCount: 2,
+		},
 	})
 
 	if got := message.GetPresentedStart().AsTime(); !got.Equal(start) {

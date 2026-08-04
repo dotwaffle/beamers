@@ -130,33 +130,33 @@ func projectTimeline(sessions []Session, zone *time.Location, boundary string) e
 			spanEnd = spanStart.Add(time.Minute)
 		}
 		dayDuration := dayEnd.Sub(dayStart)
-		session.TimelineDay = dayStart.Format(time.DateOnly)
-		session.TimelineOffset = timelineBasisPoints(spanStart.Sub(dayStart), dayDuration, 0)
-		session.TimelineWidth = timelineBasisPoints(spanEnd.Sub(spanStart), dayDuration, 1)
-		if session.TimelineOffset+session.TimelineWidth > 10000 {
-			session.TimelineWidth = 10000 - session.TimelineOffset
+		session.Timeline.Day = dayStart.Format(time.DateOnly)
+		session.Timeline.Offset = timelineBasisPoints(spanStart.Sub(dayStart), dayDuration, 0)
+		session.Timeline.Width = timelineBasisPoints(spanEnd.Sub(spanStart), dayDuration, 1)
+		if session.Timeline.Offset+session.Timeline.Width > 10000 {
+			session.Timeline.Width = 10000 - session.Timeline.Offset
 		}
-		day := days[session.TimelineDay]
+		day := days[session.Timeline.Day]
 		if day == nil {
 			day = &dayProjection{}
-			days[session.TimelineDay] = day
+			days[session.Timeline.Day] = day
 		}
-		session.TimelineLane = len(day.laneEnds)
+		session.Timeline.Lane = len(day.laneEnds)
 		for lane, laneEnd := range day.laneEnds {
 			if !spanStart.Before(laneEnd) {
-				session.TimelineLane = lane
+				session.Timeline.Lane = lane
 				day.laneEnds[lane] = spanEnd
 				break
 			}
 		}
-		if session.TimelineLane == len(day.laneEnds) {
+		if session.Timeline.Lane == len(day.laneEnds) {
 			day.laneEnds = append(day.laneEnds, spanEnd)
 		}
 		day.indices = append(day.indices, index)
 	}
 	for _, day := range days {
 		for _, index := range day.indices {
-			sessions[index].TimelineLaneCount = len(day.laneEnds)
+			sessions[index].Timeline.LaneCount = len(day.laneEnds)
 		}
 	}
 	return nil
@@ -188,10 +188,10 @@ func maxTime(first, second time.Time) time.Time {
 // content, into CSS custom properties.
 func displayTimelineStyle(session Session) templ.SafeCSS {
 	return templ.SafeCSS(strings.Join([]string{
-		"--display-offset:" + strconv.Itoa(session.TimelineOffset),
-		"--display-width:" + strconv.Itoa(session.TimelineWidth),
-		"--display-lane:" + strconv.Itoa(session.TimelineLane),
-		"--display-lanes:" + strconv.Itoa(max(1, session.TimelineLaneCount)),
+		"--display-offset:" + strconv.Itoa(session.Timeline.Offset),
+		"--display-width:" + strconv.Itoa(session.Timeline.Width),
+		"--display-lane:" + strconv.Itoa(session.Timeline.Lane),
+		"--display-lanes:" + strconv.Itoa(max(1, session.Timeline.LaneCount)),
 	}, ";"))
 }
 
@@ -204,12 +204,12 @@ type displayTimelineDay struct {
 func displayTimelineDays(sessions []Session) []displayTimelineDay {
 	var days []displayTimelineDay
 	for _, session := range sessions {
-		if len(days) == 0 || days[len(days)-1].Label != session.TimelineDay {
-			days = append(days, displayTimelineDay{Label: session.TimelineDay})
+		if len(days) == 0 || days[len(days)-1].Label != session.Timeline.Day {
+			days = append(days, displayTimelineDay{Label: session.Timeline.Day})
 		}
 		days[len(days)-1].LaneCount = max(
 			days[len(days)-1].LaneCount,
-			session.TimelineLaneCount,
+			session.Timeline.LaneCount,
 		)
 		days[len(days)-1].Sessions = append(days[len(days)-1].Sessions, session)
 	}

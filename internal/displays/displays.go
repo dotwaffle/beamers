@@ -237,12 +237,21 @@ type Session struct {
 	PresentedEndLabel     publictime.Label
 	DisplayPresentedStart string
 	DisplayPresentedEnd   string
-	TimelineDay           string
-	TimelineOffset        int
-	TimelineWidth         int
-	TimelineLane          int
-	TimelineLaneCount     int
+	Timeline              TimelineGeometry
 	orderAt               time.Time
+}
+
+// TimelineGeometry positions one Session block on its Event-day axis. Offset
+// and Width are basis points of the day, with Offset+Width never exceeding
+// 10000, and Lane is an index below LaneCount. The values are meaningful only
+// on a Timeline View, and Lane is a visual overlap column there, not a
+// Rundown Lane.
+type TimelineGeometry struct {
+	Day       string
+	Offset    int
+	Width     int
+	Lane      int
+	LaneCount int
 }
 
 // StageTimer is one authoritative live Session clock for a Display.
