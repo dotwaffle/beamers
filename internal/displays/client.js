@@ -595,7 +595,7 @@ function renderWidget(region, widget, snapshot, theme, candidateClockReference) 
       article.dataset.slot = index === 0 ? "now" : "next";
       renderSession(article, snapshot, session);
       if (index === 0 && session.lifecycle === "Live") {
-        appendProgressBar(article, session.presentedStart, session.presentedEnd);
+        appendProgressBar(article, session.presentedStart, session.presentedEnd, candidateClockReference);
       }
       region.append(article);
     }
@@ -716,7 +716,7 @@ function prepareStageTimer(region, snapshot, reference) {
   // The span is projected once server-side, so the entry document and this
   // renderer draw the same bar. A missing edge means no bar at all.
   if (timer.spanStart && timer.spanEnd) {
-    appendProgressBar(region, timer.spanStart, timer.spanEnd);
+    appendProgressBar(region, timer.spanStart, timer.spanEnd, reference);
   }
 
   const update = (currentReference) => {
@@ -914,20 +914,27 @@ function appendTimeRow(parent, label, instant, text) {
   parent.append(term, value);
 }
 
-// appendProgressBar draws the elapsed bar for a span. startProgressUpdates fills
-// it from the span carried on the element itself.
-function appendProgressBar(parent, start, end) {
-  if (elapsedFraction(Date.parse(start), Date.parse(end), estimatedServerNow()) === null) {
+// appendProgressBar draws the elapsed bar for a span, carrying its starting
+// fraction before it ever joins the frame. Set only after insertion, a
+// re-render's bar paints at zero and then animates up to its true value on
+// the very next tick; the server-rendered entry document never has that
+// problem because its style attribute is part of the same markup as the
+// element, so this mirrors that by writing the property before parent.append.
+function appendProgressBar(parent, start, end, reference) {
+  const fraction = elapsedFraction(Date.parse(start), Date.parse(end), estimatedServerNow(reference));
+  if (fraction === null) {
     return;
   }
   const bar = document.createElement("div");
   bar.className = "display-progress";
   bar.dataset.progressStart = String(start);
   bar.dataset.progressEnd = String(end);
+  bar.style.setProperty("--display-progress", String(fraction));
   bar.setAttribute("role", "progressbar");
   bar.setAttribute("aria-label", "Elapsed");
   bar.setAttribute("aria-valuemin", "0");
   bar.setAttribute("aria-valuemax", "100");
+  bar.setAttribute("aria-valuenow", String(Math.round(fraction * 100)));
   parent.append(bar);
   return bar;
 }

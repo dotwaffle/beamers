@@ -381,6 +381,46 @@ test("persistent clock re-renders aligned to the true minute boundary", async ()
   assert.ok(browser.timerDelays().some((delay) => delay === 60000));
 });
 
+test("progress bar carries its initial fraction before insertion into the frame", async () => {
+  const capturedAtInsertion = [];
+  const originalAppend = FakeNode.prototype.append;
+  FakeNode.prototype.append = function append(...children) {
+    for (const child of children) {
+      if (child.dataset?.progressStart) {
+        capturedAtInsertion.push(child.style.properties.get("--display-progress"));
+      }
+    }
+    return originalAppend.apply(this, children);
+  };
+  try {
+    await startBrowser({
+      snapshot: displaySnapshot({
+        serverTime: "2099-08-21T08:30:00Z",
+        standby: false,
+        viewKey: "location-signage",
+        composition: displayComposition({
+          key: "location-signage",
+          regions: [
+            {name: "now-next", widget: "now-next", persistent: true},
+          ],
+        }),
+        sessions: [{
+          ...displaySession("Current Session"),
+          lifecycle: "Live",
+          presentedStart: "2099-08-21T08:00:00Z",
+          presentedEnd: "2099-08-21T09:00:00Z",
+        }],
+      }),
+    });
+  } finally {
+    FakeNode.prototype.append = originalAppend;
+  }
+  assert.ok(capturedAtInsertion.length > 0, "expected a progress bar to be inserted");
+  // Set before parent.append(bar) runs, or a re-render's bar starts painted at
+  // zero and animates up to its true value instead of showing it immediately.
+  assert.equal(capturedAtInsertion[0], "0.5");
+});
+
 test("Stage Timer advances from the synchronized monotonic clock into overtime", async () => {
   const browser = await startBrowser({
     snapshot: stageTimerSnapshot({
