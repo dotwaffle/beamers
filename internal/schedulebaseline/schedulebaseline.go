@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
 )
@@ -157,6 +158,9 @@ func (commands *Commands) Capture(
 	return command.Execute(actor.Context(ctx), command.Plan[CaptureResult]{
 		Storage: commands.storage, Identity: identity, Replay: decodeCaptureResult,
 		Notify: commands.notifyBaseline,
+		Authorization: command.Authorization{
+			Facts: authz.Event(input.EventID), Refusals: scheduleBaselineAuthorizationRejections,
+		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[CaptureResult], error) {
 			return commands.applyCapture(ctx, actor, input, identity, transaction)
 		},
@@ -321,6 +325,15 @@ func captureRejection(code string, reason error) command.Execution[CaptureResult
 		store.CommandRejection{Code: code, Message: reason.Error()},
 		reason,
 	)
+}
+
+// scheduleBaselineAuthorizationRejections maps the Capability Table's refusal
+// for Public Schedule Baseline capture back to this package's sentinel, so an
+// evaluated refusal returns the error the imperative check returns today.
+var scheduleBaselineAuthorizationRejections = command.RejectionTable{
+	Rejections: []command.Rejection{
+		{Err: ErrProducerRequired, Code: "producer_required"},
+	},
 }
 
 func decodeCaptureResult(outcome string) (CaptureResult, error) {

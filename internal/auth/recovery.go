@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
 )
@@ -38,7 +39,8 @@ func (service *Service) ReplaceRecoveryCodes(
 	}
 	now := service.now().UTC()
 	result, err := command.Execute(actor.Context(ctx), command.Plan[[]string]{
-		Storage: service.storage,
+		Storage:       service.storage,
+		Authorization: command.Authorization{Facts: authz.Installation(), Refusals: accountRejections},
 		Identity: store.CommandIdentity{
 			ActorAccountID: actor.ID,
 			CommandID:      commandID,
@@ -133,7 +135,8 @@ func (service *Service) Recover(
 	recovered, err := command.Execute(
 		account(recoverable).Context(ctx),
 		command.Plan[recoveryCommandResult]{
-			Storage: service.storage,
+			Storage:       service.storage,
+			Authorization: command.Authorization{Facts: authz.Installation(), Refusals: accountRejections},
 			Identity: store.CommandIdentity{
 				ActorAccountID: recoverable.ID,
 				CommandID:      commandID,
@@ -227,8 +230,9 @@ func (service *Service) IssueRecoveryToken(
 		Now:            now,
 	}
 	result, err := command.Execute(actor.Context(ctx), command.Plan[RecoveryToken]{
-		Storage:  service.storage,
-		Identity: identity,
+		Storage:       service.storage,
+		Authorization: command.Authorization{Facts: authz.Installation(), Refusals: accountRejections},
+		Identity:      identity,
 		Replay: func(outcome string) (RecoveryToken, error) {
 			var original struct {
 				AccountID int `json:"account_id"`

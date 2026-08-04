@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
 	"github.com/dotwaffle/beamers/internal/themes"
@@ -208,6 +209,9 @@ func (service *Service) CreateDraft(
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[Revision]{
 		Storage: service.storage, Identity: identity, Replay: replayRevision,
+		Authorization: command.Authorization{
+			Facts: authz.Event(eventID), Refusals: eventThemeAuthorizationRejections,
+		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[Revision], error) {
 			if !producer(actor, eventID) {
 				return rejectRevision("producer_required", ErrProducerRequired), nil
@@ -255,6 +259,9 @@ func (service *Service) Activate(
 	return command.Execute(actor.Context(ctx), command.Plan[Revision]{
 		Storage: service.storage, Identity: identity, Replay: replayRevision,
 		Notify: service.notifyThemeChange,
+		Authorization: command.Authorization{
+			Facts: authz.Event(eventID), Refusals: eventThemeAuthorizationRejections,
+		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[Revision], error) {
 			if !producer(actor, eventID) {
 				return rejectRevision("producer_required", ErrProducerRequired), nil
@@ -362,4 +369,13 @@ func rejectRevision(code string, reason error) command.Execution[Revision] {
 		store.CommandRejection{Code: code, Message: reason.Error()},
 		reason,
 	)
+}
+
+// eventThemeAuthorizationRejections maps the Capability Table's refusal for
+// Event Theme actions back to this package's sentinel, so an evaluated
+// refusal returns the error the imperative check returns today.
+var eventThemeAuthorizationRejections = command.RejectionTable{
+	Rejections: []command.Rejection{
+		{Err: ErrProducerRequired, Code: "producer_required"},
+	},
 }

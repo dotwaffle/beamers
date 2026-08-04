@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
 )
@@ -122,6 +123,9 @@ func (service *Service) Issue(
 	}
 	result, err := command.Execute(actor.Context(ctx), command.Plan[[]IssuedKey]{
 		Storage: service.storage, Identity: identity,
+		Authorization: command.Authorization{
+			Facts: authz.Event(input.EventID), Refusals: votingKeyRejections,
+		},
 		Replay: func(outcome string) ([]IssuedKey, error) {
 			var summary struct {
 				Count int `json:"count"`
@@ -185,6 +189,9 @@ func (service *Service) Redeem(
 	}
 	_, err = command.Execute(actor.Context(ctx), command.Plan[struct{}]{
 		Storage: service.storage, Identity: identity,
+		Authorization: command.Authorization{
+			Facts: authz.Installation(), Refusals: votingKeyRejections,
+		},
 		Replay: func(outcome string) (struct{}, error) {
 			var stored struct{}
 			decodeErr := decodeReceipt(outcome, &stored)
@@ -253,6 +260,9 @@ func (service *Service) Revoke(
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[Key]{
 		Storage: service.storage, Identity: identity,
+		Authorization: command.Authorization{
+			Facts: authz.Event(eventID), Refusals: votingKeyRejections,
+		},
 		Replay: func(outcome string) (Key, error) {
 			var original Key
 			err := decodeReceipt(outcome, &original)
@@ -288,6 +298,7 @@ func key(item store.VotingKey) Key {
 // both directions.
 var votingKeyRejections = command.RejectionTable{
 	Rejections: []command.Rejection{
+		{Err: ErrProducerRequired, Code: "producer_required"},
 		{Err: ErrAlreadyEligible, Code: "voting_already_eligible"},
 		{Err: ErrKeyUnavailable, Code: "voting_key_unavailable"},
 	},

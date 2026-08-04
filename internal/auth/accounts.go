@@ -11,6 +11,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
 )
@@ -264,6 +265,7 @@ func (service *Service) UpdateProfile(
 	}
 	_, err = command.Execute(actor.Context(ctx), command.Plan[struct{}]{
 		Storage: service.storage, Identity: identity,
+		Authorization: command.Authorization{Facts: authz.Installation(), Refusals: accountRejections},
 		Replay: func(outcome string) (struct{}, error) {
 			var original store.AccountProfile
 			if decodeErr := store.DecodeCommandReceipt(outcome, &original); decodeErr != nil {
@@ -388,6 +390,7 @@ func (service *Service) createAccount(
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[Account]{
 		Storage: service.storage, Identity: identity,
+		Authorization: command.Authorization{Facts: authz.Installation(), Refusals: accountRejections},
 		Replay: func(outcome string) (Account, error) {
 			var original store.AccountCredential
 			if decodeErr := store.DecodeCommandReceipt(outcome, &original); decodeErr != nil {
@@ -470,6 +473,7 @@ func (service *Service) DisableAccount(
 	}
 	_, err = command.Execute(actor.Context(ctx), command.Plan[struct{}]{
 		Storage: service.storage, Identity: identity,
+		Authorization: command.Authorization{Facts: authz.Installation(), Refusals: accountRejections},
 		Replay: func(outcome string) (struct{}, error) {
 			var original store.DisabledAccount
 			if decodeErr := store.DecodeCommandReceipt(outcome, &original); decodeErr != nil {

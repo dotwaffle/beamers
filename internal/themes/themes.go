@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
 	"github.com/dotwaffle/beamers/internal/themevalue"
@@ -152,6 +153,9 @@ func (service *Service) CreateDraft(
 		Storage:  service.storage,
 		Identity: identity,
 		Replay:   replayRevision,
+		Authorization: command.Authorization{
+			Facts: authz.Installation(), Refusals: themeAuthorizationRejections,
+		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[Revision], error) {
 			if !actor.Administrator {
 				return rejectRevision("administrator_required", ErrAdministratorRequired), nil
@@ -206,6 +210,9 @@ func (service *Service) Activate(
 		Identity: identity,
 		Replay:   replayRevision,
 		Notify:   service.notifyThemeChange,
+		Authorization: command.Authorization{
+			Facts: authz.Installation(), Refusals: themeAuthorizationRejections,
+		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[Revision], error) {
 			if !actor.Administrator {
 				return rejectRevision("administrator_required", ErrAdministratorRequired), nil
@@ -317,4 +324,13 @@ func rejectRevision(code string, reason error) command.Execution[Revision] {
 		store.CommandRejection{Code: code, Message: reason.Error()},
 		reason,
 	)
+}
+
+// themeAuthorizationRejections maps the Capability Table's refusal for
+// Installation Theme actions back to this package's sentinel, so an
+// evaluated refusal returns the error the imperative check returns today.
+var themeAuthorizationRejections = command.RejectionTable{
+	Rejections: []command.Rejection{
+		{Err: ErrAdministratorRequired, Code: "administrator_required"},
+	},
 }

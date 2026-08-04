@@ -17,6 +17,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/events"
 	"github.com/dotwaffle/beamers/internal/rundown"
@@ -137,6 +138,9 @@ func (service *Service) Export(
 		Storage:  service.storage,
 		Identity: identity,
 		Replay:   replayExport,
+		Authorization: command.Authorization{
+			Facts: authz.Event(input.EventID), Refusals: interchangeAuthorizationRejections,
+		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[Artifact], error) {
 			if !actor.CanProduceEvent(input.EventID) {
 				return rejectArtifact(ErrEventAccessDenied)
@@ -219,6 +223,9 @@ func (service *Service) Import(
 		Storage:  service.storage,
 		Identity: identity,
 		Replay:   replayImport,
+		Authorization: command.Authorization{
+			Facts: authz.Installation(), Refusals: interchangeAuthorizationRejections,
+		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[ImportResult], error) {
 			if !actor.Administrator {
 				return rejectImport("administrator_required", ErrAdministratorRequired)
@@ -758,7 +765,24 @@ func rejectArtifact(err error) (command.Execution[Artifact], error) {
 	return command.RejectEncoded(Artifact{}, string(encoded), err), nil
 }
 
+// restoreEvaluatedRefusal restores the sentinel behind a refusal the Capability
+// Table committed. The evaluator refuses before this package's application
+// runs, so its receipt carries the shared rejection envelope rather than the
+// Export or Import outcome envelope this package writes for itself.
+func restoreEvaluatedRefusal(encoded string) error {
+	var ignored struct{}
+	err := store.DecodeCommandReceipt(encoded, &ignored)
+	var rejected *store.RejectedCommandError
+	if !errors.As(err, &rejected) {
+		return nil
+	}
+	return interchangeAuthorizationRejections.Restore(err)
+}
+
 func replayExport(encoded string) (Artifact, error) {
+	if refusal := restoreEvaluatedRefusal(encoded); refusal != nil {
+		return Artifact{}, refusal
+	}
 	var outcome exportOutcome
 	if err := json.Unmarshal([]byte(encoded), &outcome); err != nil {
 		return Artifact{}, errors.New("decode Event interchange Export receipt")
@@ -792,6 +816,9 @@ func rejectImport(code string, err error) (command.Execution[ImportResult], erro
 }
 
 func replayImport(encoded string) (ImportResult, error) {
+	if refusal := restoreEvaluatedRefusal(encoded); refusal != nil {
+		return ImportResult{}, refusal
+	}
 	var outcome importOutcome
 	if err := json.Unmarshal([]byte(encoded), &outcome); err != nil {
 		return ImportResult{}, errors.New("decode Event interchange Import receipt")
@@ -917,4 +944,15 @@ func importPayloadHash(document []byte, reviewFingerprint string) string {
 
 func invalid(field, message string) error {
 	return &ValidationError{Field: field, Message: message}
+}
+
+// interchangeAuthorizationRejections maps the Capability Table's refusals for
+// both Import (installation authority) and Export (Event authority) actions
+// back to this package's sentinels, so an evaluated refusal returns the
+// error the imperative check returns today.
+var interchangeAuthorizationRejections = command.RejectionTable{
+	Rejections: []command.Rejection{
+		{Err: ErrAdministratorRequired, Code: "administrator_required"},
+		{Err: ErrEventAccessDenied, Code: "event_access_denied"},
+	},
 }

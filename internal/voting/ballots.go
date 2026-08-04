@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
 )
@@ -71,6 +72,9 @@ func (service *Service) Configure(
 	window, err := command.Execute(actor.Context(ctx), command.Plan[Window]{
 		Storage: service.storage, Identity: identity,
 		Notify: service.notifyVoting, Replay: replayWindow,
+		Authorization: command.Authorization{
+			Facts: authz.Event(input.EventID), Refusals: ballotRejections,
+		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[Window], error) {
 			window, err := transaction.ConfigureVoting(ctx, store.ConfigureVotingParams{
 				EventID: input.EventID, SessionID: input.SessionID,
@@ -144,6 +148,9 @@ func (service *Service) changeWindow(
 	window, err := command.Execute(actor.Context(ctx), command.Plan[Window]{
 		Storage: service.storage, Identity: identity,
 		Notify: service.notifyVoting, Replay: replayWindow,
+		Authorization: command.Authorization{
+			Facts: authz.Event(input.EventID), Refusals: ballotRejections,
+		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[Window], error) {
 			params := store.VotingWindowParams{
 				EventID: input.EventID, SessionID: input.SessionID,
@@ -186,6 +193,9 @@ func (service *Service) Vote(
 	)
 	_, err := command.Execute(actor.Context(ctx), command.Plan[struct{}]{
 		Storage: service.storage, Identity: identity, Notify: service.notifyVoting,
+		Authorization: command.Authorization{
+			Facts: authz.Installation(), Refusals: ballotRejections,
+		},
 		Replay: func(outcome string) (struct{}, error) {
 			var result struct{}
 			return result, ballotReceiptError(outcome)
@@ -298,6 +308,7 @@ func replayWindow(outcome string) (Window, error) {
 // codes in both directions.
 var ballotRejections = command.RejectionTable{
 	Rejections: []command.Rejection{
+		{Err: ErrProducerRequired, Code: "producer_required"},
 		{Err: ErrVotingRevision, Code: "voting_revision_conflict"},
 		{Err: ErrVotingIneligible, Code: "voting_ineligible"},
 		{Err: ErrVoteUnavailable, Code: "vote_unavailable"},

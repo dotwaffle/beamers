@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/awardvalue"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
@@ -50,6 +51,9 @@ func (service *Service) SaveCompetitionAwards(
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[Draft]{
 		Storage: service.storage, Identity: identity,
+		Authorization: command.Authorization{
+			Facts: authz.Event(input.EventID), Refusals: resultsRejections,
+		},
 		Replay: func(outcome string) (Draft, error) {
 			var stored store.CompetitionResultsDraft
 			if err := store.DecodeCommandReceipt(outcome, &stored); err != nil {

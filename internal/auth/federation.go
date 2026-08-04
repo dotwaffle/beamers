@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
 )
@@ -46,7 +47,8 @@ func (service *Service) LinkFederatedIdentity(
 		Provider  string `json:"provider"`
 	}
 	result, err := command.Execute(actor.Context(ctx), command.Plan[FederatedIdentity]{
-		Storage: service.storage,
+		Storage:       service.storage,
+		Authorization: command.Authorization{Facts: authz.Installation(), Refusals: accountRejections},
 		Identity: store.CommandIdentity{
 			ActorAccountID: actor.ID,
 			CommandID:      commandID,

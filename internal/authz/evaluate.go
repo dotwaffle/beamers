@@ -63,6 +63,9 @@ func Evaluate(request Request) error {
 	if !found {
 		return fmt.Errorf("%w: %s", ErrUnknownAction, request.Action)
 	}
+	if request.Facts.replayed {
+		return nil
+	}
 	if !request.Facts.supplied || request.Facts.scope != row.Scope {
 		return fmt.Errorf(
 			"%w: %s declares %s", ErrScopeFactsMismatch, request.Action, row.Scope,

@@ -12,6 +12,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/results"
 	"github.com/dotwaffle/beamers/internal/sessiontarget"
@@ -528,6 +529,12 @@ func (service *Service) AdjustTarget(
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[TargetAdjustmentResult]{
 		Storage: service.storage, Identity: identity, Notify: service.notifyLive,
+		Authorization: command.Authorization{
+			LoadFacts: func(ctx context.Context, transaction *store.CommandTx) (authz.Facts, error) {
+				return transaction.SessionLaneScope(ctx, input.EventID, input.SessionID)
+			},
+			Refusals: sessionAuthorizationRejections,
+		},
 		Replay: func(outcome string) (TargetAdjustmentResult, error) {
 			var stored store.SessionTargetAdjustment
 			if decodeErr := store.DecodeCommandReceipt(outcome, &stored); decodeErr != nil {
@@ -615,6 +622,12 @@ func (service *Service) PullForward(
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[PullForwardResult]{
 		Storage: service.storage, Identity: identity, Notify: service.notifyLive,
+		Authorization: command.Authorization{
+			LoadFacts: func(ctx context.Context, transaction *store.CommandTx) (authz.Facts, error) {
+				return transaction.SessionLaneScope(ctx, input.EventID, input.SessionID)
+			},
+			Refusals: sessionAuthorizationRejections,
+		},
 		Replay: func(outcome string) (PullForwardResult, error) {
 			var stored store.PullForwardAdjustment
 			if decodeErr := store.DecodeCommandReceipt(outcome, &stored); decodeErr != nil {
@@ -694,6 +707,10 @@ func (service *Service) Reinstate(
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[ReinstateResult]{
 		Storage: service.storage, Identity: identity, Notify: service.notifyLive,
+		Authorization: command.Authorization{
+			Facts:    authz.Event(input.EventID),
+			Refusals: sessionAuthorizationRejections,
+		},
 		Replay: func(outcome string) (ReinstateResult, error) {
 			var stored store.ReinstateSessionResult
 			if decodeErr := store.DecodeCommandReceipt(outcome, &stored); decodeErr != nil {
@@ -764,6 +781,12 @@ func (service *Service) CorrectLiveDetails(
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[Correction]{
 		Storage: service.storage, Identity: identity, Notify: service.notifyLive,
+		Authorization: command.Authorization{
+			LoadFacts: func(ctx context.Context, transaction *store.CommandTx) (authz.Facts, error) {
+				return transaction.SessionLaneScope(ctx, input.EventID, input.SessionID)
+			},
+			Refusals: sessionAuthorizationRejections,
+		},
 		Replay: func(outcome string) (Correction, error) {
 			var stored store.LiveDetailCorrection
 			if decodeErr := store.DecodeCommandReceipt(outcome, &stored); decodeErr != nil {
@@ -1097,6 +1120,12 @@ func (service *Service) execute(
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[State]{
 		Storage: service.storage, Identity: identity, Notify: service.notifyLive,
+		Authorization: command.Authorization{
+			LoadFacts: func(ctx context.Context, transaction *store.CommandTx) (authz.Facts, error) {
+				return transaction.SessionLaneScope(ctx, input.EventID, input.SessionID)
+			},
+			Refusals: sessionAuthorizationRejections,
+		},
 		Replay: func(outcome string) (State, error) {
 			var original store.LiveSessionState
 			if err := store.DecodeCommandReceipt(outcome, &original); err != nil {
@@ -1155,6 +1184,22 @@ func sessionRejection(
 
 // sessionTransitionRejections classifies the failures a live Session
 // transition can return from the store.
+// sessionAuthorizationRejections translates the Capability Table's refusals for
+// live Session control back into this package's sentinels. It names the codes
+// the imperative guards produce today — the Operator check in each Apply, the
+// Producer check on Reinstate, and the Lane scope check in the store — so an
+// evaluated refusal returns the error the imperative refusal returns, and the
+// codes a scope load can fail with before either runs.
+var sessionAuthorizationRejections = command.RejectionTable{
+	Rejections: []command.Rejection{
+		{Err: ErrOperatorRequired, Code: "operator_required"},
+		{Err: ErrProducerRequired, Code: "producer_required"},
+		{Err: ErrSessionScopeRequired, Code: "session_scope_required"},
+		{Err: ErrSessionNotFound, Code: "session_not_found"},
+		{Err: ErrEventNotActive, Code: "event_not_active"},
+	},
+}
+
 var sessionTransitionRejections = command.RejectionTable{
 	Rejections: []command.Rejection{
 		{Err: ErrSessionNotFound, Code: "session_not_found"},

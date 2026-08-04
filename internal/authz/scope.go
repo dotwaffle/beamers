@@ -52,6 +52,22 @@ type Facts struct {
 	groupKeys []string
 	demanded  []Capability
 	supplied  bool
+	replayed  bool
+}
+
+// Replayed states that this command persists an outcome whose authorization was
+// already decided, so the table is not applied to it a second time. It is the
+// same rule the Command Receipt lookup follows: a recorded outcome is durable
+// truth and is never re-judged, because re-judging it would let a later change
+// of authority rewrite what already happened.
+//
+// It exists for the degraded Emergency Alert path, which decides authority in
+// process memory while durable evidence is unavailable and persists the
+// decision — acceptance or refusal — on recovery. A walking test holds its call
+// sites to a declared list, so this cannot become a general way around the
+// table.
+func Replayed() Facts {
+	return Facts{supplied: true, replayed: true}
 }
 
 // Installation returns the facts an installation-authority row is judged

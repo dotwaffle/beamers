@@ -12,6 +12,7 @@ import (
 
 	_ "github.com/dotwaffle/beamers/ent/runtime"
 
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/store"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
@@ -21,12 +22,13 @@ func TestExecuteOwnsRetryConflictRejectionAndAuditOrdering(t *testing.T) {
 	now := time.Date(2026, time.July, 22, 12, 0, 0, 0, time.UTC)
 	identity := store.CommandIdentity{
 		ActorAccountID: actorID, CommandID: "executor-success", PayloadHash: strings.Repeat("a", 64),
-		Action: "TestCommand", TargetType: "Account", TargetID: "1", Now: now,
+		Action: "UpdateAccountProfile", TargetType: "Account", TargetID: "1", Now: now,
 	}
 	applications := 0
 	plan := Plan[string]{
 		Storage: storage, Identity: identity,
-		Replay: func(outcome string) (string, error) { return outcome, nil },
+		Authorization: Authorization{Facts: authz.Installation()},
+		Replay:        func(outcome string) (string, error) { return outcome, nil },
 		Apply: func(*store.CommandTx) (Execution[string], error) {
 			applications++
 			return Success("first", `"first"`), nil
@@ -49,10 +51,11 @@ func TestExecuteOwnsRetryConflictRejectionAndAuditOrdering(t *testing.T) {
 
 	rejectedReason := errors.New("not allowed")
 	rejectedPlan := Plan[struct{}]{
-		Storage: storage,
+		Storage:       storage,
+		Authorization: Authorization{Facts: authz.Installation()},
 		Identity: store.CommandIdentity{
 			ActorAccountID: actorID, CommandID: "executor-rejected", PayloadHash: strings.Repeat("c", 64),
-			Action: "TestRejectedCommand", TargetType: "Account", TargetID: "1", Now: now,
+			Action: "RecoverAccount", TargetType: "Account", TargetID: "1", Now: now,
 		},
 		Replay: func(outcome string) (struct{}, error) {
 			var result struct{}
@@ -85,13 +88,14 @@ func TestExecuteNotifiesOnlyAfterSuccess(t *testing.T) {
 	identity := func(commandID string) store.CommandIdentity {
 		return store.CommandIdentity{
 			ActorAccountID: actorID, CommandID: commandID, PayloadHash: strings.Repeat("a", 64),
-			Action: "TestCommand", TargetType: "Account", TargetID: "1", Now: now,
+			Action: "UpdateAccountProfile", TargetType: "Account", TargetID: "1", Now: now,
 		}
 	}
 
 	var sequence []string
 	plan := Plan[string]{
 		Storage: storage, Identity: identity("executor-notification-order"),
+		Authorization: Authorization{Facts: authz.Installation()},
 		Replay: func(outcome string) (string, error) {
 			sequence = append(sequence, "replay")
 			return outcome, nil
@@ -138,7 +142,8 @@ func TestExecuteNotifiesOnlyAfterSuccess(t *testing.T) {
 	rejectionErr := errors.New("not allowed")
 	rejection := Plan[string]{
 		Storage: storage, Identity: identity("executor-notification-rejection"),
-		Replay: func(string) (string, error) { return "", rejectionErr },
+		Authorization: Authorization{Facts: authz.Installation()},
+		Replay:        func(string) (string, error) { return "", rejectionErr },
 		Apply: func(*store.CommandTx) (Execution[string], error) {
 			return Reject("", store.CommandRejection{Code: "not_allowed"}, rejectionErr), nil
 		},
@@ -201,14 +206,15 @@ func TestExecuteSignalsApplicationSeparatelyFromReplay(t *testing.T) {
 	identity := func(commandID string) store.CommandIdentity {
 		return store.CommandIdentity{
 			ActorAccountID: actorID, CommandID: commandID, PayloadHash: strings.Repeat("a", 64),
-			Action: "TestCommand", TargetType: "Account", TargetID: "1", Now: now,
+			Action: "UpdateAccountProfile", TargetType: "Account", TargetID: "1", Now: now,
 		}
 	}
 
 	var sequence []string
 	plan := Plan[string]{
 		Storage: storage, Identity: identity("executor-applied-signal"),
-		Replay: func(outcome string) (string, error) { return outcome, nil },
+		Authorization: Authorization{Facts: authz.Installation()},
+		Replay:        func(outcome string) (string, error) { return outcome, nil },
 		Apply: func(*store.CommandTx) (Execution[string], error) {
 			return Success("first", `"first"`), nil
 		},

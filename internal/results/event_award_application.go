@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
 	"github.com/dotwaffle/beamers/internal/viewer"
@@ -96,6 +97,9 @@ func (service *Service) SaveEventAwards(
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[EventAwardsDraft]{
 		Storage: service.storage, Identity: identity,
+		Authorization: command.Authorization{
+			Facts: authz.Event(input.EventID), Refusals: resultsRejections,
+		},
 		Replay: func(outcome string) (EventAwardsDraft, error) {
 			var stored store.EventAwardsDraft
 			if err := store.DecodeCommandReceipt(outcome, &stored); err != nil {
@@ -150,6 +154,9 @@ func (service *Service) MarkEventAwardsReady(
 	}
 	return command.Execute(actor.Context(ctx), command.Plan[EventAwardsDraft]{
 		Storage: service.storage, Identity: identity,
+		Authorization: command.Authorization{
+			Facts: authz.Event(input.EventID), Refusals: resultsRejections,
+		},
 		Replay: func(outcome string) (EventAwardsDraft, error) {
 			var stored store.EventAwardsDraft
 			if err := store.DecodeCommandReceipt(outcome, &stored); err != nil {

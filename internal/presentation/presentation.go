@@ -12,6 +12,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
 )
@@ -184,6 +185,7 @@ func (service *Service) AssignSubmitter(
 		input,
 		actor.CanProduceEvent(input.EventID),
 		ErrProducerRequired,
+		authz.Event(input.EventID),
 		"Submitter Account #"+strconv.Itoa(input.AccountID),
 		nil,
 		func(transaction *store.CommandTx, _ time.Time) (store.PresentationSubmission, error) {
@@ -235,6 +237,7 @@ func (service *Service) UpdateSubmission(
 		input,
 		true,
 		nil,
+		authz.Installation(),
 		"",
 		service.notifyPublicDetails,
 		func(transaction *store.CommandTx, now time.Time) (store.PresentationSubmission, error) {
@@ -258,6 +261,7 @@ func (service *Service) execute(
 	payload any,
 	authorized bool,
 	authorizationError error,
+	facts authz.Facts,
 	auditNote string,
 	notify func(),
 	apply func(*store.CommandTx, time.Time) (store.PresentationSubmission, error),
@@ -276,6 +280,9 @@ func (service *Service) execute(
 		Storage:  service.storage,
 		Identity: identity,
 		Notify:   notify,
+		Authorization: command.Authorization{
+			Facts: facts, Refusals: presentationRejections,
+		},
 		Replay: func(outcome string) (State, error) {
 			var stored store.PresentationSubmission
 			if decodeErr := decodeReceipt(outcome, &stored); decodeErr != nil {
