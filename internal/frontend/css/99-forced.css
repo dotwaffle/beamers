@@ -34,7 +34,8 @@
 
   .error,
   .field-error,
-  .warning {
+  .warning,
+  .success {
     background: Canvas;
     border-color: CanvasText;
     color: CanvasText;
@@ -68,6 +69,7 @@
   }
 
   .btn-destructive,
+  .btn-commit,
   .btn-take,
   .take,
   button[aria-pressed="true"] {
