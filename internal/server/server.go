@@ -200,12 +200,16 @@ func Run(ctx context.Context, config Config) error {
 			)
 		}
 	}
-	privateHandler := protectInterfaces(application, interfacePolicy{
-		logger:          config.Logger,
-		listenerAddress: listener.Addr(), trustedProxies: config.TrustedProxies,
-		allowInsecureCrew: config.InsecureCrew, allowInsecureDisplay: config.InsecureDisplay,
-		demo: config.Demo,
-	})
+	privateHandler := instrumentInboundHTTP(
+		config,
+		"beamers.private",
+		protectInterfaces(application, interfacePolicy{
+			logger:          config.Logger,
+			listenerAddress: listener.Addr(), trustedProxies: config.TrustedProxies,
+			allowInsecureCrew: config.InsecureCrew, allowInsecureDisplay: config.InsecureDisplay,
+			demo: config.Demo,
+		}),
+	)
 	httpServer := &http.Server{
 		Handler:           privateHandler,
 		ReadTimeout:       10 * time.Second,
@@ -215,12 +219,16 @@ func Run(ctx context.Context, config Config) error {
 	var publicServer *http.Server
 	if publicListener != nil {
 		publicServer = &http.Server{
-			Handler: protectInterfaces(application, interfacePolicy{
-				logger:          config.Logger,
-				listenerAddress: publicListener.Addr(),
-				trustedProxies:  config.TrustedProxies,
-				publicOnly:      true,
-			}),
+			Handler: instrumentInboundHTTP(
+				config,
+				"beamers.public",
+				protectInterfaces(application, interfacePolicy{
+					logger:          config.Logger,
+					listenerAddress: publicListener.Addr(),
+					trustedProxies:  config.TrustedProxies,
+					publicOnly:      true,
+				}),
+			),
 			ReadTimeout:       10 * time.Second,
 			ReadHeaderTimeout: 5 * time.Second,
 			IdleTimeout:       60 * time.Second,
@@ -422,6 +430,20 @@ func Run(ctx context.Context, config Config) error {
 		)
 		return finalErr
 	}
+}
+
+// instrumentInboundHTTP wraps a listener's handler with otelhttp so inbound
+// requests get request metrics and a server span, giving downstream otelsql
+// database spans a parent. operation names the span/metric per listener
+// (private vs. public) so the two are distinguishable in exported data.
+func instrumentInboundHTTP(config Config, operation string, next http.Handler) http.Handler {
+	return otelhttp.NewHandler(
+		next,
+		operation,
+		otelhttp.WithTracerProvider(config.TracerProvider),
+		otelhttp.WithMeterProvider(config.MeterProvider),
+		otelhttp.WithPropagators(config.Propagator),
+	)
 }
 
 func closeListener(listener net.Listener) error {
