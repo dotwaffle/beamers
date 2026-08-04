@@ -3951,7 +3951,7 @@ func TestLiveCompetitionBallotUpdatesAndSurvivesRestart(t *testing.T) {
 	resultsPage = getFrontendPage(t, administrator, server.address, resultsPath)
 	if resultsPage.status != http.StatusOK ||
 		!strings.Contains(resultsPage.body, "Draft revision <code>2</code>") ||
-		!strings.Contains(resultsPage.body, `data-tone="draft">Draft</span>`) ||
+		!strings.Contains(resultsPage.body, `data-tone="draft">Not Ready</span>`) ||
 		!strings.Contains(resultsPage.body, "Voting Tally: 1") ||
 		!strings.Contains(resultsPage.body, "4 total from 1 Ballots") ||
 		strings.Contains(resultsPage.body, "Release standalone Results") {
@@ -8542,7 +8542,7 @@ func TestBrowserStagesAndReviewsCompetitionResults(t *testing.T) {
 	}
 	page = getFrontendPage(t, administrator, server.address, path)
 	if !strings.Contains(page.body, "Draft revision <code>1</code>") ||
-		!strings.Contains(page.body, `data-tone="draft">Draft</span>`) {
+		!strings.Contains(page.body, `data-tone="draft">Not Ready</span>`) {
 		t.Fatalf("saved browser Results missing revision state: %d %q", page.status, page.body)
 	}
 	staleDraft := save("browser-stale-results", "0", []string{"1", "2"})
@@ -8578,7 +8578,7 @@ func TestBrowserStagesAndReviewsCompetitionResults(t *testing.T) {
 	}
 	page = getFrontendPage(t, administrator, server.address, path)
 	if !strings.Contains(page.body, "Draft revision <code>2</code>") ||
-		!strings.Contains(page.body, `data-tone="draft">Draft</span>`) {
+		!strings.Contains(page.body, `data-tone="draft">Not Ready</span>`) {
 		t.Fatalf("changed browser Results did not clear Ready: %d %q", page.status, page.body)
 	}
 
@@ -9297,7 +9297,7 @@ func TestBrowserPublishesAndCorrectsStandaloneResults(t *testing.T) {
 	for _, want := range []string{
 		"Community Award",
 		"Standalone path revision <code>1</code>",
-		`data-tone="draft">Draft</span>`,
+		`data-tone="draft">Not Ready</span>`,
 	} {
 		if !strings.Contains(page.body, want) {
 			t.Fatalf("browser Event Awards lack %q: %d %q", want, page.status, page.body)

@@ -670,12 +670,15 @@ func resultsEventAwardsPreflightPath(eventID int) string {
 }
 
 // readinessLabel and readinessTone name and tone a Ready boolean as a badge,
-// so a Draft is never confused for an internal Go value.
+// so it is never confused for an internal Go value. Ready is orthogonal to
+// the adjacent Draft/Published revision language, so the false case reads
+// "Not Ready" rather than "Draft" -- reusing "Draft" here would collide with
+// the lifecycle-stage noun printed beside it and lose the readiness signal.
 func readinessLabel(ready bool) string {
 	if ready {
 		return "Ready"
 	}
-	return "Draft"
+	return "Not Ready"
 }
 
 func readinessTone(ready bool) string {
