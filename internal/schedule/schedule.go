@@ -11,6 +11,7 @@ import (
 	"slices"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/dotwaffle/beamers/internal/events"
@@ -134,10 +135,12 @@ type Attachment struct {
 
 // TimePoint is one labeled attendee-facing operational instant.
 type TimePoint struct {
-	Label    string `json:"label"`
-	Datetime string `json:"datetime"`
-	Display  string `json:"display"`
-	Event    string `json:"event"`
+	Label      string `json:"label"`
+	Datetime   string `json:"datetime"`
+	Display    string `json:"display"`
+	Event      string `json:"event"`
+	Clock      string `json:"clock"`
+	EventClock string `json:"event_clock"`
 }
 
 // TimePresentation is one lifecycle-specific public time range.
@@ -813,9 +816,29 @@ func projectedTimePoint(
 ) TimePoint {
 	return TimePoint{
 		Label: label, Datetime: value.In(displayZone).Format(time.RFC3339),
-		Display: formatEventTime(value.In(displayZone)),
-		Event:   formatEventTime(value.In(eventZone)),
+		Display:    formatEventTime(value.In(displayZone)),
+		Event:      formatEventTime(value.In(eventZone)),
+		Clock:      value.In(displayZone).Format(clockLayout),
+		EventClock: value.In(eventZone).Format(clockLayout),
 	}
+}
+
+// clockLayout renders a compact tabular-numeral "HH:MM" for the Schedule
+// card time column, matching the locale-independent 24-hour clock the rest
+// of the public Schedule already uses.
+const clockLayout = "15:04"
+
+// timeKind reduces a publictime Label ("Forecast Start", "Actual End",
+// "Last Forecast Start", ...) to the "Forecast" or "Actual" distinction the
+// Schedule card's compact time column still needs to show. A Live Session
+// presents a normalized Actual Start beside a Forecast End
+// (publictime.Live), so collapsing the label entirely would make the two
+// endpoints indistinguishable.
+func timeKind(label string) string {
+	if strings.Contains(label, "Actual") {
+		return "Actual"
+	}
+	return "Forecast"
 }
 
 func projectFilterOptions[T any](

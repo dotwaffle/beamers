@@ -72,6 +72,52 @@ func TestGroupScheduleDaysMarksFirstVisibleRollover(t *testing.T) {
 	}
 }
 
+func TestProjectedTimePointIncludesCompactClock(t *testing.T) {
+	displayZone, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		t.Fatalf("load display timezone: %v", err)
+	}
+	eventZone, err := time.LoadLocation("Europe/Berlin")
+	if err != nil {
+		t.Fatalf("load Event timezone: %v", err)
+	}
+	value := time.Date(2026, 8, 22, 13, 5, 0, 0, eventZone)
+
+	// The Schedule card time column needs a bare "HH:MM" per zone rather than
+	// the full "2026-08-22 07:05 EDT" sentence used elsewhere on the page, so
+	// dual-timezone presentation stays compact instead of stacking two
+	// sentence-length strings per Session.
+	point := projectedTimePoint("Start", value, displayZone, eventZone)
+	if point.Clock != "07:05" {
+		t.Errorf("display-zone Clock = %q, want %q", point.Clock, "07:05")
+	}
+	if point.EventClock != "13:05" {
+		t.Errorf("Event-zone EventClock = %q, want %q", point.EventClock, "13:05")
+	}
+}
+
+func TestTimeKindDistinguishesActualFromForecast(t *testing.T) {
+	// A Live Session presents a normalized Actual Start beside a Forecast
+	// End (publictime.Live). The Schedule card's compact time column must
+	// keep that distinction visible instead of erasing it for brevity.
+	tests := []struct {
+		label string
+		want  string
+	}{
+		{"Forecast Start", "Forecast"},
+		{"Forecast End", "Forecast"},
+		{"Actual Start", "Actual"},
+		{"Actual End", "Actual"},
+		{"Last Forecast Start", "Forecast"},
+		{"Last Forecast End", "Forecast"},
+	}
+	for _, test := range tests {
+		if got := timeKind(test.label); got != test.want {
+			t.Errorf("timeKind(%q) = %q, want %q", test.label, got, test.want)
+		}
+	}
+}
+
 func TestFormatEventTimeIsLocaleIndependent(t *testing.T) {
 	zone, err := time.LoadLocation("Europe/Berlin")
 	if err != nil {
