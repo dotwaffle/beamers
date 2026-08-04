@@ -103,7 +103,9 @@ test("renderer failure retains the frame and reports instability", async () => {
   await browser.runTimer((delay) => delay === 0);
   assert.equal(browser.document.main, committedFrame);
   assert.equal(browser.acknowledgments.at(-1).rendererUnstable, true);
-  await browser.runTimer((delay) => delay === 60000);
+  // The clock re-renders on the true minute boundary rather than a flat 60s
+  // interval, so its next tick lands somewhere in (0, 60000].
+  await browser.runTimer((delay) => delay > 0 && delay <= 60000);
   assert.notEqual(clock.textContent, clockBeforeFailure);
 
   browser.failRendering = false;
@@ -354,6 +356,29 @@ test("persistent clock advances without replacing the committed frame", async ()
   await browser.runTimer((delay) => delay === 60000);
   assert.equal(browser.document.main, committedFrame);
   assert.notEqual(time.textContent, before);
+});
+
+test("persistent clock re-renders aligned to the true minute boundary", async () => {
+  const browser = await startBrowser({
+    snapshot: displaySnapshot({
+      serverTime: "2099-08-21T08:00:47Z",
+      eventTimezone: "UTC",
+      composition: displayComposition({
+        regions: [
+          {name: "clock", widget: "clock", persistent: true},
+        ],
+      }),
+    }),
+  });
+  // The clock synchronized 47 seconds into the minute, so the next re-render
+  // has to land on the minute boundary (13s away), never a flat 60s later --
+  // otherwise the digits sit up to 59s stale between paints.
+  assert.ok(browser.timerDelays().some((delay) => delay === 13000));
+  assert.ok(!browser.timerDelays().includes(60000));
+
+  await browser.runTimer((delay) => delay === 13000);
+  // Once aligned, the following re-render is a full minute later.
+  assert.ok(browser.timerDelays().some((delay) => delay === 60000));
 });
 
 test("Stage Timer advances from the synchronized monotonic clock into overtime", async () => {

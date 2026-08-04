@@ -664,18 +664,26 @@ function renderWidget(region, widget, snapshot, theme, candidateClockReference) 
   }
 }
 
+// minuteAlignmentDelay is how long until the next minute boundary of the
+// estimated server clock. Scheduling from a fixed 60000ms interval instead
+// would let the displayed minute sit up to 59s stale, since a paint that
+// starts partway through a minute never catches back up to the boundary.
+function minuteAlignmentDelay(now) {
+  return 60000 - (now % 60000);
+}
+
 function prepareClock(clock, snapshot, reference) {
   const update = () => {
     const current = new Date(estimatedServerNow());
     clock.dateTime = current.toISOString();
     clock.textContent = formatClockTime(snapshot, current);
-    scheduleTrackedUpdate(update, 60000);
+    scheduleTrackedUpdate(update, minuteAlignmentDelay(estimatedServerNow()));
   };
   const current = new Date(estimatedServerNow(reference));
   clock.dateTime = current.toISOString();
   clock.textContent = formatClockTime(snapshot, current);
   return () => {
-    scheduleTrackedUpdate(update, 60000);
+    scheduleTrackedUpdate(update, minuteAlignmentDelay(estimatedServerNow(reference)));
   };
 }
 
