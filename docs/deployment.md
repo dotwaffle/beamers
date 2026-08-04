@@ -6,7 +6,7 @@ All three profiles use:
 - database state under `/var/lib/beamers/data`;
 - the Attachment Store under `/var/lib/beamers/attachments`;
 - direct TLS on port 8443; and
-- a ten-second graceful-stop budget.
+- a 30-second graceful-stop budget with 35 seconds of platform kill grace.
 
 The binary embeds its web assets and IANA timezone database.
 Serving and upgrading require no CDN, Node runtime, update service, or internet connection.
@@ -92,11 +92,12 @@ sudo -u beamers /usr/local/bin/beamers serve \
   --listen=0.0.0.0:8443 \
   --tls-cert=/etc/beamers/tls.crt \
   --tls-key=/etc/beamers/tls.key \
-  --shutdown-timeout=10s
+  --shutdown-timeout=30s
 ```
 
 Send `SIGINT` or `SIGTERM` directly to this process.
 Do not place it behind a shell wrapper that remains PID 1.
+A direct invocation has no platform kill deadline of its own; give the process at least 35 seconds before forcing termination, matching the margin the shipped systemd and Compose profiles give it.
 
 ## Configure SceneID
 
@@ -119,6 +120,21 @@ Without it, previously linked identities may sign in and authenticated Accounts 
 SceneID requires HTTPS except on a loopback listener.
 The client secret is not stored in browser configuration or Backups.
 
+## Configure continuous replication
+
+Add `--replica-url=LITESTREAM-URL` to continuously replicate the authoritative SQLite database to a second local or mounted-remote path:
+
+```sh
+--replica-url=file:///mnt/offsite/beamers.db
+```
+
+Version one accepts only an absolute, credential-free `file:` URL with no host, user info, query, or fragment; mount the actual destination (a network share, a synced block device, and so on) at that path yourself.
+
+This covers **the database only**.
+It does not replicate the Attachment Store; a Litestream replica alone cannot restore uploaded files.
+Protect Attachments with a separate mechanism sized to the venue's tolerance for loss, for example a periodic Backup (`beamers backup`, which archives both the database and Attachments together) or a scheduled `rsync` of `/var/lib/beamers/attachments` to off-host storage.
+A restore from the database replica without a corresponding Attachment copy leaves every uploaded file permanently missing.
+
 ## Run with systemd
 
 Install the supplied unit after the binary and persistent state are ready:
@@ -130,8 +146,31 @@ systemctl daemon-reload
 systemctl enable --now beamers.service
 ```
 
-The unit starts only when `/var/lib/beamers/data/beamers.db` exists.
-It sends `SIGTERM` to the Beamers process and gives it the same ten-second budget configured with `--shutdown-timeout`.
+The unit always attempts to start; it does not gate on the database file existing.
+A missing or damaged database makes `serve` enter its documented local recovery mode instead of the unit silently staying inactive, so the problem is visible at `/readyz` and in diagnostics rather than presenting as a service that never came up.
+It sends `SIGTERM` to the Beamers process and gives it the 30-second budget configured with `--shutdown-timeout`, with `TimeoutStopSec=35s` as the platform kill deadline that budget must fit inside.
+`MemoryMax=4G` leaves half of the [reference hardware](capacity.md)'s 8 GB for the OS, Litestream, and other host processes while still covering the rated capacity envelope; a unit that exceeds it is killed rather than pushing the host into swap or OOM-killing something else.
+
+Because the unit carries no readiness awareness of its own, add an external watchdog that polls `/readyz` on a companion timer unit and pages an Administrator on sustained failure, rather than restarting blindly:
+
+```sh
+#!/bin/sh
+# beamers-watchdog.sh, invoked by a companion .timer unit.
+systemctl is-active --quiet beamers.service || exit 0
+curl --fail --silent --show-error --insecure --max-time 2 \
+  https://127.0.0.1:8443/readyz && exit 0
+STATE=/run/beamers-watchdog.count
+COUNT=$(( $(cat "$STATE" 2>/dev/null || echo 0) + 1 ))
+echo "$COUNT" >"$STATE"
+[ "$COUNT" -ge 3 ] || exit 0
+echo 0 >"$STATE"
+logger -t beamers-watchdog "readiness failed 3 consecutive checks; check for recovery mode before restarting"
+```
+
+The `systemctl is-active` guard keeps the watchdog from fighting an Administrator's intentional `systemctl stop beamers.service`, for example during the offline restore below.
+The consecutive-failure counter keeps one slow probe from restarting a healthy process.
+Recovery mode itself fails `/readyz` by design and a restart does not clear it, since the underlying database is still missing or damaged; alert an Administrator to diagnose and restore instead of looping `systemctl restart` against it.
+Beamers does not implement `sd_notify` watchdog pings; systemd's own `Restart=on-failure` only reacts to the process exiting, not to a running-but-unready process.
 
 ## Run with Docker Compose
 
@@ -166,7 +205,36 @@ The named `beamers-data` volume is authoritative installation storage.
 Do not run `docker compose down --volumes` unless intentionally destroying the installation.
 The image declares the same volume so an ad hoc container does not write authoritative state into its disposable layer.
 
-Compose uses an exec-form entrypoint, leaves Beamers as PID 1, sends `SIGTERM`, and enforces the same ten-second budget as the process.
+Compose uses an exec-form entrypoint, leaves Beamers as PID 1, sends `SIGTERM`, and enforces `stop_grace_period: 35s` as the platform kill deadline around the process's own 30-second `--shutdown-timeout`.
+`mem_limit: 4G` matches the systemd profile's bound: half of the [reference hardware](capacity.md)'s 8 GB, leaving headroom for the host while covering the rated capacity envelope.
+
+Compose's `healthcheck` only affects `docker compose up --wait` and `docker ps` status; Compose does not restart a container that is running but reports unhealthy.
+An installation that stops passing `/readyz` while the process keeps running needs an external watchdog (a host-level `docker inspect --format '{{.State.Health.Status}}'` poll, or a systemd unit wrapping Compose) to notice and act; do not assume `restart: unless-stopped` alone covers this case, since it only restarts a container that has exited.
+Apply the same care as the systemd watchdog below: require several consecutive unhealthy checks before restarting, and recognize that recovery mode reports unhealthy by design and needs an Administrator to restore, not a repeated `docker compose restart`.
+
+### Recover a Docker deployment locally
+
+A storage failure inside the container does not present as a normal HTTP error; the port stays open but `/readyz` fails and `beamers serve` reports recovery mode in its logs.
+Use `docker compose exec beamers sh` to inspect logs or run read-only diagnostics while the container keeps running.
+`serve` holds an exclusive lock on the installation for as long as the container runs, including while it is in recovery mode, so `restore preview` and `restore apply` cannot run inside that same running container: both need the same lock and fail with an in-use error.
+
+Stop the service before cutover, then run the restore as a one-off container against the named volume, the same pattern used for `init` and `bootstrap`:
+
+```sh
+docker compose stop beamers
+docker compose run --rm --no-deps beamers \
+  restore preview \
+  --input=/var/lib/beamers/BACKUP.zip \
+  --data-dir=/var/lib/beamers/data
+# review the printed plan, then apply the journal path it reports
+docker compose run --rm --no-deps beamers \
+  restore apply \
+  --journal=/var/lib/beamers/data.beamers-restore.json \
+  --acknowledge-replacement
+docker compose up --detach --pull never --wait
+```
+
+The container image is read-only outside the mounted `beamers-data` volume and `/tmp`, so recovery commands can only write inside `/var/lib/beamers`, matching what a restore or export needs.
 
 ## Back up and restore configuration
 

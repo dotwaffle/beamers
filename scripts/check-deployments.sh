@@ -59,7 +59,7 @@ grep -F 'ENTRYPOINT ["/usr/local/bin/beamers"]' "$repository/Dockerfile"
 grep -F 'STOPSIGNAL SIGTERM' "$repository/Dockerfile"
 grep -F 'VOLUME ["/var/lib/beamers"]' "$repository/Dockerfile"
 grep -F 'User=beamers' "$repository/deploy/systemd/beamers.service"
-grep -F 'TimeoutStopSec=10s' "$repository/deploy/systemd/beamers.service"
+grep -F 'TimeoutStopSec=35s' "$repository/deploy/systemd/beamers.service"
 grep -F -- '--data-dir=/var/lib/beamers/data' \
 	"$repository/deploy/systemd/beamers.service"
 
@@ -73,7 +73,7 @@ docker compose --env-file "$temporary/compose.env" \
 	-f "$repository/compose.yaml" config --quiet
 docker compose --env-file "$temporary/compose.env" \
 	-f "$repository/compose.yaml" config |
-	grep -F 'stop_grace_period: 10s'
+	grep -F 'stop_grace_period: 35s'
 
 systemd_root="$temporary/systemd-root"
 mkdir -p "$systemd_root/etc/systemd/system" "$systemd_root/usr/local/bin"

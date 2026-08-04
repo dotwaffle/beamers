@@ -2,7 +2,6 @@
 Description=Beamers venue operations
 Documentation=https://github.com/dotwaffle/beamers
 After=network.target
-ConditionPathExists=/var/lib/beamers/data/beamers.db
 RequiresMountsFor=/var/lib/beamers /etc/beamers
 
 [Service]
@@ -10,9 +9,10 @@ Type=simple
 User=beamers
 Group=beamers
 UMask=0077
-ExecStart=/usr/local/bin/beamers serve --data-dir=/var/lib/beamers/data --attachments-dir=/var/lib/beamers/attachments --listen=0.0.0.0:8443 --tls-cert=/etc/beamers/tls.crt --tls-key=/etc/beamers/tls.key --shutdown-timeout=10s
+ExecStart=/usr/local/bin/beamers serve --data-dir=/var/lib/beamers/data --attachments-dir=/var/lib/beamers/attachments --listen=0.0.0.0:8443 --tls-cert=/etc/beamers/tls.crt --tls-key=/etc/beamers/tls.key --shutdown-timeout=30s
 KillSignal=SIGTERM
-TimeoutStopSec=10s
+TimeoutStopSec=35s
+MemoryMax=4G
 Restart=on-failure
 RestartSec=2s
 StateDirectory=beamers
