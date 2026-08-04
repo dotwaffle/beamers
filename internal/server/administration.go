@@ -66,19 +66,18 @@ func (handlers administrationHandlers) administration(
 		http.Error(response, "Administrator authority required", http.StatusForbidden)
 		return
 	}
-	csrfToken, err := handlers.browser.csrfToken(response, request)
-	if err != nil {
-		handlers.browser.frontendError(response, request, "create CSRF proof", err)
+	prologue, ok := handlers.browser.backstagePagePrologue(response, request, actor)
+	if !ok {
 		return
 	}
 	switch request.Method {
 	case http.MethodGet, http.MethodHead:
-		handlers.render(response, request, actor, csrfToken, http.StatusOK, nil, nil, nil)
+		handlers.render(response, request, actor, prologue, http.StatusOK, nil, nil, nil)
 	case http.MethodPost:
 		if !handlers.browser.validForm(response, request) {
 			return
 		}
-		handlers.submit(response, request, actor, csrfToken)
+		handlers.submit(response, request, actor, prologue)
 	default:
 		frontendMethodNotAllowed(response, http.MethodGet+", "+http.MethodHead+", "+http.MethodPost)
 	}
@@ -88,7 +87,7 @@ func (handlers administrationHandlers) submit(
 	response http.ResponseWriter,
 	request *http.Request,
 	actor auth.Account,
-	csrfToken string,
+	prologue backstagePrologue,
 ) {
 	action := request.Form.Get("action")
 	var (
@@ -120,7 +119,7 @@ func (handlers administrationHandlers) submit(
 				response,
 				request,
 				actor,
-				csrfToken,
+				prologue,
 				http.StatusOK,
 				nil,
 				preflight,
@@ -163,7 +162,7 @@ func (handlers administrationHandlers) submit(
 		response,
 		request,
 		actor,
-		csrfToken,
+		prologue,
 		status,
 		administrationFormErrors(err, request.Form, message),
 		preflight,
@@ -334,7 +333,7 @@ func (handlers administrationHandlers) render(
 	response http.ResponseWriter,
 	request *http.Request,
 	actor auth.Account,
-	csrfToken string,
+	prologue backstagePrologue,
 	status int,
 	formErrors frontend.FormErrors,
 	preflight *activation.Preflight,
@@ -434,9 +433,9 @@ func (handlers administrationHandlers) render(
 		request,
 		status,
 		frontend.Administration(frontend.AdministrationPage{
-			AccountName: actor.Name, CSRFToken: csrfToken,
-			ReducedEffects:       reducedEffectsCookie(request),
-			Navigation:           backstageNavigation(actor, request.URL.Path),
+			AccountName: actor.Name, CSRFToken: prologue.CSRFToken,
+			ReducedEffects:       prologue.ReducedEffects,
+			Navigation:           prologue.Navigation,
 			Accounts:             accounts,
 			Events:               foundEvents,
 			EventLanes:           eventLanes,
@@ -495,48 +494,43 @@ func commaSeparatedValues(value string) []string {
 	return values
 }
 
+// administrationFormErrorRules is the classify-error-to-field table for
+// administrationFormErrors' common shape. Adding a new validation rule
+// means adding one row here.
+var administrationFormErrorRules = []formErrorRule{
+	ruleValidation(func(validation *events.ValidationError) (string, string, string) {
+		return validation.Field, administrationFieldLabel(validation.Field), validation.Message
+	}),
+	rule(matchErr(auth.ErrAccountExists), "account_handle", "Account Handle", ""),
+	rule(matchErr(events.ErrGrantRoleRequired), "role", "Role", ""),
+	rule(matchErr(events.ErrEventGrantLaneMismatch), "lane_ids", "Lane IDs",
+		"Checked Lanes must belong to the selected Event."),
+	rule(matchErr(auth.ErrDisableReasonRequired), "reason", "Reason", ""),
+	rule(matchErr(auth.ErrRecoveryReasonRequired), "reason", "Offline verification", ""),
+	rule(matchErr(events.ErrEventSlugPruneConfirmationRequired), "confirmed", "Pruning confirmation", ""),
+}
+
 func administrationFormErrors(
 	err error,
 	values url.Values,
 	message string,
 ) frontend.FormErrors {
 	action := values.Get("action")
-	field, label, fieldMessage := "", "", message
-	var validation *events.ValidationError
-	switch {
-	case errors.Is(err, auth.ErrInvalidAccountDetails):
+	if errors.Is(err, auth.ErrInvalidAccountDetails) {
 		return administrationAccountFormErrors(values)
-	case errors.As(err, &validation):
-		field = validation.Field
-		label, fieldMessage = administrationFieldLabel(field), validation.Message
-	case errors.Is(err, auth.ErrAccountExists):
-		field, label = "account_handle", "Account Handle"
-	case errors.Is(err, events.ErrGrantRoleRequired):
-		field, label = "role", "Role"
-	case errors.Is(err, events.ErrEventGrantLaneMismatch):
-		field, label, fieldMessage = "lane_ids", "Lane IDs",
-			"Checked Lanes must belong to the selected Event."
-	case errors.Is(err, auth.ErrDisableReasonRequired):
-		field, label = "reason", "Reason"
-	case errors.Is(err, auth.ErrRecoveryReasonRequired):
-		field, label = "reason", "Offline verification"
-	case errors.Is(err, events.ErrEventSlugPruneConfirmationRequired):
-		field, label = "confirmed", "Pruning confirmation"
-	case errors.Is(err, errInvalidAdministrationInput):
+	}
+	field, label, fieldMessage, _ := resolveFormErrorField(administrationFormErrorRules, err, action)
+	if field == "" && errors.Is(err, errInvalidAdministrationInput) {
 		field, label = administrationInvalidField(values)
 	}
 	if field == "" && action == "activate" {
 		field, label = "confirmation", "Activation confirmation"
 	}
-	if field == "" {
-		return frontend.FormErrors{{Message: message}}
-	}
-	targetID := administrationTargetID(action, values)
-	return frontend.FormErrors{{
-		FieldID: frontend.AdministrationFieldID(action, targetID, field),
-		Label:   label,
-		Message: fieldMessage,
-	}}
+	return formErrorResult(field, label, fieldMessage, action, message,
+		func(field, action string) string {
+			return frontend.AdministrationFieldID(action, administrationTargetID(action, values), field)
+		},
+	)
 }
 
 func administrationAccountFormErrors(values url.Values) frontend.FormErrors {

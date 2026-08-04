@@ -53,16 +53,15 @@ func (handlers installationHandlers) installation(
 		http.Error(response, "Administrator authority required", http.StatusForbidden)
 		return
 	}
-	csrfToken, err := handlers.browser.csrfToken(response, request)
-	if err != nil {
-		handlers.browser.frontendError(response, request, "create CSRF proof", err)
+	prologue, ok := handlers.browser.backstagePagePrologue(response, request, actor)
+	if !ok {
 		return
 	}
 	switch request.Method {
 	case http.MethodGet, http.MethodHead:
-		handlers.render(response, request, actor, csrfToken, http.StatusOK, nil)
+		handlers.render(response, request, actor, prologue, http.StatusOK, nil)
 	case http.MethodPost:
-		handlers.submit(response, request, actor, csrfToken)
+		handlers.submit(response, request, actor, prologue)
 	default:
 		frontendMethodNotAllowed(response, http.MethodGet+", "+http.MethodHead+", "+http.MethodPost)
 	}
@@ -72,12 +71,12 @@ func (handlers installationHandlers) submit(
 	response http.ResponseWriter,
 	request *http.Request,
 	actor auth.Account,
-	csrfToken string,
+	prologue backstagePrologue,
 ) {
 	mediaType, _, err := mime.ParseMediaType(request.Header.Get("Content-Type"))
 	if err != nil {
 		handlers.render(
-			response, request, actor, csrfToken, http.StatusBadRequest,
+			response, request, actor, prologue, http.StatusBadRequest,
 			frontend.FormErrors{{Message: "Check the installation action and try again."}},
 		)
 		return
@@ -91,7 +90,7 @@ func (handlers installationHandlers) submit(
 				handlers.browser.logger.Warn("remove Restore form staging", "error", err)
 			}
 		}()
-		handlers.prepareRestore(response, request, actor, csrfToken)
+		handlers.prepareRestore(response, request, actor, prologue)
 		return
 	}
 	if !handlers.browser.validForm(response, request) {
@@ -101,7 +100,7 @@ func (handlers installationHandlers) submit(
 	case "backup-sanitized":
 		if request.Form.Get("confirm") != "true" {
 			handlers.render(
-				response, request, actor, csrfToken, http.StatusUnprocessableEntity,
+				response, request, actor, prologue, http.StatusUnprocessableEntity,
 				installationFieldError(
 					"installation-backup-sanitized-confirm",
 					"Confirmation",
@@ -114,7 +113,7 @@ func (handlers installationHandlers) submit(
 	case "backup-full-fidelity":
 		if request.Form.Get("acknowledge_protection") != "true" {
 			handlers.render(
-				response, request, actor, csrfToken, http.StatusUnprocessableEntity,
+				response, request, actor, prologue, http.StatusUnprocessableEntity,
 				installationFieldError(
 					"installation-backup-full-fidelity-acknowledge-protection",
 					"Protection acknowledgment",
@@ -123,14 +122,14 @@ func (handlers installationHandlers) submit(
 			)
 			return
 		}
-		if !handlers.reauthenticate(response, request, actor, csrfToken) {
+		if !handlers.reauthenticate(response, request, actor, prologue) {
 			return
 		}
 		handlers.archives.downloadBackup(response, request, backup.FullFidelity)
 	case "cancel-restore":
 		if request.Form.Get("acknowledge_cancellation") != "true" {
 			handlers.render(
-				response, request, actor, csrfToken, http.StatusUnprocessableEntity,
+				response, request, actor, prologue, http.StatusUnprocessableEntity,
 				installationFieldError(
 					"installation-cancel-restore-acknowledge-cancellation",
 					"Cancellation acknowledgment",
@@ -139,7 +138,7 @@ func (handlers installationHandlers) submit(
 			)
 			return
 		}
-		if !handlers.reauthenticate(response, request, actor, csrfToken) {
+		if !handlers.reauthenticate(response, request, actor, prologue) {
 			return
 		}
 		journalPath, err := handlers.journalPath()
@@ -159,7 +158,7 @@ func (handlers installationHandlers) submit(
 		)
 	default:
 		handlers.render(
-			response, request, actor, csrfToken, http.StatusUnprocessableEntity,
+			response, request, actor, prologue, http.StatusUnprocessableEntity,
 			frontend.FormErrors{{Message: "Choose a valid installation action."}},
 		)
 	}
@@ -169,11 +168,11 @@ func (handlers installationHandlers) prepareRestore(
 	response http.ResponseWriter,
 	request *http.Request,
 	actor auth.Account,
-	csrfToken string,
+	prologue backstagePrologue,
 ) {
 	if request.FormValue("action") != "prepare-restore" {
 		handlers.render(
-			response, request, actor, csrfToken, http.StatusUnprocessableEntity,
+			response, request, actor, prologue, http.StatusUnprocessableEntity,
 			frontend.FormErrors{{Message: "Choose a valid installation action."}},
 		)
 		return
@@ -181,7 +180,7 @@ func (handlers installationHandlers) prepareRestore(
 	archive, _, err := request.FormFile("backup")
 	if err != nil {
 		handlers.render(
-			response, request, actor, csrfToken, http.StatusUnprocessableEntity,
+			response, request, actor, prologue, http.StatusUnprocessableEntity,
 			installationFieldError(
 				"installation-restore-backup",
 				"Backup ZIP",
@@ -211,7 +210,7 @@ func (handlers installationHandlers) reauthenticate(
 	response http.ResponseWriter,
 	request *http.Request,
 	actor auth.Account,
-	csrfToken string,
+	prologue backstagePrologue,
 ) bool {
 	err := handlers.browser.authentication.Reauthenticate(
 		request.Context(),
@@ -225,7 +224,7 @@ func (handlers installationHandlers) reauthenticate(
 			fieldID = "installation-cancel-restore-password"
 		}
 		handlers.render(
-			response, request, actor, csrfToken, http.StatusUnauthorized,
+			response, request, actor, prologue, http.StatusUnauthorized,
 			installationFieldError(
 				fieldID,
 				"Password",
@@ -245,7 +244,7 @@ func (handlers installationHandlers) render(
 	response http.ResponseWriter,
 	request *http.Request,
 	actor auth.Account,
-	csrfToken string,
+	prologue backstagePrologue,
 	status int,
 	formErrors frontend.FormErrors,
 ) {
@@ -324,9 +323,9 @@ func (handlers installationHandlers) render(
 		status,
 		frontend.Installation(frontend.InstallationPage{
 			AccountName:    actor.Name,
-			CSRFToken:      csrfToken,
-			ReducedEffects: reducedEffectsCookie(request),
-			Navigation:     backstageNavigation(actor, request.URL.Path),
+			CSRFToken:      prologue.CSRFToken,
+			ReducedEffects: prologue.ReducedEffects,
+			Navigation:     prologue.Navigation,
 			Statuses:       statuses,
 			Capacity: frontend.InstallationCapacity{
 				Status:        diagnostics.Capacity.Status,

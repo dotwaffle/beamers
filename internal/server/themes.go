@@ -135,9 +135,8 @@ func (handlers themeHandlers) administration(
 		http.Error(response, "Administrator authority required", http.StatusForbidden)
 		return
 	}
-	csrfToken, err := handlers.browser.csrfToken(response, request)
-	if err != nil {
-		handlers.browser.frontendError(response, request, "create CSRF proof", err)
+	prologue, ok := handlers.browser.backstagePagePrologue(response, request, actor)
+	if !ok {
 		return
 	}
 	switch request.Method {
@@ -160,31 +159,31 @@ func (handlers themeHandlers) administration(
 				response,
 				request,
 				actor,
-				csrfToken,
+				prologue,
 				0,
 				http.StatusBadRequest,
 				"Theme Revision must be a non-negative integer.",
 			)
 			return
 		}
-		handlers.render(response, request, actor, csrfToken, selected, http.StatusOK, "")
+		handlers.render(response, request, actor, prologue, selected, http.StatusOK, "")
 	case http.MethodPost:
 		if !handlers.browser.validForm(response, request) {
 			return
 		}
-		if err = validateThemeForm(request.Form); err != nil {
+		if err := validateThemeForm(request.Form); err != nil {
 			handlers.render(
 				response,
 				request,
 				actor,
-				csrfToken,
+				prologue,
 				0,
 				http.StatusBadRequest,
 				"An undocumented Theme control was rejected.",
 			)
 			return
 		}
-		handlers.submit(response, request, actor, csrfToken)
+		handlers.submit(response, request, actor, prologue)
 	default:
 		frontendMethodNotAllowed(response, http.MethodGet+", "+http.MethodHead+", "+http.MethodPost)
 	}
@@ -194,7 +193,7 @@ func (handlers themeHandlers) submit(
 	response http.ResponseWriter,
 	request *http.Request,
 	actor auth.Account,
-	csrfToken string,
+	prologue backstagePrologue,
 ) {
 	switch request.Form.Get("action") {
 	case "create-draft":
@@ -212,7 +211,7 @@ func (handlers themeHandlers) submit(
 				handlers.browser.frontendError(response, request, "create Theme Revision", err)
 				return
 			}
-			handlers.render(response, request, actor, csrfToken, 0, status, message)
+			handlers.render(response, request, actor, prologue, 0, status, message)
 			return
 		}
 		http.Redirect(
@@ -228,7 +227,7 @@ func (handlers themeHandlers) submit(
 				response,
 				request,
 				actor,
-				csrfToken,
+				prologue,
 				0,
 				http.StatusBadRequest,
 				"Select a bundled Theme Preset and try again.",
@@ -239,7 +238,7 @@ func (handlers themeHandlers) submit(
 		// mode: the values land in the Draft form, every one stays editable, and
 		// nothing is stored until the Producer saves. See ADR 0057.
 		applyThemeConfig(request.Form, config)
-		handlers.render(response, request, actor, csrfToken, 0, http.StatusOK, "")
+		handlers.render(response, request, actor, prologue, 0, http.StatusOK, "")
 	case "activate":
 		revisionID, revisionErr := nonnegativeThemeID(request.Form.Get("revision_id"))
 		expectedID, expectedErr := nonnegativeThemeID(
@@ -250,7 +249,7 @@ func (handlers themeHandlers) submit(
 				response,
 				request,
 				actor,
-				csrfToken,
+				prologue,
 				0,
 				http.StatusBadRequest,
 				"Check the Theme Revision details and try again.",
@@ -275,7 +274,7 @@ func (handlers themeHandlers) submit(
 				response,
 				request,
 				actor,
-				csrfToken,
+				prologue,
 				revisionID,
 				status,
 				message,
@@ -293,7 +292,7 @@ func (handlers themeHandlers) submit(
 			response,
 			request,
 			actor,
-			csrfToken,
+			prologue,
 			0,
 			http.StatusBadRequest,
 			"Check the Theme action and try again.",
@@ -305,7 +304,7 @@ func (handlers themeHandlers) render(
 	response http.ResponseWriter,
 	request *http.Request,
 	actor auth.Account,
-	csrfToken string,
+	prologue backstagePrologue,
 	selectedRevisionID int,
 	status int,
 	message string,
@@ -350,9 +349,9 @@ func (handlers themeHandlers) render(
 		request,
 		status,
 		frontend.ThemeAdministration(frontend.ThemePage{
-			AccountName: actor.Name, CSRFToken: csrfToken,
-			ReducedEffects:   reducedEffectsCookie(request),
-			Navigation:       backstageNavigation(actor, request.URL.Path),
+			AccountName: actor.Name, CSRFToken: prologue.CSRFToken,
+			ReducedEffects:   prologue.ReducedEffects,
+			Navigation:       prologue.Navigation,
 			ActiveRevisionID: active.ID,
 			Revisions:        summaries,
 			Preview: frontend.ThemePreview{

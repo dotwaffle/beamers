@@ -30,9 +30,8 @@ func (handlers entryHandlers) presentationSubmission(
 		http.NotFound(response, request)
 		return
 	}
-	csrfToken, err := handlers.browser.csrfToken(response, request)
-	if err != nil {
-		handlers.browser.frontendError(response, request, "create CSRF proof", err)
+	prologue, ok := handlers.browser.backstagePagePrologue(response, request, actor)
+	if !ok {
 		return
 	}
 	switch request.Method {
@@ -43,7 +42,7 @@ func (handlers entryHandlers) presentationSubmission(
 			actor,
 			eventID,
 			sessionID,
-			csrfToken,
+			prologue,
 			http.StatusOK,
 			nil,
 		)
@@ -51,7 +50,7 @@ func (handlers entryHandlers) presentationSubmission(
 		if !handlers.browser.validForm(response, request) {
 			return
 		}
-		err = handlers.submitPresentationSubmission(request, actor, eventID, sessionID)
+		err := handlers.submitPresentationSubmission(request, actor, eventID, sessionID)
 		if err == nil {
 			http.Redirect(
 				response,
@@ -69,7 +68,7 @@ func (handlers entryHandlers) presentationSubmission(
 			actor,
 			eventID,
 			sessionID,
-			csrfToken,
+			prologue,
 			status,
 			formErrors,
 		)
@@ -151,7 +150,7 @@ func (handlers entryHandlers) renderPresentationSubmission(
 	request *http.Request,
 	actor auth.Account,
 	eventID, sessionID int,
-	csrfToken string,
+	prologue backstagePrologue,
 	status int,
 	formErrors frontend.FormErrors,
 ) {
@@ -192,14 +191,29 @@ func (handlers entryHandlers) renderPresentationSubmission(
 	}
 	handlers.browser.render(response, request, status, frontend.PresentationSubmission(
 		frontend.PresentationSubmissionPage{
-			AccountName: actor.Name, CSRFToken: csrfToken,
-			ReducedEffects: reducedEffectsCookie(request),
-			Navigation:     backstageNavigation(actor, request.URL.Path),
+			AccountName: actor.Name, CSRFToken: prologue.CSRFToken,
+			ReducedEffects: prologue.ReducedEffects,
+			Navigation:     prologue.Navigation,
 			CommandID:      commandID, Event: foundEvent, State: state, Accounts: accounts,
 			ReopenWindows: windows, SubmittedAction: request.Form.Get("action"),
 			Form: request.Form, Errors: formErrors,
 		},
 	))
+}
+
+// presentationSubmissionFormErrorRules is the classify-error-to-field table
+// for presentationSubmissionFormErrors' common shape. Adding a new
+// validation rule means adding one row here.
+var presentationSubmissionFormErrorRules = []formErrorRule{
+	ruleValidation(func(validation *rundown.ValidationError) (string, string, string) {
+		return validation.Field, "", validation.Message
+	}),
+	rule(matchErrAny(attachments.ErrReopenWindowExtension, attachments.ErrReopenWindowExpiry),
+		"expires_at", "Expiry", ""),
+	rule(matchAll(matchErr(attachments.ErrInvalidInput), matchAction("create-reopen-window")),
+		"expires_at", "Expiry", ""),
+	rule(matchAll(matchErr(presentation.ErrInvalidInput), matchAction("assign-submitter")),
+		"account_id", "Submitter Account", ""),
 }
 
 func presentationSubmissionFormErrors(
@@ -222,29 +236,14 @@ func presentationSubmissionFormErrors(
 			return status, validationErrors
 		}
 	}
-	field, label, fieldMessage := "", "", message
-	var validation *rundown.ValidationError
-	switch {
-	case errors.As(err, &validation):
-		field, fieldMessage = validation.Field, validation.Message
-	case errors.Is(err, attachments.ErrReopenWindowExtension),
-		errors.Is(err, attachments.ErrReopenWindowExpiry):
-		field, label = "expires_at", "Expiry"
-	case errors.Is(err, attachments.ErrInvalidInput) && action == "create-reopen-window":
-		field, label = "expires_at", "Expiry"
-	case errors.Is(err, presentation.ErrInvalidInput) && action == "assign-submitter":
-		field, label = "account_id", "Submitter Account"
-	}
-	if field == "" {
-		return status, frontend.FormErrors{{Message: message}}
-	}
-	if label == "" {
-		label = strings.ReplaceAll(field, "_", " ")
-	}
-	return status, frontend.FormErrors{{
-		FieldID: frontend.WorkflowFieldID(action, targetID, 0, windowID, field),
-		Label:   label, Message: fieldMessage,
-	}}
+	field, label, fieldMessage, fieldAction := resolveFormErrorField(
+		presentationSubmissionFormErrorRules, err, action,
+	)
+	return status, formErrorResult(field, label, fieldMessage, fieldAction, message,
+		func(field, action string) string {
+			return frontend.WorkflowFieldID(action, targetID, 0, windowID, field)
+		},
+	)
 }
 
 func presentationSubmissionError(err error) (int, string) {

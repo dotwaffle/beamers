@@ -86,16 +86,15 @@ func (handlers controlHandlers) control(
 		http.Error(response, "Program and Override authority required", http.StatusForbidden)
 		return
 	}
-	csrfToken, err := handlers.browser.csrfToken(response, request)
-	if err != nil {
-		handlers.browser.frontendError(response, request, "create CSRF proof", err)
+	prologue, ok := handlers.browser.backstagePagePrologue(response, request, actor)
+	if !ok {
 		return
 	}
 	response.Header().Set(clientBuildHeader, handlers.buildVersion)
 	switch request.Method {
 	case http.MethodGet, http.MethodHead:
 		handlers.renderControl(
-			response, request, actor, event, csrfToken,
+			response, request, actor, event, prologue,
 			http.StatusOK, nil, nil, "", frontend.OverrideForm{},
 		)
 	case http.MethodPost:
@@ -127,7 +126,7 @@ func (handlers controlHandlers) control(
 						return
 					}
 					handlers.renderControl(
-						response, request, actor, event, csrfToken, status,
+						response, request, actor, event, prologue, status,
 						frontend.FormErrors{{Message: message}}, nil,
 						"preview-"+previewAction, form,
 					)
@@ -145,7 +144,7 @@ func (handlers controlHandlers) control(
 				request,
 				actor,
 				event,
-				csrfToken,
+				prologue,
 				http.StatusConflict,
 				formErrors,
 				preview,
@@ -154,7 +153,7 @@ func (handlers controlHandlers) control(
 			)
 			return
 		}
-		handlers.submitControl(response, request, actor, event, csrfToken)
+		handlers.submitControl(response, request, actor, event, prologue)
 	default:
 		frontendMethodNotAllowed(response, http.MethodGet+", "+http.MethodHead+", "+http.MethodPost)
 	}
@@ -165,7 +164,7 @@ func (handlers controlHandlers) submitControl(
 	request *http.Request,
 	actor auth.Account,
 	event events.Event,
-	csrfToken string,
+	prologue backstagePrologue,
 ) {
 	form, err := overrideForm(request)
 	var preview *frontend.OverridePreview
@@ -246,7 +245,7 @@ func (handlers controlHandlers) submitControl(
 			submittedAction = "preview-" + previewAction
 		}
 		handlers.renderControl(
-			response, request, actor, event, csrfToken, status,
+			response, request, actor, event, prologue, status,
 			controlFormErrors(message, action, request.Form, fieldErrors),
 			preview, submittedAction, form,
 		)
@@ -254,7 +253,7 @@ func (handlers controlHandlers) submitControl(
 	}
 	if preview != nil {
 		handlers.renderControl(
-			response, request, actor, event, csrfToken,
+			response, request, actor, event, prologue,
 			http.StatusOK, nil, preview, "", frontend.OverrideForm{},
 		)
 		return
@@ -596,7 +595,7 @@ func (handlers controlHandlers) renderControl(
 	request *http.Request,
 	actor auth.Account,
 	event events.Event,
-	csrfToken string,
+	prologue backstagePrologue,
 	status int,
 	formErrors frontend.FormErrors,
 	preview *frontend.OverridePreview,
@@ -636,9 +635,9 @@ func (handlers controlHandlers) renderControl(
 		}
 	}
 	handlers.browser.render(response, request, status, frontend.Control(frontend.ControlPage{
-		AccountName: actor.Name, CSRFToken: csrfToken, BuildVersion: handlers.buildVersion,
-		ReducedEffects: reducedEffectsCookie(request),
-		Navigation:     backstageNavigation(actor, request.URL.Path), Event: event,
+		AccountName: actor.Name, CSRFToken: prologue.CSRFToken, BuildVersion: handlers.buildVersion,
+		ReducedEffects: prologue.ReducedEffects,
+		Navigation:     prologue.Navigation, Event: event,
 		CanControl:        canUseBackstageControl(actor, event.ID),
 		CanEmergencyAlert: canUseEmergencyAlert(actor, event.ID),
 		Sessions:          sessions, Active: active, ClearCommandIDs: clearCommandIDs,

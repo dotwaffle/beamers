@@ -18,21 +18,20 @@ func (handlers entryHandlers) submissions(response http.ResponseWriter, request 
 	if !ok {
 		return
 	}
-	csrfToken, err := handlers.browser.csrfToken(response, request)
-	if err != nil {
-		handlers.browser.frontendError(response, request, "create CSRF proof", err)
+	prologue, ok := handlers.browser.backstagePagePrologue(response, request, actor)
+	if !ok {
 		return
 	}
 	switch request.Method {
 	case http.MethodGet, http.MethodHead:
 		handlers.renderSubmissions(
-			response, request, actor, csrfToken, http.StatusOK, "", frontend.SubmissionForm{}, nil,
+			response, request, actor, prologue, http.StatusOK, "", frontend.SubmissionForm{}, nil,
 		)
 	case http.MethodPost:
 		if !handlers.browser.validForm(response, request) {
 			return
 		}
-		err = handlers.submitSubmission(request, actor)
+		err := handlers.submitSubmission(request, actor)
 		if err == nil {
 			http.Redirect(response, request, "/my-participation", http.StatusSeeOther)
 			return
@@ -40,7 +39,7 @@ func (handlers entryHandlers) submissions(response http.ResponseWriter, request 
 		status, message := submissionError(err)
 		form := submittedForm(request)
 		handlers.renderSubmissions(
-			response, request, actor, csrfToken, status, message, form,
+			response, request, actor, prologue, status, message, form,
 			submissionFormErrors(err, form),
 		)
 	default:
@@ -131,9 +130,8 @@ func (handlers entryHandlers) submissionUpload(
 	if !ok {
 		return
 	}
-	csrfToken, err := handlers.browser.csrfToken(response, request)
-	if err != nil {
-		handlers.browser.frontendError(response, request, "create CSRF proof", err)
+	prologue, ok := handlers.browser.backstagePagePrologue(response, request, actor)
+	if !ok {
 		return
 	}
 	if request.Method != http.MethodPost {
@@ -169,7 +167,7 @@ func (handlers entryHandlers) submissionUpload(
 			status = http.StatusBadRequest
 		}
 		handlers.renderSubmissions(
-			response, request, actor, csrfToken, status, "",
+			response, request, actor, prologue, status, "",
 			form, accountUploadFormErrors(uploadErr, form),
 		)
 		return
@@ -179,7 +177,7 @@ func (handlers entryHandlers) submissionUpload(
 			handlers.browser.logger.Warn("close Account-uploaded Attachment", "error", closeErr)
 		}
 	}()
-	_, err = handlers.attachments.UploadForAccount(
+	_, err := handlers.attachments.UploadForAccount(
 		request.Context(),
 		actor,
 		attachments.AccountUploadInput{
@@ -197,7 +195,7 @@ func (handlers entryHandlers) submissionUpload(
 			message = ""
 		}
 		handlers.renderSubmissions(
-			response, request, actor, csrfToken, status, message, form, formErrors,
+			response, request, actor, prologue, status, message, form, formErrors,
 		)
 		return
 	}
@@ -258,7 +256,7 @@ func (handlers entryHandlers) renderSubmissions(
 	response http.ResponseWriter,
 	request *http.Request,
 	actor auth.Account,
-	csrfToken string,
+	prologue backstagePrologue,
 	status int,
 	message string,
 	form frontend.SubmissionForm,
@@ -303,8 +301,8 @@ func (handlers entryHandlers) renderSubmissions(
 	}
 	handlers.browser.render(response, request, status, frontend.Submissions(
 		frontend.SubmissionsPage{
-			AccountName: actor.Name, CSRFToken: csrfToken,
-			ReducedEffects: reducedEffectsCookie(request),
+			AccountName: actor.Name, CSRFToken: prologue.CSRFToken,
+			ReducedEffects: prologue.ReducedEffects,
 			Backstage:      backstageAvailable(backstageNavigation(actor, "")),
 			CommandID:      commandID, Competitions: competitions,
 			Presentations: presentations,
