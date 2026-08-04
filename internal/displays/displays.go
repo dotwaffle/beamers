@@ -740,7 +740,7 @@ func (service *Service) List(
 	if err != nil {
 		return nil, err
 	}
-	if _, ok := actor.EventRoles[activeEventID]; !actor.Administrator && (activeEventID <= 0 || !ok) {
+	if !actor.Administrator && !authz.Holds(actor.Identity(), activeEventID, authz.ViewEventCrew) {
 		return nil, ErrCrewRequired
 	}
 	result := make([]Status, 0, len(stored))
