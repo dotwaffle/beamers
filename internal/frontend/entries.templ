@@ -122,6 +122,39 @@ func (page CompetitionEntriesPage) checked(
 	return fallback
 }
 
+// entryOrderFallback names the Entry ID that one Manual Order position select
+// should default to: the current Entry order at that position, or an
+// identity ordering (by Entries list order) once positions run past it.
+// Outside Manual order, every position defaults to "unranked" so resubmitting
+// the form under Submission order or Deterministic shuffle carries no Manual
+// Entry IDs, matching what those policies require.
+func entryOrderFallback(order competition.EntryOrder, entries []competition.Entry, index int) string {
+	if order.Policy != competition.EntryOrderManual {
+		return ""
+	}
+	if index < len(order.EntryIDs) {
+		return strconv.Itoa(order.EntryIDs[index])
+	}
+	if index < len(entries) {
+		return strconv.Itoa(entries[index].ID)
+	}
+	return ""
+}
+
+// manualOrderPositionValue reports the Entry ID resubmitted for one Manual
+// Order position select after a failed submit, falling back to the current
+// order otherwise.
+func (page CompetitionEntriesPage) manualOrderPositionValue(index int, fallback string) string {
+	if page.matches("configure-order", 0, 0, 0) {
+		values := page.Form["manual_entry_ids"]
+		if index < len(values) {
+			return values[index]
+		}
+		return ""
+	}
+	return fallback
+}
+
 func entriesTime(value time.Time, timezone string) string {
 	location, err := time.LoadLocation(timezone)
 	if err != nil {
@@ -456,7 +489,32 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 								<input type="hidden" name="expected_order_revision" value={ strconv.Itoa(page.State.EntryOrder.Revision) }/>
 								@workflowSelect(page, "configure-order", 0, 0, "order_policy", "Order policy", []string{"SubmissionOrder", "ManualOrder", "DeterministicShuffle"}, string(page.State.EntryOrder.Policy))
 								@workflowInput(page, "configure-order", 0, 0, 0, "order_seed", "Shuffle seed", "number", strconv.FormatInt(page.State.EntryOrder.Seed, 10), false)
-								@workflowInput(page, "configure-order", 0, 0, 0, "manual_entry_ids", "Manual Entry IDs, comma-separated", "text", "", false)
+								if len(page.State.Entries) > 0 {
+									<fieldset
+										id={ WorkflowFieldID("configure-order", 0, 0, 0, "manual_entry_ids") }
+										{ page.Errors.Attributes(WorkflowFieldID("configure-order", 0, 0, 0, "manual_entry_ids"))... }
+									>
+										<legend>Manual order</legend>
+										for index := range page.State.Entries {
+											<label for={ WorkflowFieldID("configure-order", 0, 0, 0, "manual_entry_ids_"+strconv.Itoa(index)) }>
+												Position { strconv.Itoa(index + 1) }
+											</label>
+											<select
+												id={ WorkflowFieldID("configure-order", 0, 0, 0, "manual_entry_ids_"+strconv.Itoa(index)) }
+												name="manual_entry_ids"
+											>
+												<option value="">— unranked —</option>
+												for _, entry := range page.State.Entries {
+													<option
+														value={ strconv.Itoa(entry.ID) }
+														selected?={ page.manualOrderPositionValue(index, entryOrderFallback(page.State.EntryOrder, page.State.Entries, index)) == strconv.Itoa(entry.ID) }
+													>{ entry.Name } (#{ strconv.Itoa(entry.ID) })</option>
+												}
+											</select>
+										}
+									</fieldset>
+									@FieldError(page.Errors, WorkflowFieldID("configure-order", 0, 0, 0, "manual_entry_ids"))
+								}
 								<button type="submit">Configure Entry order</button>
 							</form>
 						}
