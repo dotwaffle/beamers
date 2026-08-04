@@ -76,6 +76,15 @@ _Avoid_: Account, Administrator
 **Crew Member**: An authenticated person acting through an Account under the Administrator role or an Event Grant.
 _Avoid_: Attendee, Display
 
+**Capability**: A named permission to perform one class of Event or installation actions, held through role expansion or an explicit Event Grant.
+_Avoid_: Role, Event Grant
+
+**Capability Table**: The single declarative listing of the Capability and Event scope that every state-changing command requires, applied by one evaluator on the command path.
+_Avoid_: Event Grant, per-method checks
+
+**System Actor**: A named viewer-less caller class — a Display, public visitor, Backup, migration, replication, or command replay — declared once where it enters the system and accepted only by entrypoints that name it.
+_Avoid_: Crew Member, anonymous bypass
+
 **Frontend**: The browser Interface containing public Event pages and signed-in attendee capabilities.
 It may be exposed separately from Backstage.
 _Avoid_: public listener, Backstage
