@@ -118,14 +118,19 @@ for _ in {1..60}; do
   fi
   sleep 1
 done
-status_response=""
-if ! status_response="$(curl --fail --silent http://127.0.0.1:4444/status)"; then
-  curl_status=$?
+readiness_stderr="$(mktemp)"
+status_response="" curl_status=0
+status_response="$(
+  curl --fail --silent --show-error http://127.0.0.1:4444/status 2>"$readiness_stderr"
+)" || curl_status=$?
+if [ "$curl_status" -ne 0 ]; then
   dump_failure_diagnostics \
     "certification container readiness (status endpoint unreachable)" \
-    "$curl_status" /dev/null
+    "$curl_status" "$readiness_stderr"
+  rm -f "$readiness_stderr"
   exit "$curl_status"
 fi
+rm -f "$readiness_stderr"
 if ! grep --quiet '"ready": true' <<<"$status_response"; then
   dump_failure_diagnostics \
     "certification container readiness (grid never became ready)" 1 /dev/null
@@ -139,18 +144,26 @@ mkdir -p "$repository/artifacts"
 # launching two extra throwaway containers. This removes two of the
 # three container starts that could fail silently, and the evidence
 # now reflects the exact container that goes on to certify.
+#
+# The command's own exit status is captured explicitly with "||"
+# rather than via "if ! var=$(cmd); then status=$?; fi" — inside that
+# pattern's then-branch, "$?" reflects the negated if-condition (which
+# is always 0), not the command, and would silently report success on
+# a real failure.
 probe_stderr="$(mktemp)"
-if ! browser_version="$(
+status=0
+browser_version="$(
   "$runtime" exec "$container" "$browser_command" --version 2>"$probe_stderr"
-)"; then
-  status=$?
+)" || status=$?
+if [ "$status" -ne 0 ]; then
   dump_failure_diagnostics "probe $browser_command version" "$status" "$probe_stderr"
   exit "$status"
 fi
-if ! webdriver_version="$(
+status=0
+webdriver_version="$(
   "$runtime" exec "$container" "$webdriver_command" --version 2>"$probe_stderr"
-)"; then
-  status=$?
+)" || status=$?
+if [ "$status" -ne 0 ]; then
   dump_failure_diagnostics "probe $webdriver_command version" "$status" "$probe_stderr"
   exit "$status"
 fi
