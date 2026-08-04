@@ -232,38 +232,32 @@ func (handlers eventThemeHandlers) render(
 	)
 }
 
+// eventVariantFields is the per-variant override vocabulary. Each entry is
+// prefixed with the variant name, and drives validation and decode the same
+// way themeFormFields does for the shared fields.
+var eventVariantFields = []themeFormField{
+	{"accent_color", func(config *themevalue.Config) *string { return &config.AccentColor }},
+	{"motion", func(config *themevalue.Config) *string { return &config.Motion }},
+}
+
 func validateEventThemeForm(form url.Values) error {
-	allowed := map[string]bool{
-		"csrf_token": true, "action": true, "command_id": true,
-		"revision_id": true, "expected_active_revision_id": true, "preset": true,
-		"brand_asset": true, "background_color": true, "surface_color": true,
-		"border_color": true, "text_color": true, "muted_color": true,
-		"accent_color": true, "link_color": true, "focus_color": true,
-		"live_color": true, "warning_color": true,
-		"danger_color": true, "success_color": true,
-		"background": true, "typeface": true, "transition": true,
-		"effect": true, "motion": true,
-	}
+	allowed := allowedThemeFields()
 	for _, variant := range themevalue.EventVariants() {
-		allowed[variant+"_accent_color"] = true
-		allowed[variant+"_motion"] = true
-	}
-	for name, values := range form {
-		if !allowed[name] || len(values) != 1 {
-			return errInvalidThemeForm
+		for _, field := range eventVariantFields {
+			allowed[variant+"_"+field.name] = true
 		}
 	}
-	return nil
+	return validateAllowedForm(form, allowed)
 }
 
 func eventThemeConfig(form url.Values) themevalue.EventConfig {
 	config := themevalue.EventConfig{Overrides: themeConfig(form)}
 	for _, variant := range themevalue.EventVariants() {
-		overrides := themevalue.Config{
-			AccentColor: form.Get(variant + "_accent_color"),
-			Motion:      form.Get(variant + "_motion"),
+		var overrides themevalue.Config
+		for _, field := range eventVariantFields {
+			*field.access(&overrides) = form.Get(variant + "_" + field.name)
 		}
-		if overrides.AccentColor != "" || overrides.Motion != "" {
+		if overrides != (themevalue.Config{}) {
 			if config.Variants == nil {
 				config.Variants = make(map[string]themevalue.Config)
 			}

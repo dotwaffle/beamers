@@ -413,18 +413,57 @@ func themeFormErrors(
 	return frontend.FormErrors{{Message: message}}
 }
 
-func validateThemeForm(form url.Values) error {
-	allowed := map[string]bool{
-		"csrf_token": true, "action": true, "command_id": true,
-		"revision_id": true, "expected_active_revision_id": true, "preset": true,
-		"brand_asset": true, "background_color": true, "surface_color": true,
-		"border_color": true, "text_color": true, "muted_color": true,
-		"accent_color": true, "link_color": true, "focus_color": true,
-		"live_color": true, "warning_color": true,
-		"danger_color": true, "success_color": true,
-		"background": true, "typeface": true, "transition": true,
-		"effect": true, "motion": true,
+// themeFormField binds one Draft form field to its Config field, so the
+// allowed set, decode, and encode cannot drift apart.
+type themeFormField struct {
+	name   string
+	access func(*themevalue.Config) *string
+}
+
+// themeFormFields is the complete Draft form vocabulary for a Config. Every
+// Config field appears exactly once; TestThemeFormFieldsCoverConfig enforces
+// coverage.
+var themeFormFields = []themeFormField{
+	{"brand_asset", func(config *themevalue.Config) *string { return &config.BrandAsset }},
+	{"background_color", func(config *themevalue.Config) *string { return &config.BackgroundColor }},
+	{"surface_color", func(config *themevalue.Config) *string { return &config.SurfaceColor }},
+	{"border_color", func(config *themevalue.Config) *string { return &config.BorderColor }},
+	{"text_color", func(config *themevalue.Config) *string { return &config.TextColor }},
+	{"muted_color", func(config *themevalue.Config) *string { return &config.MutedColor }},
+	{"accent_color", func(config *themevalue.Config) *string { return &config.AccentColor }},
+	{"link_color", func(config *themevalue.Config) *string { return &config.LinkColor }},
+	{"focus_color", func(config *themevalue.Config) *string { return &config.FocusColor }},
+	{"live_color", func(config *themevalue.Config) *string { return &config.LiveColor }},
+	{"warning_color", func(config *themevalue.Config) *string { return &config.WarningColor }},
+	{"danger_color", func(config *themevalue.Config) *string { return &config.DangerColor }},
+	{"success_color", func(config *themevalue.Config) *string { return &config.SuccessColor }},
+	{"background", func(config *themevalue.Config) *string { return &config.Background }},
+	{"typeface", func(config *themevalue.Config) *string { return &config.Typeface }},
+	{"transition", func(config *themevalue.Config) *string { return &config.Transition }},
+	{"effect", func(config *themevalue.Config) *string { return &config.Effect }},
+	{"motion", func(config *themevalue.Config) *string { return &config.Motion }},
+}
+
+// themeControlFields carry command state rather than Config values.
+var themeControlFields = []string{
+	"csrf_token", "action", "command_id",
+	"revision_id", "expected_active_revision_id", "preset",
+}
+
+// allowedThemeFields returns a fresh map on every call; callers may extend it
+// with their own additional fields.
+func allowedThemeFields() map[string]bool {
+	allowed := make(map[string]bool, len(themeControlFields)+len(themeFormFields))
+	for _, name := range themeControlFields {
+		allowed[name] = true
 	}
+	for _, field := range themeFormFields {
+		allowed[field.name] = true
+	}
+	return allowed
+}
+
+func validateAllowedForm(form url.Values, allowed map[string]bool) error {
 	for name, values := range form {
 		if !allowed[name] || len(values) != 1 {
 			return errInvalidThemeForm
@@ -433,54 +472,24 @@ func validateThemeForm(form url.Values) error {
 	return nil
 }
 
+func validateThemeForm(form url.Values) error {
+	return validateAllowedForm(form, allowedThemeFields())
+}
+
 // applyThemeConfig writes a Config into the Draft form fields. It is the inverse
 // of themeConfig, so a populated form round-trips to the same Config.
 func applyThemeConfig(form url.Values, config themevalue.Config) {
-	for field, value := range map[string]string{
-		"brand_asset":      config.BrandAsset,
-		"background_color": config.BackgroundColor,
-		"surface_color":    config.SurfaceColor,
-		"border_color":     config.BorderColor,
-		"text_color":       config.TextColor,
-		"muted_color":      config.MutedColor,
-		"accent_color":     config.AccentColor,
-		"link_color":       config.LinkColor,
-		"focus_color":      config.FocusColor,
-		"live_color":       config.LiveColor,
-		"warning_color":    config.WarningColor,
-		"danger_color":     config.DangerColor,
-		"success_color":    config.SuccessColor,
-		"background":       config.Background,
-		"typeface":         config.Typeface,
-		"transition":       config.Transition,
-		"effect":           config.Effect,
-		"motion":           config.Motion,
-	} {
-		form.Set(field, value)
+	for _, field := range themeFormFields {
+		form.Set(field.name, *field.access(&config))
 	}
 }
 
 func themeConfig(form url.Values) themevalue.Config {
-	return themevalue.Config{
-		BrandAsset:      form.Get("brand_asset"),
-		BackgroundColor: form.Get("background_color"),
-		SurfaceColor:    form.Get("surface_color"),
-		BorderColor:     form.Get("border_color"),
-		TextColor:       form.Get("text_color"),
-		MutedColor:      form.Get("muted_color"),
-		AccentColor:     form.Get("accent_color"),
-		LinkColor:       form.Get("link_color"),
-		FocusColor:      form.Get("focus_color"),
-		LiveColor:       form.Get("live_color"),
-		WarningColor:    form.Get("warning_color"),
-		DangerColor:     form.Get("danger_color"),
-		SuccessColor:    form.Get("success_color"),
-		Background:      form.Get("background"),
-		Typeface:        form.Get("typeface"),
-		Transition:      form.Get("transition"),
-		Effect:          form.Get("effect"),
-		Motion:          form.Get("motion"),
+	var config themevalue.Config
+	for _, field := range themeFormFields {
+		*field.access(&config) = form.Get(field.name)
 	}
+	return config
 }
 
 func nonnegativeThemeID(value string) (int, error) {
