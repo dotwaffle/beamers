@@ -120,6 +120,19 @@ Without it, previously linked identities may sign in and authenticated Accounts 
 SceneID requires HTTPS except on a loopback listener.
 The client secret is not stored in browser configuration or Backups.
 
+## Configure continuous replication
+
+Add `--replica-url=LITESTREAM-URL` to continuously replicate the authoritative SQLite database to remote storage:
+
+```sh
+--replica-url=s3://BUCKET/beamers.db
+```
+
+This covers **the database only**.
+It does not replicate the Attachment Store; a Litestream replica alone cannot restore uploaded files.
+Protect Attachments with a separate mechanism sized to the venue's tolerance for loss, for example a periodic Backup (`beamers backup`, which archives both the database and Attachments together) or a scheduled `rsync` of `/var/lib/beamers/attachments` to off-host storage.
+A restore from the database replica without a corresponding Attachment copy leaves every uploaded file permanently missing.
+
 ## Run with systemd
 
 Install the supplied unit after the binary and persistent state are ready:
