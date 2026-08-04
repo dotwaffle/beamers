@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -11,6 +12,37 @@ import (
 	"github.com/dotwaffle/beamers/internal/prizegivingvalue"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
+
+// TestLoadProgramChannelAtDoesNotQueueBehindTheWriter guards the
+// installation-level preflight load: it must serve from the reader pool
+// like the other read-only loads in TestReadOnlyLoadsDoNotQueueBehindTheWriter,
+// rather than queueing behind an open writer transaction.
+func TestLoadProgramChannelAtDoesNotQueueBehindTheWriter(t *testing.T) {
+	t.Parallel()
+	installationStore := openEventTestInstallation(t)
+	event := createSchemaTestEvent(t, installationStore.client)
+	competition := createPublishedResultsSession(
+		t, installationStore.client, event.ID,
+		sessionpublishedversion.TypeCompetition, "Queue Guard Competition",
+	)
+	producerContext := viewer.NewContext(t.Context(), viewer.Identity{
+		AccountID: 1, EventRoles: map[int]viewer.Role{event.ID: viewer.Producer},
+	})
+	busy, err := installationStore.client.Tx(systemContext(t.Context()))
+	if err != nil {
+		t.Fatalf("occupy writer connection: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = busy.Rollback()
+	})
+	deadline, cancel := context.WithTimeout(producerContext, 5*time.Second)
+	t.Cleanup(cancel)
+	if _, err := installationStore.LoadProgramChannelAt(
+		deadline, event.ID, competition.ID, time.Time{},
+	); err != nil {
+		t.Fatalf("load Program Channel while the writer is busy: %v", err)
+	}
+}
 
 func TestTakeProgramItemCommitsOutputAndEntryLockTogether(t *testing.T) {
 	client := openEntTestClient(t)
