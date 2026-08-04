@@ -166,6 +166,109 @@ test("rotation advances configured pages without replacing persistent regions", 
   assert.equal(rotation.children[1].hidden, false);
 });
 
+test("rotation position survives a snapshot re-render, carried from the outgoing DOM", async () => {
+  const composition = displayComposition({
+    key: "event-overview",
+    rotationSeconds: 30,
+    regions: [
+      {name: "schedule", widget: "rotation", persistent: false},
+    ],
+  });
+  const firstSnapshot = displaySnapshot({
+    standby: false,
+    viewKey: "event-overview",
+    composition,
+    sessions: [
+      displaySession("Opening Keynote", {rotationKey: "1"}),
+      displaySession("Closing Keynote", {rotationKey: "2"}),
+    ],
+  });
+  // A forecast nudge changes Session content (and so the render key) without
+  // changing which Sessions exist or their order.
+  const nudgedSnapshot = displaySnapshot({
+    standby: false,
+    viewKey: "event-overview",
+    composition,
+    publishedRevision: "2",
+    sessions: [
+      displaySession("Opening Keynote", {rotationKey: "1"}),
+      displaySession("Closing Keynote", {rotationKey: "2", forecastEnd: "2099-08-21T09:15:00Z"}),
+    ],
+  });
+  const browser = await startBrowser({snapshots: [firstSnapshot, nudgedSnapshot]});
+
+  // Advance rotation to the second page before the nudge lands.
+  await browser.runTimer((delay) => delay === 30000);
+  const rotatedFrame = browser.document.main;
+  assert.equal(rotatedFrame.children[0].children[0].hidden, true);
+  assert.equal(rotatedFrame.children[0].children[1].hidden, false);
+
+  browser.eventSources[0].emit("invalidate", {
+    data: JSON.stringify({
+      protocol_version: "beamers.display.v1",
+      asset_version: "asset-current",
+      stream_position: 2,
+    }),
+  });
+  await browser.runTimer((delay) => delay === 0);
+
+  const renderedFrame = browser.document.main;
+  assert.notEqual(renderedFrame, rotatedFrame);
+  const rotation = renderedFrame.children[0];
+  assert.equal(rotation.children[0].dataset.sessionId, "1");
+  assert.equal(rotation.children[1].dataset.sessionId, "2");
+  assert.equal(rotation.children[0].hidden, true);
+  assert.equal(rotation.children[1].hidden, false);
+});
+
+test("rotation carry-over keys suppressed pages by rotationKey, not the shared redacted id", async () => {
+  // Every suppressed Session reports id 0 (the server redacts it); without a
+  // separate identity, both pages below would collapse to the same
+  // rotation slot and a viewer's position could never survive a re-render.
+  const composition = displayComposition({
+    key: "location-signage",
+    rotationSeconds: 30,
+    regions: [
+      {name: "event-content", widget: "rotation", persistent: false},
+    ],
+  });
+  const suppressed = (rotationKey) => ({
+    unavailable: true,
+    availabilityMessage: "Location unavailable until Aug 21, 2099 10:15 UTC",
+    forecastStart: "2099-08-21T09:45:00Z",
+    forecastEnd: "2099-08-21T10:15:00Z",
+    rotationKey,
+  });
+  const browser = await startBrowser({
+    snapshot: displaySnapshot({
+      standby: false,
+      viewKey: "location-signage",
+      composition,
+      sessions: [suppressed("unavailable-1"), suppressed("unavailable-2")],
+    }),
+  });
+
+  const rotation = browser.document.main.children[0];
+  assert.equal(rotation.children[0].dataset.sessionId, "unavailable-1");
+  assert.equal(rotation.children[1].dataset.sessionId, "unavailable-2");
+});
+
+test("Override firing hard-cuts rather than crossfading the incoming frame", () => {
+  const stylesheet = fs.readFileSync(
+    new URL("./display.css", `file://${__filename}`),
+    "utf8",
+  );
+  // The incoming-frame crossfade excludes any Override via
+  // [data-override-kind], and every Override branch in client.js sets that
+  // dataset attribute on main, so an Emergency Alert, Urgent Notice, or
+  // Technical Difficulties firing is always a hard cut regardless of the
+  // Theme's transition choice.
+  assert.match(
+    stylesheet,
+    /\.display-transition-fade:not\(\[data-override-kind\]\)\s*\{\s*animation: display-fade/,
+  );
+});
+
 test("timeline renderer uses the projected Event-day geometry", async () => {
   const suppressed = {
     unavailable: true,
@@ -206,14 +309,159 @@ test("timeline renderer uses the projected Event-day geometry", async () => {
   assert.match(nodeText(day), /2099-08-21/);
   const timeline = day.children[1];
   assert.equal(timeline.className, "display-timeline");
-  assert.equal(timeline.children[0].style.properties.get("--display-offset"), "1042");
-  assert.equal(timeline.children[0].style.properties.get("--display-width"), "6250");
-  assert.equal(timeline.children[1].style.properties.get("--display-offset"), "7292");
-  assert.equal(timeline.children[1].style.properties.get("--display-width"), "2083");
+  // The single visual overlap lane gets one small label, drawn before any
+  // block so it never depends on which Session happens to render first.
+  const laneLabels = timeline.children.filter(
+    (child) => child.className === "display-timeline-lane-label",
+  );
+  assert.equal(laneLabels.length, 1);
+  assert.equal(laneLabels[0].textContent, "Lane 1");
+  const blocks = timeline.children.filter(
+    (child) => child.className === "display-timeline-block",
+  );
+  assert.equal(blocks[0].style.properties.get("--display-offset"), "1042");
+  assert.equal(blocks[0].style.properties.get("--display-width"), "6250");
+  assert.equal(blocks[1].style.properties.get("--display-offset"), "7292");
+  assert.equal(blocks[1].style.properties.get("--display-width"), "2083");
   // A suppressed span reports that it is taken, never the Session in it.
-  assert.equal(timeline.children[1].dataset.unavailable, "true");
-  assert.match(nodeText(timeline.children[1]), /Location unavailable until/);
+  assert.equal(blocks[1].dataset.unavailable, "true");
+  assert.match(nodeText(blocks[1]), /Location unavailable until/);
   assert.doesNotMatch(nodeText(timeline), /Private/);
+});
+
+test("Timeline draws the now-line, hour gridlines, and Live signal-color fill", async () => {
+  const browser = await startBrowser({
+    snapshot: displaySnapshot({
+      standby: false,
+      viewKey: "timeline",
+      composition: displayComposition({
+        key: "timeline",
+        regions: [
+          {name: "timeline", widget: "timeline", persistent: true},
+        ],
+      }),
+      sessions: [
+        {
+          ...displaySession("Opening Keynote"),
+          lifecycle: "Live",
+          timelineDay: "2099-08-21",
+          timelineOffset: 0,
+          timelineWidth: 5000,
+          timelineLane: 0,
+          timelineLaneCount: 1,
+          timelineNowOffset: 2500,
+          timelineGridlines: [
+            {offset: 417, label: "07:00"},
+            {offset: 833, label: "08:00"},
+          ],
+        },
+      ],
+    }),
+  });
+
+  const day = browser.document.main.children[0].children[0].children[0];
+  const timeline = day.children[1];
+
+  const now = timeline.children.find((child) => child.className === "display-timeline-now");
+  assert.ok(now, "now-line missing from the Timeline");
+  assert.equal(now.style.properties.get("--display-offset"), "2500");
+
+  const gridlines = timeline.children.filter(
+    (child) => child.className === "display-timeline-gridline",
+  );
+  assert.equal(gridlines.length, 2);
+  assert.equal(gridlines[0].style.properties.get("--display-offset"), "417");
+  assert.equal(gridlines[0].children[0].textContent, "07:00");
+
+  const block = timeline.children.find((child) => child.className === "display-timeline-block");
+  assert.equal(block.dataset.lifecycle, "Live");
+  // The signal-color fill is a color-only cue; a Live block also carries the
+  // same proven-contrast text badge the Now/Next and rotation views use, so
+  // forced-colors mode and low-vision viewers still get the state.
+  const badge = block.children.find((child) => child.className === "display-badge");
+  assert.ok(badge, "Live Timeline block missing its lifecycle badge");
+  assert.equal(badge.dataset.lifecycle, "Live");
+  assert.equal(badge.textContent, "Live");
+});
+
+test("Timeline now-line tracks the synchronized clock between snapshots", async () => {
+  const browser = await startBrowser({
+    snapshot: displaySnapshot({
+      // Exactly a quarter into a whole 24h Event day, matching the fixture's
+      // timelineNowOffset below, so the immediate render-time recomputation
+      // (see startRegionUpdates in client.js) reproduces the same value
+      // instead of visibly correcting it.
+      serverTime: "2099-08-21T12:00:00Z",
+      standby: false,
+      viewKey: "timeline",
+      composition: displayComposition({
+        key: "timeline",
+        regions: [
+          {name: "timeline", widget: "timeline", persistent: true},
+        ],
+      }),
+      sessions: [
+        {
+          ...displaySession("Opening Keynote"),
+          lifecycle: "Live",
+          timelineDay: "2099-08-21",
+          timelineOffset: 0,
+          timelineWidth: 5000,
+          timelineLane: 0,
+          timelineLaneCount: 1,
+          timelineNowOffset: 2500,
+          timelineDayStart: "2099-08-21T06:00:00Z",
+          timelineDayEnd: "2099-08-22T06:00:00Z",
+        },
+      ],
+    }),
+  });
+
+  const day = browser.document.main.children[0].children[0].children[0];
+  const timeline = day.children[1];
+  const now = timeline.children.find((child) => child.className === "display-timeline-now");
+  assert.equal(now.style.properties.get("--display-offset"), "2500");
+
+  // 60 one-minute ticks (one simulated hour) with no new snapshot must
+  // still advance the now-line, or it would sit frozen next to a
+  // persistent clock and Stage Timer that keep advancing on the same
+  // Display. One hour of a 24h day is 417 further basis points.
+  for (let minute = 0; minute < 60; minute++) {
+    await browser.runTimer((delay) => delay === 60000);
+  }
+  assert.equal(now.style.properties.get("--display-offset"), "2917");
+});
+
+test("Timeline omits the now-line when the server projected no NowOffset for the Event day", async () => {
+  const browser = await startBrowser({
+    snapshot: displaySnapshot({
+      standby: false,
+      viewKey: "timeline",
+      composition: displayComposition({
+        key: "timeline",
+        regions: [
+          {name: "timeline", widget: "timeline", persistent: true},
+        ],
+      }),
+      sessions: [
+        {
+          ...displaySession("Opening Keynote"),
+          timelineDay: "2099-08-21",
+          timelineOffset: 0,
+          timelineWidth: 5000,
+          timelineLane: 0,
+          timelineLaneCount: 1,
+        },
+      ],
+    }),
+  });
+
+  const day = browser.document.main.children[0].children[0].children[0];
+  const timeline = day.children[1];
+  assert.equal(
+    timeline.children.some((child) => child.className === "display-timeline-now"),
+    false,
+  );
 });
 
 test("live renderer uses server-selected public time labels", async () => {
@@ -962,6 +1210,25 @@ test("Event Theme variants survive Display snapshot rendering", async () => {
     browser.document.main.style.properties.get("--display-signal"),
     "#ffdf6e",
   );
+  // The display variable that carries the Theme's surface color is named
+  // for what it carries, and the Nebula backdrop mixes it in rather than a
+  // hardcoded navy, so a bright Theme Preset still tints the backdrop.
+  assert.equal(
+    browser.document.main.style.properties.get("--display-surface"),
+    "#1d4ed8",
+  );
+});
+
+test("Nebula backdrop mixes the Theme's surface color instead of a fixed navy", () => {
+  const stylesheet = fs.readFileSync(
+    new URL("./display.css", `file://${__filename}`),
+    "utf8",
+  );
+  assert.match(
+    stylesheet,
+    /\.display-background-nebula\s*\{[^}]*color-mix\(in srgb, var\(--display-surface/,
+  );
+  assert.doesNotMatch(stylesheet, /#172755/);
 });
 
 async function startBrowser(options = {}) {
@@ -1242,7 +1509,7 @@ function stageTimerSnapshot(overrides = {}) {
   });
 }
 
-function displaySession(title) {
+function displaySession(title, overrides = {}) {
   return {
     title,
     lifecycle: "Scheduled",
@@ -1252,6 +1519,7 @@ function displaySession(title) {
     presentedEnd: "2099-08-21T09:00:00Z",
     presentedStartLabel: "Forecast Start",
     presentedEndLabel: "Forecast End",
+    ...overrides,
   };
 }
 
@@ -1291,6 +1559,33 @@ class FakeNode {
 
   append(...children) {
     this.children.push(...children);
+  }
+
+  // querySelectorAll supports only the class-plus-attribute-presence form
+  // client.js actually issues (".display-timeline-now[data-day-start]"),
+  // matched by walking the fake tree rather than a real selector engine.
+  querySelectorAll(selector) {
+    const className = selector.match(/^\.([\w-]+)/)?.[1];
+    const attribute = selector.match(/\[data-([\w-]+)\]/)?.[1];
+    const camelAttribute = attribute?.replace(
+      /-([a-z])/g,
+      (_, letter) => letter.toUpperCase(),
+    );
+    const matches = [];
+    const walk = (node) => {
+      for (const child of node.children) {
+        const classMatches = !className ||
+          (child.className ?? "").split(" ").includes(className);
+        const attributeMatches = !camelAttribute ||
+          child.dataset?.[camelAttribute] !== undefined;
+        if (classMatches && attributeMatches) {
+          matches.push(child);
+        }
+        walk(child);
+      }
+    };
+    walk(this);
+    return matches;
   }
 
   setAttribute(name, value) {

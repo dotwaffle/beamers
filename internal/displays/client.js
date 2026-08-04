@@ -326,10 +326,12 @@ function renderSnapshot(snapshot, offset) {
     serverMilliseconds: Date.now() + offset,
     monotonicMilliseconds: performance.now(),
   };
-  if (document.querySelector("main")?.dataset.renderKey === renderKey) {
+  const outgoingMain = document.querySelector("main");
+  if (outgoingMain?.dataset.renderKey === renderKey) {
     clockReference = candidateClockReference;
     return;
   }
+  const survivingRotationSessionId = activeRotationSessionId(outgoingMain);
   const main = document.createElement("main");
   const startRegionUpdates = [];
   main.dataset.renderKey = renderKey;
@@ -355,7 +357,9 @@ function renderSnapshot(snapshot, offset) {
   ].join(" ");
   main.style.setProperty("--display-foreground", composition.theme.foregroundColor);
   main.style.setProperty("--display-background", composition.theme.backgroundColor);
-  main.style.setProperty("--display-accent", composition.theme.accentColor);
+  // The wire field stays accentColor (see display.proto); only the CSS
+  // custom property is renamed to say what it carries.
+  main.style.setProperty("--display-surface", composition.theme.accentColor);
   main.style.setProperty(
     "--display-signal",
     composition.theme.signalColor || composition.theme.accentColor,
@@ -428,7 +432,7 @@ function renderSnapshot(snapshot, offset) {
     startUpdates();
   }
   startProgressUpdates(main);
-  startRotation(main, composition.layout.rotationSeconds);
+  startRotation(main, composition.layout.rotationSeconds, survivingRotationSessionId);
 }
 
 function scheduleTrackedUpdate(callback, delay) {
@@ -608,7 +612,14 @@ function renderWidget(region, widget, snapshot, theme, candidateClockReference) 
       const article = document.createElement("article");
       article.dataset.rotationPage = "true";
       article.dataset.slot = "rotation";
-      article.hidden = region.children.length > 0;
+      // rotationKey, not the redacted id, is the stable per-Session identity:
+      // a suppressed Session sends id as 0 like every other suppressed
+      // Session on the same View, which would collapse them all to one
+      // rotation slot.
+      article.dataset.sessionId = String(session.rotationKey ?? "");
+      // Left hidden here: startRotation chooses which page opens, carrying
+      // the outgoing frame's rotation position forward when it can.
+      article.hidden = true;
       renderSession(article, snapshot, session);
       region.append(article);
     }
@@ -629,6 +640,14 @@ function renderWidget(region, widget, snapshot, theme, candidateClockReference) 
         timeline = document.createElement("ol");
         timeline.className = "display-timeline";
         timeline.style.setProperty("--display-lanes", String(session.timelineLaneCount));
+        appendTimelineLaneLabels(timeline, session.timelineLaneCount);
+        appendTimelineGridlines(timeline, session.timelineGridlines);
+        appendTimelineNow(
+          timeline,
+          session.timelineNowOffset,
+          session.timelineDayStart,
+          session.timelineDayEnd,
+        );
         day.append(timeline);
         days.append(day);
         timelines.set(session.timelineDay, timeline);
@@ -639,7 +658,7 @@ function renderWidget(region, widget, snapshot, theme, candidateClockReference) 
     if ((snapshot.sessions ?? []).length === 0) {
       appendParagraph(region, "No public Event information is currently scheduled.");
     }
-    return;
+    return startTimelineNowUpdates(region, candidateClockReference);
   }
   case "clock": {
     const clock = document.createElement("time");
@@ -822,6 +841,89 @@ function timerEmphasis(thresholds, remainingMilliseconds) {
 
 // renderTimelineBlock consumes server-projected Event-day geometry so the entry
 // document and browser renderer cannot disagree.
+// appendTimelineLaneLabels adds one small chip per visual overlap lane. It
+// is purely decorative -- the lane number is not domain identity -- so
+// every chip is aria-hidden.
+function appendTimelineLaneLabels(timeline, laneCount) {
+  const lanes = Math.max(1, Number(laneCount) || 1);
+  for (let lane = 0; lane < lanes; lane++) {
+    const label = document.createElement("li");
+    label.className = "display-timeline-lane-label";
+    label.style.setProperty("--display-lane", String(lane));
+    label.setAttribute("aria-hidden", "true");
+    label.textContent = `Lane ${lane + 1}`;
+    timeline.append(label);
+  }
+}
+
+// appendTimelineGridlines draws the server-projected faint hour marks for
+// one Event day. Offsets already share the block's coordinate space, so no
+// further computation happens client-side.
+function appendTimelineGridlines(timeline, gridlines) {
+  for (const gridline of gridlines ?? []) {
+    const mark = document.createElement("li");
+    mark.className = "display-timeline-gridline";
+    mark.style.setProperty("--display-offset", String(gridline.offset));
+    mark.setAttribute("aria-hidden", "true");
+    const label = document.createElement("span");
+    label.textContent = gridline.label;
+    mark.append(label);
+    timeline.append(mark);
+  }
+}
+
+// appendTimelineNow draws the now-line only when the server projected one
+// for this Event day; nowOffset is absent (not zero) when the server time
+// falls outside it, so an absent value must never draw a stray line at 0%.
+// The line's position is then kept live from dayStart/dayEnd and the
+// synchronized clock (see updateTimelineNowLines) rather than left frozen
+// at the offset this one snapshot happened to compute, so it never visibly
+// drifts from the persistent clock and Stage Timer on the same Display.
+function appendTimelineNow(timeline, nowOffset, dayStart, dayEnd) {
+  if (nowOffset === undefined || nowOffset === null) {
+    return;
+  }
+  const now = document.createElement("li");
+  now.className = "display-timeline-now";
+  now.style.setProperty("--display-offset", String(nowOffset));
+  now.setAttribute("aria-hidden", "true");
+  const start = Date.parse(dayStart ?? "");
+  const end = Date.parse(dayEnd ?? "");
+  if (Number.isFinite(start) && Number.isFinite(end)) {
+    now.dataset.dayStart = String(start);
+    now.dataset.dayEnd = String(end);
+  }
+  timeline.append(now);
+}
+
+// updateTimelineNowLines recomputes every now-line's offset from its Event
+// day bounds and the synchronized clock, so the Timeline keeps advancing
+// between snapshots and while disconnected instead of freezing.
+function updateTimelineNowLines(main, reference) {
+  const now = estimatedServerNow(reference);
+  for (const line of main.querySelectorAll(".display-timeline-now[data-day-start]")) {
+    const fraction = elapsedFraction(
+      Number(line.dataset.dayStart),
+      Number(line.dataset.dayEnd),
+      now,
+    );
+    if (fraction !== null) {
+      line.style.setProperty("--display-offset", String(Math.round(fraction * 10000)));
+    }
+  }
+}
+
+function startTimelineNowUpdates(main, reference) {
+  if (main.querySelectorAll(".display-timeline-now[data-day-start]").length === 0) {
+    return undefined;
+  }
+  const update = () => {
+    updateTimelineNowLines(main, reference);
+    scheduleTrackedUpdate(update, minuteAlignmentDelay(estimatedServerNow(reference)));
+  };
+  return update;
+}
+
 function renderTimelineBlock(snapshot, session) {
   const block = document.createElement("li");
   block.className = "display-timeline-block";
@@ -829,12 +931,17 @@ function renderTimelineBlock(snapshot, session) {
   block.style.setProperty("--display-width", String(session.timelineWidth));
   block.style.setProperty("--display-lane", String(session.timelineLane));
   block.style.setProperty("--display-lanes", String(session.timelineLaneCount));
+  block.dataset.lifecycle = session.lifecycle ?? "";
   if (session.unavailable) {
     block.dataset.unavailable = "true";
     appendParagraph(block, session.availabilityMessage);
     return block;
   }
   appendHeading(block, session.title, 3);
+  // A Live block's signal-color fill is a color-only cue, and forced-colors
+  // mode strips it entirely; the badge repeats the same proven-contrast
+  // text and border treatment the Now/Next and rotation views already use.
+  appendLifecycleBadge(block, session);
   const start = document.createElement("time");
   start.dateTime = String(session.presentedStart ?? "");
   start.textContent = formatScheduleTime(snapshot, session.presentedStart);
@@ -885,13 +992,27 @@ function appendLifecycleBadge(parent, session) {
   parent.append(badge);
 }
 
-function startRotation(main, seconds) {
+// startRotation opens the page identified by preferredSessionId when one of
+// the freshly rendered pages carries that Session, so a snapshot re-render
+// (a forecast nudge, a lifecycle change) does not yank the Display back to
+// the first page. Absent or unmatched, it falls back to the first page,
+// matching an intentional hard cut such as an Override clearing.
+function startRotation(main, seconds, preferredSessionId) {
   clearTimeout(rotationTimer);
   const pages = findRotationPages(main);
+  if (pages.length === 0) {
+    return;
+  }
+  let active = preferredSessionId === undefined
+    ? -1
+    : pages.findIndex((page) => page.dataset.sessionId === preferredSessionId);
+  if (active < 0) {
+    active = 0;
+  }
+  pages[active].hidden = false;
   if (pages.length < 2 || !Number.isInteger(seconds) || seconds < 5 || seconds > 300) {
     return;
   }
-  let active = 0;
   const advance = () => {
     pages[active].hidden = true;
     active = (active + 1) % pages.length;
@@ -913,6 +1034,17 @@ function findRotationPages(main) {
     }
   }
   return pages;
+}
+
+// activeRotationSessionId reads the outgoing frame's visible rotation page,
+// before it is replaced, so its Session identity can be carried into the
+// incoming frame's rotation.
+function activeRotationSessionId(main) {
+  if (!main) {
+    return undefined;
+  }
+  const active = findRotationPages(main).find((page) => !page.hidden);
+  return active?.dataset.sessionId;
 }
 
 function appendSessionSchedule(parent, snapshot, session) {

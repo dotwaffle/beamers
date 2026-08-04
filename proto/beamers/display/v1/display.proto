@@ -80,6 +80,12 @@ message DisplayTheme {
   string branding = 1;
   string foreground_color = 2;
   string background_color = 3;
+  // accent_color carries the Theme's surface color, used for Display
+  // Region fills and the Nebula backdrop's color-mix base. The wire name
+  // stays accent_color: a stale Display client can still parse a snapshot
+  // from a newer server during a rolling upgrade, before its protocol or
+  // asset version mismatch is detected and it performs a controlled
+  // reload (see docs/adr/0048-make-displays-self-healing-across-upgrades.md).
   string accent_color = 4;
   string background = 5;
   string scrim_color = 6;
@@ -88,6 +94,7 @@ message DisplayTheme {
   string transition = 9;
   string live_color = 10;
   string danger_color = 11;
+  string signal_color = 12;
 }
 
 message DisplaySession {
@@ -115,6 +122,28 @@ message DisplaySession {
   uint32 timeline_width = 22;
   uint32 timeline_lane = 23;
   uint32 timeline_lane_count = 24;
+  // timeline_now_offset is basis points of the day, matching offset/width,
+  // and unset when the server time falls outside this Event day.
+  optional uint32 timeline_now_offset = 25;
+  // timeline_gridlines carries this Event day's faint labeled hour marks;
+  // it is repeated per Session (as the other Timeline geometry is) so the
+  // Timeline widget needs only the Session list to render one day.
+  repeated DisplayTimelineGridline timeline_gridlines = 26;
+  // timeline_day_start and timeline_day_end bound this Event day, letting a
+  // Display client re-derive the now-line from its own synchronized clock
+  // between snapshots instead of freezing it at timeline_now_offset.
+  google.protobuf.Timestamp timeline_day_start = 27;
+  google.protobuf.Timestamp timeline_day_end = 28;
+  // rotation_key is a stable identity for a rotation-widget View's
+  // client-side rotation-carry-over, distinct across every Session even
+  // when unavailable is true, without exposing id, which stays redacted
+  // for a suppressed Session along with title and speaker.
+  string rotation_key = 29;
+}
+
+message DisplayTimelineGridline {
+  uint32 offset = 1;
+  string label = 2;
 }
 
 enum StageTimerMode {

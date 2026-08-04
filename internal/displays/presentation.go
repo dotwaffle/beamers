@@ -93,13 +93,15 @@ func displayRegionAttributes(snapshot Snapshot, widget string) templ.Attributes 
 
 // projectTimeline positions Sessions on their Event-day axes. Geometry is
 // projected once so the entry document and browser renderer cannot disagree.
-func projectTimeline(sessions []Session, zone *time.Location, boundary string) error {
+func projectTimeline(sessions []Session, now time.Time, zone *time.Location, boundary string) error {
 	if zone == nil {
 		zone = time.UTC
 	}
 	type dayProjection struct {
 		laneEnds []time.Time
 		indices  []int
+		start    time.Time
+		end      time.Time
 	}
 	days := make(map[string]*dayProjection)
 	for index := range sessions {
@@ -131,6 +133,8 @@ func projectTimeline(sessions []Session, zone *time.Location, boundary string) e
 		}
 		dayDuration := dayEnd.Sub(dayStart)
 		session.Timeline.Day = dayStart.Format(time.DateOnly)
+		session.Timeline.DayStart = dayStart
+		session.Timeline.DayEnd = dayEnd
 		session.Timeline.Offset = timelineBasisPoints(spanStart.Sub(dayStart), dayDuration, 0)
 		session.Timeline.Width = timelineBasisPoints(spanEnd.Sub(spanStart), dayDuration, 1)
 		if session.Timeline.Offset+session.Timeline.Width > 10000 {
@@ -138,7 +142,7 @@ func projectTimeline(sessions []Session, zone *time.Location, boundary string) e
 		}
 		day := days[session.Timeline.Day]
 		if day == nil {
-			day = &dayProjection{}
+			day = &dayProjection{start: dayStart, end: dayEnd}
 			days[session.Timeline.Day] = day
 		}
 		session.Timeline.Lane = len(day.laneEnds)
@@ -155,11 +159,40 @@ func projectTimeline(sessions []Session, zone *time.Location, boundary string) e
 		day.indices = append(day.indices, index)
 	}
 	for _, day := range days {
+		var nowOffset *int
+		if !now.Before(day.start) && now.Before(day.end) {
+			offset := timelineBasisPoints(now.Sub(day.start), day.end.Sub(day.start), 0)
+			nowOffset = &offset
+		}
+		gridlines := timelineGridlines(day.start, day.end, zone)
 		for _, index := range day.indices {
 			sessions[index].Timeline.LaneCount = len(day.laneEnds)
+			sessions[index].Timeline.NowOffset = nowOffset
+			sessions[index].Timeline.Gridlines = gridlines
 		}
 	}
 	return nil
+}
+
+// timelineGridlines lists the whole local hours strictly between dayStart
+// and dayEnd, excluding dayStart itself: a mark exactly at the Event day
+// boundary would sit on the Timeline's own edge and add nothing.
+func timelineGridlines(dayStart, dayEnd time.Time, zone *time.Location) []TimelineGridline {
+	local := dayStart.In(zone)
+	cursor := time.Date(
+		local.Year(), local.Month(), local.Day(), local.Hour(), 0, 0, 0, zone,
+	).Add(time.Hour)
+	var gridlines []TimelineGridline
+	// An Event day is roughly 24 hours (DST adjusts it by one), so 30 is a
+	// generous bound that only guards against an unexpected boundary.
+	for i := 0; i < 30 && cursor.Before(dayEnd); i++ {
+		gridlines = append(gridlines, TimelineGridline{
+			Offset: timelineBasisPoints(cursor.Sub(dayStart), dayEnd.Sub(dayStart), 0),
+			Label:  cursor.Format("15:04"),
+		})
+		cursor = cursor.Add(time.Hour)
+	}
+	return gridlines
 }
 
 func timelineBasisPoints(duration, dayDuration time.Duration, minimum int) int {
@@ -198,6 +231,8 @@ func displayTimelineStyle(session Session) templ.SafeCSS {
 type displayTimelineDay struct {
 	Label     string
 	LaneCount int
+	NowOffset *int
+	Gridlines []TimelineGridline
 	Sessions  []Session
 }
 
@@ -205,7 +240,11 @@ func displayTimelineDays(sessions []Session) []displayTimelineDay {
 	var days []displayTimelineDay
 	for _, session := range sessions {
 		if len(days) == 0 || days[len(days)-1].Label != session.Timeline.Day {
-			days = append(days, displayTimelineDay{Label: session.Timeline.Day})
+			days = append(days, displayTimelineDay{
+				Label:     session.Timeline.Day,
+				NowOffset: session.Timeline.NowOffset,
+				Gridlines: session.Timeline.Gridlines,
+			})
 		}
 		days[len(days)-1].LaneCount = max(
 			days[len(days)-1].LaneCount,
@@ -218,6 +257,33 @@ func displayTimelineDays(sessions []Session) []displayTimelineDay {
 
 func displayTimelineDayStyle(day displayTimelineDay) templ.SafeCSS {
 	return templ.SafeCSS("--display-lanes:" + strconv.Itoa(max(1, day.LaneCount)))
+}
+
+func displayTimelineLaneLabels(day displayTimelineDay) []int {
+	lanes := make([]int, max(1, day.LaneCount))
+	for lane := range lanes {
+		lanes[lane] = lane
+	}
+	return lanes
+}
+
+func displayTimelineLaneLabel(lane int) string {
+	return "Lane " + strconv.Itoa(lane+1)
+}
+
+func displayTimelineLaneStyle(lane int) templ.SafeCSS {
+	return templ.SafeCSS("--display-lane:" + strconv.Itoa(lane))
+}
+
+func displayTimelineGridlineStyle(gridline TimelineGridline) templ.SafeCSS {
+	return templ.SafeCSS("--display-offset:" + strconv.Itoa(gridline.Offset))
+}
+
+func displayTimelineNowStyle(day displayTimelineDay) templ.SafeCSS {
+	if day.NowOffset == nil {
+		return ""
+	}
+	return templ.SafeCSS("--display-offset:" + strconv.Itoa(*day.NowOffset))
 }
 
 func displayClockTime(snapshot Snapshot) string {
@@ -265,6 +331,29 @@ func displaySessionKicker(session Session) string {
 		return "NOW"
 	}
 	return "UP NEXT · " + session.DisplayPresentedStart
+}
+
+// displaySessionID carries a Session's identity into the entry document so
+// the client renderer can match it against the outgoing DOM on reconnect,
+// preserving rotation position across a repaint.
+func displaySessionID(session Session) string {
+	return SessionRotationKey(session)
+}
+
+// SessionRotationKey is a Session's identity for the client's
+// rotation-carry-over, distinct across every Session a rotation-widget View
+// presents even when Unavailable. A suppressed Session's real ID is
+// redacted along with its title and speaker, so this falls back to its
+// ForecastStart, which the suppressed span already sends unredacted to size
+// itself: keying on it reveals nothing new. Two suppressed Sessions with
+// the exact same ForecastStart on the same View, an edge case the shared
+// Location must itself prevent by not double-booking, are the only
+// remaining collision.
+func SessionRotationKey(session Session) string {
+	if session.Unavailable {
+		return "unavailable-" + strconv.FormatInt(session.ForecastStart.Unix(), 10)
+	}
+	return strconv.Itoa(session.ID)
 }
 
 // displayLifecycleBadge reports whether a Session earns a lifecycle badge.
@@ -381,12 +470,12 @@ func displayThemeStyle(snapshot Snapshot) templ.SafeCSS {
 	// Snapshot was created. Keeping the complete declaration here prevents
 	// Event content from becoming CSS syntax.
 	return templ.SafeCSS(fmt.Sprintf(
-		"--display-foreground:%s;--display-background:%s;--display-accent:%s;"+
+		"--display-foreground:%s;--display-background:%s;--display-surface:%s;"+
 			"--display-signal:%s;--display-live:%s;--display-danger:%s;"+
 			"--display-scrim-layer:%s%02x",
 		theme.ForegroundColor,
 		theme.BackgroundColor,
-		theme.AccentColor,
+		theme.SurfaceColor,
 		theme.SignalColor,
 		theme.LiveColor,
 		theme.DangerColor,
@@ -411,7 +500,7 @@ func eventDisplayTheme(config themevalue.Config, branding string) displayviews.T
 	return displayviews.Theme{
 		Branding: branding, BrandAsset: config.BrandAsset,
 		ForegroundColor: config.TextColor, BackgroundColor: config.BackgroundColor,
-		AccentColor: config.SurfaceColor, Background: background,
+		SurfaceColor: config.SurfaceColor, Background: background,
 		SignalColor: config.AccentColor,
 		LiveColor:   config.LiveColor, DangerColor: config.DangerColor,
 		ScrimColor: "#000000", ScrimOpacity: 85,

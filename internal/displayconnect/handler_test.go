@@ -45,6 +45,64 @@ func TestSessionMessageCarriesPublicTimePresentation(t *testing.T) {
 	}
 }
 
+func TestSessionMessageCarriesTimelineNowLineOnlyWhenProjected(t *testing.T) {
+	t.Parallel()
+
+	dayStart := time.Date(2026, 2, 7, 0, 0, 0, 0, time.UTC)
+	dayEnd := dayStart.AddDate(0, 0, 1)
+	nowOffset := 3333
+	withNow := sessionMessage(displays.Session{
+		Timeline: displays.TimelineGeometry{
+			Day: "2026-02-07", NowOffset: &nowOffset, DayStart: dayStart, DayEnd: dayEnd,
+		},
+	})
+	if withNow.GetTimelineNowOffset() != 3333 {
+		t.Errorf("TimelineNowOffset = %d, want 3333", withNow.GetTimelineNowOffset())
+	}
+	if got := withNow.GetTimelineDayStart().AsTime(); !got.Equal(dayStart) {
+		t.Errorf("TimelineDayStart = %v, want %v", got, dayStart)
+	}
+	if got := withNow.GetTimelineDayEnd().AsTime(); !got.Equal(dayEnd) {
+		t.Errorf("TimelineDayEnd = %v, want %v", got, dayEnd)
+	}
+
+	// A Session whose Event day the server time falls outside carries no
+	// now-line, and must not leak day bounds a client has no use for.
+	withoutNow := sessionMessage(displays.Session{
+		Timeline: displays.TimelineGeometry{Day: "2026-02-08", DayStart: dayStart, DayEnd: dayEnd},
+	})
+	if withoutNow.TimelineNowOffset != nil {
+		t.Errorf("TimelineNowOffset = %v, want nil", withoutNow.TimelineNowOffset)
+	}
+	if withoutNow.GetTimelineDayStart() != nil || withoutNow.GetTimelineDayEnd() != nil {
+		t.Errorf(
+			"Timeline day bounds = [%v, %v), want unset",
+			withoutNow.GetTimelineDayStart(), withoutNow.GetTimelineDayEnd(),
+		)
+	}
+}
+
+func TestSessionMessageRotationKeyNeverExposesARedactedID(t *testing.T) {
+	t.Parallel()
+
+	forecastStart := time.Date(2026, 2, 7, 12, 30, 0, 0, time.UTC)
+	suppressed := sessionMessage(displays.Session{
+		Unavailable:   true,
+		ForecastStart: forecastStart,
+	})
+	if suppressed.GetId() != 0 {
+		t.Errorf("suppressed Session Id = %d, want 0 (redacted)", suppressed.GetId())
+	}
+	if suppressed.GetRotationKey() == "" || suppressed.GetRotationKey() == "0" {
+		t.Errorf("suppressed Session RotationKey = %q, want a non-empty key distinct from a redacted ID's", suppressed.GetRotationKey())
+	}
+
+	visible := sessionMessage(displays.Session{ID: 7})
+	if visible.GetRotationKey() != "7" {
+		t.Errorf("visible Session RotationKey = %q, want its ID", visible.GetRotationKey())
+	}
+}
+
 func TestSnapshotMessageCarriesStageTimerContract(t *testing.T) {
 	t.Parallel()
 

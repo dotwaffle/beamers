@@ -403,6 +403,66 @@ func TestCrewOnlySessionsReachCrewOverviewInFull(t *testing.T) {
 	if !timeline.ForecastStart.Equal(forecastStart) || !timeline.ForecastEnd.Equal(forecastEnd) {
 		t.Errorf("Timeline span = %+v, want the Session's edges", timeline)
 	}
+	// The Session's real ID stays redacted like its title: SessionRotationKey,
+	// not ID, is what a rotation-widget View uses to keep a suppressed span
+	// distinct from every other Session's without exposing it.
+	if timeline.ID != 0 {
+		t.Errorf("suppressed Timeline Session ID = %d, want 0 (redacted)", timeline.ID)
+	}
+}
+
+// TestSuppressedSessionsKeepDistinctRotationKeys guards the rotation-carry-
+// over mechanism against every suppressed Session in a rotation collapsing
+// to the same key (their real, and redacted, ID is always the zero value),
+// which would always reopen the first suppressed page after a snapshot
+// re-render regardless of which one a viewer had rotated to. Location
+// Signage is a rotation-widget View that, unlike Event Overview, does not
+// exclude a Crew Only Session outright, so it reaches the suppression
+// branch this guards.
+func TestSuppressedSessionsKeepDistinctRotationKeys(t *testing.T) {
+	forecastStart := time.Date(2026, 8, 21, 10, 0, 0, 0, time.UTC)
+	forecastEnd := forecastStart.Add(time.Hour)
+	first := store.DisplaySessionState{
+		ID: 21, AudienceVisibility: "CrewOnly", Lifecycle: "Scheduled",
+		ForecastStart: forecastStart, ForecastEnd: forecastEnd, LocationIDs: []int{7},
+	}
+	second := store.DisplaySessionState{
+		ID: 22, AudienceVisibility: "CrewOnly", Lifecycle: "Scheduled",
+		ForecastStart: forecastEnd, ForecastEnd: forecastEnd.Add(time.Hour), LocationIDs: []int{7},
+	}
+	snapshot := store.DisplaySnapshotState{ViewKey: displayviews.LocationSignage, LocationID: 7}
+
+	firstSession, selected, err := displaySession(snapshot, first, forecastStart, time.UTC)
+	if err != nil || !selected || !firstSession.Unavailable {
+		t.Fatalf(
+			"present first suppressed Session: selected=%v, unavailable=%v, err=%v",
+			selected, firstSession.Unavailable, err,
+		)
+	}
+	secondSession, selected, err := displaySession(snapshot, second, forecastStart, time.UTC)
+	if err != nil || !selected || !secondSession.Unavailable {
+		t.Fatalf(
+			"present second suppressed Session: selected=%v, unavailable=%v, err=%v",
+			selected, secondSession.Unavailable, err,
+		)
+	}
+	if firstSession.ID != 0 || secondSession.ID != 0 {
+		t.Fatalf(
+			"suppressed Session IDs = %d, %d, want both redacted to 0",
+			firstSession.ID, secondSession.ID,
+		)
+	}
+	firstKey := SessionRotationKey(firstSession)
+	secondKey := SessionRotationKey(secondSession)
+	if firstKey == secondKey {
+		t.Errorf("suppressed Sessions share rotation key %q, want distinct keys", firstKey)
+	}
+	if firstKey == "0" || secondKey == "0" {
+		t.Errorf(
+			"suppressed rotation key = %q / %q, want distinct from a redacted ID's key",
+			firstKey, secondKey,
+		)
+	}
 }
 
 func TestTimelineRetainsEndedSessionsForTheWholeEventDay(t *testing.T) {

@@ -35,7 +35,7 @@ func TestDisplayThemeUsesResolvedEventTheme(t *testing.T) {
 		theme.BrandAsset != themevalue.BrandAssetSignal ||
 		theme.ForegroundColor != "#ffffff" ||
 		theme.BackgroundColor != "#112233" ||
-		theme.AccentColor != "#223344" ||
+		theme.SurfaceColor != "#223344" ||
 		theme.SignalColor != "#ffdf6e" ||
 		theme.LiveColor != "#ff7b72" ||
 		theme.DangerColor != "#ff8fa3" ||
@@ -452,6 +452,117 @@ func TestTimelineSizesBlocksByTheirSpan(t *testing.T) {
 	}
 }
 
+func TestTimelineRendersNowLineGridlinesLaneLabelsAndLiveFill(t *testing.T) {
+	t.Parallel()
+
+	composition, err := displayviews.Compose(
+		displayviews.Timeline,
+		false,
+		displayviews.DefaultConfiguration(),
+	)
+	if err != nil {
+		t.Fatalf("compose Timeline Display: %v", err)
+	}
+	nowOffset := 2500
+	var rendered strings.Builder
+	err = DisplayPage(Snapshot{
+		ProtocolVersion: "beamers.display.v1",
+		AssetVersion:    "test-asset",
+		ServerTime:      time.Date(2099, 8, 21, 8, 0, 0, 0, time.UTC),
+		Display:         Display{Name: "Test Display"},
+		EventName:       "Test Event",
+		LocationName:    "Main Hall",
+		ViewKey:         displayviews.Timeline,
+		Composition:     composition,
+		Sessions: []Session{
+			{
+				Title:                 "Opening Keynote",
+				Lifecycle:             "Live",
+				ForecastStart:         time.Date(2099, 8, 21, 8, 0, 0, 0, time.UTC),
+				ForecastEnd:           time.Date(2099, 8, 21, 9, 0, 0, 0, time.UTC),
+				PresentedStart:        time.Date(2099, 8, 21, 8, 0, 0, 0, time.UTC),
+				PresentedStartLabel:   publictime.LabelActualStart,
+				DisplayPresentedStart: "08:00",
+				Timeline: TimelineGeometry{
+					Day: "2099-08-21", Offset: 0, Width: 5000, Lane: 0, LaneCount: 2,
+					NowOffset: &nowOffset,
+					Gridlines: []TimelineGridline{
+						{Offset: 417, Label: "07:00"},
+						{Offset: 833, Label: "08:00"},
+					},
+				},
+			},
+			{
+				Title:                 "Second Session",
+				Lifecycle:             "Scheduled",
+				ForecastStart:         time.Date(2099, 8, 21, 9, 0, 0, 0, time.UTC),
+				ForecastEnd:           time.Date(2099, 8, 21, 10, 0, 0, 0, time.UTC),
+				PresentedStart:        time.Date(2099, 8, 21, 9, 0, 0, 0, time.UTC),
+				PresentedStartLabel:   publictime.LabelForecastStart,
+				DisplayPresentedStart: "09:00",
+				Timeline: TimelineGeometry{
+					Day: "2099-08-21", Offset: 5000, Width: 5000, Lane: 1, LaneCount: 2,
+					NowOffset: &nowOffset,
+					Gridlines: []TimelineGridline{
+						{Offset: 417, Label: "07:00"},
+						{Offset: 833, Label: "08:00"},
+					},
+				},
+			},
+		},
+	}).Render(context.Background(), &rendered)
+	if err != nil {
+		t.Fatalf("render Timeline Display: %v", err)
+	}
+	page := rendered.String()
+
+	// The now-line is absolutely positioned via the projected offset, once
+	// per Event day, not once per Session.
+	if count := strings.Count(page, `class="display-timeline-now"`); count != 1 {
+		t.Errorf("now-line count = %d, want 1: %s", count, page)
+	}
+	if !strings.Contains(page, "--display-offset:2500") {
+		t.Errorf("now-line did not carry its projected offset: %s", page)
+	}
+
+	// Hour gridlines are faint and labeled, and appear once per Event day.
+	for _, want := range []string{
+		`class="display-timeline-gridline"`,
+		"<span>07:00</span>",
+		"<span>08:00</span>",
+	} {
+		if !strings.Contains(page, want) {
+			t.Errorf("Timeline missing gridline markup %q: %s", want, page)
+		}
+	}
+	if count := strings.Count(page, `class="display-timeline-gridline"`); count != 2 {
+		t.Errorf("gridline count = %d, want 2: %s", count, page)
+	}
+
+	// Small Lane labels, one per visual overlap lane.
+	if !strings.Contains(page, `class="display-timeline-lane-label"`) {
+		t.Errorf("Timeline missing Lane labels: %s", page)
+	}
+	if !strings.Contains(page, "Lane 1") || !strings.Contains(page, "Lane 2") {
+		t.Errorf("Timeline Lane labels did not name both lanes: %s", page)
+	}
+
+	// The Live block carries its lifecycle so CSS can fill it in the
+	// Theme's signal color, distinct from a Scheduled block.
+	if !strings.Contains(page, `data-lifecycle="Live"`) {
+		t.Errorf("Live Timeline block missing data-lifecycle: %s", page)
+	}
+	// The signal-color fill is a color-only cue, so the Live block also
+	// carries the same proven-contrast text badge used elsewhere, or a
+	// forced-colors viewer would have no way to tell it apart.
+	if !strings.Contains(page, `<span class="display-badge" data-lifecycle="Live">Live</span>`) {
+		t.Errorf("Live Timeline block missing its lifecycle badge: %s", page)
+	}
+	if strings.Contains(page, `<span class="display-badge" data-lifecycle="Scheduled">`) {
+		t.Errorf("Scheduled Timeline block should not carry a lifecycle badge: %s", page)
+	}
+}
+
 func TestTimelineProjectionUsesEventDaysAndOverlapLanes(t *testing.T) {
 	t.Parallel()
 
@@ -473,7 +584,8 @@ func TestTimelineProjectionUsesEventDaysAndOverlapLanes(t *testing.T) {
 			ForecastEnd:   time.Date(2099, 8, 22, 5, 0, 0, 0, time.UTC),
 		},
 	}
-	if err := projectTimeline(sessions, zone, "06:00"); err != nil {
+	farPast := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+	if err := projectTimeline(sessions, farPast, zone, "06:00"); err != nil {
 		t.Fatalf("project Timeline: %v", err)
 	}
 
@@ -491,6 +603,70 @@ func TestTimelineProjectionUsesEventDaysAndOverlapLanes(t *testing.T) {
 	}
 }
 
+func TestTimelineProjectionComputesNowLineAndGridlines(t *testing.T) {
+	t.Parallel()
+
+	zone, err := time.LoadLocation("Europe/Berlin")
+	if err != nil {
+		t.Fatalf("load timezone: %v", err)
+	}
+	sessions := []Session{
+		{
+			ForecastStart: time.Date(2099, 8, 21, 8, 0, 0, 0, time.UTC),
+			ForecastEnd:   time.Date(2099, 8, 21, 9, 0, 0, 0, time.UTC),
+		},
+		{
+			ForecastStart: time.Date(2099, 8, 22, 4, 0, 0, 0, time.UTC),
+			ForecastEnd:   time.Date(2099, 8, 22, 5, 0, 0, 0, time.UTC),
+		},
+	}
+	// 10:00 Europe/Berlin (08:00 UTC) on 2099-08-21, the same instant as the
+	// first Session's ForecastStart, so NowOffset must equal its Offset.
+	now := time.Date(2099, 8, 21, 8, 0, 0, 0, time.UTC)
+	if err := projectTimeline(sessions, now, zone, "06:00"); err != nil {
+		t.Fatalf("project Timeline: %v", err)
+	}
+
+	if sessions[0].Timeline.NowOffset == nil || *sessions[0].Timeline.NowOffset != 1667 {
+		t.Errorf("first Event day NowOffset = %v, want 1667", sessions[0].Timeline.NowOffset)
+	}
+	if sessions[1].Timeline.NowOffset != nil {
+		t.Errorf("second Event day NowOffset = %v, want nil (now falls outside it)", *sessions[1].Timeline.NowOffset)
+	}
+	// DayStart and DayEnd let a Display client re-derive the now-line from
+	// its own synchronized clock between snapshots; Europe/Berlin sits two
+	// hours ahead of UTC in August, so the 06:00 local boundary is 04:00 UTC.
+	wantDayStart := time.Date(2099, 8, 21, 4, 0, 0, 0, time.UTC)
+	wantDayEnd := time.Date(2099, 8, 22, 4, 0, 0, 0, time.UTC)
+	if !sessions[0].Timeline.DayStart.Equal(wantDayStart) || !sessions[0].Timeline.DayEnd.Equal(wantDayEnd) {
+		t.Errorf(
+			"first Event day bounds = [%v, %v), want [%v, %v)",
+			sessions[0].Timeline.DayStart, sessions[0].Timeline.DayEnd, wantDayStart, wantDayEnd,
+		)
+	}
+
+	// The first Event day spans 06:00 to 06:00 local, so its hour gridlines
+	// start at 07:00 and run hourly to 05:00 the next local day.
+	gridlines := sessions[0].Timeline.Gridlines
+	if len(gridlines) != 23 {
+		t.Fatalf("gridline count = %d, want 23: %+v", len(gridlines), gridlines)
+	}
+	if gridlines[0].Label != "07:00" || gridlines[0].Offset != 417 {
+		t.Errorf("first gridline = %+v, want {417 07:00}", gridlines[0])
+	}
+	if gridlines[len(gridlines)-1].Label != "05:00" {
+		t.Errorf("last gridline label = %q, want 05:00", gridlines[len(gridlines)-1].Label)
+	}
+	// The second Event day gets its own gridlines projected the same way,
+	// even with a single Session and no NowOffset.
+	if len(sessions[1].Timeline.Gridlines) != 23 {
+		t.Errorf(
+			"second Event day gridline count = %d, want 23: %+v",
+			len(sessions[1].Timeline.Gridlines), sessions[1].Timeline.Gridlines,
+		)
+	}
+}
+
 func TestTimelineProjectionUsesCanonicalDSTBoundary(t *testing.T) {
 	t.Parallel()
 
@@ -504,7 +680,8 @@ func TestTimelineProjectionUsesCanonicalDSTBoundary(t *testing.T) {
 			ForecastEnd:   time.Date(2026, 3, 29, 2, 30, 0, 0, time.UTC),
 		},
 	}
-	if err := projectTimeline(sessions, zone, "02:30"); err != nil {
+	farPast := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+	if err := projectTimeline(sessions, farPast, zone, "02:30"); err != nil {
 		t.Fatalf("project Timeline: %v", err)
 	}
 	if sessions[0].Timeline.Day != "2026-03-29" || sessions[0].Timeline.Offset != 213 {

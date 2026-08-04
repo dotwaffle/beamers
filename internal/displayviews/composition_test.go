@@ -93,7 +93,7 @@ func TestValidateConfigurationBlocksInaccessibleThemes(t *testing.T) {
 			name: "foreground against accent panel",
 			amend: func(configuration *Configuration) {
 				configuration.Theme.ForegroundColor = "#ffffff"
-				configuration.Theme.AccentColor = "#aaaaaa"
+				configuration.Theme.SurfaceColor = "#aaaaaa"
 			},
 			field: "theme.accent_color",
 		},
@@ -111,7 +111,7 @@ func TestValidateConfigurationBlocksInaccessibleThemes(t *testing.T) {
 			amend: func(configuration *Configuration) {
 				configuration.Theme.ForegroundColor = "#767676"
 				configuration.Theme.BackgroundColor = "#000000"
-				configuration.Theme.AccentColor = "#000000"
+				configuration.Theme.SurfaceColor = "#000000"
 				configuration.Theme.Background = BackgroundVariableMedia
 				configuration.Theme.ScrimColor = "#000000"
 				configuration.Theme.ScrimOpacity = 0
@@ -174,7 +174,7 @@ func TestValidateConfigurationAcceptsControlledTheme(t *testing.T) {
 		Branding:        "FOSDEM",
 		ForegroundColor: "#ffffff",
 		BackgroundColor: "#101828",
-		AccentColor:     "#1d4ed8",
+		SurfaceColor:    "#1d4ed8",
 		SignalColor:     "#62ebcb",
 		LiveColor:       "#ff7b72",
 		DangerColor:     "#ff8fa3",

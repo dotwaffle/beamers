@@ -227,6 +227,15 @@ templ displayRegion(snapshot Snapshot, name string, widget string, persistent bo
 					<section class="display-timeline-day">
 						<h3>{ day.Label }</h3>
 						<ol class="display-timeline" style={ displayTimelineDayStyle(day) }>
+							for _, lane := range displayTimelineLaneLabels(day) {
+								<li class="display-timeline-lane-label" style={ displayTimelineLaneStyle(lane) } aria-hidden="true">{ displayTimelineLaneLabel(lane) }</li>
+							}
+							for _, gridline := range day.Gridlines {
+								<li class="display-timeline-gridline" style={ displayTimelineGridlineStyle(gridline) } aria-hidden="true"><span>{ gridline.Label }</span></li>
+							}
+							if day.NowOffset != nil {
+								<li class="display-timeline-now" style={ displayTimelineNowStyle(day) } aria-hidden="true"></li>
+							}
 							for _, session := range day.Sessions {
 								@displayTimelineBlock(snapshot, session)
 							}
@@ -268,11 +277,14 @@ templ displayRegion(snapshot Snapshot, name string, widget string, persistent bo
 }
 
 templ displayTimelineBlock(snapshot Snapshot, session Session) {
-	<li class="display-timeline-block" style={ displayTimelineStyle(session) } data-unavailable?={ session.Unavailable }>
+	<li class="display-timeline-block" style={ displayTimelineStyle(session) } data-unavailable?={ session.Unavailable } data-lifecycle={ session.Lifecycle }>
 		if session.Unavailable {
 			<p>{ session.AvailabilityMessage }</p>
 		} else {
 			<h3>{ session.Title }</h3>
+			if displayLifecycleBadge(session) {
+				<span class="display-badge" data-lifecycle={ session.Lifecycle }>{ session.Lifecycle }</span>
+			}
 			<p>
 				<time datetime={ session.PresentedStart.Format("2006-01-02T15:04:05Z07:00") }>{ session.DisplayPresentedStart }</time>
 			</p>
@@ -303,7 +315,7 @@ templ displaySessionRegion(
 	collapsed bool,
 	slot string,
 ) {
-	<article data-rotation-page?={ rotationPage } hidden?={ collapsed } data-slot={ slot } data-lifecycle={ session.Lifecycle }>
+	<article data-rotation-page?={ rotationPage } hidden?={ collapsed } data-slot={ slot } data-lifecycle={ session.Lifecycle } data-session-id={ displaySessionID(session) }>
 		if session.Unavailable {
 			<p>{ session.AvailabilityMessage }</p>
 		} else {

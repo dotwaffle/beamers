@@ -45,7 +45,7 @@ body {
 	border: clamp(0.5rem, 1vw, 1.25rem) double #fff;
 }
 .urgent-notice-replace {
-	border: clamp(0.4rem, 0.8vw, 1rem) solid var(--display-accent, #ffd400);
+	border: clamp(0.4rem, 0.8vw, 1rem) solid var(--display-surface, #ffd400);
 }
 .urgent-notice-overlay {
 	position: fixed;
@@ -101,7 +101,7 @@ body {
 	padding: clamp(0.75rem, 1.5vw, 2rem);
 	border-block-start: 0.25rem solid var(--display-signal, #62ebcb);
 	border-radius: clamp(0.5rem, 1vw, 1.5rem);
-	background: var(--display-accent, #1d4ed8);
+	background: var(--display-surface, #1d4ed8);
 	overflow: hidden;
 }
 .display-background-variable-media .display-region {
@@ -110,10 +110,18 @@ body {
 			var(--display-scrim-layer, #000000d9),
 			var(--display-scrim-layer, #000000d9)
 		),
-		var(--display-accent, #1d4ed8);
+		var(--display-surface, #1d4ed8);
 }
+/* Nebula mixes the active Theme's surface color into black rather than a
+   fixed navy, so a bright Theme Preset still reads as a nebula tint instead
+   of a foreign accent. Theme Effects (the starfield ambient animation) do
+   not apply to Display surfaces: see docs/adr/0060. */
 .display-background-nebula {
-	background-image: radial-gradient(circle at 15% 10%, #172755 0, transparent 32rem);
+	background-image: radial-gradient(
+		circle at 15% 10%,
+		color-mix(in srgb, var(--display-surface, #1d4ed8) 60%, black) 0,
+		transparent 32rem
+	);
 }
 .display-layout-standby {
 	grid-template-rows: auto 1fr;
@@ -406,6 +414,63 @@ body {
 	font-size: var(--display-text-body);
 }
 
+/* Live gets a partial signal-color fill rather than a full-saturation
+ * background, so the existing validated foreground/background pairing
+ * stays legible over it instead of needing its own contrast check. */
+.display-timeline-block[data-lifecycle="Live"] {
+	background: color-mix(in srgb, var(--display-signal, #62ebcb) 35%, rgb(255 255 255 / 8%));
+	border-block-start-width: 0.4rem;
+}
+
+/* A small chip per visual overlap lane, pinned to the Timeline's own left
+ * edge rather than a reserved column, so it reads without narrowing every
+ * block's available width. */
+.display-timeline-lane-label {
+	position: absolute;
+	z-index: 2;
+	inset-inline-start: 0.25rem;
+	inset-block-start: calc(var(--display-lane, 0) * 100% / var(--display-lanes, 1) + 0.15rem);
+	padding: 0.05rem 0.4rem;
+	border-radius: 999px;
+	background: rgb(0 0 0 / 45%);
+	font-size: var(--display-text-caption);
+	color: color-mix(in srgb, var(--display-foreground, #fff) 70%, transparent);
+	white-space: nowrap;
+	pointer-events: none;
+}
+
+/* Faint hour marks derived from the same projected offsets as the blocks
+ * they sit behind, so they line up exactly without a separate axis. */
+.display-timeline-gridline {
+	position: absolute;
+	inset-block: 0;
+	inset-inline-start: calc(var(--display-offset, 0) * 0.01%);
+	border-inline-start: 1px solid color-mix(in srgb, var(--display-foreground, #fff) 16%, transparent);
+	pointer-events: none;
+}
+.display-timeline-gridline span {
+	position: absolute;
+	inset-block-start: -1.1em;
+	inset-inline-start: 0.2rem;
+	font-size: var(--display-text-caption);
+	/* Matches the lane label's mix: faint enough to read as a secondary
+	 * mark, not so faint that the hour itself falls below legible contrast. */
+	color: color-mix(in srgb, var(--display-foreground, #fff) 70%, transparent);
+	white-space: nowrap;
+}
+
+/* The now-line sits above blocks and gridlines and is omitted entirely
+ * (never rendered with a stray offset) when the server time falls outside
+ * this Event day. */
+.display-timeline-now {
+	position: absolute;
+	z-index: 3;
+	inset-block: 0;
+	inset-inline-start: calc(var(--display-offset, 0) * 0.01%);
+	border-inline-start: 0.15rem solid var(--display-signal, #62ebcb);
+	pointer-events: none;
+}
+
 /* A suppressed span is visibly a placeholder, not a Session whose title failed
  * to load. The hatching reads as unavailable without relying on color. */
 .display-timeline-block[data-unavailable] {
@@ -592,6 +657,14 @@ body {
 	line-height: 1;
 }
 
+/* The incoming frame itself crossfades on an ordinary snapshot re-render
+   (a forecast nudge, a lifecycle change) when the Theme selects the fade
+   transition. An Override firing is excluded via [data-override-kind], so
+   it always remains an intentional hard cut regardless of the Theme's
+   transition choice. */
+.display-transition-fade:not([data-override-kind]) {
+	animation: display-fade 250ms ease-out;
+}
 .display-transition-fade [data-rotation-page]:not([hidden]) {
 	animation: display-fade 250ms ease-out;
 }

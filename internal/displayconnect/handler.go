@@ -290,11 +290,12 @@ func compositionMessage(found displayviews.Composition) *displayv1.DisplayCompos
 		Layout: layout,
 		Theme: &displayv1.DisplayTheme{
 			Branding: theme.Branding, ForegroundColor: theme.ForegroundColor,
-			BackgroundColor: theme.BackgroundColor, AccentColor: theme.AccentColor,
+			BackgroundColor: theme.BackgroundColor, AccentColor: theme.SurfaceColor,
 			Background: theme.Background, ScrimColor: theme.ScrimColor,
 			ScrimOpacity: uint32(theme.ScrimOpacity), //nolint:gosec // Validated as 0..100.
 			Font:         theme.Font, Transition: theme.Transition,
 			LiveColor: theme.LiveColor, DangerColor: theme.DangerColor,
+			SignalColor: theme.SignalColor,
 		},
 	}
 }
@@ -326,6 +327,7 @@ func sessionMessage(found displays.Session) *displayv1.DisplaySession {
 		LocationIds: connectapi.Int64s(found.LocationIDs), LaneIds: connectapi.Int64s(found.LaneIDs),
 		TrackIds: connectapi.Int64s(found.TrackIDs), Unavailable: found.Unavailable,
 		AvailabilityMessage: found.AvailabilityMessage,
+		RotationKey:         displays.SessionRotationKey(found),
 		PresentedStartLabel: string(found.PresentedStartLabel),
 		PresentedEndLabel:   string(found.PresentedEndLabel),
 		TimelineDay:         found.Timeline.Day,
@@ -351,6 +353,18 @@ func sessionMessage(found displays.Session) *displayv1.DisplaySession {
 	}
 	if !found.PresentedEnd.IsZero() {
 		result.PresentedEnd = timestamppb.New(found.PresentedEnd)
+	}
+	if found.Timeline.NowOffset != nil {
+		nowOffset := uint32(*found.Timeline.NowOffset) //nolint:gosec // Projection is bounded to 0..10000.
+		result.TimelineNowOffset = &nowOffset
+		result.TimelineDayStart = timestamppb.New(found.Timeline.DayStart)
+		result.TimelineDayEnd = timestamppb.New(found.Timeline.DayEnd)
+	}
+	for _, gridline := range found.Timeline.Gridlines {
+		result.TimelineGridlines = append(result.TimelineGridlines, &displayv1.DisplayTimelineGridline{
+			Offset: uint32(gridline.Offset), //nolint:gosec // Projection is bounded to 0..10000.
+			Label:  gridline.Label,
+		})
 	}
 	return result
 }
