@@ -91,7 +91,7 @@ func Evaluate(request Request) error {
 	if refusal := requireCapabilities(request, row, required, request.Facts.eventID); refusal != nil {
 		return refusal
 	}
-	if inScope(request.Identity, request.Facts) {
+	if InScope(request.Identity, request.Facts) {
 		return nil
 	}
 	return &RefusalError{Action: request.Action, Code: row.ScopeCode}
@@ -157,10 +157,15 @@ func requireCapabilities(
 	return nil
 }
 
-// inScope applies the row's scope dimension to the facts the plan loaded. Each
+// InScope applies a row's scope dimension to the facts the plan loaded. Each
 // branch mirrors the store predicate it replaces exactly, including the
 // Producer shortcut and the empty-fact refusal.
-func inScope(identity viewer.Identity, facts Facts) bool {
+//
+// It is exported for the Display Override read paths — preview and list — that
+// have no Command Receipt to judge them through Evaluate, but must apply the
+// identical rule the table applies to the durable commands over the same
+// targets, so the read paths cannot drift from what the table admits.
+func InScope(identity viewer.Identity, facts Facts) bool {
 	switch facts.scope {
 	case ScopeNone:
 		return true

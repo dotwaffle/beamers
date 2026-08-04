@@ -18,6 +18,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/displayoverridestate"
 	"github.com/dotwaffle/beamers/ent/event"
 	"github.com/dotwaffle/beamers/ent/installation"
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
@@ -264,10 +265,20 @@ func (installationStore *SQLite) ListActiveDisplayOverrides(
 	if err != nil {
 		return nil, opaqueError("list active Display Overrides", err)
 	}
+	identity, authenticated := viewer.FromContext(ctx)
 	result := make([]ActiveDisplayOverride, 0, len(found))
 	for _, item := range found {
 		projected := displayOverride(item)
-		if !canOperateOverrideTarget(ctx, eventID, projected.Target) {
+		if !authenticated {
+			continue
+		}
+		scope, scopeErr := DisplayOverrideTargetScope(
+			ctx, installationStore.client, eventID, projected.Target,
+		)
+		if scopeErr != nil {
+			return nil, scopeErr
+		}
+		if !authz.InScope(identity, scope) {
 			continue
 		}
 		kind := DisplayOverrideKind(item.Kind.String())
@@ -333,9 +344,19 @@ func (installationStore *SQLite) PreviewPriorityOverride(
 	if err != nil {
 		return DisplayOverridePreview{}, err
 	}
-	if !canOperateOverrideTarget(ctx, params.EventID, params.Target) ||
+	identity, authenticated := viewer.FromContext(ctx)
+	if !authenticated {
+		return DisplayOverridePreview{}, ErrDisplayOverrideScope
+	}
+	scope, err := DisplayOverrideTargetScope(
+		ctx, installationStore.client, params.EventID, params.Target,
+	)
+	if err != nil {
+		return DisplayOverridePreview{}, err
+	}
+	if !authz.InScope(identity, scope) ||
 		params.Kind == DisplayOverrideEmergencyAlert &&
-			!hasEmergencyAlertCapability(ctx, params.EventID) {
+			!identity.HasCapability(params.EventID, viewer.EmergencyAlert) {
 		return DisplayOverridePreview{}, ErrDisplayOverrideScope
 	}
 	targets, err := resolveOverrideTargets(
@@ -672,11 +693,6 @@ func (transaction *CommandTx) ActivatePriorityOverride(
 	if err != nil {
 		return DisplayOverride{}, err
 	}
-	if !canOperateOverrideTarget(ctx, params.EventID, params.Target) ||
-		params.Kind == DisplayOverrideEmergencyAlert &&
-			!hasEmergencyAlertCapability(ctx, params.EventID) {
-		return DisplayOverride{}, ErrDisplayOverrideScope
-	}
 	targets, err := resolveOverrideTargets(
 		ctx, transaction.transaction.Client(), params.EventID, params.Target,
 	)
@@ -784,29 +800,6 @@ func displayOverrideTargetKey(target DisplayOverrideTarget) string {
 	default:
 		return ""
 	}
-}
-
-func canOperateOverrideTarget(
-	ctx context.Context,
-	eventID int,
-	target DisplayOverrideTarget,
-) bool {
-	identity, ok := viewer.FromContext(ctx)
-	if !ok {
-		return false
-	}
-	if identity.CanProduceEvent(eventID) {
-		return true
-	}
-	if target.Type == DisplayOverrideTargetLane {
-		return identity.CanOperateLane(eventID, target.ID)
-	}
-	return identity.CanOperateDisplayGroup(eventID, displayOverrideTargetKey(target))
-}
-
-func hasEmergencyAlertCapability(ctx context.Context, eventID int) bool {
-	identity, ok := viewer.FromContext(ctx)
-	return ok && identity.HasCapability(eventID, viewer.EmergencyAlert)
 }
 
 func normalizeTechnicalDifficulties(
@@ -965,12 +958,6 @@ func (transaction *CommandTx) ClearDisplayOverride(
 	}
 	if err != nil {
 		return DisplayOverride{}, opaqueError("load Display Override", err)
-	}
-	projected := displayOverride(found)
-	if !canOperateOverrideTarget(ctx, eventID, projected.Target) ||
-		projected.Kind == DisplayOverrideEmergencyAlert &&
-			!hasEmergencyAlertCapability(ctx, eventID) {
-		return DisplayOverride{}, ErrDisplayOverrideScope
 	}
 	if found.Revision != expectedRevision {
 		return displayOverride(found), ErrDisplayOverrideRevision

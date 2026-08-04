@@ -23,8 +23,10 @@
 // never silently loosened: the Note is the record.
 //
 // The discrepancies the Stage 1 draft marks as needing a behavior-change
-// decision (D3, D4, D5, D6) are therefore encoded as today's behavior, not as
-// the draft's proposed resolution.
+// decision (D3, D4, D5) are therefore encoded as today's behavior, not as
+// the draft's proposed resolution. D6 has since been decided and implemented:
+// a Program Channel Override target is judged by the Display Groups of the
+// Displays consuming it, not by a synthetic identifier key.
 package authz
 
 import "github.com/dotwaffle/beamers/internal/viewer"
