@@ -710,12 +710,28 @@ func runServe(
 		false,
 		"allow SceneID to create Accounts while registration is open",
 	)
+	logLevel := flags.String(
+		"log-level",
+		"info",
+		"log verbosity (debug, info, warn, error); SIGHUP toggles debug logging",
+	)
+	enablePprof := flags.Bool(
+		"pprof",
+		false,
+		"expose net/http/pprof, loopback-only or Administrator-authenticated",
+	)
 	if err := flags.Parse(args); err != nil {
 		return fail(err)
 	}
 	if flags.NArg() != 0 {
 		return fail(errors.New("serve accepts no positional arguments"))
 	}
+	configuredLevel, err := parseLogLevel(*logLevel)
+	if err != nil {
+		return fail(err)
+	}
+	var level slog.LevelVar
+	level.Set(configuredLevel)
 	sceneID, err := loadSceneIDConfig(
 		*sceneIDClientID,
 		*sceneIDClientSecretFile,
@@ -731,6 +747,7 @@ func runServe(
 		Stderr:         stderr,
 		SampleRatio:    *sampleRatio,
 		ExportTimeout:  *exportTimeout,
+		Level:          &level,
 	})
 	if err != nil {
 		return fail(err)
@@ -741,6 +758,12 @@ func runServe(
 		defer cancel()
 		_ = telemetryRuntime.Shutdown(shutdownContext)
 	}()
+	stopLevelToggle := watchLogLevelSIGHUP(ctx, watchLogLevelSIGHUPInput{
+		Level:           &level,
+		ConfiguredLevel: configuredLevel,
+		Logger:          logger,
+	})
+	defer stopLevelToggle()
 	err = server.Run(ctx, server.Config{
 		DataDir:         *dataDir,
 		AttachmentsDir:  *attachmentsDir,
@@ -760,12 +783,76 @@ func runServe(
 		InsecureCrew:    *insecureCrew,
 		InsecureDisplay: *insecureDisplay,
 		Demo:            demo,
+		EnablePprof:     *enablePprof,
 		SceneID:         sceneID,
 	})
 	if err != nil {
 		return fail(err)
 	}
 	return 0
+}
+
+func parseLogLevel(value string) (slog.Level, error) {
+	switch strings.ToLower(value) {
+	case "debug":
+		return slog.LevelDebug, nil
+	case "info":
+		return slog.LevelInfo, nil
+	case "warn":
+		return slog.LevelWarn, nil
+	case "error":
+		return slog.LevelError, nil
+	default:
+		return 0, fmt.Errorf("log level %q must be debug, info, warn, or error", value)
+	}
+}
+
+// watchLogLevelSIGHUPInput names the inputs watchLogLevelSIGHUP toggles the
+// running log level with.
+type watchLogLevelSIGHUPInput struct {
+	Level           *slog.LevelVar
+	ConfiguredLevel slog.Level
+	Logger          *slog.Logger
+}
+
+// watchLogLevelSIGHUP toggles the running log level between
+// input.ConfiguredLevel and slog.LevelDebug each time the process receives
+// SIGHUP, so an operator can raise verbosity mid-show without restarting
+// the process feeding stage screens, then lower it again with a second
+// SIGHUP. The returned stop function releases the signal handler; call it
+// once the caller no longer wants toggling to occur.
+func watchLogLevelSIGHUP(ctx context.Context, input watchLogLevelSIGHUPInput) func() {
+	watchContext, cancel := context.WithCancel(ctx)
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, syscall.SIGHUP)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		debug := false
+		for {
+			select {
+			case <-watchContext.Done():
+				return
+			case <-signals:
+				debug = !debug
+				if debug {
+					input.Level.Set(slog.LevelDebug)
+				} else {
+					input.Level.Set(input.ConfiguredLevel)
+				}
+				input.Logger.Info(
+					"log level toggled",
+					"component", "logging",
+					"status", input.Level.Level().String(),
+				)
+			}
+		}
+	}()
+	return func() {
+		cancel()
+		signal.Stop(signals)
+		<-done
+	}
 }
 
 func loadSceneIDConfig(

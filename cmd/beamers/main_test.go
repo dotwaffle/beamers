@@ -5,12 +5,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -18,6 +20,65 @@ import (
 	"github.com/dotwaffle/beamers/internal/backup"
 	"github.com/dotwaffle/beamers/internal/operations"
 )
+
+func TestParseLogLevel(t *testing.T) {
+	for value, want := range map[string]slog.Level{
+		"debug": slog.LevelDebug,
+		"info":  slog.LevelInfo,
+		"INFO":  slog.LevelInfo,
+		"warn":  slog.LevelWarn,
+		"error": slog.LevelError,
+	} {
+		got, err := parseLogLevel(value)
+		if err != nil {
+			t.Errorf("parseLogLevel(%q) error = %v", value, err)
+			continue
+		}
+		if got != want {
+			t.Errorf("parseLogLevel(%q) = %v, want %v", value, got, want)
+		}
+	}
+	if _, err := parseLogLevel("verbose"); err == nil {
+		t.Error("parseLogLevel(\"verbose\") unexpectedly succeeded")
+	}
+}
+
+func TestWatchLogLevelSIGHUPTogglesDebug(t *testing.T) {
+	var level slog.LevelVar
+	level.Set(slog.LevelWarn)
+	var logged bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&logged, nil))
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	stop := watchLogLevelSIGHUP(ctx, watchLogLevelSIGHUPInput{
+		Level:           &level,
+		ConfiguredLevel: slog.LevelWarn,
+		Logger:          logger,
+	})
+	defer stop()
+
+	if err := syscall.Kill(syscall.Getpid(), syscall.SIGHUP); err != nil {
+		t.Fatalf("send SIGHUP: %v", err)
+	}
+	waitForLevel(t, &level, slog.LevelDebug)
+
+	if err := syscall.Kill(syscall.Getpid(), syscall.SIGHUP); err != nil {
+		t.Fatalf("send SIGHUP: %v", err)
+	}
+	waitForLevel(t, &level, slog.LevelWarn)
+}
+
+func waitForLevel(t *testing.T, level *slog.LevelVar, want slog.Level) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if level.Level() == want {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatalf("log level = %v, want %v", level.Level(), want)
+}
 
 func TestDemoTimelineUsesAnExplicitAnchor(t *testing.T) {
 	anchor := time.Date(2026, 7, 30, 14, 37, 0, 0, time.FixedZone("test", 2*60*60))

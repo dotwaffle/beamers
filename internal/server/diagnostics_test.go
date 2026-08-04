@@ -11,12 +11,14 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
+	"time"
 
 	metricnoop "go.opentelemetry.io/otel/metric/noop"
 	"go.opentelemetry.io/otel/propagation"
 	tracenoop "go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/backup"
 	"github.com/dotwaffle/beamers/internal/displaystream"
 	"github.com/dotwaffle/beamers/internal/operations"
 )
@@ -221,6 +223,75 @@ func TestDiagnosticsAreAvailableOnLoopback(t *testing.T) {
 	assertDiagnosticsResponse(t, response)
 }
 
+func TestDiagnosticsReportDiskSpaceAndStorageSize(t *testing.T) {
+	application, _, _, _ := newDiagnosticsTestApplication(
+		t,
+		&net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 8080},
+	)
+
+	response := httptest.NewRecorder()
+	application.ServeHTTP(
+		response,
+		httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/diagnostics", http.NoBody),
+	)
+	var found normalDiagnosticsResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &found); err != nil {
+		t.Fatalf("decode diagnostics: %v", err)
+	}
+	if found.DiskSpace.Status != "ready" {
+		t.Fatalf("disk space status = %q, want ready", found.DiskSpace.Status)
+	}
+	if found.DiskSpace.WarningBytes != diskSpaceWarningBytes {
+		t.Fatalf("disk space warning bytes = %d, want %d", found.DiskSpace.WarningBytes, diskSpaceWarningBytes)
+	}
+	if found.DiskSpace.FreeBytes == 0 {
+		t.Fatal("disk space free bytes = 0, want positive")
+	}
+	if found.StorageSize.DatabaseBytes == 0 {
+		t.Fatal("storage size database bytes = 0, want positive")
+	}
+	if found.Backup.AgeSeconds != nil {
+		t.Fatalf("Backup age = %v, want nil before any Backup completes", *found.Backup.AgeSeconds)
+	}
+}
+
+func TestDiagnosticsReportBackupAgeAfterCompletion(t *testing.T) {
+	application, _, installation, _ := newDiagnosticsTestApplication(
+		t,
+		&net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 8080},
+	)
+	archivePath := filepath.Join(t.TempDir(), "backup.zip")
+	configuration, err := backup.LoadConfiguration(application.config.DataDir, application.config.AttachmentsDir)
+	if err != nil {
+		t.Fatalf("load Backup configuration: %v", err)
+	}
+	if _, err := installation.CreateBackup(t.Context(), backup.CreateInput{
+		DataDir:        application.config.DataDir,
+		AttachmentsDir: application.config.AttachmentsDir,
+		OutputPath:     archivePath,
+		Mode:           backup.Sanitized,
+		Configuration:  configuration,
+	}); err != nil {
+		t.Fatalf("create Backup: %v", err)
+	}
+
+	response := httptest.NewRecorder()
+	application.ServeHTTP(
+		response,
+		httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/diagnostics", http.NoBody),
+	)
+	var found normalDiagnosticsResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &found); err != nil {
+		t.Fatalf("decode diagnostics: %v", err)
+	}
+	if found.Backup.AgeSeconds == nil {
+		t.Fatal("Backup age unexpectedly nil after a completed Backup")
+	}
+	if age := *found.Backup.AgeSeconds; age < 0 || age > time.Minute.Seconds() {
+		t.Fatalf("Backup age = %v seconds, want a small nonnegative value", age)
+	}
+}
+
 func assertDiagnosticsResponse(t *testing.T, response *httptest.ResponseRecorder) {
 	t.Helper()
 	if response.Code != http.StatusOK {
@@ -330,6 +401,7 @@ func newDiagnosticsTestApplication(
 			TracerProvider: tracenoop.NewTracerProvider(),
 			MeterProvider:  metricnoop.NewMeterProvider(),
 			Propagator:     propagation.TraceContext{},
+			EnablePprof:    true,
 		},
 		Installation: installation, ListenerAddress: listenerAddress,
 		DisplayStream: displayStream, ProgramStream: programStream,

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/netip"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -49,6 +50,7 @@ type Config struct {
 	InsecureCrew    bool
 	InsecureDisplay bool
 	Demo            bool
+	EnablePprof     bool
 	SceneID         *federation.Config
 }
 
@@ -200,12 +202,16 @@ func Run(ctx context.Context, config Config) error {
 			)
 		}
 	}
-	privateHandler := protectInterfaces(application, interfacePolicy{
-		logger:          config.Logger,
-		listenerAddress: listener.Addr(), trustedProxies: config.TrustedProxies,
-		allowInsecureCrew: config.InsecureCrew, allowInsecureDisplay: config.InsecureDisplay,
-		demo: config.Demo,
-	})
+	privateHandler := instrumentInboundHTTP(
+		config,
+		"beamers.private",
+		protectInterfaces(application, interfacePolicy{
+			logger:          config.Logger,
+			listenerAddress: listener.Addr(), trustedProxies: config.TrustedProxies,
+			allowInsecureCrew: config.InsecureCrew, allowInsecureDisplay: config.InsecureDisplay,
+			demo: config.Demo,
+		}),
+	)
 	httpServer := &http.Server{
 		Handler:           privateHandler,
 		ReadTimeout:       10 * time.Second,
@@ -215,12 +221,16 @@ func Run(ctx context.Context, config Config) error {
 	var publicServer *http.Server
 	if publicListener != nil {
 		publicServer = &http.Server{
-			Handler: protectInterfaces(application, interfacePolicy{
-				logger:          config.Logger,
-				listenerAddress: publicListener.Addr(),
-				trustedProxies:  config.TrustedProxies,
-				publicOnly:      true,
-			}),
+			Handler: instrumentInboundHTTP(
+				config,
+				"beamers.public",
+				protectInterfaces(application, interfacePolicy{
+					logger:          config.Logger,
+					listenerAddress: publicListener.Addr(),
+					trustedProxies:  config.TrustedProxies,
+					publicOnly:      true,
+				}),
+			),
 			ReadTimeout:       10 * time.Second,
 			ReadHeaderTimeout: 5 * time.Second,
 			IdleTimeout:       60 * time.Second,
@@ -422,6 +432,34 @@ func Run(ctx context.Context, config Config) error {
 		)
 		return finalErr
 	}
+}
+
+// connectRoutePathPrefix is the fixed prefix connect-go gives every
+// generated RPC path (e.g. "/beamers.competition.v1.CompetitionService/...",
+// from the ServiceName constants under gen/*/*connect). Connect routes
+// already get their own span and metrics from otelconnect's interceptor
+// (see registerConnectRoute); instrumenting them again here would record
+// duplicate HTTP and RPC spans and duplicate, redundant metric families,
+// which ADR 0035 explicitly calls out as something to avoid.
+const connectRoutePathPrefix = "/beamers."
+
+// instrumentInboundHTTP wraps a listener's handler with otelhttp so plain
+// HTTP requests get request metrics and a server span, giving downstream
+// otelsql database spans a parent. operation names the span/metric per
+// listener (private vs. public) so the two are distinguishable in exported
+// data. Connect RPC requests are excluded via WithFilter, since otelconnect
+// already instruments them end to end.
+func instrumentInboundHTTP(config Config, operation string, next http.Handler) http.Handler {
+	return otelhttp.NewHandler(
+		next,
+		operation,
+		otelhttp.WithTracerProvider(config.TracerProvider),
+		otelhttp.WithMeterProvider(config.MeterProvider),
+		otelhttp.WithPropagators(config.Propagator),
+		otelhttp.WithFilter(func(request *http.Request) bool {
+			return !strings.HasPrefix(request.URL.Path, connectRoutePathPrefix)
+		}),
+	)
 }
 
 func closeListener(listener net.Listener) error {

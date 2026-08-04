@@ -9186,8 +9186,18 @@ func TestHealthyInstallationExposesBoundedLocalDiagnostics(t *testing.T) {
 			Status string `json:"status"`
 		} `json:"storage"`
 		Backup struct {
-			Status string `json:"status"`
+			Status     string   `json:"status"`
+			AgeSeconds *float64 `json:"age_seconds"`
 		} `json:"backup"`
+		DiskSpace struct {
+			Status       string `json:"status"`
+			FreeBytes    uint64 `json:"free_bytes"`
+			WarningBytes uint64 `json:"warning_bytes"`
+		} `json:"disk_space"`
+		StorageSize struct {
+			DatabaseBytes    uint64 `json:"database_bytes"`
+			AttachmentsBytes uint64 `json:"attachments_bytes"`
+		} `json:"storage_size"`
 		Replication struct {
 			Status string `json:"status"`
 		} `json:"replication"`
@@ -9211,6 +9221,11 @@ func TestHealthyInstallationExposesBoundedLocalDiagnostics(t *testing.T) {
 		found.Mode != "normal" ||
 		found.Storage.Status != "ready" ||
 		found.Backup.Status != "available" ||
+		found.Backup.AgeSeconds != nil ||
+		found.DiskSpace.Status != "ready" ||
+		found.DiskSpace.FreeBytes == 0 ||
+		found.DiskSpace.WarningBytes == 0 ||
+		found.StorageSize.DatabaseBytes == 0 ||
 		found.Replication.Status != "disabled" ||
 		found.Streams["display"].Status != "ready" ||
 		found.Streams["program"].Status != "ready" ||

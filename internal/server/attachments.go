@@ -154,7 +154,7 @@ func readMultipartUpload(
 	Close() error
 }, err error) {
 	// MaxBytesReader is installed by both callers before multipart parsing.
-	if parseErr := request.ParseMultipartForm(64 << 20); parseErr != nil { //nolint:gosec // Request bytes are bounded.
+	if parseErr := request.ParseMultipartForm(64 << 20); parseErr != nil {
 		return "", "", "", nil, errInvalidUpload
 	}
 	file, header, fileErr := request.FormFile("file")
@@ -324,7 +324,7 @@ func (handlers attachmentHandlers) readVersion(response http.ResponseWriter, req
 		"attachment", map[string]string{"filename": found.OriginalFilename},
 	))
 	response.WriteHeader(http.StatusOK)
-	if _, err = response.Write(content); err != nil { //nolint:gosec // Verified file bytes are an attachment response, not HTML.
+	if _, err = response.Write(content); err != nil {
 		handlers.logger.ErrorContext(request.Context(), "write Attachment bytes", "error", err)
 	}
 }
@@ -554,7 +554,7 @@ func (handlers attachmentHandlers) readReleasedVersion(
 		"attachment", map[string]string{"filename": found.OriginalFilename},
 	))
 	response.WriteHeader(http.StatusOK)
-	if _, err = response.Write(content); err != nil { //nolint:gosec // Verified immutable bytes.
+	if _, err = response.Write(content); err != nil {
 		handlers.logger.ErrorContext(request.Context(), "write released Attachment bytes", "error", err)
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"log/slog"
 	"math"
 	"net/http"
 	"net/http/httptest"
@@ -79,16 +80,20 @@ func TestRuntimeExportsAllSignalsAndKeepsStderrAuthoritative(t *testing.T) {
 			t.Errorf("collector requests %v, missing %s", paths, path)
 		}
 	}
-	foundComponent := false
+	foundComponent, foundError := false, false
 	for _, resourceLogs := range logRequest.GetResourceLogs() {
 		for _, scopeLogs := range resourceLogs.GetScopeLogs() {
 			for _, record := range scopeLogs.GetLogRecords() {
 				for _, attribute := range record.GetAttributes() {
-					if attribute.GetKey() == "component" {
-						foundComponent = true
-					}
 					switch attribute.GetKey() {
-					case "event_id", "command_id", "error":
+					case "component":
+						foundComponent = true
+					case "error":
+						foundError = true
+						if got := attribute.GetValue().GetStringValue(); got != "private failure" {
+							t.Errorf("exported error attribute = %q, want %q", got, "private failure")
+						}
+					case "event_id", "command_id":
 						t.Errorf("unsafe OTLP log attribute exported: %s", attribute.GetKey())
 					}
 				}
@@ -97,6 +102,66 @@ func TestRuntimeExportsAllSignalsAndKeepsStderrAuthoritative(t *testing.T) {
 	}
 	if !foundComponent {
 		t.Error("bounded component attribute was not exported")
+	}
+	if !foundError {
+		t.Error("bounded error attribute was not exported")
+	}
+}
+
+func TestBoundedLogAttributeExportsRollbackBackupPath(t *testing.T) {
+	attribute, ok := boundedLogAttribute(slog.String("rollback_backup", "/data/.beamers-upgrade-backup-1/backup.zip"))
+	if !ok {
+		t.Fatal("rollback_backup attribute was unexpectedly dropped")
+	}
+	if attribute.Value.Kind() != slog.KindString {
+		t.Fatalf("rollback_backup kind = %v, want string", attribute.Value.Kind())
+	}
+	if attribute.Value.String() != "/data/.beamers-upgrade-backup-1/backup.zip" {
+		t.Fatalf("rollback_backup value = %q", attribute.Value.String())
+	}
+}
+
+func TestBoundedLogAttributeTruncatesOverlongError(t *testing.T) {
+	longMessage := strings.Repeat("x", maxBoundedAttributeRunes+100)
+	attribute, ok := boundedLogAttribute(slog.Any("error", errors.New(longMessage)))
+	if !ok {
+		t.Fatal("error attribute was unexpectedly dropped")
+	}
+	if runeLength := len([]rune(attribute.Value.String())); runeLength > maxBoundedAttributeRunes+len("…(truncated)") {
+		t.Fatalf("truncated error attribute length = %d, want <= %d", runeLength, maxBoundedAttributeRunes)
+	}
+	if !strings.HasSuffix(attribute.Value.String(), "…(truncated)") {
+		t.Fatalf("truncated error attribute missing marker: %q", attribute.Value.String())
+	}
+}
+
+func TestBoundedLogAttributeDropsUnknownKeys(t *testing.T) {
+	if _, ok := boundedLogAttribute(slog.String("event_id", "42")); ok {
+		t.Fatal("event_id attribute was unexpectedly exported")
+	}
+	if _, ok := boundedLogAttribute(slog.Int("rollback_backup", 1)); ok {
+		t.Fatal("non-string rollback_backup attribute was unexpectedly exported")
+	}
+}
+
+func TestRuntimeLevelVarGatesStderrAtRuntime(t *testing.T) {
+	var level slog.LevelVar
+	level.Set(slog.LevelInfo)
+	var stderr bytes.Buffer
+	runtime, err := New(t.Context(), Config{
+		Stderr: &stderr, Level: &level,
+	})
+	if err != nil {
+		t.Fatalf("create telemetry runtime: %v", err)
+	}
+	runtime.Logger().Debug("hidden below Info", "component", "test")
+	if strings.Contains(stderr.String(), "hidden below Info") {
+		t.Fatalf("debug log unexpectedly emitted at Info level: %q", stderr.String())
+	}
+	level.Set(slog.LevelDebug)
+	runtime.Logger().Debug("visible after SIGHUP-style toggle", "component", "test")
+	if !strings.Contains(stderr.String(), "visible after SIGHUP-style toggle") {
+		t.Fatalf("debug log unexpectedly suppressed after raising level: %q", stderr.String())
 	}
 }
 

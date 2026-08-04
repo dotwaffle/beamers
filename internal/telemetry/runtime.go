@@ -41,6 +41,9 @@ type Config struct {
 	Stderr         io.Writer
 	SampleRatio    float64
 	ExportTimeout  time.Duration
+	// Level gates both the stderr and OTLP-exported log sinks. A nil Level
+	// keeps the historical fixed slog.LevelInfo behavior.
+	Level *slog.LevelVar
 }
 
 // Runtime supplies one stderr-first logger and shared signal providers.
@@ -61,7 +64,11 @@ func New(ctx context.Context, config Config) (*Runtime, error) {
 	if config.Stderr == nil {
 		return nil, errors.New("telemetry stderr is required")
 	}
-	stderrHandler := slog.NewJSONHandler(config.Stderr, nil)
+	level := config.Level
+	if level == nil {
+		level = &slog.LevelVar{}
+	}
+	stderrHandler := slog.NewJSONHandler(config.Stderr, &slog.HandlerOptions{Level: level})
 	if config.Endpoint == "" {
 		return &Runtime{
 			logger:         slog.New(stderrHandler),
@@ -151,10 +158,13 @@ func New(ctx context.Context, config Config) (*Runtime, error) {
 	return &Runtime{
 		logger: slog.New(slog.NewMultiHandler(
 			stderrHandler,
-			boundedLogHandler{next: otelslog.NewHandler(
-				"github.com/dotwaffle/beamers",
-				otelslog.WithLoggerProvider(logProvider),
-			)},
+			boundedLogHandler{
+				level: level,
+				next: otelslog.NewHandler(
+					"github.com/dotwaffle/beamers",
+					otelslog.WithLoggerProvider(logProvider),
+				),
+			},
 		)),
 		tracerProvider:  traceProvider,
 		meterProvider:   metricProvider,
@@ -233,18 +243,22 @@ func signalEndpoints(raw string) (endpoints, error) {
 }
 
 type boundedLogHandler struct {
-	next slog.Handler
+	next  slog.Handler
+	level slog.Leveler
 }
 
 func (handler boundedLogHandler) Enabled(ctx context.Context, level slog.Level) bool {
+	if handler.level != nil && level < handler.level.Level() {
+		return false
+	}
 	return handler.next.Enabled(ctx, level)
 }
 
 func (handler boundedLogHandler) Handle(ctx context.Context, record slog.Record) error {
 	filtered := slog.NewRecord(record.Time, record.Level, record.Message, record.PC)
 	record.Attrs(func(attribute slog.Attr) bool {
-		if boundedLogAttribute(attribute) {
-			filtered.AddAttrs(attribute)
+		if bounded, ok := boundedLogAttribute(attribute); ok {
+			filtered.AddAttrs(bounded)
 		}
 		return true
 	})
@@ -254,25 +268,74 @@ func (handler boundedLogHandler) Handle(ctx context.Context, record slog.Record)
 func (handler boundedLogHandler) WithAttrs(attributes []slog.Attr) slog.Handler {
 	filtered := make([]slog.Attr, 0, len(attributes))
 	for _, attribute := range attributes {
-		if boundedLogAttribute(attribute) {
-			filtered = append(filtered, attribute)
+		if bounded, ok := boundedLogAttribute(attribute); ok {
+			filtered = append(filtered, bounded)
 		}
 	}
-	return boundedLogHandler{next: handler.next.WithAttrs(filtered)}
+	return boundedLogHandler{next: handler.next.WithAttrs(filtered), level: handler.level}
 }
 
 func (handler boundedLogHandler) WithGroup(string) slog.Handler {
 	return handler
 }
 
-func boundedLogAttribute(attr slog.Attr) bool {
+// maxBoundedAttributeRunes caps the length of exported free-text attributes
+// (error detail and the rollback Backup path) so one oversized value cannot
+// inflate an OTLP export batch.
+const maxBoundedAttributeRunes = 1024
+
+// boundedLogAttribute reports whether attr may leave the process boundary
+// and, when it may, the exact value to export. Free-text attributes are
+// truncated rather than rejected outright so operators still see the start
+// of an overlong error or path.
+func boundedLogAttribute(attr slog.Attr) (slog.Attr, bool) {
 	switch attr.Key {
 	case "component", "mode", "phase", "status", "finalizer", "command":
-		return attr.Value.Kind() == slog.KindString
+		if attr.Value.Kind() != slog.KindString {
+			return slog.Attr{}, false
+		}
+		return attr, true
 	case "budget_ms", "elapsed_ms", "remaining_ms":
-		return attr.Value.Kind() == slog.KindInt64 ||
-			attr.Value.Kind() == slog.KindUint64
+		if attr.Value.Kind() != slog.KindInt64 && attr.Value.Kind() != slog.KindUint64 {
+			return slog.Attr{}, false
+		}
+		return attr, true
+	case "rollback_backup":
+		if attr.Value.Kind() != slog.KindString {
+			return slog.Attr{}, false
+		}
+		return slog.String(attr.Key, truncateRunes(attr.Value.String(), maxBoundedAttributeRunes)), true
+	case "error":
+		message := errorAttributeMessage(attr.Value)
+		if message == "" {
+			return slog.Attr{}, false
+		}
+		return slog.String(attr.Key, truncateRunes(message, maxBoundedAttributeRunes)), true
 	default:
-		return false
+		return slog.Attr{}, false
 	}
+}
+
+// errorAttributeMessage extracts free text from an "error" attribute value,
+// which is ordinarily an error but may already have been reduced to a
+// string by an intermediate slog.Handler.
+func errorAttributeMessage(value slog.Value) string {
+	resolved := value.Resolve()
+	switch resolved.Kind() { //nolint:exhaustive // Only string and error-bearing kinds carry error text.
+	case slog.KindString:
+		return resolved.String()
+	case slog.KindAny:
+		if err, ok := resolved.Any().(error); ok && err != nil {
+			return err.Error()
+		}
+	}
+	return ""
+}
+
+func truncateRunes(value string, maxRunes int) string {
+	runes := []rune(value)
+	if len(runes) <= maxRunes {
+		return value
+	}
+	return string(runes[:maxRunes]) + "…(truncated)"
 }

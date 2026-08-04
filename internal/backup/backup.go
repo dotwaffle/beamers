@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dotwaffle/beamers/internal/diskspace"
 	"github.com/dotwaffle/beamers/internal/store"
 )
 
@@ -150,6 +151,14 @@ func CreateWithStorage(
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return Manifest{}, fmt.Errorf("inspect Backup output: %w", err)
 	}
+	if err := preflightDiskSpace(preflightDiskSpaceInput{
+		DataDir:        input.DataDir,
+		AttachmentsDir: input.AttachmentsDir,
+		OutputPath:     input.OutputPath,
+		RequireFree:    diskspace.RequireFree,
+	}); err != nil {
+		return Manifest{}, err
+	}
 
 	workDir, err := os.MkdirTemp(filepath.Dir(input.OutputPath), ".beamers-backup-*")
 	if err != nil {
@@ -223,7 +232,102 @@ func CreateWithStorage(
 	if err := installArchive(stagedArchive, input.OutputPath, syncDirectory); err != nil {
 		return Manifest{}, err
 	}
+	// The archive is durable at this point, so the Backup has succeeded
+	// regardless of whether the completion marker below can be written.
+	// recordCompletion is documented as best-effort for exactly this
+	// reason: failing the whole operation here would report the newly
+	// published archive as a failed Backup, and a CLI or browser caller
+	// retrying would then find "backup output already exists" instead.
+	_ = recordCompletion(input.DataDir, manifest.CreatedAt)
 	return manifest, nil
+}
+
+// completionMarkerName holds the timestamp of the most recently completed
+// Backup, so diagnostics can report Backup age without scanning for
+// archives (which may live outside DataDir, or be rotated away).
+const completionMarkerName = ".beamers-last-backup"
+
+// recordCompletion best-effort records that a Backup completed at
+// completedAt. A caller without a DataDir (CreateWithStorage may run
+// against an installation opened without one) has nowhere durable to
+// record completion, so it is skipped rather than treated as an error.
+func recordCompletion(dataDir string, completedAt time.Time) error {
+	if dataDir == "" {
+		return nil
+	}
+	marker := filepath.Join(dataDir, completionMarkerName)
+	content := completedAt.UTC().Format(time.RFC3339Nano) + "\n"
+	if err := os.WriteFile(marker, []byte(content), 0o600); err != nil {
+		return fmt.Errorf("record Backup completion marker: %w", err)
+	}
+	return nil
+}
+
+// LastCompletedAt reports when the most recent Backup completed for the
+// installation at dataDir. The second return value is false when no
+// Backup has completed since the marker was introduced.
+func LastCompletedAt(dataDir string) (time.Time, bool, error) {
+	if dataDir == "" {
+		return time.Time{}, false, nil
+	}
+	content, err := os.ReadFile(filepath.Join(dataDir, completionMarkerName)) //nolint:gosec // Fixed marker name under the configured data directory.
+	if errors.Is(err, os.ErrNotExist) {
+		return time.Time{}, false, nil
+	}
+	if err != nil {
+		return time.Time{}, false, fmt.Errorf("read Backup completion marker: %w", err)
+	}
+	completedAt, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(string(content)))
+	if err != nil {
+		return time.Time{}, false, fmt.Errorf("parse Backup completion marker: %w", err)
+	}
+	return completedAt, true, nil
+}
+
+// backupDiskSpaceMarginBytes covers the ZIP central directory, manifest,
+// and filesystem metadata overhead the size estimate below does not
+// itself account for.
+const backupDiskSpaceMarginBytes = 64 << 20
+
+// preflightDiskSpaceInput names the inputs preflightDiskSpace estimates a
+// Backup's disk requirement from. RequireFree is an explicit dependency
+// (rather than calling diskspace.RequireFree directly) so tests can
+// exercise the refusal path without needing a filesystem that is
+// actually full.
+type preflightDiskSpaceInput struct {
+	DataDir        string
+	AttachmentsDir string
+	OutputPath     string
+	RequireFree    func(path string, neededBytes uint64) error
+}
+
+// preflightDiskSpace refuses to start a Backup when the filesystem holding
+// its output cannot plausibly hold one. CreateWithStorage stages a full
+// database snapshot alongside the archive it streams from that snapshot,
+// and both live in the same directory as OutputPath until installArchive
+// hardlinks the finished archive into place, so peak usage is one
+// database-sized allowance for the snapshot plus a second for the
+// archive's database and Attachment Store entries. Sanitized mode never
+// grows the database, and ZIP compression is not counted, so this is
+// conservative rather than exact.
+func preflightDiskSpace(input preflightDiskSpaceInput) error {
+	var databasePath string
+	if input.DataDir != "" {
+		databasePath = filepath.Join(input.DataDir, "beamers.db")
+	}
+	databaseBytes, err := diskspace.FileSize(databasePath)
+	if err != nil {
+		return err
+	}
+	attachmentsBytes, err := diskspace.DirSize(input.AttachmentsDir)
+	if err != nil {
+		return err
+	}
+	needed := 2*databaseBytes + attachmentsBytes + backupDiskSpaceMarginBytes
+	if err := input.RequireFree(filepath.Dir(input.OutputPath), needed); err != nil {
+		return fmt.Errorf("preflight Backup disk space: %w", err)
+	}
+	return nil
 }
 
 func installArchive(staged, output string, syncParent func(string) error) error {

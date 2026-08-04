@@ -21,6 +21,7 @@ import (
 	_ "github.com/dotwaffle/beamers/ent/runtime"
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/command"
+	"github.com/dotwaffle/beamers/internal/diskspace"
 	"github.com/dotwaffle/beamers/internal/store"
 
 	_ "modernc.org/sqlite"
@@ -157,6 +158,91 @@ func TestSanitizedBackupIncludesConfiguredAttachmentsAndRemovesCredentials(t *te
 		filepath.Join(restoredDataDir, "beamers.db"),
 	); err != nil {
 		t.Fatalf("validate restored database: %v", err)
+	}
+}
+
+func TestPreflightDiskSpaceRefusesWhenInsufficient(t *testing.T) {
+	dataDir := filepath.Join(t.TempDir(), "installation")
+	if err := store.Initialize(t.Context(), dataDir); err != nil {
+		t.Fatalf("initialize installation: %v", err)
+	}
+	outputPath := filepath.Join(t.TempDir(), "backup.zip")
+
+	err := preflightDiskSpace(preflightDiskSpaceInput{
+		DataDir:    dataDir,
+		OutputPath: outputPath,
+		RequireFree: func(string, uint64) error {
+			return fmt.Errorf("stub: %w", diskspace.ErrInsufficientSpace)
+		},
+	})
+	if !errors.Is(err, diskspace.ErrInsufficientSpace) {
+		t.Fatalf("preflightDiskSpace error = %v, want ErrInsufficientSpace", err)
+	}
+}
+
+func TestPreflightDiskSpaceAllowsSufficientCapacity(t *testing.T) {
+	dataDir := filepath.Join(t.TempDir(), "installation")
+	if err := store.Initialize(t.Context(), dataDir); err != nil {
+		t.Fatalf("initialize installation: %v", err)
+	}
+	outputPath := filepath.Join(t.TempDir(), "backup.zip")
+
+	var observedPath string
+	var observedNeeded uint64
+	err := preflightDiskSpace(preflightDiskSpaceInput{
+		DataDir:    dataDir,
+		OutputPath: outputPath,
+		RequireFree: func(path string, needed uint64) error {
+			observedPath, observedNeeded = path, needed
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("preflightDiskSpace: %v", err)
+	}
+	if observedPath != filepath.Dir(outputPath) {
+		t.Fatalf("preflight checked %q, want %q", observedPath, filepath.Dir(outputPath))
+	}
+	if observedNeeded < backupDiskSpaceMarginBytes {
+		t.Fatalf("preflight needed %d bytes, want at least the %d byte margin",
+			observedNeeded, backupDiskSpaceMarginBytes)
+	}
+}
+
+func TestCreateRecordsCompletionMarkerForDiagnosticsAge(t *testing.T) {
+	ctx := t.Context()
+	dataDir := filepath.Join(t.TempDir(), "installation")
+	if err := store.Initialize(ctx, dataDir); err != nil {
+		t.Fatalf("initialize installation: %v", err)
+	}
+	if _, _, err := LastCompletedAt(dataDir); err != nil {
+		t.Fatalf("LastCompletedAt before any Backup: %v", err)
+	}
+	if _, found, err := LastCompletedAt(dataDir); err != nil || found {
+		t.Fatalf("LastCompletedAt before any Backup = (found %v, err %v), want (false, nil)", found, err)
+	}
+
+	completedAt := time.Date(2026, 8, 4, 9, 0, 0, 0, time.UTC)
+	archivePath := filepath.Join(t.TempDir(), "backup.zip")
+	if _, err := Create(ctx, CreateInput{
+		DataDir:       dataDir,
+		OutputPath:    archivePath,
+		Mode:          Sanitized,
+		Now:           completedAt,
+		Configuration: testConfiguration(t, dataDir, ""),
+	}); err != nil {
+		t.Fatalf("create Backup: %v", err)
+	}
+
+	found, ok, err := LastCompletedAt(dataDir)
+	if err != nil {
+		t.Fatalf("LastCompletedAt after Backup: %v", err)
+	}
+	if !ok {
+		t.Fatal("LastCompletedAt after Backup unexpectedly reported no completion")
+	}
+	if !found.Equal(completedAt) {
+		t.Fatalf("Backup completion time = %s, want %s", found, completedAt)
 	}
 }
 
