@@ -286,24 +286,24 @@ func (installation *SQLite) LoadDisplayStatus(
 	displayID int,
 ) (DisplayStatus, error) {
 	internalContext := systemContext(ctx)
-	found, err := installation.client.Display.Get(internalContext, displayID)
+	found, err := installation.readClient().Display.Get(internalContext, displayID)
 	if ent.IsNotFound(err) {
 		return DisplayStatus{}, ErrDisplayNotFound
 	}
 	if err != nil {
 		return DisplayStatus{}, opaqueError("load Display status", err)
 	}
-	routing, err := loadDisplayRouting(internalContext, installation.client)
+	routing, err := loadDisplayRouting(internalContext, installation.readClient())
 	if err != nil {
 		return DisplayStatus{}, err
 	}
-	return loadDisplayStatus(internalContext, installation.client, found, routing)
+	return loadDisplayStatus(internalContext, installation.readClient(), found, routing)
 }
 
 // ListDisplayStatuses returns one snapshot's Active Event and crew-visible Assignment summaries.
 func (installation *SQLite) ListDisplayStatuses(ctx context.Context) (int, []DisplayStatus, error) {
 	internalContext := systemContext(ctx)
-	transaction, err := installation.client.Tx(internalContext)
+	transaction, err := installation.readClient().Tx(internalContext)
 	if err != nil {
 		return 0, nil, opaqueError("begin Display status snapshot", err)
 	}

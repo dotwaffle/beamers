@@ -76,7 +76,7 @@ type PublicCompetitionEntry struct {
 // LoadPublicSchedule returns the Active Event's current public projection.
 func (installationStore *SQLite) LoadPublicSchedule(ctx context.Context) (PublicScheduleState, error) {
 	internalContext := systemContext(ctx)
-	active, err := installationStore.client.Installation.Query().
+	active, err := installationStore.readClient().Installation.Query().
 		Where(installation.ActiveEventIDNotNil()).
 		Only(internalContext)
 	if ent.IsNotFound(err) {
@@ -85,7 +85,7 @@ func (installationStore *SQLite) LoadPublicSchedule(ctx context.Context) (Public
 	if err != nil {
 		return PublicScheduleState{}, opaqueError("load public Schedule routing", err)
 	}
-	activeEvent, err := installationStore.client.Event.Get(internalContext, *active.ActiveEventID)
+	activeEvent, err := installationStore.readClient().Event.Get(internalContext, *active.ActiveEventID)
 	if err != nil {
 		return PublicScheduleState{}, opaqueError("load public Schedule Event", err)
 	}
@@ -107,7 +107,7 @@ func (installationStore *SQLite) loadPublicScheduleNames(
 	ctx context.Context,
 	result *PublicScheduleState,
 ) error {
-	locations, err := installationStore.client.Location.Query().
+	locations, err := installationStore.readClient().Location.Query().
 		Where(location.EventIDEQ(result.EventID)).All(ctx)
 	if err != nil {
 		return opaqueError("load public Schedule Locations", err)
@@ -125,7 +125,7 @@ func (installationStore *SQLite) loadPublicScheduleNames(
 		}
 		result.Locations = append(result.Locations, PublicScheduleLocation{ID: identity.ID, Name: version.Name})
 	}
-	lanes, err := installationStore.client.Lane.Query().Where(lane.EventIDEQ(result.EventID)).All(ctx)
+	lanes, err := installationStore.readClient().Lane.Query().Where(lane.EventIDEQ(result.EventID)).All(ctx)
 	if err != nil {
 		return opaqueError("load public Schedule Lanes", err)
 	}
@@ -142,7 +142,7 @@ func (installationStore *SQLite) loadPublicScheduleNames(
 		}
 		result.Lanes = append(result.Lanes, PublicScheduleLane{ID: identity.ID, Name: version.Name})
 	}
-	tracks, err := installationStore.client.Track.Query().Where(track.EventIDEQ(result.EventID)).All(ctx)
+	tracks, err := installationStore.readClient().Track.Query().Where(track.EventIDEQ(result.EventID)).All(ctx)
 	if err != nil {
 		return opaqueError("load public Schedule Tracks", err)
 	}
@@ -166,7 +166,7 @@ func (installationStore *SQLite) loadPublicScheduleSessions(
 	ctx context.Context,
 	result *PublicScheduleState,
 ) error {
-	sessions, err := installationStore.client.Session.Query().Where(session.EventIDEQ(result.EventID)).All(ctx)
+	sessions, err := installationStore.readClient().Session.Query().Where(session.EventIDEQ(result.EventID)).All(ctx)
 	if err != nil {
 		return opaqueError("load public Schedule Sessions", err)
 	}
@@ -193,7 +193,7 @@ func (installationStore *SQLite) loadPublicScheduleSessions(
 		var actualStart time.Time
 		var actualEnd *time.Time
 		runDuration := version.PlannedEnd.Sub(version.PlannedStart)
-		run, queryErr := installationStore.client.SessionRun.Query().
+		run, queryErr := installationStore.readClient().SessionRun.Query().
 			Where(sessionrun.SessionIDEQ(identity.ID)).Order(ent.Desc(sessionrun.FieldID)).First(ctx)
 		if queryErr != nil && !ent.IsNotFound(queryErr) {
 			return opaqueError("load public Schedule Session Run", queryErr)
@@ -217,7 +217,7 @@ func (installationStore *SQLite) loadPublicScheduleSessions(
 		})
 		var competitionEntries []PublicCompetitionEntry
 		if version.Type == sessionpublishedversion.TypeCompetition {
-			entries, entriesErr := installationStore.client.CompetitionEntry.Query().
+			entries, entriesErr := installationStore.readClient().CompetitionEntry.Query().
 				Where(
 					competitionentry.CompetitionSessionIDEQ(identity.ID),
 					competitionentry.DispositionEQ(competitionentry.DispositionIncluded),
@@ -258,7 +258,7 @@ func (installationStore *SQLite) loadPublicScheduleSessions(
 		}
 		publicTime, queryErr := loadPublicTimeFacts(
 			ctx,
-			installationStore.client,
+			installationStore.readClient(),
 			publicTimeFactsParams{
 				Session:     identity,
 				Lifecycle:   publictime.Lifecycle(identity.Lifecycle.String()),
