@@ -360,6 +360,8 @@ function renderSnapshot(snapshot, offset) {
     "--display-signal",
     composition.theme.signalColor || composition.theme.accentColor,
   );
+  main.style.setProperty("--display-live", composition.theme.liveColor);
+  main.style.setProperty("--display-danger", composition.theme.dangerColor);
   main.style.setProperty("--display-scrim", composition.theme.scrimColor);
   main.style.setProperty("--display-scrim-opacity", composition.theme.scrimOpacity / 100);
   const alpha = Math.round((composition.theme.scrimOpacity / 100) * 255)
@@ -699,6 +701,7 @@ function prepareStageTimer(region, snapshot, reference) {
   const clock = document.createElement("time");
   const emphasis = document.createElement("p");
   const adjustmentNotice = prepareTimerAdjustmentNotice(timer, reference);
+  direction.dataset.timerDirection = "true";
   clock.dataset.stageTimerClock = "true";
   emphasis.dataset.timerEmphasisLabel = "true";
   region.append(direction, clock, emphasis);
@@ -846,10 +849,40 @@ function renderSession(parent, snapshot, session) {
     appendParagraph(parent, session.availabilityMessage);
     return;
   }
+  parent.dataset.lifecycle = session.lifecycle;
+  if (parent.dataset.slot === "now" || parent.dataset.slot === "next") {
+    appendKicker(parent, snapshot, session);
+  }
   appendHeading(parent, session.title, 3);
+  appendLifecycleBadge(parent, session);
   appendSessionSchedule(parent, snapshot, session);
   appendOptionalParagraph(parent, session.speaker);
   appendOptionalParagraph(parent, session.publicDetails);
+}
+
+// appendKicker labels a Now / Next card. NOW only claims a Session that is
+// actually Live; a card can hold the next upcoming Session before it starts,
+// and showing NOW there would claim it was running when it is not.
+function appendKicker(parent, snapshot, session) {
+  const kicker = document.createElement("p");
+  kicker.className = "display-kicker";
+  kicker.textContent = session.lifecycle === "Live"
+    ? "NOW"
+    : `UP NEXT · ${formatScheduleTime(snapshot, session.presentedStart)}`;
+  parent.append(kicker);
+}
+
+// appendLifecycleBadge marks Live and Canceled explicitly. Scheduled and
+// Ended are the unmarked default state and would only add noise.
+function appendLifecycleBadge(parent, session) {
+  if (session.lifecycle !== "Live" && session.lifecycle !== "Canceled") {
+    return;
+  }
+  const badge = document.createElement("span");
+  badge.className = "display-badge";
+  badge.dataset.lifecycle = session.lifecycle;
+  badge.textContent = session.lifecycle;
+  parent.append(badge);
 }
 
 function startRotation(main, seconds) {

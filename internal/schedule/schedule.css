@@ -28,6 +28,47 @@ article p {
   margin-block: 0.35rem;
 }
 
+/* Lifecycle badge. Live and Canceled use the Event Theme's validated Live and
+ * Danger inks, the same pairing the Display badges use, so both surfaces
+ * agree on what "Live" and "Canceled" look like. */
+.lifecycle-badge {
+  display: inline-block;
+  margin-inline-start: 0.5rem;
+  padding: 0.1em 0.6em;
+  border-radius: 999px;
+  font-size: 0.75em;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.lifecycle-badge[data-lifecycle="Live"] {
+  background: var(--live);
+  color: var(--live-ink);
+}
+
+.lifecycle-badge[data-lifecycle="Canceled"] {
+  background: var(--danger);
+  color: var(--danger-ink);
+}
+/* Forced-colors mode replaces the authored background and ink with system
+ * colors, which would otherwise collapse the badge to unbounded text. A
+ * system-color border keeps it a badge; the struck-through title below
+ * remains Canceled's non-color mark. */
+@media (forced-colors: active) {
+  .lifecycle-badge {
+    border: 0.1em solid CanvasText;
+  }
+}
+
+/* A Canceled title is struck through wherever it appears, so the state
+ * survives even a glance that misses the badge. */
+a[data-lifecycle="Canceled"],
+h1[data-lifecycle="Canceled"] {
+  text-decoration: line-through;
+}
+
 @media (min-width: 48rem) {
   article {
     display: grid;

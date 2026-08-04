@@ -739,6 +739,8 @@ type DisplayTheme struct {
 	ScrimOpacity    uint32                 `protobuf:"varint,7,opt,name=scrim_opacity,json=scrimOpacity,proto3" json:"scrim_opacity,omitempty"`
 	Font            string                 `protobuf:"bytes,8,opt,name=font,proto3" json:"font,omitempty"`
 	Transition      string                 `protobuf:"bytes,9,opt,name=transition,proto3" json:"transition,omitempty"`
+	LiveColor       string                 `protobuf:"bytes,10,opt,name=live_color,json=liveColor,proto3" json:"live_color,omitempty"`
+	DangerColor     string                 `protobuf:"bytes,11,opt,name=danger_color,json=dangerColor,proto3" json:"danger_color,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -832,6 +834,20 @@ func (x *DisplayTheme) GetFont() string {
 func (x *DisplayTheme) GetTransition() string {
 	if x != nil {
 		return x.Transition
+	}
+	return ""
+}
+
+func (x *DisplayTheme) GetLiveColor() string {
+	if x != nil {
+		return x.LiveColor
+	}
+	return ""
+}
+
+func (x *DisplayTheme) GetDangerColor() string {
+	if x != nil {
+		return x.DangerColor
 	}
 	return ""
 }
@@ -1745,7 +1761,7 @@ const file_beamers_display_v1_display_proto_rawDesc = "" +
 	"\x06widget\x18\x02 \x01(\tR\x06widget\x12\x1e\n" +
 	"\n" +
 	"persistent\x18\x03 \x01(\bR\n" +
-	"persistent\"\xbd\x02\n" +
+	"persistent\"\xff\x02\n" +
 	"\fDisplayTheme\x12\x1a\n" +
 	"\bbranding\x18\x01 \x01(\tR\bbranding\x12)\n" +
 	"\x10foreground_color\x18\x02 \x01(\tR\x0fforegroundColor\x12)\n" +
@@ -1760,7 +1776,11 @@ const file_beamers_display_v1_display_proto_rawDesc = "" +
 	"\x04font\x18\b \x01(\tR\x04font\x12\x1e\n" +
 	"\n" +
 	"transition\x18\t \x01(\tR\n" +
-	"transition\"\xa3\b\n" +
+	"transition\x12\x1d\n" +
+	"\n" +
+	"live_color\x18\n" +
+	" \x01(\tR\tliveColor\x12!\n" +
+	"\fdanger_color\x18\v \x01(\tR\vdangerColor\"\xa3\b\n" +
 	"\x0eDisplaySession\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x18\n" +

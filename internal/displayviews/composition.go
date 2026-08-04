@@ -79,6 +79,8 @@ type Theme struct {
 	BackgroundColor string `json:"background_color"`
 	AccentColor     string `json:"accent_color"`
 	SignalColor     string `json:"signal_color"`
+	LiveColor       string `json:"live_color"`
+	DangerColor     string `json:"danger_color"`
 	Background      string `json:"background"`
 	ScrimColor      string `json:"scrim_color"`
 	ScrimOpacity    int    `json:"scrim_opacity"`
@@ -135,6 +137,8 @@ func DefaultConfiguration() Configuration {
 			BackgroundColor: "#101828",
 			AccentColor:     "#1d4ed8",
 			SignalColor:     "#62ebcb",
+			LiveColor:       "#ff7b72",
+			DangerColor:     "#ff8fa3",
 			Background:      BackgroundSolid,
 			ScrimColor:      "#000000",
 			ScrimOpacity:    85,
@@ -151,6 +155,12 @@ func NormalizeConfiguration(configuration Configuration) Configuration {
 	}
 	if configuration.Theme.SignalColor == "" {
 		configuration.Theme.SignalColor = DefaultConfiguration().Theme.SignalColor
+	}
+	if configuration.Theme.LiveColor == "" {
+		configuration.Theme.LiveColor = DefaultConfiguration().Theme.LiveColor
+	}
+	if configuration.Theme.DangerColor == "" {
+		configuration.Theme.DangerColor = DefaultConfiguration().Theme.DangerColor
 	}
 	return configuration
 }
@@ -231,6 +241,12 @@ func ValidateConfiguration(configuration Configuration) error {
 		return err
 	}
 	if _, err = parseColor("theme.signal_color", configuration.Theme.SignalColor); err != nil {
+		return err
+	}
+	if _, err = parseColor("theme.live_color", configuration.Theme.LiveColor); err != nil {
+		return err
+	}
+	if _, err = parseColor("theme.danger_color", configuration.Theme.DangerColor); err != nil {
 		return err
 	}
 	if contrastRatio(foreground, background) < minimumTextContrast {

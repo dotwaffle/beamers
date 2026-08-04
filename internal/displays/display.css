@@ -55,7 +55,7 @@ body {
 	color: #111;
 	background: #ffd400;
 	border-block-start: clamp(0.35rem, 0.7vw, 0.75rem) double #111;
-	font: 700 clamp(1rem, 2vw, 2.5rem)/1.3 system-ui, sans-serif;
+	font: 700 var(--display-text-lead)/1.3 system-ui, sans-serif;
 }
 .stage-message {
 	position: fixed;
@@ -67,6 +67,7 @@ body {
 	color: #101828;
 	background: #fff;
 	box-shadow: 0 .5rem 2rem rgb(0 0 0 / 50%);
+	font-size: var(--display-text-body);
 }
 .stage-message[data-emphasis="Attention"] {
 	border-style: double;
@@ -75,7 +76,7 @@ body {
 .stage-message[data-emphasis="Urgent"] {
 	border-style: dashed;
 	border-width: .6rem;
-	font-size: 1.2em;
+	font-size: var(--display-text-lead);
 	text-transform: uppercase;
 }
 .display-font-serif {
@@ -167,17 +168,49 @@ body {
 	font-weight: 700;
 	line-height: 1;
 }
+/* Attention and Urgent both keep the outline: it is the non-color cue that
+ * still reads for a color-blind viewer when the fill below is invisible to
+ * them. Urgent adds an inverted fill on the theme's validated Danger ink pair
+ * so the two levels are distinguishable at distance by shape, not only by
+ * which line style borders them. */
+[data-timer-emphasis-label] {
+	font-size: var(--display-text-h2);
+	font-weight: 700;
+}
 [data-timer-emphasis="attention"] {
 	outline: 0.4rem solid currentcolor;
 	outline-offset: 0.5rem;
 }
 [data-timer-emphasis="urgent"] {
-	border: 0.6rem double currentcolor;
+	outline: 0.4rem solid currentcolor;
+	outline-offset: 0.5rem;
 	padding: clamp(0.5rem, 2vw, 2rem);
+	background: var(--display-danger, #ff8fa3);
+	color: #2a0710;
 }
+[data-timer-direction] {
+	font-size: var(--display-text-h2);
+	font-weight: 700;
+}
+/* Overtime recolors and inverts the digits on the theme's signal color rather
+ * than a plain underline, which only read at arm's length. A slow pulse adds a
+ * second, motion-based cue but only where the viewer accepts both motion and
+ * Beamers' own reduced-effects preference; .display-transition-none is worn
+ * whenever either one applies, since Reduced Effects already forces it. */
 [data-timer-overtime="true"] [data-stage-timer-clock] {
-	text-decoration: underline;
-	text-decoration-thickness: 0.08em;
+	padding: 0 0.15em;
+	border-radius: 0.1em;
+	background: var(--display-signal, #62ebcb);
+	color: #062421;
+}
+@media (prefers-reduced-motion: no-preference) {
+	.display-view:not(.display-transition-none)
+		[data-timer-overtime="true"] [data-stage-timer-clock] {
+		animation: display-overtime-pulse 3s ease-in-out infinite;
+	}
+}
+@keyframes display-overtime-pulse {
+	50% { opacity: 0.7; }
 }
 /* Display type scale.
  *
@@ -188,8 +221,14 @@ body {
  *
  * The steps are viewport-relative because a Display is read at a distance that
  * grows with the panel, unlike a Crew Client read at arm's length.
+ *
+ * Declared on :root rather than .display-view: the Stage Message and Urgent
+ * Notice overlay both mount directly on body, outside the View root, and a
+ * declaration scoped to .display-view would leave var(--display-text-*)
+ * unresolved there. Nothing on a venue screen may fall back to the browser's
+ * default 16px.
  */
-.display-view {
+:root {
 	--display-text-caption: clamp(0.75rem, 0.9vw, 1.4rem);
 	--display-text-body: clamp(1rem, 1.45vw, 2.25rem);
 	--display-text-lead: clamp(1.15rem, 1.9vw, 3rem);
@@ -252,6 +291,65 @@ body {
 
 .display-region [data-slot="next"] h3 {
 	font-size: var(--display-text-lead);
+}
+
+/* Kicker: NOW only claims a card that is actually Live; a card can hold the
+ * next upcoming Session before it starts, and UP NEXT plus its start time
+ * says so instead of implying it is already running. */
+.display-kicker {
+	margin-block: 0 0.2em;
+	font-size: var(--display-text-caption);
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	opacity: 0.85;
+}
+
+/* A Live card carries a signal-color edge in addition to its kicker and
+ * badge, so "this is the one actually running" survives a glance from across
+ * the room even before the kicker text is legible. */
+.display-region[data-widget="now-next"] [data-slot="now"][data-lifecycle="Live"] {
+	border-inline-start: 0.35rem solid var(--display-signal, #62ebcb);
+	padding-inline-start: 0.75rem;
+}
+
+/* Lifecycle badge. Live and Canceled use the theme's validated Live and
+ * Danger inks -- the same pairing the public Schedule badges use -- so the
+ * two surfaces agree on what "Live" and "Canceled" look like. */
+.display-badge {
+	display: inline-block;
+	margin-block-end: 0.3em;
+	padding: 0.15em 0.65em;
+	border-radius: 999px;
+	font-size: var(--display-text-caption);
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+.display-badge[data-lifecycle="Live"] {
+	background: var(--display-live, #ff7b72);
+	color: #2a0403;
+}
+.display-badge[data-lifecycle="Canceled"] {
+	background: var(--display-danger, #ff8fa3);
+	color: #2a0710;
+}
+/* Forced-colors mode replaces the authored background and ink pairs with
+ * system colors, so the badge would otherwise collapse to unbounded text
+ * indistinguishable from the surrounding line. A system-color border keeps
+ * it a badge; Canceled additionally borrows the title's own strike-through
+ * as its non-color mark, since Live and Canceled cannot differ by fill here. */
+@media (forced-colors: active) {
+	.display-badge {
+		border: 0.15em solid CanvasText;
+	}
+}
+
+/* A Canceled Session's title is struck through wherever it still appears --
+ * the badge alone can be missed at a glance, and the strike survives even if
+ * a viewer only skims the heading. */
+[data-lifecycle="Canceled"] h3 {
+	text-decoration: line-through;
 }
 
 /* A clock or a Session boundary is read as digits, so it must not reflow as the
@@ -515,22 +613,56 @@ body {
 			/ minmax(0, 1fr) auto;
 	}
 }
+/* Connection badge.
+ *
+ * Read from across a room, "the last frame is still valid" (Stale, amber) and
+ * "this Display has lost its authoritative source" (Disconnected, red) cannot
+ * share one look, or a frozen panel reads as live. Both states scale the badge
+ * up from arm's-length text, and a Disconnected outage that runs long enough
+ * to matter dims the whole frame so it never quietly passes as current.
+ */
 #display-connection {
 	position: fixed;
 	right: 1rem;
 	bottom: 1rem;
 	z-index: 1000;
 	margin: 0;
-	padding: 0.5rem 0.75rem;
-	border-radius: 0.25rem;
+	padding: 0.5rem 1rem;
+	border-radius: 0.35rem;
 	background: #111;
 	color: #fff;
+	font-size: var(--display-text-lead);
+	font-weight: 700;
 }
-html[data-connection="disconnected"] #display-connection {
+html[data-connection="stale"] #display-connection {
+	background: #b45309;
+	color: #fff;
+	outline: 0.2rem solid #fff;
 	animation: display-connection-pulse 4s ease-in-out infinite;
 }
+/* "reconnecting" carries the same outage semantics as "disconnected": it is
+ * the state a retry attempt occupies between scheduleRecovery marking the
+ * Display disconnected and a fetch actually confirming the authoritative
+ * source is back. Un-styling it for the length of every retry would brighten
+ * and un-badge the frame each attempt even though nothing has recovered yet. */
+html[data-connection="disconnected"] #display-connection,
+html[data-connection="reconnecting"] #display-connection {
+	background: #7f1d1d;
+	color: #fff;
+	outline: 0.2rem solid #fff;
+	animation: display-connection-pulse 4s ease-in-out infinite;
+}
+/* The pulse animates an outline rather than the badge's own opacity: fading
+ * the fill would fade its text along with it, and the resulting text-on-fill
+ * contrast falls below the Display contrast requirement for part of every
+ * cycle. Outline opacity carries the same motion cue without touching the
+ * text a viewer is trying to read. */
 @keyframes display-connection-pulse {
-	50% { opacity: 0.55; }
+	50% { outline-color: transparent; }
+}
+html[data-connection="disconnected"] .display-view,
+html[data-connection="reconnecting"] .display-view {
+	filter: brightness(0.6);
 }
 html[data-connection="connected"] #display-connection {
 	width: 1px;

@@ -257,6 +257,22 @@ func displayProgressPercent(start, end, now time.Time) string {
 	return strconv.Itoa(int(math.Round(displayProgressFraction(start, end, now) * 100)))
 }
 
+// displaySessionKicker labels a Now / Next card the same way client.js does:
+// NOW only claims a Session that is actually Live, otherwise the card names
+// when the Session is expected instead of implying it is already running.
+func displaySessionKicker(session Session) string {
+	if session.Lifecycle == "Live" {
+		return "NOW"
+	}
+	return "UP NEXT · " + session.DisplayPresentedStart
+}
+
+// displayLifecycleBadge reports whether a Session earns a lifecycle badge.
+// Scheduled and Ended are the unmarked default state and would only add noise.
+func displayLifecycleBadge(session Session) bool {
+	return session.Lifecycle == "Live" || session.Lifecycle == "Canceled"
+}
+
 // displayNowNextSlot ranks the two Sessions a Now / Next Region shows. The rank
 // drives presentation only: read from across a room, two equally weighted
 // Sessions leave the viewer working out which one is actually running.
@@ -366,11 +382,14 @@ func displayThemeStyle(snapshot Snapshot) templ.SafeCSS {
 	// Event content from becoming CSS syntax.
 	return templ.SafeCSS(fmt.Sprintf(
 		"--display-foreground:%s;--display-background:%s;--display-accent:%s;"+
-			"--display-signal:%s;--display-scrim-layer:%s%02x",
+			"--display-signal:%s;--display-live:%s;--display-danger:%s;"+
+			"--display-scrim-layer:%s%02x",
 		theme.ForegroundColor,
 		theme.BackgroundColor,
 		theme.AccentColor,
 		theme.SignalColor,
+		theme.LiveColor,
+		theme.DangerColor,
 		theme.ScrimColor,
 		alpha,
 	))
@@ -394,7 +413,8 @@ func eventDisplayTheme(config themevalue.Config, branding string) displayviews.T
 		ForegroundColor: config.TextColor, BackgroundColor: config.BackgroundColor,
 		AccentColor: config.SurfaceColor, Background: background,
 		SignalColor: config.AccentColor,
-		ScrimColor:  "#000000", ScrimOpacity: 85,
+		LiveColor:   config.LiveColor, DangerColor: config.DangerColor,
+		ScrimColor: "#000000", ScrimOpacity: 85,
 		Font: font, Transition: transition,
 	}
 }
