@@ -230,34 +230,6 @@ func displayClockTime(snapshot Snapshot) string {
 	return snapshot.ServerTime.In(zone).Format("15:04")
 }
 
-// displayTimerSpan bounds the Session a Stage Timer is counting. It mirrors the
-// same derivation in internal/displays/client.js, so the entry document and the
-// client draw the same bar.
-func displayTimerSpan(snapshot Snapshot) (time.Time, time.Time) {
-	if snapshot.StageTimer == nil {
-		return time.Time{}, time.Time{}
-	}
-	var counted Session
-	for _, session := range snapshot.Sessions {
-		if session.ID == snapshot.StageTimer.SessionID {
-			counted = session
-			break
-		}
-	}
-	if snapshot.StageTimer.Mode == stagetimer.Elapsed {
-		end := snapshot.StageTimer.ForecastEnd
-		if end.IsZero() {
-			end = counted.PresentedEnd
-		}
-		return snapshot.StageTimer.Anchor, end
-	}
-	start := counted.PresentedStart
-	if start.IsZero() {
-		start = counted.ForecastStart
-	}
-	return start, snapshot.StageTimer.Anchor
-}
-
 // displayProgressMeasurable reports whether a span can carry an elapsed bar. An
 // unmeasurable span renders no bar at all rather than an empty one, which would
 // claim the Session had not started.
@@ -323,9 +295,8 @@ type stageTimerPresentation struct {
 	AdjustmentNotice          string
 	AdjustmentNoticeExpiresAt time.Time
 	Overtime                  bool
-	// SpanStart and SpanEnd bound the Session the timer is counting, so the
-	// elapsed bar can report progress. A countdown anchors on the end and an
-	// elapsed timer on the start, so the missing edge comes from the Session.
+	// SpanStart and SpanEnd carry the span projectStageTimerSpan bounded, so
+	// the elapsed bar can report progress.
 	SpanStart time.Time
 	SpanEnd   time.Time
 }
@@ -363,9 +334,8 @@ func displayStageTimer(snapshot Snapshot) (stageTimerPresentation, bool) {
 		}
 		displayForecastEnd = forecastEnd.In(zone).Format(publictime.TimeLayout)
 	}
-	spanStart, spanEnd := displayTimerSpan(snapshot)
 	return stageTimerPresentation{
-		SpanStart: spanStart, SpanEnd: spanEnd,
+		SpanStart: snapshot.StageTimer.SpanStart, SpanEnd: snapshot.StageTimer.SpanEnd,
 		Title: snapshot.StageTimer.Title, Direction: direction,
 		Text: frame.Text, Emphasis: emphasis, EmphasisLabel: label,
 		Anchor: snapshot.StageTimer.Anchor, ForecastEnd: forecastEnd,

@@ -705,19 +705,10 @@ function prepareStageTimer(region, snapshot, reference) {
     appendParagraph(region, `Forecast End: ${formatClockTime(snapshot, forecastEnd)}`);
   }
 
-  // The timer's own span: a countdown anchors on the end, elapsed on the start,
-  // so the missing edge comes from the Session the timer is counting.
-  const counted = (snapshot.sessions ?? []).find(
-    (candidate) => String(candidate.id) === String(timer.sessionId),
-  );
-  const spanStart = timer.mode === "STAGE_TIMER_MODE_ELAPSED"
-    ? timer.anchor
-    : counted?.presentedStart ?? counted?.forecastStart;
-  const spanEnd = timer.mode === "STAGE_TIMER_MODE_ELAPSED"
-    ? timer.forecastEnd ?? counted?.presentedEnd
-    : timer.anchor;
-  if (spanStart && spanEnd) {
-    appendProgressBar(region, spanStart, spanEnd);
+  // The span is projected once server-side, so the entry document and this
+  // renderer draw the same bar. A missing edge means no bar at all.
+  if (timer.spanStart && timer.spanEnd) {
+    appendProgressBar(region, timer.spanStart, timer.spanEnd);
   }
 
   const update = (currentReference) => {

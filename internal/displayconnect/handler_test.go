@@ -52,6 +52,7 @@ func TestSnapshotMessageCarriesStageTimerContract(t *testing.T) {
 	anchor := time.Date(2026, 2, 7, 12, 30, 0, 0, time.UTC)
 	forecastEnd := anchor.Add(15 * time.Minute)
 	noticeExpires := anchor.Add(5 * time.Second)
+	spanStart := anchor.Add(-30 * time.Minute)
 	message, err := snapshotMessage(displays.Snapshot{
 		StageTimer: &displays.StageTimer{
 			SessionID:                 42,
@@ -61,6 +62,8 @@ func TestSnapshotMessageCarriesStageTimerContract(t *testing.T) {
 			ForecastEnd:               forecastEnd,
 			AdjustmentSeconds:         300,
 			AdjustmentNoticeExpiresAt: noticeExpires,
+			SpanStart:                 spanStart,
+			SpanEnd:                   anchor,
 			Thresholds: []stagetimer.Threshold{
 				{Remaining: 2 * time.Minute, Emphasis: stagetimer.Attention},
 				{Remaining: 30 * time.Second, Emphasis: stagetimer.Urgent},
@@ -87,6 +90,12 @@ func TestSnapshotMessageCarriesStageTimerContract(t *testing.T) {
 	if timer.GetAdjustmentSeconds() != 300 ||
 		!timer.GetAdjustmentNoticeExpiresAt().AsTime().Equal(noticeExpires) {
 		t.Errorf("adjustment notice = %+v", timer)
+	}
+	if got := timer.GetSpanStart().AsTime(); !got.Equal(spanStart) {
+		t.Errorf("span start = %v, want %v", got, spanStart)
+	}
+	if got := timer.GetSpanEnd().AsTime(); !got.Equal(anchor) {
+		t.Errorf("span end = %v, want %v", got, anchor)
 	}
 	if len(timer.GetThresholds()) != 2 ||
 		timer.GetThresholds()[0].GetRemainingSeconds() != 120 ||

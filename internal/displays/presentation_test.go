@@ -186,6 +186,8 @@ func TestDisplayPageServerRendersStageTimerState(t *testing.T) {
 			Thresholds: []stagetimer.Threshold{
 				{Remaining: time.Minute, Emphasis: stagetimer.Urgent},
 			},
+			SpanStart: now.Add(-30 * time.Minute),
+			SpanEnd:   now.Add(30 * time.Second),
 		},
 	}
 	var rendered strings.Builder
@@ -202,6 +204,10 @@ func TestDisplayPageServerRendersStageTimerState(t *testing.T) {
 		"Urgent",
 		"Time adjusted: +5:00",
 		"data-timer-adjustment-notice",
+		// The bar carries the span the projection bounded, the same values the
+		// streamed payload ships, so both renderers draw the same progress.
+		`data-progress-start="2099-08-21T07:30:30Z"`,
+		`data-progress-end="2099-08-21T08:01:00Z"`,
 	} {
 		if !strings.Contains(rendered.String(), want) {
 			t.Errorf("Stage Timer page missing %q: %s", want, rendered.String())

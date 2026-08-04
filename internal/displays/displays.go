@@ -255,6 +255,13 @@ type StageTimer struct {
 	Thresholds                []stagetimer.Threshold
 	AdjustmentSeconds         int
 	AdjustmentNoticeExpiresAt time.Time
+	// SpanStart and SpanEnd bound the Session the timer is counting, so the
+	// elapsed bar can report progress. They are projected once, after the
+	// Sessions are presented, so the entry document and the browser renderer
+	// cannot disagree. A zero edge means the span is unmeasurable and no bar
+	// is drawn.
+	SpanStart time.Time
+	SpanEnd   time.Time
 }
 
 // ProgramItem is one Display-safe committed presentation state.
@@ -451,6 +458,10 @@ func (service *Service) Current(ctx context.Context, credential string) (Snapsho
 			return Snapshot{}, errors.Join(errors.New("project Timeline"), err)
 		}
 	}
+	if result.StageTimer != nil {
+		result.StageTimer.SpanStart, result.StageTimer.SpanEnd =
+			projectStageTimerSpan(*result.StageTimer, result.Sessions)
+	}
 	completedAt := service.now().UTC()
 	result.ServerTime = now.Add(completedAt.Sub(now) / 2)
 	return result, nil
@@ -566,6 +577,32 @@ func projectStageTimer(
 		AdjustmentSeconds:         selected.TargetAdjustmentSeconds,
 		AdjustmentNoticeExpiresAt: selected.TargetAdjustedAt.Add(5 * time.Second),
 	}, true, nil
+}
+
+// projectStageTimerSpan bounds the Session a Stage Timer is counting. A
+// countdown anchors on the end and an elapsed timer on the start, so the
+// missing edge comes from the presented Session; a Session suppressed from
+// the View leaves that edge zero and the span unmeasurable.
+func projectStageTimerSpan(timer StageTimer, sessions []Session) (start, end time.Time) {
+	var counted Session
+	for _, session := range sessions {
+		if session.ID == timer.SessionID {
+			counted = session
+			break
+		}
+	}
+	if timer.Mode == stagetimer.Elapsed {
+		end = timer.ForecastEnd
+		if end.IsZero() {
+			end = counted.PresentedEnd
+		}
+		return timer.Anchor, end
+	}
+	start = counted.PresentedStart
+	if start.IsZero() {
+		start = counted.ForecastStart
+	}
+	return start, timer.Anchor
 }
 
 func timerThresholds(found []displayviews.TimerThreshold) []stagetimer.Threshold {
