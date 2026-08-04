@@ -70,6 +70,39 @@ func TestSystemdUnitDoesNotSilentlySkipStartOnMissingDatabase(t *testing.T) {
 	}
 }
 
+// TestShippedProfilesSetMemoryBounds pins that both shipped profiles cap
+// process memory rather than leaving the host unprotected from a runaway
+// process.
+func TestShippedProfilesSetMemoryBounds(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name  string
+		path  []string
+		bound *regexp.Regexp
+	}{
+		{
+			name:  "compose",
+			path:  []string{"..", "compose.yaml"},
+			bound: regexp.MustCompile(`(?m)^\s*mem_limit:\s*\S+\s*$`),
+		},
+		{
+			name:  "systemd",
+			path:  []string{"..", "deploy", "systemd", "beamers.service"},
+			bound: regexp.MustCompile(`(?m)^MemoryMax=\S+\s*$`),
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			content := readShippedProfile(t, test.path...)
+			if !test.bound.MatchString(content) {
+				t.Errorf("%s does not set a memory bound", test.name)
+			}
+		})
+	}
+}
+
 func readShippedProfile(t *testing.T, elem ...string) string {
 	t.Helper()
 

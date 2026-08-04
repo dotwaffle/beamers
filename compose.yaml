@@ -19,6 +19,7 @@ services:
     security_opt:
       - no-new-privileges:true
     pids_limit: 256
+    mem_limit: 4G
     ports:
       - "${BEAMERS_PORT:-8443}:8443"
     volumes:

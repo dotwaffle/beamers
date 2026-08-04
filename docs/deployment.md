@@ -134,6 +134,7 @@ systemctl enable --now beamers.service
 The unit always attempts to start; it does not gate on the database file existing.
 A missing or damaged database makes `serve` enter its documented local recovery mode instead of the unit silently staying inactive, so the problem is visible at `/readyz` and in diagnostics rather than presenting as a service that never came up.
 It sends `SIGTERM` to the Beamers process and gives it the 30-second budget configured with `--shutdown-timeout`, with `TimeoutStopSec=35s` as the platform kill deadline that budget must fit inside.
+`MemoryMax=4G` leaves half of the [reference hardware](capacity.md)'s 8 GB for the OS, Litestream, and other host processes while still covering the rated capacity envelope; a unit that exceeds it is killed rather than pushing the host into swap or OOM-killing something else.
 
 ## Run with Docker Compose
 
@@ -169,6 +170,7 @@ Do not run `docker compose down --volumes` unless intentionally destroying the i
 The image declares the same volume so an ad hoc container does not write authoritative state into its disposable layer.
 
 Compose uses an exec-form entrypoint, leaves Beamers as PID 1, sends `SIGTERM`, and enforces `stop_grace_period: 35s` as the platform kill deadline around the process's own 30-second `--shutdown-timeout`.
+`mem_limit: 4G` matches the systemd profile's bound: half of the [reference hardware](capacity.md)'s 8 GB, leaving headroom for the host while covering the rated capacity envelope.
 
 ## Back up and restore configuration
 
