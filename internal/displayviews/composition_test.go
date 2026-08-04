@@ -176,6 +176,8 @@ func TestValidateConfigurationAcceptsControlledTheme(t *testing.T) {
 		BackgroundColor: "#101828",
 		AccentColor:     "#1d4ed8",
 		SignalColor:     "#62ebcb",
+		LiveColor:       "#ff7b72",
+		DangerColor:     "#ff8fa3",
 		Background:      BackgroundVariableMedia,
 		ScrimColor:      "#000000",
 		ScrimOpacity:    85,

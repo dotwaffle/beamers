@@ -86,6 +86,8 @@ message DisplayTheme {
   uint32 scrim_opacity = 7;
   string font = 8;
   string transition = 9;
+  string live_color = 10;
+  string danger_color = 11;
 }
 
 message DisplaySession {

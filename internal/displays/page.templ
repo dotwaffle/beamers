@@ -242,7 +242,7 @@ templ displayRegion(snapshot Snapshot, name string, widget string, persistent bo
 		} else if widget == "stage-timer" {
 			if timer, ok := displayStageTimer(snapshot); ok {
 				<h2>{ timer.Title }</h2>
-				<p>{ timer.Direction }</p>
+				<p data-timer-direction>{ timer.Direction }</p>
 				<time data-stage-timer-clock datetime={ timer.Anchor.Format("2006-01-02T15:04:05Z07:00") }>{ timer.Text }</time>
 				<p data-timer-emphasis-label>{ timer.EmphasisLabel }</p>
 				if timer.AdjustmentNotice != "" && snapshot.ServerTime.Before(timer.AdjustmentNoticeExpiresAt) {
@@ -303,11 +303,17 @@ templ displaySessionRegion(
 	collapsed bool,
 	slot string,
 ) {
-	<article data-rotation-page?={ rotationPage } hidden?={ collapsed } data-slot={ slot }>
+	<article data-rotation-page?={ rotationPage } hidden?={ collapsed } data-slot={ slot } data-lifecycle={ session.Lifecycle }>
 		if session.Unavailable {
 			<p>{ session.AvailabilityMessage }</p>
 		} else {
+			if slot == "now" || slot == "next" {
+				<p class="display-kicker">{ displaySessionKicker(session) }</p>
+			}
 			<h3>{ session.Title }</h3>
+			if displayLifecycleBadge(session) {
+				<span class="display-badge" data-lifecycle={ session.Lifecycle }>{ session.Lifecycle }</span>
+			}
 			<p>Status: { session.Lifecycle }</p>
 			<dl class="display-times">
 				<dt>{ string(session.PresentedStartLabel) }:</dt>

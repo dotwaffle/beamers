@@ -27,6 +27,9 @@ func TestDisplayThemeUsesResolvedEventTheme(t *testing.T) {
 	config.Transition = themevalue.TransitionFade
 	config.Motion = themevalue.MotionStill
 
+	config.LiveColor = "#ff7b72"
+	config.DangerColor = "#ff8fa3"
+
 	theme := eventDisplayTheme(config, "Revision")
 	if theme.Branding != "Revision" ||
 		theme.BrandAsset != themevalue.BrandAssetSignal ||
@@ -34,10 +37,37 @@ func TestDisplayThemeUsesResolvedEventTheme(t *testing.T) {
 		theme.BackgroundColor != "#112233" ||
 		theme.AccentColor != "#223344" ||
 		theme.SignalColor != "#ffdf6e" ||
+		theme.LiveColor != "#ff7b72" ||
+		theme.DangerColor != "#ff8fa3" ||
 		theme.Background != displayviews.BackgroundNebula ||
 		theme.Font != displayviews.FontDemoscene ||
 		theme.Transition != displayviews.TransitionNone {
 		t.Fatalf("Display Event Theme = %+v", theme)
+	}
+}
+
+func TestDisplaySessionKickerAndLifecycleBadge(t *testing.T) {
+	t.Parallel()
+
+	live := Session{Lifecycle: "Live", DisplayPresentedStart: "2099-08-21 10:00"}
+	if got := displaySessionKicker(live); got != "NOW" {
+		t.Errorf("kicker for Live Session = %q, want NOW", got)
+	}
+	if !displayLifecycleBadge(live) {
+		t.Error("Live Session should carry a lifecycle badge")
+	}
+
+	upcoming := Session{Lifecycle: "Scheduled", DisplayPresentedStart: "2099-08-21 10:00"}
+	if got := displaySessionKicker(upcoming); got != "UP NEXT · 2099-08-21 10:00" {
+		t.Errorf("kicker for Scheduled Session = %q, want UP NEXT with its start time", got)
+	}
+	if displayLifecycleBadge(upcoming) {
+		t.Error("Scheduled Session should not carry a lifecycle badge")
+	}
+
+	canceled := Session{Lifecycle: "Canceled"}
+	if !displayLifecycleBadge(canceled) {
+		t.Error("Canceled Session should carry a lifecycle badge")
 	}
 }
 

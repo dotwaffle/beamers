@@ -7,6 +7,7 @@ import (
 	displayv1 "github.com/dotwaffle/beamers/gen/beamers/display/v1"
 	"github.com/dotwaffle/beamers/internal/displays"
 	"github.com/dotwaffle/beamers/internal/displaystream"
+	"github.com/dotwaffle/beamers/internal/displayviews"
 	"github.com/dotwaffle/beamers/internal/publictime"
 	"github.com/dotwaffle/beamers/internal/stagetimer"
 )
@@ -99,5 +100,23 @@ func TestSnapshotMessageCarriesStageTimerContract(t *testing.T) {
 		timer.GetThresholds()[0].GetRemainingSeconds() != 120 ||
 		timer.GetThresholds()[1].GetEmphasis() != displayv1.TimerEmphasis_TIMER_EMPHASIS_URGENT {
 		t.Errorf("thresholds = %+v", timer.GetThresholds())
+	}
+}
+
+func TestCompositionMessageCarriesLifecycleInks(t *testing.T) {
+	t.Parallel()
+
+	message := compositionMessage(displayviews.Composition{
+		Theme: displayviews.Theme{
+			LiveColor: "#ff7b72", DangerColor: "#ff8fa3",
+		},
+	})
+
+	theme := message.GetTheme()
+	if theme.GetLiveColor() != "#ff7b72" {
+		t.Errorf("live color = %q, want #ff7b72", theme.GetLiveColor())
+	}
+	if theme.GetDangerColor() != "#ff8fa3" {
+		t.Errorf("danger color = %q, want #ff8fa3", theme.GetDangerColor())
 	}
 }

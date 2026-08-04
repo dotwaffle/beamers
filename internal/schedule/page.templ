@@ -80,7 +80,8 @@ templ Page(snapshot Snapshot) {
 								<p class="calendar-date-rollover">Local calendar date: { session.LocalDate }</p>
 							}
 							<article id={ fmt.Sprintf("schedule-session-card-%d", session.ID) }>
-								<h3><a id={ fmt.Sprintf("schedule-session-%d", session.ID) } href={ session.PathWithTimezone(snapshot.ViewerTimezone) }>{ session.Title }</a></h3>
+								<h3><a id={ fmt.Sprintf("schedule-session-%d", session.ID) } data-lifecycle={ session.Lifecycle } href={ session.PathWithTimezone(snapshot.ViewerTimezone) }>{ session.Title }</a></h3>
+								@SessionLifecycleBadge(session)
 								@SessionDetails(session)
 								@FavoriteControl(snapshot, session, snapshot.ViewPath())
 							</article>
@@ -120,7 +121,8 @@ templ SessionPage(snapshot Snapshot, session Session, presentationPath string) {
 				"main-content",
 			) {
 				<main id="main-content" tabindex="-1">
-				<h1>{ session.Title }</h1>
+				<h1 data-lifecycle={ session.Lifecycle }>{ session.Title }</h1>
+				@SessionLifecycleBadge(session)
 				@SessionDetails(session)
 				@SessionAttachments(session)
 				if presentationPath != "" {
@@ -293,6 +295,15 @@ templ StructuralFilter(label string, name string, options []FilterOption) {
 			}
 		</select>
 	</label>
+}
+
+// SessionLifecycleBadge marks Live and Canceled explicitly, using the same
+// theme's validated Live and Danger inks the Display badges use. Scheduled
+// and Ended are the unmarked default state and would only add noise.
+templ SessionLifecycleBadge(session Session) {
+	if session.Lifecycle == "Live" || session.Lifecycle == "Canceled" {
+		<span class="lifecycle-badge" data-lifecycle={ session.Lifecycle }>{ session.Lifecycle }</span>
+	}
 }
 
 templ SessionDetails(session Session) {

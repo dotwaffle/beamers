@@ -360,6 +360,8 @@ function renderSnapshot(snapshot, offset) {
     "--display-signal",
     composition.theme.signalColor || composition.theme.accentColor,
   );
+  main.style.setProperty("--display-live", composition.theme.liveColor);
+  main.style.setProperty("--display-danger", composition.theme.dangerColor);
   main.style.setProperty("--display-scrim", composition.theme.scrimColor);
   main.style.setProperty("--display-scrim-opacity", composition.theme.scrimOpacity / 100);
   const alpha = Math.round((composition.theme.scrimOpacity / 100) * 255)
@@ -595,7 +597,7 @@ function renderWidget(region, widget, snapshot, theme, candidateClockReference) 
       article.dataset.slot = index === 0 ? "now" : "next";
       renderSession(article, snapshot, session);
       if (index === 0 && session.lifecycle === "Live") {
-        appendProgressBar(article, session.presentedStart, session.presentedEnd);
+        appendProgressBar(article, session.presentedStart, session.presentedEnd, candidateClockReference);
       }
       region.append(article);
     }
@@ -664,18 +666,26 @@ function renderWidget(region, widget, snapshot, theme, candidateClockReference) 
   }
 }
 
+// minuteAlignmentDelay is how long until the next minute boundary of the
+// estimated server clock. Scheduling from a fixed 60000ms interval instead
+// would let the displayed minute sit up to 59s stale, since a paint that
+// starts partway through a minute never catches back up to the boundary.
+function minuteAlignmentDelay(now) {
+  return 60000 - (now % 60000);
+}
+
 function prepareClock(clock, snapshot, reference) {
   const update = () => {
     const current = new Date(estimatedServerNow());
     clock.dateTime = current.toISOString();
     clock.textContent = formatClockTime(snapshot, current);
-    scheduleTrackedUpdate(update, 60000);
+    scheduleTrackedUpdate(update, minuteAlignmentDelay(estimatedServerNow()));
   };
   const current = new Date(estimatedServerNow(reference));
   clock.dateTime = current.toISOString();
   clock.textContent = formatClockTime(snapshot, current);
   return () => {
-    scheduleTrackedUpdate(update, 60000);
+    scheduleTrackedUpdate(update, minuteAlignmentDelay(estimatedServerNow(reference)));
   };
 }
 
@@ -691,6 +701,7 @@ function prepareStageTimer(region, snapshot, reference) {
   const clock = document.createElement("time");
   const emphasis = document.createElement("p");
   const adjustmentNotice = prepareTimerAdjustmentNotice(timer, reference);
+  direction.dataset.timerDirection = "true";
   clock.dataset.stageTimerClock = "true";
   emphasis.dataset.timerEmphasisLabel = "true";
   region.append(direction, clock, emphasis);
@@ -708,7 +719,7 @@ function prepareStageTimer(region, snapshot, reference) {
   // The span is projected once server-side, so the entry document and this
   // renderer draw the same bar. A missing edge means no bar at all.
   if (timer.spanStart && timer.spanEnd) {
-    appendProgressBar(region, timer.spanStart, timer.spanEnd);
+    appendProgressBar(region, timer.spanStart, timer.spanEnd, reference);
   }
 
   const update = (currentReference) => {
@@ -838,10 +849,40 @@ function renderSession(parent, snapshot, session) {
     appendParagraph(parent, session.availabilityMessage);
     return;
   }
+  parent.dataset.lifecycle = session.lifecycle;
+  if (parent.dataset.slot === "now" || parent.dataset.slot === "next") {
+    appendKicker(parent, snapshot, session);
+  }
   appendHeading(parent, session.title, 3);
+  appendLifecycleBadge(parent, session);
   appendSessionSchedule(parent, snapshot, session);
   appendOptionalParagraph(parent, session.speaker);
   appendOptionalParagraph(parent, session.publicDetails);
+}
+
+// appendKicker labels a Now / Next card. NOW only claims a Session that is
+// actually Live; a card can hold the next upcoming Session before it starts,
+// and showing NOW there would claim it was running when it is not.
+function appendKicker(parent, snapshot, session) {
+  const kicker = document.createElement("p");
+  kicker.className = "display-kicker";
+  kicker.textContent = session.lifecycle === "Live"
+    ? "NOW"
+    : `UP NEXT · ${formatScheduleTime(snapshot, session.presentedStart)}`;
+  parent.append(kicker);
+}
+
+// appendLifecycleBadge marks Live and Canceled explicitly. Scheduled and
+// Ended are the unmarked default state and would only add noise.
+function appendLifecycleBadge(parent, session) {
+  if (session.lifecycle !== "Live" && session.lifecycle !== "Canceled") {
+    return;
+  }
+  const badge = document.createElement("span");
+  badge.className = "display-badge";
+  badge.dataset.lifecycle = session.lifecycle;
+  badge.textContent = session.lifecycle;
+  parent.append(badge);
 }
 
 function startRotation(main, seconds) {
@@ -906,20 +947,27 @@ function appendTimeRow(parent, label, instant, text) {
   parent.append(term, value);
 }
 
-// appendProgressBar draws the elapsed bar for a span. startProgressUpdates fills
-// it from the span carried on the element itself.
-function appendProgressBar(parent, start, end) {
-  if (elapsedFraction(Date.parse(start), Date.parse(end), estimatedServerNow()) === null) {
+// appendProgressBar draws the elapsed bar for a span, carrying its starting
+// fraction before it ever joins the frame. Set only after insertion, a
+// re-render's bar paints at zero and then animates up to its true value on
+// the very next tick; the server-rendered entry document never has that
+// problem because its style attribute is part of the same markup as the
+// element, so this mirrors that by writing the property before parent.append.
+function appendProgressBar(parent, start, end, reference) {
+  const fraction = elapsedFraction(Date.parse(start), Date.parse(end), estimatedServerNow(reference));
+  if (fraction === null) {
     return;
   }
   const bar = document.createElement("div");
   bar.className = "display-progress";
   bar.dataset.progressStart = String(start);
   bar.dataset.progressEnd = String(end);
+  bar.style.setProperty("--display-progress", String(fraction));
   bar.setAttribute("role", "progressbar");
   bar.setAttribute("aria-label", "Elapsed");
   bar.setAttribute("aria-valuemin", "0");
   bar.setAttribute("aria-valuemax", "100");
+  bar.setAttribute("aria-valuenow", String(Math.round(fraction * 100)));
   parent.append(bar);
   return bar;
 }

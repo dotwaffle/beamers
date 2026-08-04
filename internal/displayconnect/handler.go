@@ -293,6 +293,7 @@ func compositionMessage(found displayviews.Composition) *displayv1.DisplayCompos
 			Background: theme.Background, ScrimColor: theme.ScrimColor,
 			ScrimOpacity: uint32(theme.ScrimOpacity), //nolint:gosec // Validated as 0..100.
 			Font:         theme.Font, Transition: theme.Transition,
+			LiveColor: theme.LiveColor, DangerColor: theme.DangerColor,
 		},
 	}
 }

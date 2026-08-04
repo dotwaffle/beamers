@@ -103,7 +103,9 @@ test("renderer failure retains the frame and reports instability", async () => {
   await browser.runTimer((delay) => delay === 0);
   assert.equal(browser.document.main, committedFrame);
   assert.equal(browser.acknowledgments.at(-1).rendererUnstable, true);
-  await browser.runTimer((delay) => delay === 60000);
+  // The clock re-renders on the true minute boundary rather than a flat 60s
+  // interval, so its next tick lands somewhere in (0, 60000].
+  await browser.runTimer((delay) => delay > 0 && delay <= 60000);
   assert.notEqual(clock.textContent, clockBeforeFailure);
 
   browser.failRendering = false;
@@ -354,6 +356,103 @@ test("persistent clock advances without replacing the committed frame", async ()
   await browser.runTimer((delay) => delay === 60000);
   assert.equal(browser.document.main, committedFrame);
   assert.notEqual(time.textContent, before);
+});
+
+test("persistent clock re-renders aligned to the true minute boundary", async () => {
+  const browser = await startBrowser({
+    snapshot: displaySnapshot({
+      serverTime: "2099-08-21T08:00:47Z",
+      eventTimezone: "UTC",
+      composition: displayComposition({
+        regions: [
+          {name: "clock", widget: "clock", persistent: true},
+        ],
+      }),
+    }),
+  });
+  // The clock synchronized 47 seconds into the minute, so the next re-render
+  // has to land on the minute boundary (13s away), never a flat 60s later --
+  // otherwise the digits sit up to 59s stale between paints.
+  assert.ok(browser.timerDelays().some((delay) => delay === 13000));
+  assert.ok(!browser.timerDelays().includes(60000));
+
+  await browser.runTimer((delay) => delay === 13000);
+  // Once aligned, the following re-render is a full minute later.
+  assert.ok(browser.timerDelays().some((delay) => delay === 60000));
+});
+
+test("progress bar carries its initial fraction before insertion into the frame", async () => {
+  const capturedAtInsertion = [];
+  const originalAppend = FakeNode.prototype.append;
+  FakeNode.prototype.append = function append(...children) {
+    for (const child of children) {
+      if (child.dataset?.progressStart) {
+        capturedAtInsertion.push(child.style.properties.get("--display-progress"));
+      }
+    }
+    return originalAppend.apply(this, children);
+  };
+  try {
+    await startBrowser({
+      snapshot: displaySnapshot({
+        serverTime: "2099-08-21T08:30:00Z",
+        standby: false,
+        viewKey: "location-signage",
+        composition: displayComposition({
+          key: "location-signage",
+          regions: [
+            {name: "now-next", widget: "now-next", persistent: true},
+          ],
+        }),
+        sessions: [{
+          ...displaySession("Current Session"),
+          lifecycle: "Live",
+          presentedStart: "2099-08-21T08:00:00Z",
+          presentedEnd: "2099-08-21T09:00:00Z",
+        }],
+      }),
+    });
+  } finally {
+    FakeNode.prototype.append = originalAppend;
+  }
+  assert.ok(capturedAtInsertion.length > 0, "expected a progress bar to be inserted");
+  // Set before parent.append(bar) runs, or a re-render's bar starts painted at
+  // zero and animates up to its true value instead of showing it immediately.
+  assert.equal(capturedAtInsertion[0], "0.5");
+});
+
+test("Now / Next kicker reads NOW only when Live, otherwise UP NEXT with the start time", async () => {
+  const browser = await startBrowser({
+    snapshot: displaySnapshot({
+      serverTime: "2099-08-21T08:00:00Z",
+      eventTimezone: "UTC",
+      standby: false,
+      viewKey: "location-signage",
+      composition: displayComposition({
+        key: "location-signage",
+        regions: [
+          {name: "now-next", widget: "now-next", persistent: true},
+        ],
+      }),
+      sessions: [
+        {...displaySession("Current Session"), lifecycle: "Live"},
+        {
+          ...displaySession("Next Session"),
+          forecastStart: "2099-08-21T10:00:00Z",
+          forecastEnd: "2099-08-21T11:00:00Z",
+          presentedStart: "2099-08-21T10:00:00Z",
+        },
+      ],
+    }),
+  });
+  const nowNext = browser.document.main.children[0];
+  const nowCard = nowNext.children.find((child) => child.dataset.slot === "now");
+  const nextCard = nowNext.children.find((child) => child.dataset.slot === "next");
+  const kicker = (card) => card.children.find(
+    (child) => child.className === "display-kicker",
+  );
+  assert.equal(kicker(nowCard).textContent, "NOW");
+  assert.equal(kicker(nextCard).textContent, "UP NEXT · 2099-08-21 10:00");
 });
 
 test("Stage Timer advances from the synchronized monotonic clock into overtime", async () => {
@@ -796,6 +895,53 @@ test("display styles preserve content changes while reducing motion", () => {
   assert.match(stylesheet, /\[data-slot="next"\]/);
 });
 
+test("display styles cover the type scale, lifecycle badges, and connection states", () => {
+  const stylesheet = fs.readFileSync(
+    new URL("./display.css", `file://${__filename}`),
+    "utf8",
+  );
+  // The type scale has to reach the Stage Message and Urgent Notice overlay,
+  // which both mount outside .display-view -- declaring it there alone would
+  // leave those surfaces at the browser default.
+  assert.match(stylesheet, /:root\s*\{[^}]*--display-text-body/);
+  assert.match(stylesheet, /\.stage-message\s*\{[^}]*var\(--display-text-body\)/);
+  assert.match(
+    stylesheet,
+    /\.urgent-notice-overlay\s*\{[^}]*var\(--display-text-lead\)/,
+  );
+  // Lifecycle badges use the theme's validated Live and Danger inks, and a
+  // Canceled title is struck through wherever the badge appears.
+  assert.match(stylesheet, /\.display-badge\[data-lifecycle="Live"\]/);
+  assert.match(stylesheet, /\.display-badge\[data-lifecycle="Canceled"\]/);
+  assert.match(stylesheet, /\[data-lifecycle="Canceled"\] h3/);
+  // Stale and Disconnected cannot share a look, or a frozen panel passes as
+  // live; a prolonged Disconnected outage also dims the frame. Reconnecting
+  // -- the state a retry attempt occupies before recovery is confirmed --
+  // carries the same outage treatment as Disconnected, or the frame would
+  // brighten and un-badge on every retry even though nothing has recovered.
+  assert.match(stylesheet, /html\[data-connection="stale"\] #display-connection/);
+  assert.match(stylesheet, /html\[data-connection="disconnected"\][\s\S]{0,80}#display-connection/);
+  assert.match(stylesheet, /html\[data-connection="reconnecting"\][\s\S]{0,80}#display-connection/);
+  assert.match(stylesheet, /html\[data-connection="disconnected"\][\s\S]{0,80}\.display-view/);
+  assert.match(stylesheet, /html\[data-connection="reconnecting"\][\s\S]{0,80}\.display-view/);
+  // The connection pulse animates only the badge's outline, not its own
+  // opacity: fading the fill would fade its text along with it and drop
+  // below the Display contrast requirement for part of every cycle.
+  assert.doesNotMatch(stylesheet, /@keyframes display-connection-pulse\s*\{\s*50%\s*\{\s*opacity/);
+  // Lifecycle badges keep a system-color border under forced-colors, or the
+  // authored fill/ink collapse leaves an unbounded, unreadable badge shape.
+  assert.match(
+    stylesheet,
+    /@media \(forced-colors: active\)\s*\{\s*\.display-badge\s*\{[^}]*border/,
+  );
+  // Urgent gets a fill in addition to Attention's outline, so the two levels
+  // do not rely on line style alone, but the outline stays on both as the
+  // non-color cue.
+  assert.match(stylesheet, /\[data-timer-emphasis="urgent"\][^}]*background/);
+  assert.match(stylesheet, /\[data-timer-emphasis="attention"\][^}]*outline/);
+  assert.match(stylesheet, /\[data-timer-emphasis="urgent"\][^}]*outline/);
+});
+
 test("Event Theme variants survive Display snapshot rendering", async () => {
   const composition = displayComposition();
   composition.theme = {
@@ -1070,6 +1216,8 @@ function displayComposition(overrides = {}) {
       backgroundColor: "#101828",
       accentColor: "#1d4ed8",
       signalColor: "#62ebcb",
+      liveColor: "#ff7b72",
+      dangerColor: "#ff8fa3",
       background: "solid",
       scrimColor: "#000000",
       scrimOpacity: 85,
