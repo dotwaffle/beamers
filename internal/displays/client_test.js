@@ -1394,7 +1394,7 @@ function displayComposition(overrides = {}) {
       branding: "",
       foregroundColor: "#ffffff",
       backgroundColor: "#101828",
-      surfaceColor: "#1d4ed8",
+      accentColor: "#1d4ed8",
       signalColor: "#62ebcb",
       liveColor: "#ff7b72",
       dangerColor: "#ff8fa3",

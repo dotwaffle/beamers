@@ -80,9 +80,13 @@ message DisplayTheme {
   string branding = 1;
   string foreground_color = 2;
   string background_color = 3;
-  // surface_color carries the Theme's surface color, used for Display
-  // Region fills and the Nebula backdrop's color-mix base.
-  string surface_color = 4;
+  // accent_color carries the Theme's surface color, used for Display
+  // Region fills and the Nebula backdrop's color-mix base. The wire name
+  // stays accent_color: a stale Display client can still parse a snapshot
+  // from a newer server during a rolling upgrade, before its protocol or
+  // asset version mismatch is detected and it performs a controlled
+  // reload (see docs/adr/0048-make-displays-self-healing-across-upgrades.md).
+  string accent_color = 4;
   string background = 5;
   string scrim_color = 6;
   uint32 scrim_opacity = 7;

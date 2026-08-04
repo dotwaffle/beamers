@@ -357,10 +357,12 @@ function renderSnapshot(snapshot, offset) {
   ].join(" ");
   main.style.setProperty("--display-foreground", composition.theme.foregroundColor);
   main.style.setProperty("--display-background", composition.theme.backgroundColor);
-  main.style.setProperty("--display-surface", composition.theme.surfaceColor);
+  // The wire field stays accentColor (see display.proto); only the CSS
+  // custom property is renamed to say what it carries.
+  main.style.setProperty("--display-surface", composition.theme.accentColor);
   main.style.setProperty(
     "--display-signal",
-    composition.theme.signalColor || composition.theme.surfaceColor,
+    composition.theme.signalColor || composition.theme.accentColor,
   );
   main.style.setProperty("--display-live", composition.theme.liveColor);
   main.style.setProperty("--display-danger", composition.theme.dangerColor);

@@ -733,9 +733,13 @@ type DisplayTheme struct {
 	Branding        string                 `protobuf:"bytes,1,opt,name=branding,proto3" json:"branding,omitempty"`
 	ForegroundColor string                 `protobuf:"bytes,2,opt,name=foreground_color,json=foregroundColor,proto3" json:"foreground_color,omitempty"`
 	BackgroundColor string                 `protobuf:"bytes,3,opt,name=background_color,json=backgroundColor,proto3" json:"background_color,omitempty"`
-	// surface_color carries the Theme's surface color, used for Display
-	// Region fills and the Nebula backdrop's color-mix base.
-	SurfaceColor  string `protobuf:"bytes,4,opt,name=surface_color,json=surfaceColor,proto3" json:"surface_color,omitempty"`
+	// accent_color carries the Theme's surface color, used for Display
+	// Region fills and the Nebula backdrop's color-mix base. The wire name
+	// stays accent_color: a stale Display client can still parse a snapshot
+	// from a newer server during a rolling upgrade, before its protocol or
+	// asset version mismatch is detected and it performs a controlled
+	// reload (see docs/adr/0048-make-displays-self-healing-across-upgrades.md).
+	AccentColor   string `protobuf:"bytes,4,opt,name=accent_color,json=accentColor,proto3" json:"accent_color,omitempty"`
 	Background    string `protobuf:"bytes,5,opt,name=background,proto3" json:"background,omitempty"`
 	ScrimColor    string `protobuf:"bytes,6,opt,name=scrim_color,json=scrimColor,proto3" json:"scrim_color,omitempty"`
 	ScrimOpacity  uint32 `protobuf:"varint,7,opt,name=scrim_opacity,json=scrimOpacity,proto3" json:"scrim_opacity,omitempty"`
@@ -799,9 +803,9 @@ func (x *DisplayTheme) GetBackgroundColor() string {
 	return ""
 }
 
-func (x *DisplayTheme) GetSurfaceColor() string {
+func (x *DisplayTheme) GetAccentColor() string {
 	if x != nil {
-		return x.SurfaceColor
+		return x.AccentColor
 	}
 	return ""
 }
@@ -1844,12 +1848,12 @@ const file_beamers_display_v1_display_proto_rawDesc = "" +
 	"\x06widget\x18\x02 \x01(\tR\x06widget\x12\x1e\n" +
 	"\n" +
 	"persistent\x18\x03 \x01(\bR\n" +
-	"persistent\"\xa4\x03\n" +
+	"persistent\"\xa2\x03\n" +
 	"\fDisplayTheme\x12\x1a\n" +
 	"\bbranding\x18\x01 \x01(\tR\bbranding\x12)\n" +
 	"\x10foreground_color\x18\x02 \x01(\tR\x0fforegroundColor\x12)\n" +
-	"\x10background_color\x18\x03 \x01(\tR\x0fbackgroundColor\x12#\n" +
-	"\rsurface_color\x18\x04 \x01(\tR\fsurfaceColor\x12\x1e\n" +
+	"\x10background_color\x18\x03 \x01(\tR\x0fbackgroundColor\x12!\n" +
+	"\faccent_color\x18\x04 \x01(\tR\vaccentColor\x12\x1e\n" +
 	"\n" +
 	"background\x18\x05 \x01(\tR\n" +
 	"background\x12\x1f\n" +
