@@ -4687,13 +4687,12 @@ func TestBrowserAdministersAccountsAndEventGrants(t *testing.T) {
 		"account_id":         {"2"},
 		"event_id":           {"2"},
 		"role":               {"Spectator"},
-		"lane_ids":           {"7, 9"},
+		"lane_ids":           {"7", "9"},
 		"display_group_keys": {"retain-stage"},
 		"capability":         {"ViewResults"},
 	})
 	if invalidGrant.status != http.StatusUnprocessableEntity ||
 		!strings.Contains(invalidGrant.body, `value="2" selected`) ||
-		!strings.Contains(invalidGrant.body, `value="7, 9"`) ||
 		!strings.Contains(invalidGrant.body, `value="retain-stage"`) ||
 		!strings.Contains(invalidGrant.body, `value="ViewResults" checked`) {
 		t.Fatalf("invalid browser Event Grant = %d %q", invalidGrant.status, invalidGrant.body)
@@ -4781,6 +4780,47 @@ func TestBrowserAdministersAccountsAndEventGrants(t *testing.T) {
 	page = getFrontendPage(t, administrator, server.address, path)
 	if !strings.Contains(page.body, "<td data-numeric>#2</td><td data-numeric>#1</td><td>Observer</td>") {
 		t.Fatalf("browser self-grant absent: %q", page.body)
+	}
+
+	assertJSONRequest(
+		t, administrator, server.address, "/admin/events/1/grants",
+		map[string]any{"account_id": 1, "role": "Producer", "command_id": "grant-lane-picker-producer"},
+		http.StatusCreated, "{\"event_id\":1,\"account_id\":1,\"role\":\"Producer\"}\n",
+	)
+	_, laneID := addPlacementLane(t, administrator, server)
+	page = getFrontendPage(t, administrator, server.address, path)
+	if !regexp.MustCompile(
+		`type="checkbox"\s+name="lane_ids"\s+value="`+strconv.FormatInt(laneID, 10)+`"`,
+	).MatchString(page.body) || !strings.Contains(page.body, "Side Lane") {
+		t.Fatalf("Event Grant Lane picker lacks Side Lane checkbox: %q", page.body)
+	}
+	laneScopedAccount := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":     {requireFrontendCSRF(t, page)},
+		"action":         {"create-account"},
+		"command_id":     {"browser-create-lane-scoped-account"},
+		"account_handle": {"quinn"},
+		"display_name":   {"Quinn Crew"},
+		"password":       {"lane picker acceptance correct horse"},
+	})
+	if laneScopedAccount.status != http.StatusSeeOther {
+		t.Fatalf("browser lane-scoped Account creation = %d %q", laneScopedAccount.status, laneScopedAccount.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	lanePicked := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token": {requireFrontendCSRF(t, page)},
+		"action":     {"grant"},
+		"command_id": {"browser-grant-with-lane-picker"},
+		"account_id": {"3"},
+		"event_id":   {"1"},
+		"role":       {"Operator"},
+		"lane_ids":   {strconv.FormatInt(laneID, 10)},
+	})
+	if lanePicked.status != http.StatusSeeOther {
+		t.Fatalf("browser Event Grant with Lane picker = %d %q", lanePicked.status, lanePicked.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	if !strings.Contains(page.body, "Lanes "+strconv.FormatInt(laneID, 10)) {
+		t.Fatalf("Event Grant Lane picker selection absent: %q", page.body)
 	}
 
 	operator := authenticatedClient(t)
@@ -5322,6 +5362,16 @@ func TestBrowserPreviewsAdjustsCancelsAndReinstatesSession(t *testing.T) {
 		!strings.Contains(canceledArticle, `name="action" value="preview-reinstate"`) {
 		t.Fatalf("canceled browser Session = %d %q", page.status, canceledArticle)
 	}
+	if !regexp.MustCompile(`type="checkbox"\s+name="lane_ids"`).MatchString(canceledArticle) ||
+		!regexp.MustCompile(`type="checkbox"\s+name="location_ids"`).MatchString(canceledArticle) ||
+		!strings.Contains(canceledArticle, "Main Lane") ||
+		!strings.Contains(canceledArticle, "Main Hall") {
+		t.Fatalf(
+			"Reinstate Lane/Location IDs lack a named checkbox picker: %d %q",
+			page.status,
+			canceledArticle,
+		)
+	}
 	invalidLaneIDs := postFrontendForm(t, producer, server.address, path, url.Values{
 		"csrf_token":                   {requireFrontendCSRF(t, page)},
 		"action":                       {"preview-reinstate"},
@@ -5331,12 +5381,11 @@ func TestBrowserPreviewsAdjustsCancelsAndReinstatesSession(t *testing.T) {
 		"lane_ids":                     {"not-lane-ids"},
 		"location_ids":                 {"1"},
 	})
-	if invalidLaneIDs.status != http.StatusBadRequest ||
-		!strings.Contains(invalidLaneIDs.body, `value="not-lane-ids"`) {
+	if invalidLaneIDs.status != http.StatusBadRequest {
 		t.Fatalf("invalid Reinstate Lane IDs = %d %q", invalidLaneIDs.status, invalidLaneIDs.body)
 	}
 	assertAccessibleFormErrors(t, invalidLaneIDs, map[string]string{
-		"preview-reinstate-" + strconv.FormatInt(sessionID, 10) + "-lane-ids": "Enter Lane IDs",
+		"preview-reinstate-" + strconv.FormatInt(sessionID, 10) + "-lane-ids": "Select at least one Lane",
 	})
 
 	invalidLocationIDs := postFrontendForm(t, producer, server.address, path, url.Values{
@@ -5348,8 +5397,7 @@ func TestBrowserPreviewsAdjustsCancelsAndReinstatesSession(t *testing.T) {
 		"lane_ids":                     {"1"},
 		"location_ids":                 {"not-location-ids"},
 	})
-	if invalidLocationIDs.status != http.StatusBadRequest ||
-		!strings.Contains(invalidLocationIDs.body, `value="not-location-ids"`) {
+	if invalidLocationIDs.status != http.StatusBadRequest {
 		t.Fatalf(
 			"invalid Reinstate Location IDs = %d %q",
 			invalidLocationIDs.status,
@@ -5357,7 +5405,7 @@ func TestBrowserPreviewsAdjustsCancelsAndReinstatesSession(t *testing.T) {
 		)
 	}
 	assertAccessibleFormErrors(t, invalidLocationIDs, map[string]string{
-		"preview-reinstate-" + strconv.FormatInt(sessionID, 10) + "-location-ids": "Enter Location IDs",
+		"preview-reinstate-" + strconv.FormatInt(sessionID, 10) + "-location-ids": "Select at least one Location",
 	})
 
 	reinstatePreview := postFrontendForm(t, producer, server.address, path, url.Values{
@@ -6440,6 +6488,33 @@ func TestBrowserPlansAndPublishesEvent(t *testing.T) {
 		!strings.Contains(page.body, "Opening Ceremony") {
 		t.Fatalf("reviewable Draft = %d %q", page.status, page.body)
 	}
+	if !strings.Contains(
+		page.body,
+		`<details><summary><span>Session #1: Opening Ceremony</span>`,
+	) {
+		t.Fatalf("Session editor is not collapsed behind details/summary: %q", page.body)
+	}
+	if reviewIndex, materializedIndex := strings.Index(page.body, "<h2>Draft review</h2>"),
+		strings.Index(page.body, "<h2>Materialized Draft</h2>"); reviewIndex < 0 ||
+		materializedIndex < 0 || reviewIndex > materializedIndex {
+		t.Fatalf(
+			"Draft review does not precede Materialized Draft: review=%d materialized=%d",
+			reviewIndex, materializedIndex,
+		)
+	}
+	for _, want := range []string{
+		`<select id="draft-lane-location-id" name="lane_location_id">`,
+		`<select id="draft-session-lane-id" name="session_lane_id">`,
+		`<select id="draft-session-location-id" name="session_location_id">`,
+		`<select id="draft-session-track-id" name="session_track_id">`,
+		`<option value="1">Hall A</option>`,
+		`<option value="1">Main Stage</option>`,
+		`<option value="1">Demos</option>`,
+	} {
+		if !strings.Contains(page.body, want) {
+			t.Fatalf("current-Draft-structure picker lacks %q: %q", want, page.body)
+		}
+	}
 	invalidSessionTime := postFrontendForm(t, administrator, server.address, path, url.Values{
 		"csrf_token":              {requireFrontendCSRF(t, page)},
 		"action":                  {"draft"},
@@ -6507,7 +6582,9 @@ func TestBrowserPlansAndPublishesEvent(t *testing.T) {
 		!strings.Contains(preview.body, "<dt>Published revision</dt><dd>0</dd>") ||
 		!strings.Contains(preview.body, "Automatically included dependency") ||
 		!strings.Contains(preview.body, "Affected Lanes: Lane #1") ||
-		!strings.Contains(preview.body, "Affected Displays: none currently assigned") {
+		!strings.Contains(preview.body, "Affected Displays: none currently assigned") ||
+		!strings.Contains(preview.body, `New Location &#34;Hall A&#34; created.`) ||
+		!strings.Contains(preview.body, `New Session &#34;Opening Ceremony&#34; created.`) {
 		t.Fatalf("Publish Preview = %d %q", preview.status, preview.body)
 	}
 	staleConfirmation := frontendNamedValues(preview.body,
@@ -6926,6 +7003,11 @@ func TestBrowserManagesCompetitionEntries(t *testing.T) {
 		t.Fatalf("create second Entry = %d %q", second.status, second.body)
 	}
 	page = getFrontendPage(t, administrator, server.address, path)
+	if !regexp.MustCompile(`<select[^>]*name="manual_entry_ids"`).MatchString(page.body) ||
+		!strings.Contains(page.body, "Project Aurora Revised") ||
+		!strings.Contains(page.body, "Project Borealis") {
+		t.Fatalf("manual Entry order lacks a named picker: %d %q", page.status, page.body)
+	}
 	orderRevision := frontendNamedValues(page.body, "expected_order_revision").
 		Get("expected_order_revision")
 	reordered := postFrontendForm(t, administrator, server.address, path, url.Values{
@@ -6934,7 +7016,7 @@ func TestBrowserManagesCompetitionEntries(t *testing.T) {
 		"command_id":              {"browser-reorder-entries"},
 		"expected_order_revision": {orderRevision},
 		"order_policy":            {"ManualOrder"},
-		"manual_entry_ids":        {"2,1"},
+		"manual_entry_ids":        {"2", "1"},
 	})
 	if reordered.status != http.StatusSeeOther {
 		t.Fatalf("reorder Entries = %d %q", reordered.status, reordered.body)
@@ -6943,6 +7025,50 @@ func TestBrowserManagesCompetitionEntries(t *testing.T) {
 	if !regexp.MustCompile(`Canonical order:\s+2,\s+1`).MatchString(page.body) {
 		t.Fatalf("manual Entry order projection = %d %q", page.status, page.body)
 	}
+	// The position pickers default every select to the current Manual order
+	// even when a Producer switches away from Manual order, so a browser
+	// resubmits nonempty manual_entry_ids alongside the new policy. Neither
+	// Submission order nor Deterministic shuffle accept Manual Entry IDs;
+	// confirm the switch still succeeds and does not retain them.
+	backToSubmissionOrder := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":              {requireFrontendCSRF(t, page)},
+		"action":                  {"configure-order"},
+		"command_id":              {"browser-restore-submission-order"},
+		"expected_order_revision": {frontendNamedValues(page.body, "expected_order_revision").Get("expected_order_revision")},
+		"order_policy":            {"SubmissionOrder"},
+		"manual_entry_ids":        {"2", "1"},
+	})
+	if backToSubmissionOrder.status != http.StatusSeeOther {
+		t.Fatalf(
+			"restore Submission order despite stale Manual selections = %d %q",
+			backToSubmissionOrder.status, backToSubmissionOrder.body,
+		)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
+	if !regexp.MustCompile(`Canonical order:\s+1,\s+2`).MatchString(page.body) {
+		t.Fatalf("Submission order projection after policy switch = %d %q", page.status, page.body)
+	}
+	manualOrderFieldset := regexp.MustCompile(
+		`(?s)<fieldset id="configure-order-manual-entry-ids">.*?</fieldset>`,
+	).FindString(page.body)
+	if manualOrderFieldset == "" || strings.Contains(manualOrderFieldset, "selected") {
+		t.Fatalf(
+			"Manual order pickers remain preselected outside Manual order: %d %q",
+			page.status, manualOrderFieldset,
+		)
+	}
+	restoreManualOrder := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":              {requireFrontendCSRF(t, page)},
+		"action":                  {"configure-order"},
+		"command_id":              {"browser-restore-manual-order"},
+		"expected_order_revision": {frontendNamedValues(page.body, "expected_order_revision").Get("expected_order_revision")},
+		"order_policy":            {"ManualOrder"},
+		"manual_entry_ids":        {"2", "1"},
+	})
+	if restoreManualOrder.status != http.StatusSeeOther {
+		t.Fatalf("restore Manual order = %d %q", restoreManualOrder.status, restoreManualOrder.body)
+	}
+	page = getFrontendPage(t, administrator, server.address, path)
 	reviewedBeforeUpload := postFrontendForm(
 		t,
 		administrator,
@@ -8600,18 +8726,36 @@ func TestBrowserStagesAndReviewsCompetitionResults(t *testing.T) {
 		t.Fatalf("changed browser Results did not clear Ready: %d %q", page.status, page.body)
 	}
 
+	for _, entry := range []struct {
+		id   int64
+		name string
+	}{
+		{firstID, "First Result"},
+		{secondID, "Second Result"},
+	} {
+		if !regexp.MustCompile(
+			`type="checkbox"\s+name="award_recipient_entry_ids_0"\s+value="` +
+				strconv.FormatInt(entry.id, 10) + `"[^>]*>\s*` +
+				regexp.QuoteMeta(entry.name) + ` \(#` + strconv.FormatInt(entry.id, 10) + `\)`,
+		).MatchString(page.body) {
+			t.Fatalf(
+				"Competition Award recipient picker lacks a scoped %q checkbox: %d %q",
+				entry.name, page.status, page.body,
+			)
+		}
+	}
 	invalidAwards := postFrontendForm(t, administrator, server.address, path, url.Values{
-		"csrf_token":                {requireFrontendCSRF(t, page)},
-		"action":                    {"save-competition-awards"},
-		"command_id":                {"browser-invalid-results-awards"},
-		"competition_session_id":    {strconv.FormatInt(competitionID, 10)},
-		"expected_revision":         {"2"},
-		"award_key":                 {"retained-key"},
-		"award_name":                {"Retained Competition Award"},
-		"award_recipient_entry_ids": {strconv.FormatInt(firstID, 10)},
-		"award_recipient_names":     {"Retained recipient"},
-		"award_promoted":            {"true"},
-		"award_display_order":       {"not-a-number"},
+		"csrf_token":                  {requireFrontendCSRF(t, page)},
+		"action":                      {"save-competition-awards"},
+		"command_id":                  {"browser-invalid-results-awards"},
+		"competition_session_id":      {strconv.FormatInt(competitionID, 10)},
+		"expected_revision":           {"2"},
+		"award_key":                   {"retained-key"},
+		"award_name":                  {"Retained Competition Award"},
+		"award_recipient_entry_ids_0": {strconv.FormatInt(firstID, 10)},
+		"award_recipient_names":       {"Retained recipient"},
+		"award_promoted":              {"true"},
+		"award_display_order":         {"not-a-number"},
 	})
 	if invalidAwards.status != http.StatusUnprocessableEntity ||
 		!strings.Contains(invalidAwards.body, `name="award_key" value="retained-key"`) ||
@@ -8635,17 +8779,17 @@ func TestBrowserStagesAndReviewsCompetitionResults(t *testing.T) {
 	})
 
 	awarded := postFrontendForm(t, administrator, server.address, path, url.Values{
-		"csrf_token":                {requireFrontendCSRF(t, invalidAwards)},
-		"action":                    {"save-competition-awards"},
-		"command_id":                {"browser-save-results-awards"},
-		"competition_session_id":    {strconv.FormatInt(competitionID, 10)},
-		"expected_revision":         {"2"},
-		"award_key":                 {"audience-choice"},
-		"award_name":                {"Audience Choice"},
-		"award_recipient_entry_ids": {strconv.FormatInt(secondID, 10)},
-		"award_recipient_names":     {""},
-		"award_promoted":            {"true"},
-		"award_display_order":       {"1"},
+		"csrf_token":                  {requireFrontendCSRF(t, invalidAwards)},
+		"action":                      {"save-competition-awards"},
+		"command_id":                  {"browser-save-results-awards"},
+		"competition_session_id":      {strconv.FormatInt(competitionID, 10)},
+		"expected_revision":           {"2"},
+		"award_key":                   {"audience-choice"},
+		"award_name":                  {"Audience Choice"},
+		"award_recipient_entry_ids_0": {strconv.FormatInt(secondID, 10)},
+		"award_recipient_names":       {""},
+		"award_promoted":              {"true"},
+		"award_display_order":         {"1"},
 	})
 	if awarded.status != http.StatusSeeOther {
 		t.Fatalf("save browser Competition Awards = %d %q", awarded.status, awarded.body)
@@ -8657,17 +8801,17 @@ func TestBrowserStagesAndReviewsCompetitionResults(t *testing.T) {
 		}
 	}
 	staleAwards := postFrontendForm(t, administrator, server.address, path, url.Values{
-		"csrf_token":                {requireFrontendCSRF(t, page)},
-		"action":                    {"save-competition-awards"},
-		"command_id":                {"browser-stale-results-awards"},
-		"competition_session_id":    {strconv.FormatInt(competitionID, 10)},
-		"expected_revision":         {"2"},
-		"award_key":                 {"stale-key"},
-		"award_name":                {"Stale Competition Award"},
-		"award_recipient_entry_ids": {strconv.FormatInt(firstID, 10)},
-		"award_recipient_names":     {"Stale recipient"},
-		"award_promoted":            {"false"},
-		"award_display_order":       {"1"},
+		"csrf_token":                  {requireFrontendCSRF(t, page)},
+		"action":                      {"save-competition-awards"},
+		"command_id":                  {"browser-stale-results-awards"},
+		"competition_session_id":      {strconv.FormatInt(competitionID, 10)},
+		"expected_revision":           {"2"},
+		"award_key":                   {"stale-key"},
+		"award_name":                  {"Stale Competition Award"},
+		"award_recipient_entry_ids_0": {strconv.FormatInt(firstID, 10)},
+		"award_recipient_names":       {"Stale recipient"},
+		"award_promoted":              {"false"},
+		"award_display_order":         {"1"},
 	})
 	if staleAwards.status != http.StatusConflict ||
 		!strings.Contains(staleAwards.body, `name="award_key" value="stale-key"`) ||
@@ -9256,6 +9400,14 @@ func TestBrowserPublishesAndCorrectsStandaloneResults(t *testing.T) {
 	}
 
 	page = getFrontendPage(t, administrator, server.address, path)
+	standaloneWinnerID := created.Msg.GetEntry().GetId()
+	if !regexp.MustCompile(
+		`type="checkbox"\s+name="event_award_recipient_entry_ids_0"\s+value="` +
+			strconv.FormatInt(standaloneWinnerID, 10) + `"[^>]*>\s*` +
+			`Standalone Winner — Demo Competition \(#` + strconv.FormatInt(standaloneWinnerID, 10) + `\)`,
+	).MatchString(page.body) {
+		t.Fatalf("Event Award recipients lack a scoped picker: %d %q", page.status, page.body)
+	}
 	invalidEventAwards := postFrontendForm(t, administrator, server.address, path, url.Values{
 		"csrf_token":        {requireFrontendCSRF(t, page)},
 		"action":            {"save-event-awards"},
@@ -9263,7 +9415,7 @@ func TestBrowserPublishesAndCorrectsStandaloneResults(t *testing.T) {
 		"expected_revision": {"0"},
 		"event_award_key":   {"retained-event-key"},
 		"event_award_name":  {"Retained Event Award"},
-		"event_award_recipient_entry_ids": {
+		"event_award_recipient_entry_ids_0": {
 			strconv.FormatInt(created.Msg.GetEntry().GetId(), 10),
 		},
 		"event_award_recipient_names": {"Retained Event recipient"},
@@ -9297,16 +9449,15 @@ func TestBrowserPublishesAndCorrectsStandaloneResults(t *testing.T) {
 		"event-awards-event-award-display-order-0": "positive integer",
 	})
 	eventAwards := postFrontendForm(t, administrator, server.address, path, url.Values{
-		"csrf_token":                      {requireFrontendCSRF(t, invalidEventAwards)},
-		"action":                          {"save-event-awards"},
-		"command_id":                      {"browser-save-event-awards"},
-		"expected_revision":               {"0"},
-		"event_award_key":                 {"community"},
-		"event_award_name":                {"Community Award"},
-		"event_award_recipient_entry_ids": {""},
-		"event_award_recipient_names":     {"Community Hero"},
-		"event_award_path":                {"Standalone"},
-		"event_award_display_order":       {"1"},
+		"csrf_token":                  {requireFrontendCSRF(t, invalidEventAwards)},
+		"action":                      {"save-event-awards"},
+		"command_id":                  {"browser-save-event-awards"},
+		"expected_revision":           {"0"},
+		"event_award_key":             {"community"},
+		"event_award_name":            {"Community Award"},
+		"event_award_recipient_names": {"Community Hero"},
+		"event_award_path":            {"Standalone"},
+		"event_award_display_order":   {"1"},
 	})
 	if eventAwards.status != http.StatusSeeOther {
 		t.Fatalf("save browser Event Awards = %d %q", eventAwards.status, eventAwards.body)
@@ -9328,7 +9479,7 @@ func TestBrowserPublishesAndCorrectsStandaloneResults(t *testing.T) {
 		"expected_revision": {"0"},
 		"event_award_key":   {"stale-event-key"},
 		"event_award_name":  {"Stale Event Award"},
-		"event_award_recipient_entry_ids": {
+		"event_award_recipient_entry_ids_0": {
 			strconv.FormatInt(created.Msg.GetEntry().GetId(), 10),
 		},
 		"event_award_recipient_names": {"Stale Event recipient"},
