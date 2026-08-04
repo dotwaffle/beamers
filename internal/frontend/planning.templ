@@ -210,7 +210,10 @@ templ planningEditInput(
 
 // planningEditInputDescribed is planningEditInput with an optional
 // aria-describedby target, for inputs paired with a hint such as a resolved
-// timezone that the label text does not already carry.
+// timezone that the label text does not already carry. The hint and any
+// validation-error reference are merged into a single aria-describedby
+// value, since HTML does not allow (and browsers do not combine) duplicate
+// attributes on the same element.
 templ planningEditInputDescribed(
 	page PlanningPage,
 	target string,
@@ -226,12 +229,28 @@ templ planningEditInputDescribed(
 		name={ field }
 		value={ page.draftValue(target, id, field, fallback) }
 		required?={ required }
-		if describedBy != "" {
-			aria-describedby={ describedBy }
+		if combined := planningDescribedBy(page.Errors, PlanningFieldID(target, id, field), describedBy); combined != "" {
+			aria-describedby={ combined }
 		}
-		{ page.Errors.Attributes(PlanningFieldID(target, id, field))... }
+		if page.Errors.Message(PlanningFieldID(target, id, field)) != "" {
+			aria-invalid="true"
+		}
 	/>
 	@FieldError(page.Errors, PlanningFieldID(target, id, field))
+}
+
+// planningDescribedBy combines a field's optional hint ID (e.g. a resolved
+// timezone span) with its validation-error ID, if any, into the single
+// space-separated token list aria-describedby expects.
+func planningDescribedBy(errors FormErrors, fieldID, hintID string) string {
+	describedBy := hintID
+	if errors.Message(fieldID) != "" {
+		if describedBy != "" {
+			describedBy += " "
+		}
+		describedBy += fieldID + "-error"
+	}
+	return describedBy
 }
 
 // planningZoneID names the hint span reporting the resolved timezone for a

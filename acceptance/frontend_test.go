@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"maps"
 	"mime/multipart"
@@ -6425,6 +6426,47 @@ func TestBrowserPlansAndPublishesEvent(t *testing.T) {
 	if !strings.Contains(page.body, "<dt>Draft revision</dt><dd>1</dd>") ||
 		!strings.Contains(page.body, "Opening Ceremony") {
 		t.Fatalf("reviewable Draft = %d %q", page.status, page.body)
+	}
+	invalidSessionTime := postFrontendForm(t, administrator, server.address, path, url.Values{
+		"csrf_token":              {requireFrontendCSRF(t, page)},
+		"action":                  {"draft"},
+		"command_id":              {"browser-invalid-session-time"},
+		"expected_draft_revision": {"1"},
+		"session_id":              {"1"},
+		"base_session": {html.UnescapeString(
+			frontendNamedValues(page.body, "base_session").Get("base_session"),
+		)},
+		"session_title":       {"Opening Ceremony"},
+		"session_type":        {"Ceremony"},
+		"audience_visibility": {"Public"},
+		"planned_start":       {"not-a-time"},
+		"planned_end":         {"2026-08-21T10:30"},
+		"timing_policy":       {"FixedEnd"},
+		"minimum_duration":    {"15m"},
+		"start_boundary":      {"Hard"},
+		"end_boundary":        {"Soft"},
+	})
+	if invalidSessionTime.status != http.StatusUnprocessableEntity {
+		t.Fatalf("invalid materialized Session time = %d %q",
+			invalidSessionTime.status, invalidSessionTime.body)
+	}
+	assertAccessibleFormErrors(t, invalidSessionTime, nil)
+	sessionStartFieldID := "session-1-planned-start"
+	sessionStartZoneID := sessionStartFieldID + "-zone"
+	wantDescribedBy := `aria-describedby="` + sessionStartZoneID + " " + sessionStartFieldID + `-error"`
+	if !strings.Contains(invalidSessionTime.body, `id="`+sessionStartFieldID+`-error"`) ||
+		!strings.Contains(invalidSessionTime.body, wantDescribedBy) {
+		t.Fatalf(
+			"invalid materialized Session time lacks merged aria-describedby %q: %q",
+			wantDescribedBy, invalidSessionTime.body,
+		)
+	}
+	if got := strings.Count(
+		invalidSessionTime.body,
+		`id="`+sessionStartFieldID+`"`,
+	); got != 1 {
+		t.Fatalf("invalid materialized Session time has %d %q inputs, want 1",
+			got, sessionStartFieldID)
 	}
 	stale := postFrontendForm(t, administrator, server.address, path, url.Values{
 		"csrf_token":              {requireFrontendCSRF(t, page)},
