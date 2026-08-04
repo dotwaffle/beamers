@@ -15,6 +15,7 @@ import (
 
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/backup"
+	"github.com/dotwaffle/beamers/internal/diskspace"
 	"github.com/dotwaffle/beamers/internal/store"
 )
 
@@ -181,6 +182,9 @@ func (upgrade *Upgrade) Apply(
 	if err := validateUpgradeApproval(upgrade.plan, approval); err != nil {
 		return UpgradeResult{}, err
 	}
+	if err := preflightUpgradeDiskSpace(upgrade.config, diskspace.RequireFree); err != nil {
+		return UpgradeResult{}, err
+	}
 
 	backupRoot, err := os.MkdirTemp(
 		filepath.Dir(upgrade.config.DataDir),
@@ -315,6 +319,39 @@ func (upgrade *Upgrade) Apply(
 		return result, cleanupErr
 	}
 	return result, nil
+}
+
+// upgradeDiskSpaceMarginBytes covers journal, temp-directory, and
+// filesystem metadata overhead the size estimate below does not itself
+// account for.
+const upgradeDiskSpaceMarginBytes = 64 << 20
+
+// preflightUpgradeDiskSpace refuses to start Apply when the filesystem
+// holding DataDir cannot plausibly hold the rollback Backup plus a staged
+// database copy at once. Both the Backup archive and the staged database
+// live alongside DataDir, so one free-space check against that parent
+// covers them together. requireFree is an explicit dependency so tests
+// can exercise the refusal path without needing a filesystem that is
+// actually full.
+func preflightUpgradeDiskSpace(
+	config OpenConfig,
+	requireFree func(path string, neededBytes uint64) error,
+) error {
+	databaseBytes, err := diskspace.FileSize(filepath.Join(config.DataDir, "beamers.db"))
+	if err != nil {
+		return err
+	}
+	attachmentsBytes, err := diskspace.DirSize(config.AttachmentsDir)
+	if err != nil {
+		return err
+	}
+	// One database-sized allowance for the rollback Backup archive, and a
+	// second for the staged database copy created during migration.
+	needed := 2*databaseBytes + attachmentsBytes + upgradeDiskSpaceMarginBytes
+	if err := requireFree(filepath.Dir(config.DataDir), needed); err != nil {
+		return fmt.Errorf("preflight upgrade disk space: %w", err)
+	}
+	return nil
 }
 
 func validateUpgradeApproval(plan UpgradePlan, approval UpgradeApproval) error {
