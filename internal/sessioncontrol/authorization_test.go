@@ -122,6 +122,100 @@ func TestSessionCommandsRefuseOperatorOutsideSessionLaneScope(t *testing.T) {
 	})
 }
 
+// TestReinstateSessionGainsLaneScope is the D5 regression test: Matt's
+// decision on issue #239 is that Reinstate Session gains the same
+// Lanes-of-target scope as its siblings, replacing the CanProduceEvent-only
+// guard it had before the Capability Table judged it. An Operator who holds
+// the Event but not the target Session's Lane is refused with
+// "session_scope_required" evidence exactly like Start, End, Cancel, Adjust
+// Target, Pull Forward, and Correct Live Details. An Operator who does hold
+// the Lane can Reinstate even without Producer authority, proving the
+// Apply-time guard change (CanOperateEvent replacing CanProduceEvent) did
+// not just relocate the bug.
+func TestReinstateSessionGainsLaneScope(t *testing.T) {
+	storage, producer, eventID := openSessionControlTest(t)
+	sessions := publishSessionControlRundown(t, storage, producer, eventID)
+	lanes := sessionControlLanes(t, storage, producer, eventID)
+	activateSessionControlEvent(t, storage, producer, eventID)
+	service := newSessionControlService(t, storage)
+
+	cancelable := sessions["cancelable"]
+	started, err := service.Start(t.Context(), producer, sessioncontrol.StartInput{
+		EventID: eventID, SessionID: cancelable, CommandID: "start-cancelable",
+	})
+	if err != nil {
+		t.Fatalf("start cancelable Session: %v", err)
+	}
+	canceled, err := service.Cancel(t.Context(), producer, sessioncontrol.CancelInput{
+		EventID: eventID, SessionID: cancelable, CommandID: "cancel-cancelable",
+		ExpectedLiveStateRevision: started.LiveStateRevision, Confirmed: true,
+	})
+	if err != nil {
+		t.Fatalf("cancel cancelable Session: %v", err)
+	}
+
+	outsider := producer
+	outsider.Administrator = false
+	outsider.EventRoles = map[int]viewer.Role{eventID: viewer.Operator}
+	outsider.EventScopes = nil
+
+	reinstate := func(actor auth.Account, commandID string) error {
+		_, reinstateErr := service.Reinstate(t.Context(), actor, sessioncontrol.ReinstateInput{
+			EventID: eventID, SessionID: cancelable, CommandID: commandID,
+			ExpectedLiveStateRevision: canceled.LiveStateRevision,
+			ForecastStart:             time.Date(2026, 8, 21, 20, 0, 0, 0, time.UTC),
+			LaneIDs:                   []int{lanes["A"]}, LocationIDs: []int{lanes["hall-a"]},
+			Confirmed: true,
+		})
+		return reinstateErr
+	}
+
+	if refusalErr := reinstate(outsider, "refused-reinstate"); !errors.Is(refusalErr, sessioncontrol.ErrSessionScopeRequired) {
+		t.Fatalf("refused Reinstate = %v, want %v", refusalErr, sessioncontrol.ErrSessionScopeRequired)
+	}
+	if refusalErr := reinstate(outsider, "refused-reinstate"); !errors.Is(refusalErr, sessioncontrol.ErrSessionScopeRequired) {
+		t.Fatalf("retry of refused Reinstate = %v, want the recorded refusal %v", refusalErr, sessioncontrol.ErrSessionScopeRequired)
+	}
+	entries := rejectedSessionControlAudits(t, storage, producer, "ReinstateSession")
+	if len(entries) != 1 {
+		t.Fatalf(
+			"Rejected Audit Entries for ReinstateSession = %d, want exactly one recorded refusal "+
+				"whose retry is answered from its Command Receipt", len(entries),
+		)
+	}
+	if entries[0].Reason != "session_scope_required" {
+		t.Errorf("Rejected Audit Entry reason for ReinstateSession = %q, want %q", entries[0].Reason, "session_scope_required")
+	}
+
+	operatorWithLane := producer
+	operatorWithLane.Administrator = false
+	operatorWithLane.EventRoles = map[int]viewer.Role{eventID: viewer.Operator}
+	operatorWithLane.EventScopes = map[int]viewer.EventScope{
+		eventID: {LaneIDs: map[int]struct{}{lanes["A"]: {}}},
+	}
+
+	preview, err := service.PreviewReinstate(t.Context(), producer, sessioncontrol.PreviewReinstateInput{
+		EventID: eventID, SessionID: cancelable,
+		ForecastStart: time.Date(2026, 8, 21, 20, 0, 0, 0, time.UTC),
+		LaneIDs:       []int{lanes["A"]}, LocationIDs: []int{lanes["hall-a"]},
+	})
+	if err != nil {
+		t.Fatalf("preview Reinstate: %v", err)
+	}
+	if _, err := service.Reinstate(t.Context(), operatorWithLane, sessioncontrol.ReinstateInput{
+		EventID: eventID, SessionID: cancelable, CommandID: "reinstate-operator-with-lane",
+		ExpectedLiveStateRevision: canceled.LiveStateRevision,
+		ForecastStart:             time.Date(2026, 8, 21, 20, 0, 0, 0, time.UTC),
+		LaneIDs:                   []int{lanes["A"]}, LocationIDs: []int{lanes["hall-a"]},
+		PreviewFingerprint: preview.Fingerprint, Confirmed: true,
+	}); err != nil {
+		t.Fatalf(
+			"Reinstate by an Operator holding the Session's Lane = %v, want success "+
+				"(the Apply guard must accept Operator authority, not still require Producer)", err,
+		)
+	}
+}
+
 // TestPullForwardAndAdjustTargetEnforceRippledLaneScope is the D14
 // regression test. The store methods this Capability Table row's LoadFacts
 // calls judge the full set of Lanes a timing ripple moves, not just the

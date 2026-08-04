@@ -722,7 +722,10 @@ func (service *Service) Reinstate(
 	return command.Execute(ctx, command.Plan[ReinstateResult]{
 		Storage: service.storage, Identity: identity, Notify: service.notifyLive,
 		Authorization: command.Authorization{
-			Facts:    authz.Event(input.EventID),
+			EventID: input.EventID,
+			LoadFacts: func(ctx context.Context, transaction *store.CommandTx) (authz.Facts, error) {
+				return transaction.SessionLaneScope(ctx, input.EventID, input.SessionID)
+			},
 			Refusals: sessionAuthorizationRejections,
 		},
 		Replay: func(outcome string) (ReinstateResult, error) {
@@ -735,10 +738,10 @@ func (service *Service) Reinstate(
 			return reinstateResult(stored), nil
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[ReinstateResult], error) {
-			if !actor.CanProduceEvent(input.EventID) {
+			if !actor.CanOperateEvent(input.EventID) {
 				return timingCommandRejection(
 					ReinstateResult{}, State{}, store.LiveSessionState{},
-					"producer_required", ErrProducerRequired,
+					"operator_required", ErrOperatorRequired,
 				)
 			}
 			stored, reinstateErr := transaction.ReinstateSession(
