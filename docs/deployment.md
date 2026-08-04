@@ -6,7 +6,7 @@ All three profiles use:
 - database state under `/var/lib/beamers/data`;
 - the Attachment Store under `/var/lib/beamers/attachments`;
 - direct TLS on port 8443; and
-- a ten-second graceful-stop budget.
+- a 30-second graceful-stop budget with 35 seconds of platform kill grace.
 
 The binary embeds its web assets and IANA timezone database.
 Serving and upgrading require no CDN, Node runtime, update service, or internet connection.
@@ -92,11 +92,12 @@ sudo -u beamers /usr/local/bin/beamers serve \
   --listen=0.0.0.0:8443 \
   --tls-cert=/etc/beamers/tls.crt \
   --tls-key=/etc/beamers/tls.key \
-  --shutdown-timeout=10s
+  --shutdown-timeout=30s
 ```
 
 Send `SIGINT` or `SIGTERM` directly to this process.
 Do not place it behind a shell wrapper that remains PID 1.
+A direct invocation has no platform kill deadline of its own; give the process at least 35 seconds before forcing termination, matching the margin the shipped systemd and Compose profiles give it.
 
 ## Configure SceneID
 
@@ -131,7 +132,7 @@ systemctl enable --now beamers.service
 ```
 
 The unit starts only when `/var/lib/beamers/data/beamers.db` exists.
-It sends `SIGTERM` to the Beamers process and gives it the same ten-second budget configured with `--shutdown-timeout`.
+It sends `SIGTERM` to the Beamers process and gives it the 30-second budget configured with `--shutdown-timeout`, with `TimeoutStopSec=35s` as the platform kill deadline that budget must fit inside.
 
 ## Run with Docker Compose
 
@@ -166,7 +167,7 @@ The named `beamers-data` volume is authoritative installation storage.
 Do not run `docker compose down --volumes` unless intentionally destroying the installation.
 The image declares the same volume so an ad hoc container does not write authoritative state into its disposable layer.
 
-Compose uses an exec-form entrypoint, leaves Beamers as PID 1, sends `SIGTERM`, and enforces the same ten-second budget as the process.
+Compose uses an exec-form entrypoint, leaves Beamers as PID 1, sends `SIGTERM`, and enforces `stop_grace_period: 35s` as the platform kill deadline around the process's own 30-second `--shutdown-timeout`.
 
 ## Back up and restore configuration
 

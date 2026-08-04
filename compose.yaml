@@ -9,7 +9,7 @@ services:
       - --listen=0.0.0.0:8443
       - --tls-cert=/run/secrets/tls.crt
       - --tls-key=/run/secrets/tls.key
-      - --shutdown-timeout=10s
+      - --shutdown-timeout=30s
     user: "65532:65532"
     read_only: true
     tmpfs:
@@ -40,7 +40,7 @@ services:
       start_period: 5s
     restart: unless-stopped
     stop_signal: SIGTERM
-    stop_grace_period: 10s
+    stop_grace_period: 35s
 
 volumes:
   beamers-data:
