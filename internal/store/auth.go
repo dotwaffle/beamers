@@ -304,13 +304,12 @@ func (installation *SQLite) PublicProfile(
 	ctx context.Context,
 	normalizedHandle string,
 ) (AccountProfile, bool, error) {
-	ctx = systemContext(ctx)
 	found, err := installation.client.AccountProfile.Query().
 		Where(
 			accountprofile.NormalizedHandleEQ(normalizedHandle),
 			accountprofile.PublishedEQ(true),
 		).
-		Only(ctx)
+		Only(systemContext(ctx))
 	if ent.IsNotFound(err) {
 		return AccountProfile{}, false, nil
 	}

@@ -18,7 +18,7 @@ type AuthorizationTripwire struct {
 }
 
 // Policy denies every query and mutation whose context carries neither a viewer
-// identity nor the store's explicit allow decision.
+// identity naming an Account nor the store's explicit allow decision.
 func (AuthorizationTripwire) Policy() ent.Policy {
 	rule := denyUndecidedAuthorization()
 	return privacy.Policy{
@@ -29,7 +29,7 @@ func (AuthorizationTripwire) Policy() ent.Policy {
 
 func denyUndecidedAuthorization() privacy.QueryMutationRule {
 	return privacy.ContextQueryMutationRule(func(ctx context.Context) error {
-		if _, ok := viewer.FromContext(ctx); ok {
+		if identity, ok := viewer.FromContext(ctx); ok && identity.AccountID > 0 {
 			return privacy.Skip
 		}
 		return privacy.Denyf(

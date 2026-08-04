@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -12,47 +13,65 @@ import (
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
-// TestPrivacyTripwireDeniesUnauthorizedContext proves the fail-closed tripwire
-// covers every generated entity: a query or mutation carrying neither a viewer
-// identity nor an explicit store decision is denied before any SQL runs.
-func TestPrivacyTripwireDeniesUnauthorizedContext(t *testing.T) {
+// TestPrivacyTripwire proves the fail-closed tripwire covers every generated
+// entity: work carrying neither a viewer identity nor an explicit store
+// decision is denied before any SQL runs, and either one carries it through.
+func TestPrivacyTripwire(t *testing.T) {
 	t.Parallel()
 	installation := openTripwireTestInstallation(t)
 	entities := entityClients(t, installation.client)
-	for name, entity := range entities {
-		if err := countEntities(t.Context(), entity); !errors.Is(err, privacy.Deny) {
-			t.Errorf("%s query error = %v, want privacy denial", name, err)
-		}
-		if err := deleteEntities(t.Context(), entity); !errors.Is(err, privacy.Deny) {
-			t.Errorf("%s mutation error = %v, want privacy denial", name, err)
-		}
+	tests := []struct {
+		name     string
+		decided  func(context.Context) context.Context
+		wantDeny bool
+	}{
+		{
+			name:     "undecided authorization",
+			decided:  func(ctx context.Context) context.Context { return ctx },
+			wantDeny: true,
+		},
+		{
+			name: "viewer identity naming no Account",
+			decided: func(ctx context.Context) context.Context {
+				return viewer.NewContext(ctx, viewer.Identity{})
+			},
+			wantDeny: true,
+		},
+		{
+			name:    "explicit store decision",
+			decided: systemContext,
+		},
+		{
+			name: "viewer identity",
+			decided: func(ctx context.Context) context.Context {
+				return viewer.NewContext(ctx, viewer.Identity{AccountID: 1})
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			ctx := test.decided(t.Context())
+			for name, entity := range entities {
+				assertTripwire(t, name+" query", countEntities(ctx, entity), test.wantDeny)
+				if !test.wantDeny {
+					// Mutations are only exercised for the denial case, so a
+					// passing tripwire never empties a table.
+					continue
+				}
+				assertTripwire(t, name+" mutation", deleteEntities(ctx, entity), true)
+			}
+		})
 	}
 }
 
-// TestPrivacyTripwireAllowsDecisionContext proves the store's explicit allow
-// decision still carries every entity past the tripwire.
-func TestPrivacyTripwireAllowsDecisionContext(t *testing.T) {
-	t.Parallel()
-	installation := openTripwireTestInstallation(t)
-	decisionContext := systemContext(t.Context())
-	for name, entity := range entityClients(t, installation.client) {
-		if err := countEntities(decisionContext, entity); err != nil {
-			t.Errorf("%s query under an allow decision: %v", name, err)
-		}
-	}
-}
-
-// TestPrivacyTripwireAllowsViewerContext proves the tripwire only asks that
-// authorization was decided somewhere: a viewer identity carries every entity
-// past it, because the store and command surface hold the capability checks.
-func TestPrivacyTripwireAllowsViewerContext(t *testing.T) {
-	t.Parallel()
-	installation := openTripwireTestInstallation(t)
-	viewerContext := viewer.NewContext(t.Context(), viewer.Identity{AccountID: 1})
-	for name, entity := range entityClients(t, installation.client) {
-		if err := countEntities(viewerContext, entity); err != nil {
-			t.Errorf("%s query under a viewer identity: %v", name, err)
-		}
+func assertTripwire(t *testing.T, subject string, err error, wantDeny bool) {
+	t.Helper()
+	switch {
+	case wantDeny && !errors.Is(err, privacy.Deny):
+		t.Errorf("%s error = %v, want privacy denial", subject, err)
+	case !wantDeny && err != nil:
+		t.Errorf("%s: %v", subject, err)
 	}
 }
 
@@ -91,17 +110,19 @@ func deleteEntities(ctx context.Context, entity reflect.Value) error {
 	return callError(ctx, deletion.MethodByName("Exec"))
 }
 
+// callError reports the trailing error of a reflected Ent call, and refuses to
+// read success into a call whose shape it does not recognize.
 func callError(ctx context.Context, method reflect.Value) error {
 	results := method.Call([]reflect.Value{reflect.ValueOf(ctx)})
 	last := results[len(results)-1].Interface()
-	if last == nil {
+	switch value := last.(type) {
+	case nil:
 		return nil
+	case error:
+		return value
+	default:
+		return fmt.Errorf("unexpected Ent result %T", last)
 	}
-	failure, ok := last.(error)
-	if !ok {
-		return nil
-	}
-	return failure
 }
 
 func openTripwireTestInstallation(t *testing.T) *SQLite {
