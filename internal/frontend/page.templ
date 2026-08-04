@@ -386,6 +386,7 @@ templ ProfilePage(
 	recoveryCodes []string,
 	recoveryCommandID string,
 	credentialCommandID string,
+	profileCommandID string,
 	reducedEffects bool,
 	backstage bool,
 ) {
@@ -400,6 +401,7 @@ templ ProfilePage(
 				@ErrorSummary(errors)
 				<form class="stack" method="post" action="/profile">
 					<input type="hidden" name="csrf_token" value={ csrfToken }/>
+					<input type="hidden" name="command_id" value={ profileCommandID }/>
 					<label for="profile-display-name">
 						Display Name
 					</label>

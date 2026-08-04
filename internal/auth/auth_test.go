@@ -217,6 +217,7 @@ func TestPublicProfileIsPrivateByDefaultAndDetachedOnDisable(t *testing.T) {
 		"Shared Display Name",
 		true,
 		nil,
+		"publish-profile-owner",
 	); err != nil {
 		t.Fatalf("publish Public Profile: %v", err)
 	}

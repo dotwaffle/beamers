@@ -346,6 +346,7 @@ func (handlers frontendHandlers) profile(response http.ResponseWriter, request *
 			request.Form.Get("display_name"),
 			request.Form.Get("published") == "true",
 			entryIDs,
+			request.Form.Get("command_id"),
 		)
 		switch {
 		case errors.Is(err, auth.ErrInvalidAccountDetails):
@@ -377,6 +378,11 @@ func (handlers frontendHandlers) profile(response http.ResponseWriter, request *
 					Label:   "Public Profile",
 					Message: "Choose only available Entries.",
 				}},
+			)
+		case errors.Is(err, auth.ErrCommandConflict):
+			handlers.renderProfileMessage(
+				response, request, actor, csrfToken,
+				http.StatusConflict, "Profile state changed. Try again.",
 			)
 		case err != nil:
 			handlers.frontendError(response, request, "update Profile", err)
@@ -451,6 +457,11 @@ func (handlers frontendHandlers) renderProfile(
 		handlers.frontendError(response, request, "create Credential command identity", err)
 		return
 	}
+	profileCommandID, err := planningCommandID(handlers.random)
+	if err != nil {
+		handlers.frontendError(response, request, "create Profile command identity", err)
+		return
+	}
 	passwordActive, err := handlers.authentication.PasswordActive(request.Context(), actor)
 	if err != nil {
 		handlers.frontendError(response, request, "read password Credential", err)
@@ -488,6 +499,7 @@ func (handlers frontendHandlers) renderProfile(
 			recoveryCodes,
 			recoveryCommandID,
 			credentialCommandID,
+			profileCommandID,
 			reducedEffectsCookie(request),
 			backstageAccessible(request) &&
 				backstageAvailable(backstageNavigation(actor, "")),
@@ -734,9 +746,8 @@ func (handlers frontendHandlers) backstage(response http.ResponseWriter, request
 		http.NotFound(response, request)
 		return
 	}
-	csrfToken, err := handlers.csrfToken(response, request)
-	if err != nil {
-		handlers.frontendError(response, request, "create CSRF proof", err)
+	prologue, ok := handlers.backstagePagePrologue(response, request, actor)
+	if !ok {
 		return
 	}
 	handlers.render(
@@ -745,9 +756,9 @@ func (handlers frontendHandlers) backstage(response http.ResponseWriter, request
 		http.StatusOK,
 		frontend.Backstage(
 			actor.Name,
-			csrfToken,
-			reducedEffectsCookie(request),
-			navigation,
+			prologue.CSRFToken,
+			prologue.ReducedEffects,
+			prologue.Navigation,
 		),
 	)
 }
@@ -1017,6 +1028,35 @@ func backstageAccessible(request *http.Request) bool {
 		interfaceRequestContextKey{},
 	).(interfaceRequest)
 	return !ok || !details.publicOnly
+}
+
+// backstagePrologue carries the three values every Backstage page handler
+// establishes before doing anything else: the CSRF proof for its forms, the
+// signed-in Account's Navigation model, and the reduced-effects preference.
+type backstagePrologue struct {
+	CSRFToken      string
+	Navigation     backstageNavigationModel
+	ReducedEffects bool
+}
+
+// backstagePagePrologue computes one Backstage page's prologue, writing the
+// CSRF error response itself when the token cannot be created. Callers must
+// return immediately when ok is false.
+func (handlers frontendHandlers) backstagePagePrologue(
+	response http.ResponseWriter,
+	request *http.Request,
+	actor auth.Account,
+) (backstagePrologue, bool) {
+	csrfToken, err := handlers.csrfToken(response, request)
+	if err != nil {
+		handlers.frontendError(response, request, "create CSRF proof", err)
+		return backstagePrologue{}, false
+	}
+	return backstagePrologue{
+		CSRFToken:      csrfToken,
+		Navigation:     backstageNavigation(actor, request.URL.Path),
+		ReducedEffects: reducedEffectsCookie(request),
+	}, true
 }
 
 func (handlers frontendHandlers) browserAccount(
