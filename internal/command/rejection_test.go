@@ -98,6 +98,81 @@ func TestRejectionTableRestoresPublicSentinel(t *testing.T) {
 	}
 }
 
+// TestRejectionTableReturn covers the fresh-application counterpart to
+// TestRejectionTableRestoresPublicSentinel: a code with a Restored override
+// must return that same public error on the fresh path, not just on replay,
+// while every other code's error passes through untouched.
+func TestRejectionTableReturn(t *testing.T) {
+	t.Parallel()
+	storageErr := errors.New("invalid account session")
+	publicErr := errors.New("authentication required")
+	table := command.RejectionTable{
+		Rejections: []command.Rejection{
+			{Err: errProducerRequired, Code: "producer_required"},
+			{Err: storageErr, Code: "credential_not_found", Restored: publicErr},
+		},
+	}
+	tests := []struct {
+		name        string
+		err         error
+		expectedErr error
+	}{
+		{name: "restored code returns the public error", err: storageErr, expectedErr: publicErr},
+		{
+			name:        "wrapped restored code still matches",
+			err:         fmt.Errorf("revoke: %w", storageErr),
+			expectedErr: publicErr,
+		},
+		{
+			name:        "code without a restoration passes through unchanged",
+			err:         errProducerRequired,
+			expectedErr: errProducerRequired,
+		},
+		{name: "unclassified error passes through unchanged", err: errors.New("boom")},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			got := table.Return(test.err)
+			if test.expectedErr != nil {
+				if !errors.Is(got, test.expectedErr) {
+					t.Fatalf("expected %v, got %v", test.expectedErr, got)
+				}
+				return
+			}
+			if !errors.Is(got, test.err) {
+				t.Fatalf("expected unchanged %v, got %v", test.err, got)
+			}
+		})
+	}
+}
+
+// TestRejectionTableReturnAgreesWithCodeOnOverlappingMatches guards the
+// ordered, first-match contract Code documents: for an error matching more
+// than one entry, Return must not surface a later entry's Restored error
+// when Code would have classified it under an earlier entry that has none.
+func TestRejectionTableReturnAgreesWithCodeOnOverlappingMatches(t *testing.T) {
+	t.Parallel()
+	storageErr := errors.New("invalid account session")
+	publicErr := errors.New("authentication required")
+	table := command.RejectionTable{
+		Rejections: []command.Rejection{
+			{Err: errProducerRequired, Code: "producer_required"},
+			{Err: storageErr, Code: "credential_not_found", Restored: publicErr},
+		},
+	}
+	joined := errors.Join(errProducerRequired, storageErr)
+
+	code, ok := table.Code(joined)
+	if !ok || code != "producer_required" {
+		t.Fatalf("expected producer_required, got %q (%t)", code, ok)
+	}
+	got := table.Return(joined)
+	if !errors.Is(got, errProducerRequired) || errors.Is(got, publicErr) {
+		t.Fatalf("Return(%v) = %v, want unchanged (matching Code's first match)", joined, got)
+	}
+}
+
 func TestRejectionTableRoundTripsEveryCode(t *testing.T) {
 	t.Parallel()
 	table := exampleTable(false)
