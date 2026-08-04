@@ -35,6 +35,26 @@ func RejectEncoded[T any](value T, outcomeJSON string, returnError error) Execut
 	return Execution[T]{value: value, outcomeJSON: outcomeJSON, rejected: true, returnError: returnError}
 }
 
+// Value returns the outcome this execution carries: the applied result of a
+// successful command, or the unchanged current state of a rejected one.
+func (execution Execution[T]) Value() T {
+	return execution.value
+}
+
+// Rejection returns the durable rejection this execution commits, if any.
+func (execution Execution[T]) Rejection() (store.CommandRejection, bool) {
+	if execution.rejection == nil {
+		return store.CommandRejection{}, false
+	}
+	return *execution.rejection, true
+}
+
+// ReturnError returns the error this execution returns to its caller once its
+// outcome has committed.
+func (execution Execution[T]) ReturnError() error {
+	return execution.returnError
+}
+
 // WithAudit attaches domain-required evidence to a successful outcome.
 func (execution Execution[T]) WithAudit(details store.AuditDetails) Execution[T] {
 	execution.auditDetails = details
