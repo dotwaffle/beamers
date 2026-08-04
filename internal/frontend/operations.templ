@@ -2,6 +2,7 @@ package frontend
 
 import (
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -70,6 +71,16 @@ func (page OperationsPage) value(action string, id int, field, fallback string) 
 		if _, ok := page.Form[field]; ok {
 			return page.Form.Get(field)
 		}
+	}
+	return fallback
+}
+
+// checked reports whether one named checkbox picker option should render
+// checked: the submitted Form's selection after a failed submit, or the
+// current placement as a fallback on first render.
+func (page OperationsPage) checked(action string, id int, field, value string, fallback bool) bool {
+	if page.submitted(action, id) {
+		return slices.Contains(page.Form[field], value)
 	}
 	return fallback
 }
@@ -150,23 +161,41 @@ templ Operations(page OperationsPage) {
 											{ page.Errors.Attributes(OperationFieldID("preview-reinstate", session.ID, "forecast_start"))... }
 										/>
 										@FieldError(page.Errors, OperationFieldID("preview-reinstate", session.ID, "forecast_start"))
-										<label for={ OperationFieldID("preview-reinstate", session.ID, "lane_ids") }>Lane IDs</label>
-										<input
+										<fieldset
 											id={ OperationFieldID("preview-reinstate", session.ID, "lane_ids") }
-											name="lane_ids"
-											value={ page.value("preview-reinstate", session.ID, "lane_ids", commaSeparatedIDs(session.LaneIDs)) }
-											required
 											{ page.Errors.Attributes(OperationFieldID("preview-reinstate", session.ID, "lane_ids"))... }
-										/>
+										>
+											<legend>Lanes</legend>
+											for _, lane := range page.Rundown.Lanes {
+												<label>
+													<input
+														type="checkbox"
+														name="lane_ids"
+														value={ strconv.Itoa(lane.ID) }
+														checked?={ page.checked("preview-reinstate", session.ID, "lane_ids", strconv.Itoa(lane.ID), slices.Contains(session.LaneIDs, lane.ID)) }
+													/>
+													{ lane.Name }
+												</label>
+											}
+										</fieldset>
 										@FieldError(page.Errors, OperationFieldID("preview-reinstate", session.ID, "lane_ids"))
-										<label for={ OperationFieldID("preview-reinstate", session.ID, "location_ids") }>Location IDs</label>
-										<input
+										<fieldset
 											id={ OperationFieldID("preview-reinstate", session.ID, "location_ids") }
-											name="location_ids"
-											value={ page.value("preview-reinstate", session.ID, "location_ids", commaSeparatedIDs(session.LocationIDs)) }
-											required
 											{ page.Errors.Attributes(OperationFieldID("preview-reinstate", session.ID, "location_ids"))... }
-										/>
+										>
+											<legend>Locations</legend>
+											for _, location := range page.Rundown.Locations {
+												<label>
+													<input
+														type="checkbox"
+														name="location_ids"
+														value={ strconv.Itoa(location.ID) }
+														checked?={ page.checked("preview-reinstate", session.ID, "location_ids", strconv.Itoa(location.ID), slices.Contains(session.LocationIDs, location.ID)) }
+													/>
+													{ location.Name }
+												</label>
+											}
+										</fieldset>
 										@FieldError(page.Errors, OperationFieldID("preview-reinstate", session.ID, "location_ids"))
 										<button type="submit">Preview Reinstate and reschedule</button>
 									</form>
@@ -277,8 +306,12 @@ templ Operations(page OperationsPage) {
 								<input type="hidden" name="session_id" value={ strconv.Itoa(page.PreviewSessionID) }/>
 								<input type="hidden" name="expected_live_state_revision" value={ strconv.Itoa(page.PreviewRevision) }/>
 								<input type="hidden" name="forecast_start" value={ page.ForecastStart.UTC().Format(time.RFC3339) }/>
-								<input type="hidden" name="lane_ids" value={ commaSeparatedIDs(page.LaneIDs) }/>
-								<input type="hidden" name="location_ids" value={ commaSeparatedIDs(page.LocationIDs) }/>
+								for _, laneID := range page.LaneIDs {
+									<input type="hidden" name="lane_ids" value={ strconv.Itoa(laneID) }/>
+								}
+								for _, locationID := range page.LocationIDs {
+									<input type="hidden" name="location_ids" value={ strconv.Itoa(locationID) }/>
+								}
 								<input type="hidden" name="preview_fingerprint" value={ page.ReinstatePreview.Fingerprint }/>
 								<input type="hidden" name="command_id" value={ page.CommandIDs["reinstate-session:"+strconv.Itoa(page.PreviewSessionID)] }/>
 								<label for={ OperationFieldID("reinstate-session", page.PreviewSessionID, "confirmed") }>

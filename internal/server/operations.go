@@ -586,12 +586,12 @@ func operationSessionInput(request *http.Request) (int, int, error) {
 	return sessionID, revision, nil
 }
 
-func operationIDs(value, field, label string) ([]int, error) {
-	ids, err := positiveFormIDs(commaSeparatedValues(value))
+func operationIDs(values []string, field, label string) ([]int, error) {
+	ids, err := positiveFormIDs(values)
 	if err != nil || len(ids) == 0 {
 		return nil, formValidationError(
 			field,
-			"Enter "+label+" as comma-separated positive integers.",
+			"Select at least one "+label+".",
 		)
 	}
 	return ids, nil
@@ -606,14 +606,14 @@ func operationAdjustment(request *http.Request) (time.Duration, error) {
 }
 
 func operationPlacement(request *http.Request) ([]int, []int, error) {
-	laneIDs, err := operationIDs(request.Form.Get("lane_ids"), "lane_ids", "Lane IDs")
+	laneIDs, err := operationIDs(request.Form["lane_ids"], "lane_ids", "Lane")
 	if err != nil {
 		return nil, nil, err
 	}
 	locationIDs, err := operationIDs(
-		request.Form.Get("location_ids"),
+		request.Form["location_ids"],
 		"location_ids",
-		"Location IDs",
+		"Location",
 	)
 	if err != nil {
 		return nil, nil, err
