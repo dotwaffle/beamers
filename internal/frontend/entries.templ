@@ -149,6 +149,32 @@ func entryAttachmentVersions(values []attachments.Version, entryID int) []attach
 	return result
 }
 
+// attachmentSectionOpen reports whether the collapsed Attachment Versions and
+// Reopen Windows section for entryID contains a form that just failed
+// validation, so it renders expanded rather than silently hiding the error
+// behind a closed <details>.
+func (page CompetitionEntriesPage) attachmentSectionOpen(
+	entryID int,
+	versions []attachments.Version,
+) bool {
+	if len(page.Errors) == 0 {
+		return false
+	}
+	switch page.SubmittedAction {
+	case "attachment-readiness", "create-reopen-window",
+		"extend-reopen-window", "close-reopen-window":
+		return page.Form.Get("entry_id") == strconv.Itoa(entryID)
+	case "version-release-hold":
+		versionID := page.Form.Get("version_id")
+		for _, version := range versions {
+			if strconv.Itoa(version.ID) == versionID {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func entryReopenWindows(values []store.ReopenWindow, entryID int) []store.ReopenWindow {
 	result := make([]store.ReopenWindow, 0)
 	for _, value := range values {
@@ -681,7 +707,7 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 										<button class="btn-secondary" type="submit">Upload immutable Version</button>
 									</form>
 								}
-								<details>
+								<details open?={ page.attachmentSectionOpen(entry.ID, entryAttachmentVersions(page.Attachments.Versions, entry.ID)) }>
 									<summary>Attachment Versions and Reopen Windows</summary>
 								<h4>Attachment Versions</h4>
 								if len(entryAttachmentVersions(page.Attachments.Versions, entry.ID)) == 0 {

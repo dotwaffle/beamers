@@ -7197,6 +7197,12 @@ func TestBrowserManagesCompetitionEntries(t *testing.T) {
 	assertAccessibleFormErrors(t, invalid, map[string]string{
 		"extend-reopen-window-1-1-expires-at": "Choose an expiry later than the current expiry.",
 	})
+	if !strings.Contains(invalid.body, "<details open>") {
+		t.Fatalf(
+			"invalid Reopen Window extension leaves its section collapsed: %q",
+			invalid.body,
+		)
+	}
 	page = getFrontendPage(t, administrator, server.address, path)
 	unbounded := postFrontendForm(t, administrator, server.address, path, url.Values{
 		"csrf_token":        {requireFrontendCSRF(t, page)},
