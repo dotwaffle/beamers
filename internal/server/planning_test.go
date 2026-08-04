@@ -1,9 +1,11 @@
 package server
 
 import (
+	"errors"
 	"net/http"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -104,6 +106,115 @@ func TestDisplaySettingsInputDistinguishesEmptyOverridesFromInheritance(t *testi
 	}
 }
 
+func TestDisplaySettingsInputReportsDomainThresholdRules(t *testing.T) {
+	t.Parallel()
+	repeated := make([]string, 0, 17)
+	emphases := make([]string, 0, 17)
+	for row := range 17 {
+		repeated = append(repeated, strconv.Itoa(row+1))
+		emphases = append(emphases, displayviews.EmphasisUrgent)
+	}
+	tests := []struct {
+		name     string
+		seconds  []string
+		emphasis []string
+		fieldID  string
+		message  string
+	}{
+		{
+			name: "unparsable seconds", seconds: []string{"soon"},
+			emphasis: []string{displayviews.EmphasisUrgent},
+			fieldID:  "timer_threshold-seconds-0",
+			message:  "must be a whole number of seconds",
+		},
+		{
+			name: "seconds below the domain range", seconds: []string{"0"},
+			emphasis: []string{displayviews.EmphasisUrgent},
+			fieldID:  "timer_threshold-seconds-0",
+			message:  "remaining seconds must be between 1 and 86400",
+		},
+		{
+			name: "seconds above the domain range", seconds: []string{"86401"},
+			emphasis: []string{displayviews.EmphasisUrgent},
+			fieldID:  "timer_threshold-seconds-0",
+			message:  "remaining seconds must be between 1 and 86400",
+		},
+		{
+			name: "unsupported emphasis", seconds: []string{"60"},
+			emphasis: []string{"panic"},
+			fieldID:  "timer_threshold-emphasis-0",
+			message:  "emphasis must be attention or urgent",
+		},
+		{
+			name: "repeated remaining seconds", seconds: []string{"60", "60"},
+			emphasis: []string{displayviews.EmphasisAttention, displayviews.EmphasisUrgent},
+			fieldID:  "timer_threshold-seconds-1",
+			message:  "must not repeat remaining seconds",
+		},
+		{
+			name:     "blank rows keep the submitted row number",
+			seconds:  []string{"", "0"},
+			emphasis: []string{"", displayviews.EmphasisUrgent},
+			fieldID:  "timer_threshold-seconds-1",
+			message:  "remaining seconds must be between 1 and 86400",
+		},
+		{
+			name:    "more thresholds than the domain allows",
+			seconds: repeated, emphasis: emphases,
+			fieldID: "timer_threshold-seconds-16",
+			message: "must contain at most 16 thresholds",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			values := url.Values{
+				"rotation_seconds":         {"15"},
+				"expected_event_revision":  {"1"},
+				"timer_threshold_seconds":  test.seconds,
+				"timer_threshold_emphasis": test.emphasis,
+			}
+			_, err := displaySettingsInput(
+				values,
+				displayviews.DefaultConfiguration(),
+				rundown.DraftRundown{},
+			)
+			var inputError *displaySettingsInputError
+			if !errors.As(err, &inputError) {
+				t.Fatalf("displaySettingsInput() error = %v, want input error", err)
+			}
+			if inputError.fieldID != test.fieldID {
+				t.Errorf("field ID = %q, want %q", inputError.fieldID, test.fieldID)
+			}
+			if inputError.message != test.message {
+				t.Errorf("message = %q, want %q", inputError.message, test.message)
+			}
+		})
+	}
+}
+
+func TestDisplaySessionTypesCoverEveryRundownSessionType(t *testing.T) {
+	t.Parallel()
+	for _, sessionType := range []rundown.SessionType{
+		rundown.SessionPresentation,
+		rundown.SessionCompetition,
+		rundown.SessionBreak,
+		rundown.SessionActivity,
+		rundown.SessionCeremony,
+		rundown.SessionPerformance,
+		rundown.SessionHold,
+	} {
+		if !displayviews.ValidSessionType(string(sessionType)) ||
+			!slices.Contains(displaySessionTypes(), string(sessionType)) {
+			t.Errorf("Session type %q is missing from the Display settings form", sessionType)
+		}
+	}
+	if len(displaySessionTypes()) != 7 {
+		t.Errorf("Display Session types = %v, want exactly the Rundown types", displaySessionTypes())
+	}
+}
+
 func TestSessionFormTargetsOnlyFactsChangedFromViewedDraft(t *testing.T) {
 	start := time.Date(2026, 7, 26, 10, 0, 0, 0, time.UTC)
 	base := rundown.CrewSession{
@@ -176,11 +287,11 @@ func TestPlanningFormErrorsTargetSessionRelationships(t *testing.T) {
 			if test.target != "" {
 				values.Set("session_id", test.target)
 			}
-			_, errors := planningFormErrors(&rundown.ValidationError{
+			_, formErrors := planningFormErrors(&rundown.ValidationError{
 				Field: test.field, Message: "invalid relationship",
 			}, values)
-			if len(errors) != 1 || errors[0].FieldID != test.want {
-				t.Fatalf("errors = %#v, want field %q", errors, test.want)
+			if len(formErrors) != 1 || formErrors[0].FieldID != test.want {
+				t.Fatalf("errors = %#v, want field %q", formErrors, test.want)
 			}
 		})
 	}
@@ -189,12 +300,12 @@ func TestPlanningFormErrorsTargetSessionRelationships(t *testing.T) {
 func TestPlanningFormErrorsTargetImportProposals(t *testing.T) {
 	for _, action := range []string{"csv-import", "icalendar-import"} {
 		t.Run(action, func(t *testing.T) {
-			_, errors := planningFormErrors(&rundown.ValidationError{
+			_, formErrors := planningFormErrors(&rundown.ValidationError{
 				Field: "proposal_ids", Message: "must select a proposal",
 			}, url.Values{"action": {action}})
 			want := strings.TrimSuffix(action, "-import") + "-proposal-ids"
-			if len(errors) != 1 || errors[0].FieldID != want {
-				t.Fatalf("errors = %#v, want field %q", errors, want)
+			if len(formErrors) != 1 || formErrors[0].FieldID != want {
+				t.Fatalf("errors = %#v, want field %q", formErrors, want)
 			}
 		})
 	}

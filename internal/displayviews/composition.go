@@ -52,6 +52,7 @@ const (
 
 const minimumTextContrast = 4.5
 const maximumTimerThresholdSeconds = 24 * 60 * 60
+const maximumTimerThresholds = 16
 
 const (
 	// EmphasisAttention identifies an approaching timer target.
@@ -69,6 +70,38 @@ type ValidationError struct {
 // Error implements error.
 func (err *ValidationError) Error() string {
 	return err.Field + ": " + err.Message
+}
+
+// ThresholdAspect names the part of a timer threshold set that failed validation.
+type ThresholdAspect string
+
+const (
+	// ThresholdSet marks a rule about the set of thresholds as a whole.
+	ThresholdSet ThresholdAspect = "set"
+	// ThresholdSeconds marks a rule about a row's remaining seconds.
+	ThresholdSeconds ThresholdAspect = "seconds"
+	// ThresholdEmphasis marks a rule about a row's emphasis.
+	ThresholdEmphasis ThresholdAspect = "emphasis"
+)
+
+// ThresholdError locates one invalid timer threshold within a set. It
+// unwraps to a ValidationError so callers that only report the field keep
+// working unchanged.
+type ThresholdError struct {
+	Field   string
+	Index   int
+	Aspect  ThresholdAspect
+	Message string
+}
+
+// Error implements error.
+func (err *ThresholdError) Error() string {
+	return err.Field + ": " + err.Message
+}
+
+// Unwrap exposes the plain field validation error.
+func (err *ThresholdError) Unwrap() error {
+	return &ValidationError{Field: err.Field, Message: err.Message}
 }
 
 // Theme is the controlled Event appearance accepted by Display renderers.
@@ -261,14 +294,14 @@ func ValidateConfiguration(configuration Configuration) error {
 	default:
 		return invalid("theme.transition", "must be none or fade")
 	}
-	if err := validateTimerThresholds("timer_thresholds", configuration.TimerThresholds); err != nil {
+	if err := ValidateTimerThresholds("timer_thresholds", configuration.TimerThresholds); err != nil {
 		return err
 	}
 	for sessionType, thresholds := range configuration.SessionTypeTimerThresholds {
-		if !validSessionType(sessionType) {
+		if !ValidSessionType(sessionType) {
 			return invalid("session_type_timer_thresholds", "keys must identify a supported Session type")
 		}
-		if err := validateTimerThresholds("session_type_timer_thresholds", thresholds); err != nil {
+		if err := ValidateTimerThresholds("session_type_timer_thresholds", thresholds); err != nil {
 			return err
 		}
 	}
@@ -276,41 +309,74 @@ func ValidateConfiguration(configuration Configuration) error {
 		if sessionID <= 0 {
 			return invalid("session_timer_thresholds", "keys must be positive Session IDs")
 		}
-		if err := validateTimerThresholds("session_timer_thresholds", thresholds); err != nil {
+		if err := ValidateTimerThresholds("session_timer_thresholds", thresholds); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func validateTimerThresholds(field string, thresholds []TimerThreshold) error {
-	if len(thresholds) > 16 {
-		return invalid(field, "must contain at most 16 thresholds")
+// ValidateTimerThresholds applies the timer threshold rules to one whole set.
+// The returned error locates the offending row so form callers can point at
+// the field the operator typed into without restating the rules themselves.
+func ValidateTimerThresholds(field string, thresholds []TimerThreshold) error {
+	if len(thresholds) > maximumTimerThresholds {
+		return &ThresholdError{
+			Field: field, Index: maximumTimerThresholds, Aspect: ThresholdSet,
+			Message: "must contain at most 16 thresholds",
+		}
 	}
 	remaining := make(map[int]struct{}, len(thresholds))
-	for _, threshold := range thresholds {
-		if threshold.RemainingSeconds <= 0 ||
-			threshold.RemainingSeconds > maximumTimerThresholdSeconds {
-			return invalid(field, "remaining seconds must be between 1 and 86400")
-		}
-		if threshold.Emphasis != EmphasisAttention && threshold.Emphasis != EmphasisUrgent {
-			return invalid(field, "emphasis must be attention or urgent")
-		}
-		if _, duplicate := remaining[threshold.RemainingSeconds]; duplicate {
-			return invalid(field, "must not repeat remaining seconds")
+	for index, threshold := range thresholds {
+		violation := timerThresholdError(threshold, remaining)
+		if violation != nil {
+			violation.Field = field
+			violation.Index = index
+			return violation
 		}
 		remaining[threshold.RemainingSeconds] = struct{}{}
 	}
 	return nil
 }
 
-func validSessionType(value string) bool {
-	switch value {
-	case "Presentation", "Competition", "Break", "Activity", "Ceremony", "Performance", "Hold":
-		return true
+func timerThresholdError(
+	threshold TimerThreshold,
+	remaining map[int]struct{},
+) *ThresholdError {
+	switch {
+	case threshold.RemainingSeconds <= 0 ||
+		threshold.RemainingSeconds > maximumTimerThresholdSeconds:
+		return &ThresholdError{
+			Aspect:  ThresholdSeconds,
+			Message: "remaining seconds must be between 1 and 86400",
+		}
+	case threshold.Emphasis != EmphasisAttention && threshold.Emphasis != EmphasisUrgent:
+		return &ThresholdError{
+			Aspect:  ThresholdEmphasis,
+			Message: "emphasis must be attention or urgent",
+		}
 	default:
-		return false
+		if _, duplicate := remaining[threshold.RemainingSeconds]; duplicate {
+			return &ThresholdError{
+				Aspect:  ThresholdSeconds,
+				Message: "must not repeat remaining seconds",
+			}
+		}
 	}
+	return nil
+}
+
+// SessionTypes lists the Session types that may carry timer threshold overrides.
+func SessionTypes() []string {
+	return []string{
+		"Presentation", "Competition", "Break",
+		"Activity", "Ceremony", "Performance", "Hold",
+	}
+}
+
+// ValidSessionType reports whether a Session type may carry an override.
+func ValidSessionType(value string) bool {
+	return slices.Contains(SessionTypes(), value)
 }
 
 func builtInLayout(viewKey string, standby bool) (Layout, bool) {

@@ -531,12 +531,11 @@ func displaySettingsInput(
 			Field: "expected_event_revision", Message: "must be a positive Event revision",
 		}
 	}
-	thresholds, err := displayThresholds(
-		values,
-		"timer_threshold",
-		"Default timer threshold",
-		"",
-	)
+	thresholds, err := displayThresholds(displayThresholdInput{
+		values:     values,
+		prefix:     "timer_threshold",
+		fieldLabel: "Default timer threshold",
+	})
 	if err != nil {
 		return events.DisplayConfigurationInput{}, err
 	}
@@ -553,12 +552,12 @@ func displaySettingsInput(
 			delete(current.SessionTypeTimerThresholds, sessionType)
 			continue
 		}
-		thresholds, thresholdErr := displayThresholds(
-			values,
-			prefix,
-			sessionType+" Session type timer threshold",
-			"session-type",
-		)
+		thresholds, thresholdErr := displayThresholds(displayThresholdInput{
+			values:     values,
+			prefix:     prefix,
+			fieldLabel: sessionType + " Session type timer threshold",
+			section:    "session-type",
+		})
 		if thresholdErr != nil {
 			return events.DisplayConfigurationInput{}, thresholdErr
 		}
@@ -574,12 +573,12 @@ func displaySettingsInput(
 			delete(current.SessionTimerThresholds, session.ID)
 			continue
 		}
-		thresholds, thresholdErr := displayThresholds(
-			values,
-			prefix,
-			session.Title+" ("+string(session.Type)+") Session timer threshold",
-			"session",
-		)
+		thresholds, thresholdErr := displayThresholds(displayThresholdInput{
+			values:     values,
+			prefix:     prefix,
+			fieldLabel: session.Title + " (" + string(session.Type) + ") Session timer threshold",
+			section:    "session",
+		})
 		if thresholdErr != nil {
 			return events.DisplayConfigurationInput{}, thresholdErr
 		}
@@ -592,60 +591,82 @@ func displaySettingsInput(
 	}, nil
 }
 
+type displayThresholdInput struct {
+	values     url.Values
+	prefix     string
+	fieldLabel string
+	section    string
+}
+
+// displayThresholds parses the submitted rows and leaves every threshold rule
+// to the Display views domain, so the form and the Event command agree on what
+// a valid threshold set is.
 func displayThresholds(
-	values url.Values,
-	prefix string,
-	fieldLabel string,
-	section string,
+	input displayThresholdInput,
 ) ([]displayviews.TimerThreshold, error) {
-	secondsValues := values[prefix+"_seconds"]
-	emphasisValues := values[prefix+"_emphasis"]
+	secondsValues := input.values[input.prefix+"_seconds"]
+	emphasisValues := input.values[input.prefix+"_emphasis"]
 	count := max(len(secondsValues), len(emphasisValues))
-	if count > 16 {
-		return nil, &displaySettingsInputError{
-			fieldID: displayThresholdFieldID(prefix, "seconds", 16),
-			field:   fieldLabel, message: "must contain at most 16 thresholds",
-			section: section,
-		}
-	}
 	result := make([]displayviews.TimerThreshold, 0, count)
-	remaining := make(map[int]struct{}, count)
+	rows := make([]int, 0, count)
 	for index := range count {
-		secondsValue := formValue(secondsValues, index)
+		secondsValue := strings.TrimSpace(formValue(secondsValues, index))
 		emphasis := formValue(emphasisValues, index)
 		if secondsValue == "" && emphasis == "" {
 			continue
 		}
-		fieldID := displayThresholdFieldID(prefix, "seconds", index)
-		field := fieldLabel + " remaining seconds row " + strconv.Itoa(index+1)
-		seconds, err := strconv.Atoi(strings.TrimSpace(secondsValue))
-		if err != nil || seconds <= 0 || seconds > 24*60*60 {
-			return nil, &displaySettingsInputError{
-				fieldID: fieldID, field: field,
-				message: "must be an integer from 1 to 86400", section: section,
-			}
+		seconds, err := strconv.Atoi(secondsValue)
+		if err != nil {
+			return nil, displayThresholdError(input, displayviews.ThresholdError{
+				Index:   index,
+				Aspect:  displayviews.ThresholdSeconds,
+				Message: "must be a whole number of seconds",
+			})
 		}
-		if emphasis != displayviews.EmphasisAttention &&
-			emphasis != displayviews.EmphasisUrgent {
-			return nil, &displaySettingsInputError{
-				fieldID: displayThresholdFieldID(prefix, "emphasis", index),
-				field:   fieldLabel + " emphasis row " + strconv.Itoa(index+1),
-				message: "must be attention or urgent", section: section,
-			}
-		}
-		if _, duplicate := remaining[seconds]; duplicate {
-			return nil, &displaySettingsInputError{
-				fieldID: fieldID, field: field,
-				message: "must not repeat remaining seconds", section: section,
-			}
-		}
-		remaining[seconds] = struct{}{}
+		rows = append(rows, index)
 		result = append(result, displayviews.TimerThreshold{
 			RemainingSeconds: seconds,
 			Emphasis:         emphasis,
 		})
 	}
+	if err := displayviews.ValidateTimerThresholds(input.prefix, result); err != nil {
+		var violation *displayviews.ThresholdError
+		if !errors.As(err, &violation) {
+			return nil, err
+		}
+		submitted := *violation
+		if submitted.Index < len(rows) {
+			submitted.Index = rows[submitted.Index]
+		}
+		return nil, displayThresholdError(input, submitted)
+	}
 	return result, nil
+}
+
+// displayThresholdError points the operator at the row they submitted. The
+// domain reports positions within the parsed set, which skips blank rows, so
+// callers translate that position back to the submitted row first.
+func displayThresholdError(
+	input displayThresholdInput,
+	violation displayviews.ThresholdError,
+) error {
+	kind := string(violation.Aspect)
+	field := input.fieldLabel
+	row := strconv.Itoa(violation.Index + 1)
+	switch violation.Aspect {
+	case displayviews.ThresholdSeconds:
+		field += " remaining seconds row " + row
+	case displayviews.ThresholdEmphasis:
+		field += " emphasis row " + row
+	case displayviews.ThresholdSet:
+		kind = string(displayviews.ThresholdSeconds)
+	}
+	return &displaySettingsInputError{
+		fieldID: displayThresholdFieldID(input.prefix, kind, violation.Index),
+		field:   field,
+		message: violation.Message,
+		section: input.section,
+	}
 }
 
 func displaySettingsFormFromConfiguration(
@@ -766,15 +787,7 @@ func displayThresholdFieldsFromValues(
 }
 
 func displaySessionTypes() []string {
-	return []string{
-		string(rundown.SessionPresentation),
-		string(rundown.SessionCompetition),
-		string(rundown.SessionBreak),
-		string(rundown.SessionActivity),
-		string(rundown.SessionCeremony),
-		string(rundown.SessionPerformance),
-		string(rundown.SessionHold),
-	}
+	return displayviews.SessionTypes()
 }
 
 func formValue(values []string, index int) string {
