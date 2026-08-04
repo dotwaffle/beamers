@@ -18,24 +18,6 @@ type publicTimeFactsParams struct {
 	RunDuration time.Duration
 }
 
-func loadPublicTimeFacts(
-	ctx context.Context,
-	client *ent.Client,
-	params publicTimeFactsParams,
-) (publictime.Facts, error) {
-	baseline, err := client.PublicScheduleBaselineEntry.Query().
-		Where(publicschedulebaselineentry.SessionIDEQ(params.Session.ID)).
-		Only(ctx)
-	if err != nil && !ent.IsNotFound(err) {
-		return publictime.Facts{}, opaqueError("load Public Schedule Baseline entry", err)
-	}
-	var baselineStart *time.Time
-	if err == nil {
-		baselineStart = instantPointer(baseline.ForecastStart)
-	}
-	return publicTimeFacts(params, baselineStart), nil
-}
-
 // sessionBaselineStarts returns the captured attendee Baseline start per
 // requested Session in one query. Sessions captured before the Baseline
 // existed, or excluded from it, are absent from the result.
