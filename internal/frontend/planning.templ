@@ -581,7 +581,7 @@ templ Planning(page PlanningPage) {
 							@ErrorFlash(failure)
 						}
 						if len(page.CurrentPreview.Changes) == 0 {
-							<p>No effective Draft changes.</p>
+							@EmptyState("No effective Draft changes.")
 						} else {
 							<ul>
 								for _, change := range page.CurrentPreview.Changes {

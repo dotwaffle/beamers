@@ -217,7 +217,7 @@ templ Installation(page InstallationPage) {
 								<button class="btn-destructive" type="submit">Cancel Prepared Restore</button>
 							</form>
 						} else {
-							<p>No Restore is prepared.</p>
+							@EmptyState("No Restore is prepared.")
 						}
 					</section>
 				</main>

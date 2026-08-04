@@ -213,7 +213,7 @@ templ Results(page ResultsPage) {
 					<p>{ page.Event.Name }</p>
 					@ErrorSummary(page.Errors)
 					if len(page.Competitions) == 0 {
-						<p>No published Competitions are available.</p>
+						@EmptyState("No published Competitions are available.")
 					}
 					for _, competition := range page.Competitions {
 						<section>

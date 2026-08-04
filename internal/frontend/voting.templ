@@ -335,7 +335,7 @@ templ VotingKeys(page VotingKeyPage) {
 					<section>
 						<h2>Key inventory</h2>
 						if len(page.Keys) == 0 {
-							<p>No Voting Keys issued.</p>
+							@EmptyState("No Voting Keys issued. Issue printable keys above.")
 						} else {
 							<div class="table-scroll">
 							<table>

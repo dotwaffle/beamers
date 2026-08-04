@@ -333,7 +333,7 @@ templ Administration(page AdministrationPage) {
 					<section>
 						<h2>Events and activation</h2>
 						if page.ActiveEvent.EventID == 0 {
-							<p>No Active Event.</p>
+							@EmptyState("No Active Event. Preflight and activate an Event below.")
 						} else {
 							<p>
 								Active Event #{ strconv.Itoa(page.ActiveEvent.EventID) },
@@ -414,7 +414,7 @@ templ Administration(page AdministrationPage) {
 					<section>
 						<h2>Event Slug Aliases</h2>
 						if len(page.SlugAliases) == 0 {
-							<p>No retained Event Slug Aliases.</p>
+							@EmptyState("No retained Event Slug Aliases.")
 						}
 						if len(page.SlugAliases) > 0 {
 							<ul>

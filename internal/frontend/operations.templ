@@ -237,7 +237,7 @@ templ Operations(page OperationsPage) {
 									}
 								</ul>
 							} else {
-								<p>No deferred Entries.</p>
+								@EmptyState("No deferred Entries.")
 							}
 							<form method="post" action={ operationsPath(page.Event.ID) }>
 								<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
@@ -349,7 +349,7 @@ templ Operations(page OperationsPage) {
 						if !page.DisplaysAvailable {
 							<p>Display operations are unavailable while this Event is not active.</p>
 						} else if len(page.Displays) == 0 {
-							<p>No enrolled Displays.</p>
+							@EmptyState("No enrolled Displays. Enroll one below.")
 						} else {
 							for _, display := range page.Displays {
 								<article data-display-id={ strconv.Itoa(display.ID) }>

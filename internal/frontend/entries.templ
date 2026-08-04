@@ -503,7 +503,7 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 					<section>
 						<h2>Entries</h2>
 						if len(page.State.Entries) == 0 {
-							<p>No Entries yet.</p>
+							@EmptyState("No Entries yet. Create one below.")
 						}
 						for _, entry := range page.State.Entries {
 							<article>
@@ -685,7 +685,7 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 									<summary>Attachment Versions and Reopen Windows</summary>
 								<h4>Attachment Versions</h4>
 								if len(entryAttachmentVersions(page.Attachments.Versions, entry.ID)) == 0 {
-									<p>No Attachment Versions.</p>
+									@EmptyState("No Attachment Versions.")
 								}
 								for _, version := range entryAttachmentVersions(page.Attachments.Versions, entry.ID) {
 									<section>

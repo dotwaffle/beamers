@@ -457,7 +457,7 @@ templ ProfilePage(
 						</form>
 					}
 					if len(credentials) == 0 {
-						<p>No WebAuthn Credentials registered.</p>
+						@EmptyState("No WebAuthn Credentials registered.")
 					} else {
 						<ul>
 							for _, credential := range credentials {
@@ -662,7 +662,7 @@ templ Root(
 				} else {
 					<h1>Events</h1>
 					if len(publicEvents) == 0 {
-						<p>No public Events yet.</p>
+						@EmptyState("No public Events yet.")
 					} else {
 						for _, event := range publicEvents {
 							if event.Active {
