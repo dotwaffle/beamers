@@ -236,7 +236,7 @@ func Results(page ResultsPage) templ.Component {
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.Event.EventLocale)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 205, Col: 36}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 205, Col: 36}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var2)
 		if templ_7745c5c3_Err != nil {
@@ -249,7 +249,7 @@ func Results(page ResultsPage) templ.Component {
 		var templ_7745c5c3_Var3 string
 		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.Event.EventLocale)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 205, Col: 75}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 205, Col: 75}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var3)
 		if templ_7745c5c3_Err != nil {
@@ -270,7 +270,7 @@ func Results(page ResultsPage) templ.Component {
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.FormatBool(page.ReducedEffects))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 207, Col: 70}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 207, Col: 70}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var4)
 		if templ_7745c5c3_Err != nil {
@@ -299,7 +299,7 @@ func Results(page ResultsPage) templ.Component {
 		var templ_7745c5c3_Var5 string
 		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(page.Event.Name)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 213, Col: 25}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 213, Col: 25}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 		if templ_7745c5c3_Err != nil {
@@ -327,7 +327,7 @@ func Results(page ResultsPage) templ.Component {
 			var templ_7745c5c3_Var6 string
 			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(competition.Session.Title)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 220, Col: 38}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 220, Col: 38}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 			if templ_7745c5c3_Err != nil {
@@ -340,7 +340,7 @@ func Results(page ResultsPage) templ.Component {
 			var templ_7745c5c3_Var7 string
 			templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(competition.Draft.Revision))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 222, Col: 65}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 222, Col: 65}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 			if templ_7745c5c3_Err != nil {
@@ -353,7 +353,7 @@ func Results(page ResultsPage) templ.Component {
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.FormatBool(competition.Draft.Ready))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 223, Col: 60}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 223, Col: 60}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
@@ -371,7 +371,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var9 string
 				templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(competition.Draft.VotingTally.Participating))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 227, Col: 82}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 227, Col: 82}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 				if templ_7745c5c3_Err != nil {
@@ -384,7 +384,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var10 string
 				templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(competition.Draft.VotingTally.Method)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 228, Col: 70}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 228, Col: 70}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 				if templ_7745c5c3_Err != nil {
@@ -397,7 +397,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var11 string
 				templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(competition.Draft.VotingTally.SelfVotePolicy)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 229, Col: 72}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 229, Col: 72}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 				if templ_7745c5c3_Err != nil {
@@ -415,7 +415,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var12 string
 					templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(entry.EntryID))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 234, Col: 46}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 234, Col: 46}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 					if templ_7745c5c3_Err != nil {
@@ -428,7 +428,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var13 string
 					templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(entry.Total))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 235, Col: 38}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 235, Col: 38}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 					if templ_7745c5c3_Err != nil {
@@ -441,7 +441,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var14 string
 					templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(entry.Count))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 235, Col: 79}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 235, Col: 79}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 					if templ_7745c5c3_Err != nil {
@@ -465,7 +465,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var15 string
 				templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.CSRFToken)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 242, Col: 70}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 242, Col: 70}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var15)
 				if templ_7745c5c3_Err != nil {
@@ -478,7 +478,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var16 string
 				templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.CommandID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 244, Col: 70}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 244, Col: 70}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var16)
 				if templ_7745c5c3_Err != nil {
@@ -491,7 +491,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var17 string
 				templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(competition.Session.ID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 245, Col: 104}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 245, Col: 104}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var17)
 				if templ_7745c5c3_Err != nil {
@@ -504,7 +504,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var18 string
 				templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(competition.Draft.Revision))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 246, Col: 103}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 246, Col: 103}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var18)
 				if templ_7745c5c3_Err != nil {
@@ -517,7 +517,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var19 string
 				templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-results-draft", competition.Session.ID, "disposition"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 247, Col: 97}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 247, Col: 97}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var19)
 				if templ_7745c5c3_Err != nil {
@@ -530,7 +530,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var20 string
 				templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-results-draft", competition.Session.ID, "disposition"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 249, Col: 90}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 249, Col: 90}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var20)
 				if templ_7745c5c3_Err != nil {
@@ -589,7 +589,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var21 string
 				templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-results-draft", competition.Session.ID, "no_public_reason"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 258, Col: 102}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 258, Col: 102}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var21)
 				if templ_7745c5c3_Err != nil {
@@ -602,7 +602,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var22 string
 				templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-results-draft", competition.Session.ID, "no_public_reason"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 260, Col: 95}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 260, Col: 95}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var22)
 				if templ_7745c5c3_Err != nil {
@@ -623,7 +623,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var23 string
 				templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(page.value("save-results-draft", competition.Session.ID, "no_public_reason", competition.Draft.NoPublicReason))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 263, Col: 122}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 263, Col: 122}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 				if templ_7745c5c3_Err != nil {
@@ -645,7 +645,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var24 string
 					templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-results-draft", competition.Session.ID, "tally_override_reason"))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 266, Col: 108}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 266, Col: 108}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var24)
 					if templ_7745c5c3_Err != nil {
@@ -658,7 +658,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var25 string
 					templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-results-draft", competition.Session.ID, "tally_override_reason"))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 268, Col: 101}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 268, Col: 101}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var25)
 					if templ_7745c5c3_Err != nil {
@@ -679,7 +679,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var26 string
 					templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(page.value("save-results-draft", competition.Session.ID, "tally_override_reason", competition.Draft.TallyOverrideReason))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 271, Col: 133}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 271, Col: 133}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 					if templ_7745c5c3_Err != nil {
@@ -701,7 +701,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var27 string
 				templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-results-draft", competition.Session.ID, "public_explanation"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 274, Col: 104}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 274, Col: 104}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var27)
 				if templ_7745c5c3_Err != nil {
@@ -714,7 +714,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var28 string
 				templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-results-draft", competition.Session.ID, "public_explanation"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 276, Col: 97}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 276, Col: 97}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var28)
 				if templ_7745c5c3_Err != nil {
@@ -735,7 +735,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var29 string
 				templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(page.value("save-results-draft", competition.Session.ID, "public_explanation", competition.Draft.PublicExplanation))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 279, Col: 127}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 279, Col: 127}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 				if templ_7745c5c3_Err != nil {
@@ -756,7 +756,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var30 string
 				templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-results-draft", competition.Session.ID, "score_type"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 283, Col: 97}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 283, Col: 97}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var30)
 				if templ_7745c5c3_Err != nil {
@@ -769,7 +769,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var31 string
 				templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-results-draft", competition.Session.ID, "score_type"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 285, Col: 90}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 285, Col: 90}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var31)
 				if templ_7745c5c3_Err != nil {
@@ -828,7 +828,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var32 string
 				templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-results-draft", competition.Session.ID, "score_visibility"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 294, Col: 103}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 294, Col: 103}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var32)
 				if templ_7745c5c3_Err != nil {
@@ -841,7 +841,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var33 string
 				templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-results-draft", competition.Session.ID, "score_visibility"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 296, Col: 96}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 296, Col: 96}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var33)
 				if templ_7745c5c3_Err != nil {
@@ -890,7 +890,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var34 string
 				templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-results-draft", competition.Session.ID, "score_unit"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 304, Col: 97}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 304, Col: 97}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var34)
 				if templ_7745c5c3_Err != nil {
@@ -903,7 +903,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var35 string
 				templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-results-draft", competition.Session.ID, "score_unit"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 306, Col: 90}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 306, Col: 90}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var35)
 				if templ_7745c5c3_Err != nil {
@@ -916,7 +916,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var36 string
 				templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.value("save-results-draft", competition.Session.ID, "score_unit", competition.Draft.Score.Unit))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 308, Col: 119}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 308, Col: 119}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var36)
 				if templ_7745c5c3_Err != nil {
@@ -945,7 +945,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var37 string
 				templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-results-draft", competition.Session.ID, "score_precision"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 312, Col: 102}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 312, Col: 102}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var37)
 				if templ_7745c5c3_Err != nil {
@@ -958,7 +958,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var38 string
 				templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-results-draft", competition.Session.ID, "score_precision"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 314, Col: 95}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 314, Col: 95}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var38)
 				if templ_7745c5c3_Err != nil {
@@ -971,7 +971,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var39 string
 				templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.value("save-results-draft", competition.Session.ID, "score_precision", strconv.Itoa(competition.Draft.Score.Precision)))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 318, Col: 143}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 318, Col: 143}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var39)
 				if templ_7745c5c3_Err != nil {
@@ -1000,7 +1000,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var40 string
 				templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-results-draft", competition.Session.ID, "score_requirement"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 322, Col: 104}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 322, Col: 104}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var40)
 				if templ_7745c5c3_Err != nil {
@@ -1013,7 +1013,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var41 string
 				templ_7745c5c3_Var41, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-results-draft", competition.Session.ID, "score_requirement"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 324, Col: 97}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 324, Col: 97}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var41)
 				if templ_7745c5c3_Err != nil {
@@ -1062,7 +1062,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var42 string
 				templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-results-draft", competition.Session.ID, "score_interpretation"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 332, Col: 107}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 332, Col: 107}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var42)
 				if templ_7745c5c3_Err != nil {
@@ -1075,7 +1075,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var43 string
 				templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-results-draft", competition.Session.ID, "score_interpretation"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 334, Col: 100}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 334, Col: 100}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var43)
 				if templ_7745c5c3_Err != nil {
@@ -1134,7 +1134,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var44 string
 				templ_7745c5c3_Var44, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-results-draft", competition.Session.ID, "result_standings"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 345, Col: 95}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 345, Col: 95}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var44)
 				if templ_7745c5c3_Err != nil {
@@ -1164,7 +1164,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var45 string
 					templ_7745c5c3_Var45, templ_7745c5c3_Err = templ.JoinStringErrs(row.Entry.Name)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 352, Col: 36}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 352, Col: 36}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var45))
 					if templ_7745c5c3_Err != nil {
@@ -1177,7 +1177,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var46 string
 					templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(row.Entry.ID))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 353, Col: 92}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 353, Col: 92}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var46)
 					if templ_7745c5c3_Err != nil {
@@ -1190,7 +1190,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var47 string
 					templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-results-draft", competition.Session.ID, "standing_"+strconv.Itoa(row.Entry.ID)))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 354, Col: 125}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 354, Col: 125}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var47)
 					if templ_7745c5c3_Err != nil {
@@ -1203,7 +1203,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var48 string
 					templ_7745c5c3_Var48, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-results-draft", competition.Session.ID, "standing_"+strconv.Itoa(row.Entry.ID)))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 356, Col: 118}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 356, Col: 118}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var48)
 					if templ_7745c5c3_Err != nil {
@@ -1252,7 +1252,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var49 string
 					templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-results-draft", competition.Session.ID, "placement_"+strconv.Itoa(row.Entry.ID)))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 364, Col: 126}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 364, Col: 126}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var49)
 					if templ_7745c5c3_Err != nil {
@@ -1265,7 +1265,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var50 string
 					templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-results-draft", competition.Session.ID, "placement_"+strconv.Itoa(row.Entry.ID)))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 366, Col: 119}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 366, Col: 119}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var50)
 					if templ_7745c5c3_Err != nil {
@@ -1278,7 +1278,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var51 string
 					templ_7745c5c3_Var51, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.valueAt("save-results-draft", competition.Session.ID, "placement", index, strconv.Itoa(row.Standing.Placement)))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 370, Col: 137}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 370, Col: 137}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var51)
 					if templ_7745c5c3_Err != nil {
@@ -1307,7 +1307,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var52 string
 					templ_7745c5c3_Var52, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-results-draft", competition.Session.ID, "display_order_"+strconv.Itoa(row.Entry.ID)))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 374, Col: 130}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 374, Col: 130}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var52)
 					if templ_7745c5c3_Err != nil {
@@ -1320,7 +1320,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var53 string
 					templ_7745c5c3_Var53, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-results-draft", competition.Session.ID, "display_order_"+strconv.Itoa(row.Entry.ID)))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 376, Col: 123}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 376, Col: 123}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var53)
 					if templ_7745c5c3_Err != nil {
@@ -1333,7 +1333,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var54 string
 					templ_7745c5c3_Var54, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.valueAt("save-results-draft", competition.Session.ID, "display_order", index, strconv.Itoa(row.Standing.DisplayOrder)))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 380, Col: 144}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 380, Col: 144}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var54)
 					if templ_7745c5c3_Err != nil {
@@ -1362,7 +1362,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var55 string
 					templ_7745c5c3_Var55, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-results-draft", competition.Session.ID, "score_"+strconv.Itoa(row.Entry.ID)))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 385, Col: 122}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 385, Col: 122}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var55)
 					if templ_7745c5c3_Err != nil {
@@ -1375,7 +1375,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var56 string
 					templ_7745c5c3_Var56, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-results-draft", competition.Session.ID, "score_"+strconv.Itoa(row.Entry.ID)))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 387, Col: 115}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 387, Col: 115}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var56)
 					if templ_7745c5c3_Err != nil {
@@ -1388,7 +1388,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var57 string
 					templ_7745c5c3_Var57, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.valueAt("save-results-draft", competition.Session.ID, "score", index, resultsScoreValue(row.Standing.Score)))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 389, Col: 134}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 389, Col: 134}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var57)
 					if templ_7745c5c3_Err != nil {
@@ -1422,7 +1422,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var58 string
 				templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.CSRFToken)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 399, Col: 70}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 399, Col: 70}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var58)
 				if templ_7745c5c3_Err != nil {
@@ -1435,7 +1435,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var59 string
 				templ_7745c5c3_Var59, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.CommandID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 401, Col: 70}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 401, Col: 70}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var59)
 				if templ_7745c5c3_Err != nil {
@@ -1448,7 +1448,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var60 string
 				templ_7745c5c3_Var60, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(competition.Session.ID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 402, Col: 104}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 402, Col: 104}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var60)
 				if templ_7745c5c3_Err != nil {
@@ -1461,7 +1461,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var61 string
 				templ_7745c5c3_Var61, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(competition.Draft.Revision))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 403, Col: 103}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 403, Col: 103}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var61)
 				if templ_7745c5c3_Err != nil {
@@ -1474,7 +1474,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var62 string
 				templ_7745c5c3_Var62, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-competition-awards", competition.Session.ID, "award_details"))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 405, Col: 97}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 405, Col: 97}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var62)
 				if templ_7745c5c3_Err != nil {
@@ -1530,7 +1530,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var63 string
 				templ_7745c5c3_Var63, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.CSRFToken)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 434, Col: 70}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 434, Col: 70}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var63)
 				if templ_7745c5c3_Err != nil {
@@ -1543,7 +1543,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var64 string
 				templ_7745c5c3_Var64, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.CommandID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 436, Col: 70}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 436, Col: 70}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var64)
 				if templ_7745c5c3_Err != nil {
@@ -1556,7 +1556,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var65 string
 				templ_7745c5c3_Var65, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(competition.Session.ID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 437, Col: 104}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 437, Col: 104}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var65)
 				if templ_7745c5c3_Err != nil {
@@ -1569,7 +1569,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var66 string
 				templ_7745c5c3_Var66, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(competition.Draft.Revision))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 438, Col: 103}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 438, Col: 103}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var66)
 				if templ_7745c5c3_Err != nil {
@@ -1588,7 +1588,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var67 string
 				templ_7745c5c3_Var67, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.CSRFToken)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 444, Col: 70}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 444, Col: 70}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var67)
 				if templ_7745c5c3_Err != nil {
@@ -1601,7 +1601,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var68 string
 				templ_7745c5c3_Var68, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.CommandID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 446, Col: 70}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 446, Col: 70}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var68)
 				if templ_7745c5c3_Err != nil {
@@ -1614,7 +1614,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var69 string
 				templ_7745c5c3_Var69, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(competition.Session.ID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 447, Col: 104}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 447, Col: 104}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var69)
 				if templ_7745c5c3_Err != nil {
@@ -1644,7 +1644,7 @@ func Results(page ResultsPage) templ.Component {
 			var templ_7745c5c3_Var70 string
 			templ_7745c5c3_Var70, templ_7745c5c3_Err = templ.JoinStringErrs(prizegiving.Session.Title)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 458, Col: 38}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 458, Col: 38}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var70))
 			if templ_7745c5c3_Err != nil {
@@ -1663,7 +1663,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var71 string
 					templ_7745c5c3_Var71, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.CSRFToken)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 462, Col: 71}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 462, Col: 71}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var71)
 					if templ_7745c5c3_Err != nil {
@@ -1676,7 +1676,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var72 string
 					templ_7745c5c3_Var72, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.CommandID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 464, Col: 71}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 464, Col: 71}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var72)
 					if templ_7745c5c3_Err != nil {
@@ -1689,7 +1689,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var73 string
 					templ_7745c5c3_Var73, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(prizegiving.Session.ID))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 465, Col: 102}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 465, Col: 102}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var73)
 					if templ_7745c5c3_Err != nil {
@@ -1708,7 +1708,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var74 string
 				templ_7745c5c3_Var74, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(prizegiving.Plan.Revision))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 471, Col: 64}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 471, Col: 64}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var74))
 				if templ_7745c5c3_Err != nil {
@@ -1721,7 +1721,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var75 string
 				templ_7745c5c3_Var75, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.FormatBool(prizegiving.Plan.Locked))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 472, Col: 62}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 472, Col: 62}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var75))
 				if templ_7745c5c3_Err != nil {
@@ -1739,7 +1739,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var76 string
 					templ_7745c5c3_Var76, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.CSRFToken)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 476, Col: 71}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 476, Col: 71}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var76)
 					if templ_7745c5c3_Err != nil {
@@ -1752,7 +1752,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var77 string
 					templ_7745c5c3_Var77, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.CommandID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 478, Col: 71}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 478, Col: 71}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var77)
 					if templ_7745c5c3_Err != nil {
@@ -1765,7 +1765,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var78 string
 					templ_7745c5c3_Var78, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(prizegiving.Session.ID))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 479, Col: 102}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 479, Col: 102}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var78)
 					if templ_7745c5c3_Err != nil {
@@ -1778,7 +1778,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var79 string
 					templ_7745c5c3_Var79, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(prizegiving.Plan.Revision))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 480, Col: 103}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 480, Col: 103}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var79)
 					if templ_7745c5c3_Err != nil {
@@ -1796,7 +1796,7 @@ func Results(page ResultsPage) templ.Component {
 						var templ_7745c5c3_Var80 string
 						templ_7745c5c3_Var80, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(competition.Session.ID))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 488, Col: 57}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 488, Col: 57}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var80)
 						if templ_7745c5c3_Err != nil {
@@ -1825,7 +1825,7 @@ func Results(page ResultsPage) templ.Component {
 						var templ_7745c5c3_Var81 string
 						templ_7745c5c3_Var81, templ_7745c5c3_Err = templ.JoinStringErrs(competition.Session.Title)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 497, Col: 40}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 497, Col: 40}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var81))
 						if templ_7745c5c3_Err != nil {
@@ -1843,7 +1843,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var82 string
 					templ_7745c5c3_Var82, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-prizegiving-plan", prizegiving.Session.ID, "release_policy"))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 503, Col: 98}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 503, Col: 98}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var82)
 					if templ_7745c5c3_Err != nil {
@@ -1923,7 +1923,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var83 string
 					templ_7745c5c3_Var83, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-prizegiving-plan", prizegiving.Session.ID, "results_text_template_revision"))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 526, Col: 114}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 526, Col: 114}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var83)
 					if templ_7745c5c3_Err != nil {
@@ -1936,7 +1936,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var84 string
 					templ_7745c5c3_Var84, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.value("save-prizegiving-plan", prizegiving.Session.ID, "results_text_template_revision", strconv.Itoa(prizegiving.Plan.Template.Revision)))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 530, Col: 163}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 530, Col: 163}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var84)
 					if templ_7745c5c3_Err != nil {
@@ -1965,7 +1965,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var85 string
 					templ_7745c5c3_Var85, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-prizegiving-plan", prizegiving.Session.ID, "results_text_template"))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 539, Col: 105}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 539, Col: 105}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var85)
 					if templ_7745c5c3_Err != nil {
@@ -1986,7 +1986,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var86 string
 					templ_7745c5c3_Var86, templ_7745c5c3_Err = templ.JoinStringErrs(page.value("save-prizegiving-plan", prizegiving.Session.ID, "results_text_template", prizegiving.Plan.Template.Source))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 543, Col: 132}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 543, Col: 132}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var86))
 					if templ_7745c5c3_Err != nil {
@@ -2017,7 +2017,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var87 string
 					templ_7745c5c3_Var87, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.CSRFToken)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 551, Col: 71}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 551, Col: 71}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var87)
 					if templ_7745c5c3_Err != nil {
@@ -2030,7 +2030,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var88 string
 					templ_7745c5c3_Var88, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.CommandID)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 553, Col: 71}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 553, Col: 71}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var88)
 					if templ_7745c5c3_Err != nil {
@@ -2043,7 +2043,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var89 string
 					templ_7745c5c3_Var89, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(prizegiving.Session.ID))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 554, Col: 102}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 554, Col: 102}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var89)
 					if templ_7745c5c3_Err != nil {
@@ -2056,7 +2056,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var90 string
 					templ_7745c5c3_Var90, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(prizegiving.Plan.Revision))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 555, Col: 103}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 555, Col: 103}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var90)
 					if templ_7745c5c3_Err != nil {
@@ -2079,7 +2079,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var91 templ.SafeURL
 					templ_7745c5c3_Var91, templ_7745c5c3_Err = templ.JoinURLErrs(resultsPreviewPath(page.Event.ID, prizegiving.Session.ID, results.PrizegivingPreviewModePreview))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 560, Col: 118}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 560, Col: 118}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var91))
 					if templ_7745c5c3_Err != nil {
@@ -2092,7 +2092,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var92 templ.SafeURL
 					templ_7745c5c3_Var92, templ_7745c5c3_Err = templ.JoinURLErrs(resultsPreviewPath(page.Event.ID, prizegiving.Session.ID, results.PrizegivingPreviewModeRehearsal))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 561, Col: 120}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 561, Col: 120}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var92))
 					if templ_7745c5c3_Err != nil {
@@ -2105,7 +2105,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var93 templ.SafeURL
 					templ_7745c5c3_Var93, templ_7745c5c3_Err = templ.JoinURLErrs(programControlPath(page.Event.ID, prizegiving.Session.ID))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 562, Col: 79}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 562, Col: 79}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var93))
 					if templ_7745c5c3_Err != nil {
@@ -2123,7 +2123,7 @@ func Results(page ResultsPage) templ.Component {
 						var templ_7745c5c3_Var94 string
 						templ_7745c5c3_Var94, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.CSRFToken)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 565, Col: 72}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 565, Col: 72}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var94)
 						if templ_7745c5c3_Err != nil {
@@ -2136,7 +2136,7 @@ func Results(page ResultsPage) templ.Component {
 						var templ_7745c5c3_Var95 string
 						templ_7745c5c3_Var95, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.CommandID)
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 567, Col: 72}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 567, Col: 72}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var95)
 						if templ_7745c5c3_Err != nil {
@@ -2149,7 +2149,7 @@ func Results(page ResultsPage) templ.Component {
 						var templ_7745c5c3_Var96 string
 						templ_7745c5c3_Var96, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(prizegiving.Session.ID))
 						if templ_7745c5c3_Err != nil {
-							return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 568, Col: 103}
+							return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 568, Col: 103}
 						}
 						_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var96)
 						if templ_7745c5c3_Err != nil {
@@ -2173,7 +2173,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var97 string
 					templ_7745c5c3_Var97, templ_7745c5c3_Err = templ.JoinStringErrs(string(prizegiving.Preview.Mode))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 575, Col: 48}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 575, Col: 48}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var97))
 					if templ_7745c5c3_Err != nil {
@@ -2186,7 +2186,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var98 string
 					templ_7745c5c3_Var98, templ_7745c5c3_Err = templ.JoinStringErrs(prizegiving.Preview.Watermark)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 576, Col: 52}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 576, Col: 52}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var98))
 					if templ_7745c5c3_Err != nil {
@@ -2199,7 +2199,7 @@ func Results(page ResultsPage) templ.Component {
 					var templ_7745c5c3_Var99 string
 					templ_7745c5c3_Var99, templ_7745c5c3_Err = templ.JoinStringErrs(prizegiving.Preview.ResultsText)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 577, Col: 48}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 577, Col: 48}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var99))
 					if templ_7745c5c3_Err != nil {
@@ -2223,7 +2223,7 @@ func Results(page ResultsPage) templ.Component {
 		var templ_7745c5c3_Var100 string
 		templ_7745c5c3_Var100, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(page.EventAwards.Revision))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 585, Col: 65}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 585, Col: 65}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var100))
 		if templ_7745c5c3_Err != nil {
@@ -2241,7 +2241,7 @@ func Results(page ResultsPage) templ.Component {
 			var templ_7745c5c3_Var101 string
 			templ_7745c5c3_Var101, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.CSRFToken)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 588, Col: 69}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 588, Col: 69}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var101)
 			if templ_7745c5c3_Err != nil {
@@ -2254,7 +2254,7 @@ func Results(page ResultsPage) templ.Component {
 			var templ_7745c5c3_Var102 string
 			templ_7745c5c3_Var102, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.CommandID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 590, Col: 69}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 590, Col: 69}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var102)
 			if templ_7745c5c3_Err != nil {
@@ -2267,7 +2267,7 @@ func Results(page ResultsPage) templ.Component {
 			var templ_7745c5c3_Var103 string
 			templ_7745c5c3_Var103, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(page.EventAwards.Revision))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 591, Col: 101}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 591, Col: 101}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var103)
 			if templ_7745c5c3_Err != nil {
@@ -2280,7 +2280,7 @@ func Results(page ResultsPage) templ.Component {
 			var templ_7745c5c3_Var104 string
 			templ_7745c5c3_Var104, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-event-awards", 0, "award_details"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 593, Col: 69}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 593, Col: 69}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var104)
 			if templ_7745c5c3_Err != nil {
@@ -2336,7 +2336,7 @@ func Results(page ResultsPage) templ.Component {
 			var templ_7745c5c3_Var105 string
 			templ_7745c5c3_Var105, templ_7745c5c3_Err = templ.JoinStringErrs(string(state.ReleasePath.Kind))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 622, Col: 40}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 622, Col: 40}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var105))
 			if templ_7745c5c3_Err != nil {
@@ -2349,7 +2349,7 @@ func Results(page ResultsPage) templ.Component {
 			var templ_7745c5c3_Var106 string
 			templ_7745c5c3_Var106, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(state.Revision))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 622, Col: 87}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 622, Col: 87}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var106))
 			if templ_7745c5c3_Err != nil {
@@ -2362,7 +2362,7 @@ func Results(page ResultsPage) templ.Component {
 			var templ_7745c5c3_Var107 string
 			templ_7745c5c3_Var107, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.FormatBool(state.Ready))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 623, Col: 48}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 623, Col: 48}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var107))
 			if templ_7745c5c3_Err != nil {
@@ -2380,7 +2380,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var108 string
 				templ_7745c5c3_Var108, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.CSRFToken)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 627, Col: 70}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 627, Col: 70}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var108)
 				if templ_7745c5c3_Err != nil {
@@ -2393,7 +2393,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var109 string
 				templ_7745c5c3_Var109, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.CommandID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 629, Col: 70}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 629, Col: 70}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var109)
 				if templ_7745c5c3_Err != nil {
@@ -2406,7 +2406,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var110 string
 				templ_7745c5c3_Var110, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(page.EventAwards.Revision))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 630, Col: 102}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 630, Col: 102}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var110)
 				if templ_7745c5c3_Err != nil {
@@ -2419,7 +2419,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var111 string
 				templ_7745c5c3_Var111, templ_7745c5c3_Err = templ.ResolveAttributeValue(string(state.ReleasePath.Kind))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 631, Col: 97}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 631, Col: 97}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var111)
 				if templ_7745c5c3_Err != nil {
@@ -2432,7 +2432,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var112 string
 				templ_7745c5c3_Var112, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(state.ReleasePath.PrizegivingSessionID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 632, Col: 137}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 632, Col: 137}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var112)
 				if templ_7745c5c3_Err != nil {
@@ -2445,7 +2445,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var113 string
 				templ_7745c5c3_Var113, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(state.Revision))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 633, Col: 96}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 633, Col: 96}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var113)
 				if templ_7745c5c3_Err != nil {
@@ -2468,7 +2468,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var114 string
 				templ_7745c5c3_Var114, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.CSRFToken)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 639, Col: 70}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 639, Col: 70}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var114)
 				if templ_7745c5c3_Err != nil {
@@ -2481,7 +2481,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var115 string
 				templ_7745c5c3_Var115, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.CommandID)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 641, Col: 70}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 641, Col: 70}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var115)
 				if templ_7745c5c3_Err != nil {
@@ -2494,7 +2494,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var116 string
 				templ_7745c5c3_Var116, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(page.EventAwards.Revision))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 642, Col: 102}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 642, Col: 102}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var116)
 				if templ_7745c5c3_Err != nil {
@@ -2507,7 +2507,7 @@ func Results(page ResultsPage) templ.Component {
 				var templ_7745c5c3_Var117 string
 				templ_7745c5c3_Var117, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(state.Revision))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 643, Col: 96}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 643, Col: 96}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var117)
 				if templ_7745c5c3_Err != nil {
@@ -2527,7 +2527,7 @@ func Results(page ResultsPage) templ.Component {
 			var templ_7745c5c3_Var118 templ.SafeURL
 			templ_7745c5c3_Var118, templ_7745c5c3_Err = templ.JoinURLErrs(resultsEventAwardsPreflightPath(page.Event.ID))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 649, Col: 66}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 649, Col: 66}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var118))
 			if templ_7745c5c3_Err != nil {
@@ -2625,7 +2625,7 @@ func EventAwardFields(
 			var templ_7745c5c3_Var120 string
 			templ_7745c5c3_Var120, templ_7745c5c3_Err = templ.JoinStringErrs(page.valueAt("save-event-awards", 0, "event_award_name", index, award.Name))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 703, Col: 81}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 703, Col: 81}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var120))
 			if templ_7745c5c3_Err != nil {
@@ -2639,7 +2639,7 @@ func EventAwardFields(
 		var templ_7745c5c3_Var121 string
 		templ_7745c5c3_Var121, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-event-awards", 0, "event_award_key_"+strconv.Itoa(index)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 706, Col: 93}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 706, Col: 93}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var121)
 		if templ_7745c5c3_Err != nil {
@@ -2652,7 +2652,7 @@ func EventAwardFields(
 		var templ_7745c5c3_Var122 string
 		templ_7745c5c3_Var122, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-event-awards", 0, "event_award_key_"+strconv.Itoa(index)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 708, Col: 86}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 708, Col: 86}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var122)
 		if templ_7745c5c3_Err != nil {
@@ -2665,7 +2665,7 @@ func EventAwardFields(
 		var templ_7745c5c3_Var123 string
 		templ_7745c5c3_Var123, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.valueAt("save-event-awards", 0, "event_award_key", index, award.Key))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 710, Col: 84}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 710, Col: 84}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var123)
 		if templ_7745c5c3_Err != nil {
@@ -2694,7 +2694,7 @@ func EventAwardFields(
 		var templ_7745c5c3_Var124 string
 		templ_7745c5c3_Var124, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-event-awards", 0, "event_award_name_"+strconv.Itoa(index)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 714, Col: 94}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 714, Col: 94}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var124)
 		if templ_7745c5c3_Err != nil {
@@ -2707,7 +2707,7 @@ func EventAwardFields(
 		var templ_7745c5c3_Var125 string
 		templ_7745c5c3_Var125, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-event-awards", 0, "event_award_name_"+strconv.Itoa(index)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 716, Col: 87}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 716, Col: 87}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var125)
 		if templ_7745c5c3_Err != nil {
@@ -2720,7 +2720,7 @@ func EventAwardFields(
 		var templ_7745c5c3_Var126 string
 		templ_7745c5c3_Var126, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.valueAt("save-event-awards", 0, "event_award_name", index, award.Name))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 718, Col: 86}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 718, Col: 86}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var126)
 		if templ_7745c5c3_Err != nil {
@@ -2749,7 +2749,7 @@ func EventAwardFields(
 		var templ_7745c5c3_Var127 string
 		templ_7745c5c3_Var127, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-event-awards", 0, "event_award_recipient_entry_ids_"+strconv.Itoa(index)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 722, Col: 109}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 722, Col: 109}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var127)
 		if templ_7745c5c3_Err != nil {
@@ -2762,7 +2762,7 @@ func EventAwardFields(
 		var templ_7745c5c3_Var128 string
 		templ_7745c5c3_Var128, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-event-awards", 0, "event_award_recipient_entry_ids_"+strconv.Itoa(index)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 724, Col: 102}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 724, Col: 102}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var128)
 		if templ_7745c5c3_Err != nil {
@@ -2775,7 +2775,7 @@ func EventAwardFields(
 		var templ_7745c5c3_Var129 string
 		templ_7745c5c3_Var129, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.valueAt("save-event-awards", 0, "event_award_recipient_entry_ids", index, resultsAwardRecipientEntryIDs(award.Recipients)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 726, Col: 138}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 726, Col: 138}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var129)
 		if templ_7745c5c3_Err != nil {
@@ -2804,7 +2804,7 @@ func EventAwardFields(
 		var templ_7745c5c3_Var130 string
 		templ_7745c5c3_Var130, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-event-awards", 0, "event_award_recipient_names_"+strconv.Itoa(index)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 730, Col: 105}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 730, Col: 105}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var130)
 		if templ_7745c5c3_Err != nil {
@@ -2817,7 +2817,7 @@ func EventAwardFields(
 		var templ_7745c5c3_Var131 string
 		templ_7745c5c3_Var131, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-event-awards", 0, "event_award_recipient_names_"+strconv.Itoa(index)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 732, Col: 98}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 732, Col: 98}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var131)
 		if templ_7745c5c3_Err != nil {
@@ -2838,7 +2838,7 @@ func EventAwardFields(
 		var templ_7745c5c3_Var132 string
 		templ_7745c5c3_Var132, templ_7745c5c3_Err = templ.JoinStringErrs(page.valueAt("save-event-awards", 0, "event_award_recipient_names", index, resultsAwardRecipientNames(award.Recipients)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 735, Col: 125}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 735, Col: 125}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var132))
 		if templ_7745c5c3_Err != nil {
@@ -2859,7 +2859,7 @@ func EventAwardFields(
 		var templ_7745c5c3_Var133 string
 		templ_7745c5c3_Var133, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-event-awards", 0, "event_award_path_"+strconv.Itoa(index)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 737, Col: 94}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 737, Col: 94}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var133)
 		if templ_7745c5c3_Err != nil {
@@ -2872,7 +2872,7 @@ func EventAwardFields(
 		var templ_7745c5c3_Var134 string
 		templ_7745c5c3_Var134, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-event-awards", 0, "event_award_path_"+strconv.Itoa(index)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 739, Col: 88}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 739, Col: 88}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var134)
 		if templ_7745c5c3_Err != nil {
@@ -2909,7 +2909,7 @@ func EventAwardFields(
 				var templ_7745c5c3_Var135 string
 				templ_7745c5c3_Var135, templ_7745c5c3_Err = templ.ResolveAttributeValue(resultsEventAwardPrizegivingPath(prizegiving.Session.ID))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 747, Col: 72}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 747, Col: 72}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var135)
 				if templ_7745c5c3_Err != nil {
@@ -2932,7 +2932,7 @@ func EventAwardFields(
 				var templ_7745c5c3_Var136 string
 				templ_7745c5c3_Var136, templ_7745c5c3_Err = templ.JoinStringErrs(prizegiving.Session.Title)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 749, Col: 48}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 749, Col: 48}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var136))
 				if templ_7745c5c3_Err != nil {
@@ -2959,7 +2959,7 @@ func EventAwardFields(
 		var templ_7745c5c3_Var137 string
 		templ_7745c5c3_Var137, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-event-awards", 0, "event_award_display_order_"+strconv.Itoa(index)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 754, Col: 103}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 754, Col: 103}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var137)
 		if templ_7745c5c3_Err != nil {
@@ -2972,7 +2972,7 @@ func EventAwardFields(
 		var templ_7745c5c3_Var138 string
 		templ_7745c5c3_Var138, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-event-awards", 0, "event_award_display_order_"+strconv.Itoa(index)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 756, Col: 96}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 756, Col: 96}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var138)
 		if templ_7745c5c3_Err != nil {
@@ -2985,7 +2985,7 @@ func EventAwardFields(
 		var templ_7745c5c3_Var139 string
 		templ_7745c5c3_Var139, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.valueAt("save-event-awards", 0, "event_award_display_order", index, resultsAwardDisplayOrder(award.DisplayOrder, index)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 760, Col: 136}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 760, Col: 136}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var139)
 		if templ_7745c5c3_Err != nil {
@@ -3043,7 +3043,7 @@ func ResultsCorrection(page ResultsPage, correction ResultsCorrectionPage) templ
 		var templ_7745c5c3_Var141 string
 		templ_7745c5c3_Var141, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(correction.PublicationRevision))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 771, Col: 70}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 771, Col: 70}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var141))
 		if templ_7745c5c3_Err != nil {
@@ -3056,7 +3056,7 @@ func ResultsCorrection(page ResultsPage, correction ResultsCorrectionPage) templ
 		var templ_7745c5c3_Var142 string
 		templ_7745c5c3_Var142, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(correction.PublicationHistoryCount))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 772, Col: 73}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 772, Col: 73}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var142))
 		if templ_7745c5c3_Err != nil {
@@ -3074,7 +3074,7 @@ func ResultsCorrection(page ResultsPage, correction ResultsCorrectionPage) templ
 			var templ_7745c5c3_Var143 string
 			templ_7745c5c3_Var143, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(correction.Current.Revision))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 776, Col: 67}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 776, Col: 67}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var143))
 			if templ_7745c5c3_Err != nil {
@@ -3087,7 +3087,7 @@ func ResultsCorrection(page ResultsPage, correction ResultsCorrectionPage) templ
 			var templ_7745c5c3_Var144 string
 			templ_7745c5c3_Var144, templ_7745c5c3_Err = templ.JoinStringErrs(string(correction.Current.Status))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 777, Col: 39}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 777, Col: 39}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var144))
 			if templ_7745c5c3_Err != nil {
@@ -3106,7 +3106,7 @@ func ResultsCorrection(page ResultsPage, correction ResultsCorrectionPage) templ
 			var templ_7745c5c3_Var145 string
 			templ_7745c5c3_Var145, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.CSRFToken)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 782, Col: 65}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 782, Col: 65}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var145)
 			if templ_7745c5c3_Err != nil {
@@ -3119,7 +3119,7 @@ func ResultsCorrection(page ResultsPage, correction ResultsCorrectionPage) templ
 			var templ_7745c5c3_Var146 string
 			templ_7745c5c3_Var146, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.CommandID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 784, Col: 65}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 784, Col: 65}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var146)
 			if templ_7745c5c3_Err != nil {
@@ -3132,7 +3132,7 @@ func ResultsCorrection(page ResultsPage, correction ResultsCorrectionPage) templ
 			var templ_7745c5c3_Var147 string
 			templ_7745c5c3_Var147, templ_7745c5c3_Err = templ.ResolveAttributeValue(string(correction.Scope))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 785, Col: 81}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 785, Col: 81}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var147)
 			if templ_7745c5c3_Err != nil {
@@ -3145,7 +3145,7 @@ func ResultsCorrection(page ResultsPage, correction ResultsCorrectionPage) templ
 			var templ_7745c5c3_Var148 string
 			templ_7745c5c3_Var148, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(correction.ScopeSessionID))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 786, Col: 107}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 786, Col: 107}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var148)
 			if templ_7745c5c3_Err != nil {
@@ -3158,7 +3158,7 @@ func ResultsCorrection(page ResultsPage, correction ResultsCorrectionPage) templ
 			var templ_7745c5c3_Var149 string
 			templ_7745c5c3_Var149, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(correction.Current.Revision))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 787, Col: 110}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 787, Col: 110}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var149)
 			if templ_7745c5c3_Err != nil {
@@ -3171,7 +3171,7 @@ func ResultsCorrection(page ResultsPage, correction ResultsCorrectionPage) templ
 			var templ_7745c5c3_Var150 string
 			templ_7745c5c3_Var150, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(correction.PublicationRevision))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 788, Col: 110}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 788, Col: 110}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var150)
 			if templ_7745c5c3_Err != nil {
@@ -3184,7 +3184,7 @@ func ResultsCorrection(page ResultsPage, correction ResultsCorrectionPage) templ
 			var templ_7745c5c3_Var151 string
 			templ_7745c5c3_Var151, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-results-correction", correction.ScopeSessionID, "corrected_results_json"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 789, Col: 111}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 789, Col: 111}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var151)
 			if templ_7745c5c3_Err != nil {
@@ -3197,7 +3197,7 @@ func ResultsCorrection(page ResultsPage, correction ResultsCorrectionPage) templ
 			var templ_7745c5c3_Var152 string
 			templ_7745c5c3_Var152, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-results-correction", correction.ScopeSessionID, "corrected_results_json"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 791, Col: 104}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 791, Col: 104}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var152)
 			if templ_7745c5c3_Err != nil {
@@ -3218,7 +3218,7 @@ func ResultsCorrection(page ResultsPage, correction ResultsCorrectionPage) templ
 			var templ_7745c5c3_Var153 string
 			templ_7745c5c3_Var153, templ_7745c5c3_Err = templ.JoinStringErrs(page.value("save-results-correction", correction.ScopeSessionID, "corrected_results_json", correction.CorrectedResultsJSON))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 795, Col: 130}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 795, Col: 130}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var153))
 			if templ_7745c5c3_Err != nil {
@@ -3239,7 +3239,7 @@ func ResultsCorrection(page ResultsPage, correction ResultsCorrectionPage) templ
 			var templ_7745c5c3_Var154 string
 			templ_7745c5c3_Var154, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-results-correction", correction.ScopeSessionID, "crew_reason"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 797, Col: 100}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 797, Col: 100}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var154)
 			if templ_7745c5c3_Err != nil {
@@ -3252,7 +3252,7 @@ func ResultsCorrection(page ResultsPage, correction ResultsCorrectionPage) templ
 			var templ_7745c5c3_Var155 string
 			templ_7745c5c3_Var155, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-results-correction", correction.ScopeSessionID, "crew_reason"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 799, Col: 93}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 799, Col: 93}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var155)
 			if templ_7745c5c3_Err != nil {
@@ -3273,7 +3273,7 @@ func ResultsCorrection(page ResultsPage, correction ResultsCorrectionPage) templ
 			var templ_7745c5c3_Var156 string
 			templ_7745c5c3_Var156, templ_7745c5c3_Err = templ.JoinStringErrs(page.value("save-results-correction", correction.ScopeSessionID, "crew_reason", correction.Current.Proposal.CrewReason))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 803, Col: 126}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 803, Col: 126}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var156))
 			if templ_7745c5c3_Err != nil {
@@ -3294,7 +3294,7 @@ func ResultsCorrection(page ResultsPage, correction ResultsCorrectionPage) templ
 			var templ_7745c5c3_Var157 string
 			templ_7745c5c3_Var157, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-results-correction", correction.ScopeSessionID, "public_note"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 805, Col: 100}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 805, Col: 100}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var157)
 			if templ_7745c5c3_Err != nil {
@@ -3307,7 +3307,7 @@ func ResultsCorrection(page ResultsPage, correction ResultsCorrectionPage) templ
 			var templ_7745c5c3_Var158 string
 			templ_7745c5c3_Var158, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-results-correction", correction.ScopeSessionID, "public_note"))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 807, Col: 93}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 807, Col: 93}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var158)
 			if templ_7745c5c3_Err != nil {
@@ -3328,7 +3328,7 @@ func ResultsCorrection(page ResultsPage, correction ResultsCorrectionPage) templ
 			var templ_7745c5c3_Var159 string
 			templ_7745c5c3_Var159, templ_7745c5c3_Err = templ.JoinStringErrs(page.value("save-results-correction", correction.ScopeSessionID, "public_note", correction.Current.Proposal.PublicNote))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 810, Col: 126}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 810, Col: 126}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var159))
 			if templ_7745c5c3_Err != nil {
@@ -3355,7 +3355,7 @@ func ResultsCorrection(page ResultsPage, correction ResultsCorrectionPage) templ
 			var templ_7745c5c3_Var160 string
 			templ_7745c5c3_Var160, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.CSRFToken)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 817, Col: 65}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 817, Col: 65}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var160)
 			if templ_7745c5c3_Err != nil {
@@ -3368,7 +3368,7 @@ func ResultsCorrection(page ResultsPage, correction ResultsCorrectionPage) templ
 			var templ_7745c5c3_Var161 string
 			templ_7745c5c3_Var161, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.CommandID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 819, Col: 65}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 819, Col: 65}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var161)
 			if templ_7745c5c3_Err != nil {
@@ -3381,7 +3381,7 @@ func ResultsCorrection(page ResultsPage, correction ResultsCorrectionPage) templ
 			var templ_7745c5c3_Var162 string
 			templ_7745c5c3_Var162, templ_7745c5c3_Err = templ.ResolveAttributeValue(string(correction.Scope))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 820, Col: 81}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 820, Col: 81}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var162)
 			if templ_7745c5c3_Err != nil {
@@ -3394,7 +3394,7 @@ func ResultsCorrection(page ResultsPage, correction ResultsCorrectionPage) templ
 			var templ_7745c5c3_Var163 string
 			templ_7745c5c3_Var163, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(correction.ScopeSessionID))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 821, Col: 107}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 821, Col: 107}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var163)
 			if templ_7745c5c3_Err != nil {
@@ -3407,7 +3407,7 @@ func ResultsCorrection(page ResultsPage, correction ResultsCorrectionPage) templ
 			var templ_7745c5c3_Var164 string
 			templ_7745c5c3_Var164, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(correction.Current.Revision))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 822, Col: 110}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 822, Col: 110}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var164)
 			if templ_7745c5c3_Err != nil {
@@ -3426,7 +3426,7 @@ func ResultsCorrection(page ResultsPage, correction ResultsCorrectionPage) templ
 			var templ_7745c5c3_Var165 string
 			templ_7745c5c3_Var165, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.CSRFToken)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 828, Col: 65}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 828, Col: 65}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var165)
 			if templ_7745c5c3_Err != nil {
@@ -3439,7 +3439,7 @@ func ResultsCorrection(page ResultsPage, correction ResultsCorrectionPage) templ
 			var templ_7745c5c3_Var166 string
 			templ_7745c5c3_Var166, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.CommandID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 830, Col: 65}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 830, Col: 65}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var166)
 			if templ_7745c5c3_Err != nil {
@@ -3452,7 +3452,7 @@ func ResultsCorrection(page ResultsPage, correction ResultsCorrectionPage) templ
 			var templ_7745c5c3_Var167 string
 			templ_7745c5c3_Var167, templ_7745c5c3_Err = templ.ResolveAttributeValue(string(correction.Scope))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 831, Col: 81}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 831, Col: 81}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var167)
 			if templ_7745c5c3_Err != nil {
@@ -3465,7 +3465,7 @@ func ResultsCorrection(page ResultsPage, correction ResultsCorrectionPage) templ
 			var templ_7745c5c3_Var168 string
 			templ_7745c5c3_Var168, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(correction.ScopeSessionID))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 832, Col: 107}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 832, Col: 107}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var168)
 			if templ_7745c5c3_Err != nil {
@@ -3478,7 +3478,7 @@ func ResultsCorrection(page ResultsPage, correction ResultsCorrectionPage) templ
 			var templ_7745c5c3_Var169 string
 			templ_7745c5c3_Var169, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(correction.Current.Revision))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 833, Col: 110}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 833, Col: 110}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var169)
 			if templ_7745c5c3_Err != nil {
@@ -3551,7 +3551,7 @@ func PrizegivingItemFields(
 		var templ_7745c5c3_Var171 string
 		templ_7745c5c3_Var171, templ_7745c5c3_Err = templ.JoinStringErrs(string(item.Kind))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 868, Col: 29}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 868, Col: 29}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var171))
 		if templ_7745c5c3_Err != nil {
@@ -3564,7 +3564,7 @@ func PrizegivingItemFields(
 		var templ_7745c5c3_Var172 string
 		templ_7745c5c3_Var172, templ_7745c5c3_Err = templ.ResolveAttributeValue(string(item.Kind))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 869, Col: 65}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 869, Col: 65}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var172)
 		if templ_7745c5c3_Err != nil {
@@ -3577,7 +3577,7 @@ func PrizegivingItemFields(
 		var templ_7745c5c3_Var173 string
 		templ_7745c5c3_Var173, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(item.CompetitionSessionID))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 870, Col: 105}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 870, Col: 105}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var173)
 		if templ_7745c5c3_Err != nil {
@@ -3590,7 +3590,7 @@ func PrizegivingItemFields(
 		var templ_7745c5c3_Var174 string
 		templ_7745c5c3_Var174, templ_7745c5c3_Err = templ.ResolveAttributeValue(item.AwardKey)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 871, Col: 66}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 871, Col: 66}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var174)
 		if templ_7745c5c3_Err != nil {
@@ -3603,7 +3603,7 @@ func PrizegivingItemFields(
 		var templ_7745c5c3_Var175 string
 		templ_7745c5c3_Var175, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-prizegiving-plan", ceremonyID, "sequence_display_order_"+strconv.Itoa(index)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 872, Col: 113}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 872, Col: 113}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var175)
 		if templ_7745c5c3_Err != nil {
@@ -3616,7 +3616,7 @@ func PrizegivingItemFields(
 		var templ_7745c5c3_Var176 string
 		templ_7745c5c3_Var176, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-prizegiving-plan", ceremonyID, "sequence_display_order_"+strconv.Itoa(index)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 874, Col: 106}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 874, Col: 106}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var176)
 		if templ_7745c5c3_Err != nil {
@@ -3629,7 +3629,7 @@ func PrizegivingItemFields(
 		var templ_7745c5c3_Var177 string
 		templ_7745c5c3_Var177, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.valueAt("save-prizegiving-plan", ceremonyID, "sequence_display_order", index, strconv.Itoa(item.DisplayOrder)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 878, Col: 126}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 878, Col: 126}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var177)
 		if templ_7745c5c3_Err != nil {
@@ -3658,7 +3658,7 @@ func PrizegivingItemFields(
 		var templ_7745c5c3_Var178 string
 		templ_7745c5c3_Var178, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-prizegiving-plan", ceremonyID, "reveal_method_"+strconv.Itoa(index)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 883, Col: 104}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 883, Col: 104}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var178)
 		if templ_7745c5c3_Err != nil {
@@ -3671,7 +3671,7 @@ func PrizegivingItemFields(
 		var templ_7745c5c3_Var179 string
 		templ_7745c5c3_Var179, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-prizegiving-plan", ceremonyID, "reveal_method_"+strconv.Itoa(index)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 885, Col: 97}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 885, Col: 97}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var179)
 		if templ_7745c5c3_Err != nil {
@@ -3730,7 +3730,7 @@ func PrizegivingItemFields(
 		var templ_7745c5c3_Var180 string
 		templ_7745c5c3_Var180, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-prizegiving-plan", ceremonyID, "publication_display_order_"+strconv.Itoa(index)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 894, Col: 116}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 894, Col: 116}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var180)
 		if templ_7745c5c3_Err != nil {
@@ -3743,7 +3743,7 @@ func PrizegivingItemFields(
 		var templ_7745c5c3_Var181 string
 		templ_7745c5c3_Var181, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-prizegiving-plan", ceremonyID, "publication_display_order_"+strconv.Itoa(index)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 896, Col: 109}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 896, Col: 109}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var181)
 		if templ_7745c5c3_Err != nil {
@@ -3756,7 +3756,7 @@ func PrizegivingItemFields(
 		var templ_7745c5c3_Var182 string
 		templ_7745c5c3_Var182, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.valueAt("save-prizegiving-plan", ceremonyID, "publication_display_order", index, strconv.Itoa(prizegivingPublicationOrder(item, publication, index))))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 900, Col: 165}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 900, Col: 165}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var182)
 		if templ_7745c5c3_Err != nil {
@@ -3825,7 +3825,7 @@ func CompetitionAwardFields(
 			var templ_7745c5c3_Var184 string
 			templ_7745c5c3_Var184, templ_7745c5c3_Err = templ.JoinStringErrs(page.valueAt("save-competition-awards", competitionID, "award_name", index, award.Name))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 919, Col: 93}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 919, Col: 93}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var184))
 			if templ_7745c5c3_Err != nil {
@@ -3839,7 +3839,7 @@ func CompetitionAwardFields(
 		var templ_7745c5c3_Var185 string
 		templ_7745c5c3_Var185, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-competition-awards", competitionID, "award_key_"+strconv.Itoa(index)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 922, Col: 105}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 922, Col: 105}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var185)
 		if templ_7745c5c3_Err != nil {
@@ -3852,7 +3852,7 @@ func CompetitionAwardFields(
 		var templ_7745c5c3_Var186 string
 		templ_7745c5c3_Var186, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-competition-awards", competitionID, "award_key_"+strconv.Itoa(index)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 924, Col: 98}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 924, Col: 98}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var186)
 		if templ_7745c5c3_Err != nil {
@@ -3865,7 +3865,7 @@ func CompetitionAwardFields(
 		var templ_7745c5c3_Var187 string
 		templ_7745c5c3_Var187, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.valueAt("save-competition-awards", competitionID, "award_key", index, award.Key))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 926, Col: 96}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 926, Col: 96}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var187)
 		if templ_7745c5c3_Err != nil {
@@ -3894,7 +3894,7 @@ func CompetitionAwardFields(
 		var templ_7745c5c3_Var188 string
 		templ_7745c5c3_Var188, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-competition-awards", competitionID, "award_name_"+strconv.Itoa(index)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 930, Col: 106}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 930, Col: 106}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var188)
 		if templ_7745c5c3_Err != nil {
@@ -3907,7 +3907,7 @@ func CompetitionAwardFields(
 		var templ_7745c5c3_Var189 string
 		templ_7745c5c3_Var189, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-competition-awards", competitionID, "award_name_"+strconv.Itoa(index)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 932, Col: 99}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 932, Col: 99}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var189)
 		if templ_7745c5c3_Err != nil {
@@ -3920,7 +3920,7 @@ func CompetitionAwardFields(
 		var templ_7745c5c3_Var190 string
 		templ_7745c5c3_Var190, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.valueAt("save-competition-awards", competitionID, "award_name", index, award.Name))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 934, Col: 98}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 934, Col: 98}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var190)
 		if templ_7745c5c3_Err != nil {
@@ -3949,7 +3949,7 @@ func CompetitionAwardFields(
 		var templ_7745c5c3_Var191 string
 		templ_7745c5c3_Var191, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-competition-awards", competitionID, "award_recipient_entry_ids_"+strconv.Itoa(index)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 938, Col: 121}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 938, Col: 121}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var191)
 		if templ_7745c5c3_Err != nil {
@@ -3962,7 +3962,7 @@ func CompetitionAwardFields(
 		var templ_7745c5c3_Var192 string
 		templ_7745c5c3_Var192, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-competition-awards", competitionID, "award_recipient_entry_ids_"+strconv.Itoa(index)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 940, Col: 114}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 940, Col: 114}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var192)
 		if templ_7745c5c3_Err != nil {
@@ -3975,7 +3975,7 @@ func CompetitionAwardFields(
 		var templ_7745c5c3_Var193 string
 		templ_7745c5c3_Var193, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.valueAt("save-competition-awards", competitionID, "award_recipient_entry_ids", index, resultsAwardRecipientEntryIDs(award.Recipients)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 942, Col: 150}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 942, Col: 150}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var193)
 		if templ_7745c5c3_Err != nil {
@@ -4004,7 +4004,7 @@ func CompetitionAwardFields(
 		var templ_7745c5c3_Var194 string
 		templ_7745c5c3_Var194, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-competition-awards", competitionID, "award_recipient_names_"+strconv.Itoa(index)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 946, Col: 117}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 946, Col: 117}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var194)
 		if templ_7745c5c3_Err != nil {
@@ -4017,7 +4017,7 @@ func CompetitionAwardFields(
 		var templ_7745c5c3_Var195 string
 		templ_7745c5c3_Var195, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-competition-awards", competitionID, "award_recipient_names_"+strconv.Itoa(index)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 948, Col: 110}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 948, Col: 110}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var195)
 		if templ_7745c5c3_Err != nil {
@@ -4038,7 +4038,7 @@ func CompetitionAwardFields(
 		var templ_7745c5c3_Var196 string
 		templ_7745c5c3_Var196, templ_7745c5c3_Err = templ.JoinStringErrs(page.valueAt("save-competition-awards", competitionID, "award_recipient_names", index, resultsAwardRecipientNames(award.Recipients)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 951, Col: 137}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 951, Col: 137}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var196))
 		if templ_7745c5c3_Err != nil {
@@ -4059,7 +4059,7 @@ func CompetitionAwardFields(
 		var templ_7745c5c3_Var197 string
 		templ_7745c5c3_Var197, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-competition-awards", competitionID, "award_promoted_"+strconv.Itoa(index)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 953, Col: 110}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 953, Col: 110}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var197)
 		if templ_7745c5c3_Err != nil {
@@ -4072,7 +4072,7 @@ func CompetitionAwardFields(
 		var templ_7745c5c3_Var198 string
 		templ_7745c5c3_Var198, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-competition-awards", competitionID, "award_promoted_"+strconv.Itoa(index)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 955, Col: 104}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 955, Col: 104}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var198)
 		if templ_7745c5c3_Err != nil {
@@ -4121,7 +4121,7 @@ func CompetitionAwardFields(
 		var templ_7745c5c3_Var199 string
 		templ_7745c5c3_Var199, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-competition-awards", competitionID, "award_display_order_"+strconv.Itoa(index)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 963, Col: 115}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 963, Col: 115}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var199)
 		if templ_7745c5c3_Err != nil {
@@ -4134,7 +4134,7 @@ func CompetitionAwardFields(
 		var templ_7745c5c3_Var200 string
 		templ_7745c5c3_Var200, templ_7745c5c3_Err = templ.ResolveAttributeValue(ResultsFieldID("save-competition-awards", competitionID, "award_display_order_"+strconv.Itoa(index)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 965, Col: 108}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 965, Col: 108}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var200)
 		if templ_7745c5c3_Err != nil {
@@ -4147,7 +4147,7 @@ func CompetitionAwardFields(
 		var templ_7745c5c3_Var201 string
 		templ_7745c5c3_Var201, templ_7745c5c3_Err = templ.ResolveAttributeValue(page.valueAt("save-competition-awards", competitionID, "award_display_order", index, resultsAwardDisplayOrder(award.DisplayOrder, index)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/frontend/results.templ`, Line: 969, Col: 148}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `results.templ`, Line: 969, Col: 148}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var201)
 		if templ_7745c5c3_Err != nil {
