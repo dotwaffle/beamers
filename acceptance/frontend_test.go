@@ -5091,9 +5091,10 @@ func TestBrowserOperatesSessionDurably(t *testing.T) {
 		t.Fatalf("browser End Session = %d %q", ended.status, ended.body)
 	}
 	page = getFrontendPage(t, operator, server.address, path)
-	if !strings.Contains(page.body, `data-tone="ended">Ended</span>`) ||
-		!strings.Contains(page.body, "revision <code>2</code>") {
-		t.Fatalf("ended browser Session = %d %q", page.status, page.body)
+	endedArticle := frontendSessionArticle(t, page.body, sessionID)
+	if !strings.Contains(endedArticle, `data-tone="ended">Ended</span>`) ||
+		!strings.Contains(endedArticle, "revision <code>2</code>") {
+		t.Fatalf("ended browser Session = %d %q", page.status, endedArticle)
 	}
 	server.stop(t)
 }
@@ -5313,10 +5314,11 @@ func TestBrowserPreviewsAdjustsCancelsAndReinstatesSession(t *testing.T) {
 		t.Fatalf("browser Cancel Session = %d %q", canceled.status, canceled.body)
 	}
 	page = getFrontendPage(t, producer, server.address, path)
-	if !strings.Contains(page.body, `data-tone="canceled">Canceled</span>`) ||
-		!strings.Contains(page.body, "revision <code>3</code>") ||
-		!strings.Contains(page.body, `name="action" value="preview-reinstate"`) {
-		t.Fatalf("canceled browser Session = %d %q", page.status, page.body)
+	canceledArticle := frontendSessionArticle(t, page.body, sessionID)
+	if !strings.Contains(canceledArticle, `data-tone="canceled">Canceled</span>`) ||
+		!strings.Contains(canceledArticle, "revision <code>3</code>") ||
+		!strings.Contains(canceledArticle, `name="action" value="preview-reinstate"`) {
+		t.Fatalf("canceled browser Session = %d %q", page.status, canceledArticle)
 	}
 	invalidLaneIDs := postFrontendForm(t, producer, server.address, path, url.Values{
 		"csrf_token":                   {requireFrontendCSRF(t, page)},
@@ -5501,9 +5503,10 @@ func TestBrowserPreviewsAdjustsCancelsAndReinstatesSession(t *testing.T) {
 		t.Fatalf("browser Reinstate Session = %d %q", reinstated.status, reinstated.body)
 	}
 	page = getFrontendPage(t, producer, server.address, path)
-	if !strings.Contains(page.body, `data-tone="neutral">Scheduled</span>`) ||
-		!strings.Contains(page.body, "revision <code>4</code>") {
-		t.Fatalf("reinstated browser Session = %d %q", page.status, page.body)
+	reinstatedArticle := frontendSessionArticle(t, page.body, sessionID)
+	if !strings.Contains(reinstatedArticle, `data-tone="neutral">Scheduled</span>`) ||
+		!strings.Contains(reinstatedArticle, "revision <code>4</code>") {
+		t.Fatalf("reinstated browser Session = %d %q", page.status, reinstatedArticle)
 	}
 	server.stop(t)
 }
@@ -6960,12 +6963,13 @@ func TestBrowserManagesCompetitionEntries(t *testing.T) {
 	}
 	page = getFrontendPage(t, administrator, server.address, path)
 	reviewedEntryOneRevision := frontendEntryRevision(t, page.body, 1)
+	entryOneArticle := frontendEntryArticle(t, page.body, 1)
 	wantCurrent := `data-tone="success">Included</span><span>revision <code>` +
 		reviewedEntryOneRevision + `</code></span>`
-	if !strings.Contains(page.body, wantCurrent) {
+	if !strings.Contains(entryOneArticle, wantCurrent) {
 		t.Fatalf(
 			"review before Attachment replacement lacks current Entry #1 %q: %d %q",
-			wantCurrent, page.status, page.body,
+			wantCurrent, page.status, entryOneArticle,
 		)
 	}
 
@@ -7211,9 +7215,15 @@ func TestBrowserManagesCompetitionEntries(t *testing.T) {
 	assertAccessibleFormErrors(t, invalid, map[string]string{
 		"extend-reopen-window-1-1-expires-at": "Choose an expiry later than the current expiry.",
 	})
-	if !strings.Contains(invalid.body, "<details open>") {
+	if !strings.Contains(frontendEntryArticle(t, invalid.body, 1), "<details open>") {
 		t.Fatalf(
-			"invalid Reopen Window extension leaves its section collapsed: %q",
+			"invalid Reopen Window extension leaves Entry #1's section collapsed: %q",
+			invalid.body,
+		)
+	}
+	if strings.Contains(frontendEntryArticle(t, invalid.body, 2), "<details open>") {
+		t.Fatalf(
+			"invalid Reopen Window extension expands Entry #2's unrelated section: %q",
 			invalid.body,
 		)
 	}
@@ -9798,6 +9808,47 @@ func frontendEntryRevision(t *testing.T, body string, entryID int) string {
 		t.Fatalf("Entry #%d revision not found in %q", entryID, body)
 	}
 	return match[1]
+}
+
+// frontendEntryArticle isolates one Entry's <article id="entry-N">...</article>
+// fragment, so an assertion cannot pass on account of a different Entry's
+// markup elsewhere on the same Competition Entries page.
+func frontendEntryArticle(t *testing.T, body string, entryID int) string {
+	t.Helper()
+	start := strings.Index(body, `id="entry-`+strconv.Itoa(entryID)+`"`)
+	if start == -1 {
+		t.Fatalf("Entry #%d article not found in %q", entryID, body)
+	}
+	rest := body[start:]
+	end := strings.Index(rest, `<article id="entry-`)
+	if end == -1 {
+		end = strings.Index(rest, "</section>")
+	}
+	if end == -1 {
+		t.Fatalf("Entry #%d article has no closing boundary in %q", entryID, body)
+	}
+	return rest[:end]
+}
+
+// frontendSessionArticle isolates one Session's <article id="session-N">
+// fragment on the Operations page, so a lifecycle badge and revision found
+// independently cannot combine to pass an assertion for the wrong Session.
+func frontendSessionArticle(t *testing.T, body string, sessionID int64) string {
+	t.Helper()
+	marker := `id="session-` + strconv.FormatInt(sessionID, 10) + `"`
+	start := strings.Index(body, marker)
+	if start == -1 {
+		t.Fatalf("Session #%d article not found in %q", sessionID, body)
+	}
+	rest := body[start:]
+	end := strings.Index(rest, `<article`)
+	if end == -1 {
+		end = strings.Index(rest, "</section>")
+	}
+	if end == -1 {
+		t.Fatalf("Session #%d article has no closing boundary in %q", sessionID, body)
+	}
+	return rest[:end]
 }
 
 func frontendPresentationRevision(t *testing.T, body string, sessionID int64) string {

@@ -532,7 +532,7 @@ templ CompetitionEntries(page CompetitionEntriesPage) {
 							@EmptyState("No Entries yet. Create one below.")
 						}
 						for _, entry := range page.State.Entries {
-							<article>
+							<article id={ "entry-" + strconv.Itoa(entry.ID) }>
 								<h3>{ entry.Name }</h3>
 								<p>{ entry.PublicDetails }</p>
 								<p><strong>Crew notes:</strong> { entry.CrewNotes }</p>
