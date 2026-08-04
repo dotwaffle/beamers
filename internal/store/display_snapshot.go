@@ -170,7 +170,11 @@ func (installationStore *SQLite) LoadDisplaySnapshot(
 	}
 	result.Standby = false
 	if overrideErr := loadCurrentDisplayOverrides(
-		internalContext, client, assignment, now, &result,
+		internalContext,
+		displayOverrideSelection{
+			Client: client, Assignment: assignment, Lanes: published.Lanes, Now: now,
+		},
+		&result,
 	); overrideErr != nil {
 		return DisplaySnapshotState{}, overrideErr
 	}
@@ -318,13 +322,23 @@ func (installationStore *SQLite) loadDisplayRundown(
 	return result, nil
 }
 
+// displayOverrideSelection is what deciding which Overrides one Display is
+// currently in scope for depends on. Lanes come from the Rundown the caller
+// already holds, so resolving a Lane-targeted Override to its Location never
+// reloads the Rundown.
+type displayOverrideSelection struct {
+	Client     *ent.Client
+	Assignment *ent.DisplayAssignment
+	Lanes      []PublishedLane
+	Now        time.Time
+}
+
 func loadCurrentDisplayOverrides(
 	ctx context.Context,
-	client *ent.Client,
-	assignment *ent.DisplayAssignment,
-	now time.Time,
+	selection displayOverrideSelection,
 	result *DisplaySnapshotState,
 ) error {
+	client, assignment, now := selection.Client, selection.Assignment, selection.Now
 	hasOverrides, err := client.DisplayOverride.Query().Exist(ctx)
 	if err != nil {
 		return opaqueError("inspect current Display Overrides", err)
@@ -380,14 +394,16 @@ func loadCurrentDisplayOverrides(
 			break
 		}
 	}
-	if err := loadPriorityDisplayOverride(
-		ctx, client, assignment, now, DisplayOverrideUrgentNotice, &result.UrgentNotice,
-	); err != nil {
+	result.UrgentNotice, err = loadPriorityDisplayOverride(
+		ctx, selection, DisplayOverrideUrgentNotice,
+	)
+	if err != nil {
 		return err
 	}
-	if err := loadPriorityDisplayOverride(
-		ctx, client, assignment, now, DisplayOverrideEmergencyAlert, &result.EmergencyAlert,
-	); err != nil {
+	result.EmergencyAlert, err = loadPriorityDisplayOverride(
+		ctx, selection, DisplayOverrideEmergencyAlert,
+	)
+	if err != nil {
 		return err
 	}
 	return nil
@@ -395,12 +411,10 @@ func loadCurrentDisplayOverrides(
 
 func loadPriorityDisplayOverride(
 	ctx context.Context,
-	client *ent.Client,
-	assignment *ent.DisplayAssignment,
-	now time.Time,
+	selection displayOverrideSelection,
 	kind DisplayOverrideKind,
-	result **DisplayOverride,
-) error {
+) (*DisplayOverride, error) {
+	client, assignment, now := selection.Client, selection.Assignment, selection.Now
 	found, err := client.DisplayOverride.Query().
 		Where(
 			displayoverride.EventIDEQ(assignment.EventID),
@@ -414,17 +428,13 @@ func loadPriorityDisplayOverride(
 		Order(ent.Desc(displayoverride.FieldCreatedAt), ent.Desc(displayoverride.FieldID)).
 		All(ctx)
 	if err != nil {
-		return opaqueError("load priority Display Overrides", err)
+		return nil, opaqueError("load priority Display Overrides", err)
 	}
 	for _, candidate := range found {
 		target := displayOverride(candidate).Target
 		laneLocationID := 0
 		if target.Type == DisplayOverrideTargetLane {
-			published, rundownErr := loadCrewRundown(ctx, client, assignment.EventID)
-			if rundownErr != nil {
-				return rundownErr
-			}
-			for _, lane := range published.Lanes {
+			for _, lane := range selection.Lanes {
 				if lane.ID == target.ID {
 					laneLocationID = lane.LocationID
 					break
@@ -435,15 +445,14 @@ func loadPriorityDisplayOverride(
 			ctx, client, assignment.EventID, assignment, target, laneLocationID,
 		)
 		if matchErr != nil {
-			return matchErr
+			return nil, matchErr
 		}
 		if matches {
 			projected := displayOverride(candidate)
-			*result = &projected
-			return nil
+			return &projected, nil
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 // displaySessionInput is everything one Display Session projection depends on,

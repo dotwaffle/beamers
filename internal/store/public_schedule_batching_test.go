@@ -130,6 +130,7 @@ func countPublicScheduleStatements(t *testing.T, scale int) int64 {
 type publicScheduleFixture struct {
 	eventID     int
 	locationIDs []int
+	laneIDs     []int
 }
 
 func buildPublicScheduleFixture(
@@ -209,7 +210,7 @@ func buildPublicScheduleFixture(
 				SaveX(ctx)
 		}
 	}
-	return publicScheduleFixture{eventID: event.ID, locationIDs: locations}
+	return publicScheduleFixture{eventID: event.ID, locationIDs: locations, laneIDs: lanes}
 }
 
 func publicScheduleTestSnapshotJSON(plannedStart time.Time) string {

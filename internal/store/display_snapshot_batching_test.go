@@ -1,11 +1,13 @@
 package store
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/dotwaffle/beamers/ent"
+	"github.com/dotwaffle/beamers/ent/displayoverride"
 )
 
 // TestDisplaySnapshotQueryCountDoesNotScaleWithTheEvent pins the fan-out path:
@@ -36,6 +38,14 @@ func countDisplaySnapshotStatements(t *testing.T, scale int) int64 {
 	snapshot, err := installationStore.LoadDisplaySnapshot(t.Context(), credentialHash, now)
 	if err != nil {
 		t.Fatalf("load Display Snapshot at scale %d: %v", scale, err)
+	}
+	if snapshot.UrgentNotice == nil || snapshot.EmergencyAlert == nil {
+		t.Fatalf(
+			"Lane-targeted priority Overrides at scale %d = %+v / %+v, want both selected",
+			scale,
+			snapshot.UrgentNotice,
+			snapshot.EmergencyAlert,
+		)
 	}
 	if len(snapshot.Sessions) != scale {
 		t.Fatalf(
@@ -71,5 +81,30 @@ func buildDisplaySnapshotFixture(
 		SetLocationID(fixture.locationIDs[0]).
 		SetViewKey("schedule").
 		SaveX(ctx)
+	// Lane-targeted priority Overrides have to resolve the Lane's Location
+	// before they can decide whether this Display is in scope; that resolution
+	// must come from the Rundown the Snapshot already holds.
+	account := client.Account.Create().
+		SetName("Override operator").
+		SetNormalizedName("override operator").
+		SetAdministrator(true).
+		SaveX(ctx)
+	for _, kind := range []displayoverride.Kind{
+		displayoverride.KindUrgentNotice,
+		displayoverride.KindEmergencyAlert,
+	} {
+		for _, laneID := range fixture.laneIDs {
+			client.DisplayOverride.Create().
+				SetEventID(fixture.eventID).
+				SetKind(kind).
+				SetTargetType(displayoverride.TargetTypeLane).
+				SetTargetID(laneID).
+				SetTargetGroupKey("lane:" + strconv.Itoa(laneID)).
+				SetText("Override text").
+				SetUntilCleared(true).
+				SetCreatedByAccountID(account.ID).
+				SaveX(ctx)
+		}
+	}
 	return credentialHash
 }

@@ -264,7 +264,11 @@ func TestTechnicalDifficultiesCanTargetPublicAndCrewDisplays(t *testing.T) {
 	assignment := client.DisplayAssignment.Query().FirstX(internalContext)
 	var snapshot DisplaySnapshotState
 	if err = loadCurrentDisplayOverrides(
-		internalContext, client, assignment, now.Add(3*time.Second), &snapshot,
+		internalContext,
+		displayOverrideSelection{
+			Client: client, Assignment: assignment, Now: now.Add(3*time.Second),
+		},
+		&snapshot,
 	); err != nil {
 		t.Fatalf("load restored Technical Difficulties: %v", err)
 	}
@@ -496,7 +500,11 @@ func TestPriorityOverridesResolveTargetsAndRequireEmergencyConfirmation(t *testi
 	).OnlyX(internalContext)
 	var snapshot DisplaySnapshotState
 	if err = loadCurrentDisplayOverrides(
-		internalContext, client, assignment, now.Add(2*time.Second), &snapshot,
+		internalContext,
+		displayOverrideSelection{
+			Client: client, Assignment: assignment, Now: now.Add(2*time.Second),
+		},
+		&snapshot,
 	); err != nil {
 		t.Fatalf("load priority Overrides: %v", err)
 	}
@@ -524,7 +532,11 @@ func TestPriorityOverridesResolveTargetsAndRequireEmergencyConfirmation(t *testi
 	}
 	snapshot = DisplaySnapshotState{}
 	if err = loadCurrentDisplayOverrides(
-		internalContext, client, assignment, now.Add(4*time.Second), &snapshot,
+		internalContext,
+		displayOverrideSelection{
+			Client: client, Assignment: assignment, Now: now.Add(4*time.Second),
+		},
+		&snapshot,
 	); err != nil || snapshot.EmergencyAlert != nil ||
 		snapshot.UrgentNotice == nil || snapshot.UrgentNotice.ID != urgent.ID {
 		t.Fatalf("underlying Urgent Notice after Emergency clear = %+v, %v", snapshot, err)
