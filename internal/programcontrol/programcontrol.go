@@ -673,7 +673,9 @@ func (service *Service) Control(
 			if current.revision != input.ExpectedRevision {
 				return controlRejection(current, rejectionControlRevision, ErrControlRevision), nil
 			}
-			transitioned, transitionErr := transitionControl(current, actor, input, channel)
+			transitioned, transitionErr := transitionControl(controlTransitionInput{
+				control: current, actor: actor, input: input, channel: channel,
+			})
 			if transitionErr != nil {
 				rejection := store.CommandRejection{
 					Code: controlErrorCode(transitionErr), Message: transitionErr.Error(),
@@ -699,57 +701,127 @@ func (service *Service) Control(
 	return service.state(channel, next), nil
 }
 
-func transitionControl(
-	control controlState,
-	actor auth.Account,
-	input ControlInput,
-	channel store.ProgramChannelState,
-) (controlState, error) {
-	switch input.Action {
-	case ControlClaim:
-		if control.hasOwner && control.owner.AccountID != actor.ID {
-			return control, ErrControlOwned
-		}
-		control.owner = owner(actor, true)
-		control.hasOwner = true
-		if control.preview.Kind == "" {
-			control.preview = channel.Next
-		}
-	case ControlRequestHandover:
-		if !control.hasOwner || control.owner.AccountID == actor.ID {
-			return control, ErrHandoverUnavailable
-		}
-		control.requester = owner(actor, true)
-		control.hasRequest = true
-	case ControlHandover:
-		if !control.hasOwner || control.owner.AccountID != actor.ID || !control.hasRequest {
-			return control, ErrHandoverUnavailable
-		}
-		control.owner = control.requester
-		control.hasRequest = false
-	case ControlTakeover:
-		if !input.Confirmed {
-			return control, ErrTakeoverConfirmation
-		}
-		if control.hasOwner && control.owner.AccountID == actor.ID {
-			control.owner.Connected = true
-		} else {
-			control.owner = owner(actor, true)
+// controlTransitionInput is the complete context of one ownership action.
+type controlTransitionInput struct {
+	control controlState
+	actor   auth.Account
+	input   ControlInput
+	channel store.ProgramChannelState
+}
+
+// owned reports whether the acting Crew Member is the current Control Owner.
+func (input controlTransitionInput) owned() bool {
+	return input.control.hasOwner && input.control.owner.AccountID == input.actor.ID
+}
+
+// controlTransition is one ownership action's availability guard and the
+// change it makes once that guard admits it.
+type controlTransition struct {
+	guard func(controlTransitionInput) error
+	apply func(controlTransitionInput) controlState
+}
+
+// controlTransitions is the single source for which ownership actions are
+// available in which state. Every action states its own precondition, so an
+// unavailable transition can never fall through into a state change.
+var controlTransitions = map[ControlAction]controlTransition{
+	ControlClaim: {
+		guard: func(input controlTransitionInput) error {
+			if input.control.hasOwner && !input.owned() {
+				return ErrControlOwned
+			}
+			return nil
+		},
+		apply: func(input controlTransitionInput) controlState {
+			control := input.control
+			control.owner = owner(input.actor, true)
 			control.hasOwner = true
-		}
-		control.hasRequest = false
-		if control.preview.Kind == "" {
-			control.preview = channel.Next
-		}
-	case ControlDisconnect:
-		if !control.hasOwner || control.owner.AccountID != actor.ID {
-			return control, ErrControlOwnerRequired
-		}
-		control.owner.Connected = false
-	default:
-		return control, ErrHandoverUnavailable
+			return withDefaultedPreview(control, input.channel)
+		},
+	},
+	ControlRequestHandover: {
+		guard: func(input controlTransitionInput) error {
+			if !input.control.hasOwner || input.owned() {
+				return ErrHandoverUnavailable
+			}
+			return nil
+		},
+		apply: func(input controlTransitionInput) controlState {
+			control := input.control
+			control.requester = owner(input.actor, true)
+			control.hasRequest = true
+			return control
+		},
+	},
+	ControlHandover: {
+		guard: func(input controlTransitionInput) error {
+			if !input.owned() || !input.control.hasRequest {
+				return ErrHandoverUnavailable
+			}
+			return nil
+		},
+		apply: func(input controlTransitionInput) controlState {
+			control := input.control
+			control.owner = control.requester
+			control.hasRequest = false
+			return control
+		},
+	},
+	ControlTakeover: {
+		guard: func(input controlTransitionInput) error {
+			if !input.input.Confirmed {
+				return ErrTakeoverConfirmation
+			}
+			return nil
+		},
+		apply: func(input controlTransitionInput) controlState {
+			control := input.control
+			if input.owned() {
+				control.owner.Connected = true
+			} else {
+				control.owner = owner(input.actor, true)
+				control.hasOwner = true
+			}
+			control.hasRequest = false
+			return withDefaultedPreview(control, input.channel)
+		},
+	},
+	ControlDisconnect: {
+		guard: func(input controlTransitionInput) error {
+			if !input.owned() {
+				return ErrControlOwnerRequired
+			}
+			return nil
+		},
+		apply: func(input controlTransitionInput) controlState {
+			control := input.control
+			control.owner.Connected = false
+			return control
+		},
+	},
+}
+
+// withDefaultedPreview adopts the canonical Next item for a Crew Member who has
+// not selected a Preview yet.
+func withDefaultedPreview(
+	control controlState,
+	channel store.ProgramChannelState,
+) controlState {
+	if control.preview.Kind == "" {
+		control.preview = channel.Next
 	}
-	return control, nil
+	return control
+}
+
+func transitionControl(input controlTransitionInput) (controlState, error) {
+	transition, available := controlTransitions[input.input.Action]
+	if !available {
+		return input.control, ErrHandoverUnavailable
+	}
+	if err := transition.guard(input); err != nil {
+		return input.control, err
+	}
+	return transition.apply(input), nil
 }
 
 // SelectPreview changes no durable state.
@@ -1209,9 +1281,9 @@ func (service *Service) applyResultAction(
 	if validationErr != nil {
 		return takeRejection(current, control, code, validationErr), false, nil
 	}
-	nextState, presentation, transitionErr := transitionResult(
-		input.Action, selected, current, now,
-	)
+	nextState, presentation, transitionErr := transitionResult(resultTransitionInput{
+		action: input.Action, selected: selected, channel: current, now: now,
+	})
 	if transitionErr != nil {
 		code = rejectionResultTransition
 		if errors.Is(transitionErr, results.ErrResultRevealRunning) {
@@ -1317,46 +1389,112 @@ func unresolvedResultInOutput(item store.ProgramItem) bool {
 		item.Result.Status != prizegivingvalue.StageSkipped
 }
 
-func transitionResult(
-	action ResultAction,
-	selected store.ProgramItem,
-	current store.ProgramChannelState,
-	now time.Time,
-) (
+// resultTransitionInput is the complete context of one Result stage action.
+type resultTransitionInput struct {
+	action   ResultAction
+	selected store.ProgramItem
+	channel  store.ProgramChannelState
+	now      time.Time
+}
+
+// locked returns the immutable Result truth the action presents.
+func (input resultTransitionInput) locked() results.LockedResultItem {
+	return lockedResultItem(input.selected)
+}
+
+// stage returns the acted item's current presentation state.
+func (input resultTransitionInput) stage() results.ResultItemStageState {
+	return resultItemStageState(input.selected)
+}
+
+// resultTransition is one Result action's stage guard and the presentation
+// change it makes once that guard admits it.
+type resultTransition struct {
+	staged func(resultTransitionInput) bool
+	apply  func(resultTransitionInput) (
+		results.ResultItemStageState,
+		store.PrizegivingPresentationRun,
+		error,
+	)
+}
+
+// actedItemIsOutput admits actions that present what is already on stage.
+func actedItemIsOutput(input resultTransitionInput) bool {
+	return input.channel.Output.SameIdentity(input.selected)
+}
+
+// actedItemIsNext admits actions that omit an item before it reaches stage.
+func actedItemIsNext(input resultTransitionInput) bool {
+	return input.channel.Next.SameIdentity(input.selected)
+}
+
+// resultTransitions is the single source for which Result action is available
+// against which stage position.
+var resultTransitions = map[ResultAction]resultTransition{
+	ResultReveal: {
+		staged: actedItemIsOutput,
+		apply: func(input resultTransitionInput) (
+			results.ResultItemStageState,
+			store.PrizegivingPresentationRun,
+			error,
+		) {
+			next, presentation, err := results.StartPrizegivingReveal(
+				input.locked(), input.stage(), input.now,
+			)
+			return next, prizegivingPresentationRun(false, presentation), err
+		},
+	},
+	ResultReplayReveal: {
+		staged: actedItemIsOutput,
+		apply: func(input resultTransitionInput) (
+			results.ResultItemStageState,
+			store.PrizegivingPresentationRun,
+			error,
+		) {
+			next, presentation, err := results.ReplayPrizegivingReveal(
+				input.locked(), input.stage(), input.now,
+			)
+			return next, prizegivingPresentationRun(true, presentation), err
+		},
+	},
+	ResultSkipToFinal: {
+		staged: actedItemIsOutput,
+		apply: func(input resultTransitionInput) (
+			results.ResultItemStageState,
+			store.PrizegivingPresentationRun,
+			error,
+		) {
+			next, err := results.SkipPrizegivingResultToFinal(
+				input.locked(), input.stage(), input.now,
+			)
+			return next, existingPresentationRun(input.channel.Output), err
+		},
+	},
+	ResultSkipFromStage: {
+		staged: actedItemIsNext,
+		apply: func(input resultTransitionInput) (
+			results.ResultItemStageState,
+			store.PrizegivingPresentationRun,
+			error,
+		) {
+			next, err := results.SkipPrizegivingResultFromStage(
+				input.locked(), input.stage(), input.now,
+			)
+			return next, store.PrizegivingPresentationRun{}, err
+		},
+	},
+}
+
+func transitionResult(input resultTransitionInput) (
 	results.ResultItemStageState,
 	store.PrizegivingPresentationRun,
 	error,
 ) {
-	item := lockedResultItem(selected)
-	state := resultItemStageState(selected)
-	switch action {
-	case ResultReveal:
-		if !current.Output.SameIdentity(selected) {
-			return state, store.PrizegivingPresentationRun{}, results.ErrResultItemTransition
-		}
-		next, presentation, err := results.StartPrizegivingReveal(item, state, now)
-		return next, prizegivingPresentationRun(false, presentation), err
-	case ResultReplayReveal:
-		if !current.Output.SameIdentity(selected) {
-			return state, store.PrizegivingPresentationRun{}, results.ErrResultItemTransition
-		}
-		next, presentation, err := results.ReplayPrizegivingReveal(item, state, now)
-		return next, prizegivingPresentationRun(true, presentation), err
-	case ResultSkipToFinal:
-		if !current.Output.SameIdentity(selected) {
-			return state, store.PrizegivingPresentationRun{}, results.ErrResultItemTransition
-		}
-		next, err := results.SkipPrizegivingResultToFinal(item, state, now)
-		return next, existingPresentationRun(current.Output), err
-	case ResultSkipFromStage:
-		if !current.Next.SameIdentity(selected) {
-			return state, store.PrizegivingPresentationRun{}, results.ErrResultItemTransition
-		}
-		next, err := results.SkipPrizegivingResultFromStage(item, state, now)
-		return next, store.PrizegivingPresentationRun{}, err
-	default:
-		return state, store.PrizegivingPresentationRun{}, results.ErrResultItemTransition
+	transition, available := resultTransitions[input.action]
+	if !available || !transition.staged(input) {
+		return input.stage(), store.PrizegivingPresentationRun{}, results.ErrResultItemTransition
 	}
+	return transition.apply(input)
 }
 
 func prizegivingPresentationRun(

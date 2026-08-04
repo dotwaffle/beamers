@@ -233,7 +233,10 @@ func TestTransitionControlGuardsEveryOwnershipAction(t *testing.T) {
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
-			result, err := transitionControl(testCase.control, testCase.actor, testCase.input, channel)
+			result, err := transitionControl(controlTransitionInput{
+				control: testCase.control, actor: testCase.actor,
+				input: testCase.input, channel: channel,
+			})
 			if testCase.wantErr != nil {
 				if !errors.Is(err, testCase.wantErr) {
 					t.Fatalf("transition error = %v, want %v", err, testCase.wantErr)
@@ -329,9 +332,9 @@ func TestTransitionResultRequiresTheActedItemOnStage(t *testing.T) {
 			if current.Output.Kind == "" {
 				current = store.ProgramChannelState{Output: other, Next: other}
 			}
-			state, presentation, err := transitionResult(
-				testCase.action, selected, current, testTime(),
-			)
+			state, presentation, err := transitionResult(resultTransitionInput{
+				action: testCase.action, selected: selected, channel: current, now: testTime(),
+			})
 			if !errors.Is(err, ErrResultTransition) {
 				t.Fatalf("transition error = %v, want %v", err, ErrResultTransition)
 			}
