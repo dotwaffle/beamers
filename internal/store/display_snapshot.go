@@ -17,10 +17,8 @@ import (
 	"github.com/dotwaffle/beamers/ent/installation"
 	"github.com/dotwaffle/beamers/ent/prizegiving"
 	"github.com/dotwaffle/beamers/ent/publicschedulebaseline"
-	"github.com/dotwaffle/beamers/ent/publicschedulebaselineentry"
 	"github.com/dotwaffle/beamers/ent/rundown"
 	"github.com/dotwaffle/beamers/ent/session"
-	"github.com/dotwaffle/beamers/ent/sessionrun"
 	"github.com/dotwaffle/beamers/internal/publictime"
 )
 
@@ -192,6 +190,17 @@ func (installationStore *SQLite) LoadDisplaySnapshot(
 			sessionIdentities[identity.ID] = identity
 		}
 	}
+	runningIDs := make([]int, 0, len(sessionIDs))
+	for _, identity := range sessionIdentities {
+		if identity.Lifecycle == session.LifecycleLive ||
+			identity.Lifecycle == session.LifecycleEnded {
+			runningIDs = append(runningIDs, identity.ID)
+		}
+	}
+	runs, err := latestSessionRuns(internalContext, client, runningIDs)
+	if err != nil {
+		return DisplaySnapshotState{}, err
+	}
 	for _, publishedSession := range published.Sessions {
 		identity := sessionIdentities[publishedSession.ID]
 		if identity == nil {
@@ -200,17 +209,23 @@ func (installationStore *SQLite) LoadDisplaySnapshot(
 				errors.New("missing Session"),
 			)
 		}
-		sessionState, sessionErr := loadDisplaySessionWithBaseline(
-			internalContext,
-			client,
-			publishedSession,
-			published.baselineStarts[publishedSession.ID],
-			identity,
-		)
+		sessionState, sessionErr := displaySessionState(displaySessionInput{
+			Published:     publishedSession,
+			BaselineStart: published.baselineStarts[publishedSession.ID],
+			Identity:      identity,
+			Run:           runs[publishedSession.ID],
+		})
 		if sessionErr != nil {
 			return DisplaySnapshotState{}, sessionErr
 		}
 		result.Sessions = append(result.Sessions, sessionState)
+		// Only the competition-output view routes a Program Channel, so no
+		// other Display pays for the per-Session Ceremony lookup.
+		if result.ViewKey != "competition-output" ||
+			!slices.Contains(sessionState.LocationIDs, result.LocationID) ||
+			(result.ProgramChannelID != 0 && sessionState.Lifecycle != "Live") {
+			continue
+		}
 		programSession, programErr := isProgramChannelSession(
 			internalContext,
 			client,
@@ -220,22 +235,20 @@ func (installationStore *SQLite) LoadDisplaySnapshot(
 		if programErr != nil {
 			return DisplaySnapshotState{}, programErr
 		}
-		if result.ViewKey == "competition-output" &&
-			programSession &&
-			slices.Contains(sessionState.LocationIDs, result.LocationID) &&
-			(result.ProgramChannelID == 0 || sessionState.Lifecycle == "Live") {
-			channel, channelErr := loadProgramChannel(
-				internalContext, client, result.ActiveEventID, publishedSession.ID, now,
-			)
-			if channelErr != nil {
-				return DisplaySnapshotState{}, channelErr
-			}
-			result.ProgramChannelID = channel.SessionID
-			result.ProgramOutputRevision = channel.Revision
-			result.ProgramOutput = channel.Output
-			if sessionState.Lifecycle == "Live" {
-				break
-			}
+		if !programSession {
+			continue
+		}
+		channel, channelErr := loadProgramChannel(
+			internalContext, client, result.ActiveEventID, publishedSession.ID, now,
+		)
+		if channelErr != nil {
+			return DisplaySnapshotState{}, channelErr
+		}
+		result.ProgramChannelID = channel.SessionID
+		result.ProgramOutputRevision = channel.Revision
+		result.ProgramOutput = channel.Output
+		if sessionState.Lifecycle == "Live" {
+			break
 		}
 	}
 	return result, nil
@@ -291,20 +304,9 @@ func (installationStore *SQLite) loadDisplayRundown(
 	for _, published := range found.Sessions {
 		sessionIDs = append(sessionIDs, published.ID)
 	}
-	baselineStarts := make(map[int]time.Time)
-	if len(sessionIDs) > 0 {
-		entries, queryErr := client.PublicScheduleBaselineEntry.Query().
-			Where(publicschedulebaselineentry.SessionIDIn(sessionIDs...)).
-			All(ctx)
-		if queryErr != nil {
-			return displayRundownState{}, opaqueError(
-				"load Display Public Schedule Baselines",
-				queryErr,
-			)
-		}
-		for _, entry := range entries {
-			baselineStarts[entry.SessionID] = entry.ForecastStart
-		}
+	baselineStarts, err := sessionBaselineStarts(ctx, client, sessionIDs)
+	if err != nil {
+		return displayRundownState{}, err
 	}
 	result := displayRundownState{
 		CrewRundownState: found,
@@ -444,13 +446,18 @@ func loadPriorityDisplayOverride(
 	return nil
 }
 
-func loadDisplaySessionWithBaseline(
-	ctx context.Context,
-	client *ent.Client,
-	published PublishedSession,
-	baselineStart time.Time,
-	identity *ent.Session,
-) (DisplaySessionState, error) {
+// displaySessionInput is everything one Display Session projection depends on,
+// so building it costs no queries and the caller can batch the lookups for a
+// whole Event.
+type displaySessionInput struct {
+	Published     PublishedSession
+	BaselineStart time.Time
+	Identity      *ent.Session
+	Run           *ent.SessionRun
+}
+
+func displaySessionState(input displaySessionInput) (DisplaySessionState, error) {
+	published, identity, baselineStart := input.Published, input.Identity, input.BaselineStart
 	result := DisplaySessionState{
 		ID: published.ID, AudienceVisibility: published.AudienceVisibility,
 		TimerTitle:    published.Title,
@@ -479,32 +486,25 @@ func loadDisplaySessionWithBaseline(
 		result.Speaker = published.Speaker
 		result.PublicDetails = published.PublicDetails
 	}
-	if identity.Lifecycle == session.LifecycleLive ||
-		identity.Lifecycle == session.LifecycleEnded {
-		run, runErr := client.SessionRun.Query().Where(
-			sessionrun.SessionIDEQ(published.ID),
-		).Order(ent.Desc(sessionrun.FieldID)).First(ctx)
-		if runErr != nil && !ent.IsNotFound(runErr) {
-			return DisplaySessionState{}, opaqueError("load Display Session Run", runErr)
+	if run := input.Run; run != nil &&
+		(identity.Lifecycle == session.LifecycleLive ||
+			identity.Lifecycle == session.LifecycleEnded) {
+		var snapshot SessionRunSnapshot
+		if decodeErr := json.Unmarshal([]byte(run.SnapshotJSON), &snapshot); decodeErr != nil {
+			return DisplaySessionState{}, opaqueError("decode Display Session Run Snapshot", decodeErr)
 		}
-		if runErr == nil {
-			var snapshot SessionRunSnapshot
-			if decodeErr := json.Unmarshal([]byte(run.SnapshotJSON), &snapshot); decodeErr != nil {
-				return DisplaySessionState{}, opaqueError("decode Display Session Run Snapshot", decodeErr)
-			}
-			result.ActualStart = run.ActualStart
-			result.TargetAdjustmentSeconds = run.TargetAdjustmentSeconds
-			result.TargetAdjustedAt = run.TargetAdjustedAt
-			result.Type = snapshot.Type
-			result.TimingPolicy = snapshot.TimingPolicy
-			result.RunPlannedStart = snapshot.PlannedStart
-			result.RunPlannedEnd = snapshot.PlannedEnd
-			result.LocationIDs = slices.Clone(snapshot.LocationIDs)
-			result.LaneIDs = slices.Clone(snapshot.LaneIDs)
-			if !run.ActualEnd.IsZero() {
-				actualEnd := run.ActualEnd
-				result.ActualEnd = &actualEnd
-			}
+		result.ActualStart = run.ActualStart
+		result.TargetAdjustmentSeconds = run.TargetAdjustmentSeconds
+		result.TargetAdjustedAt = run.TargetAdjustedAt
+		result.Type = snapshot.Type
+		result.TimingPolicy = snapshot.TimingPolicy
+		result.RunPlannedStart = snapshot.PlannedStart
+		result.RunPlannedEnd = snapshot.PlannedEnd
+		result.LocationIDs = slices.Clone(snapshot.LocationIDs)
+		result.LaneIDs = slices.Clone(snapshot.LaneIDs)
+		if !run.ActualEnd.IsZero() {
+			actualEnd := run.ActualEnd
+			result.ActualEnd = &actualEnd
 		}
 	}
 	result.PublicTime = publicTimeFacts(publicTimeFactsParams{
@@ -527,17 +527,20 @@ func loadDisplaySession(
 	if err != nil {
 		return DisplaySessionState{}, opaqueError("load Display Session identity", err)
 	}
-	baseline, err := client.PublicScheduleBaselineEntry.Query().
-		Where(publicschedulebaselineentry.SessionIDEQ(published.ID)).
-		Only(ctx)
-	if err != nil && !ent.IsNotFound(err) {
-		return DisplaySessionState{}, opaqueError("load Public Schedule Baseline entry", err)
+	baselines, err := sessionBaselineStarts(ctx, client, []int{published.ID})
+	if err != nil {
+		return DisplaySessionState{}, err
 	}
-	var baselineStart time.Time
-	if err == nil {
-		baselineStart = baseline.ForecastStart
+	runs, err := latestSessionRuns(ctx, client, []int{published.ID})
+	if err != nil {
+		return DisplaySessionState{}, err
 	}
-	return loadDisplaySessionWithBaseline(ctx, client, published, baselineStart, identity)
+	return displaySessionState(displaySessionInput{
+		Published:     published,
+		BaselineStart: baselines[published.ID],
+		Identity:      identity,
+		Run:           runs[published.ID],
+	})
 }
 
 func competitionOutputProgramChannelID(

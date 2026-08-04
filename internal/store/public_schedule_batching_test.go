@@ -127,7 +127,16 @@ func countPublicScheduleStatements(t *testing.T, scale int) int64 {
 // buildPublicScheduleFixture creates one Active Event whose every attendee
 // visible dimension grows with scale, so a per-Session or per-name query
 // shows up as a query count that grows with it.
-func buildPublicScheduleFixture(t *testing.T, client *ent.Client, scale int) {
+type publicScheduleFixture struct {
+	eventID     int
+	locationIDs []int
+}
+
+func buildPublicScheduleFixture(
+	t *testing.T,
+	client *ent.Client,
+	scale int,
+) publicScheduleFixture {
 	t.Helper()
 	ctx := systemContext(t.Context())
 	event := createSchemaTestEvent(t, client)
@@ -200,6 +209,7 @@ func buildPublicScheduleFixture(t *testing.T, client *ent.Client, scale int) {
 				SaveX(ctx)
 		}
 	}
+	return publicScheduleFixture{eventID: event.ID, locationIDs: locations}
 }
 
 func publicScheduleTestSnapshotJSON(plannedStart time.Time) string {
