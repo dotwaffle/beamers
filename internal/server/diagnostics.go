@@ -22,7 +22,15 @@ import (
 const (
 	testedLocationsOrLanes = 64
 	testedDisplays         = 250
-	testedSessionsEntries  = 5_000
+	// testedSessions reflects the realistic capacity soak fixture: distinct
+	// published Sessions moved through mixed lifecycles, not Competition
+	// Entries. It is deliberately far below testedEntries because the
+	// certified capacity profiles represent their SessionsAndEntries
+	// envelope almost entirely as Entries under a couple of Sessions, so a
+	// single combined figure would imply Sessions were exercised at a scale
+	// they were not.
+	testedSessions = 200
+	testedEntries  = 5_000
 )
 
 type diagnosticHandlers struct {
@@ -446,9 +454,14 @@ func capacityWarnings(capacity operations.Capacity, connectedDisplays int) []cap
 			Code: "lanes_or_locations", Observed: observed, TestedMax: testedLocationsOrLanes,
 		})
 	}
-	if observed := capacity.Sessions + capacity.Entries; observed > testedSessionsEntries {
+	if observed := capacity.Sessions; observed > testedSessions {
 		warnings = append(warnings, capacityWarning{
-			Code: "sessions_and_entries", Observed: observed, TestedMax: testedSessionsEntries,
+			Code: "sessions", Observed: observed, TestedMax: testedSessions,
+		})
+	}
+	if observed := capacity.Entries; observed > testedEntries {
+		warnings = append(warnings, capacityWarning{
+			Code: "entries", Observed: observed, TestedMax: testedEntries,
 		})
 	}
 	if connectedDisplays > testedDisplays {
