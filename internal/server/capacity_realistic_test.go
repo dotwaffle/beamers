@@ -65,8 +65,9 @@ func newCapacityApplicationTB(
 		ListenerAddress: &net.TCPAddr{
 			IP: net.ParseIP("127.0.0.1"), Port: 8080,
 		},
-		DisplayStream: displayStream,
-		ProgramStream: programStream,
+		DisplayStream:  displayStream,
+		ProgramStream:  programStream,
+		ScheduleStream: fixture.scheduleStream,
 	})
 	if err != nil {
 		tb.Fatalf("build realistic capacity application: %v", err)
@@ -128,7 +129,19 @@ func prepareRealisticCapacityFixture(tb testing.TB) capacityFixture {
 	if err := operations.Initialize(t.Context(), dataDir); err != nil {
 		t.Fatalf("initialize realistic installation: %v", err)
 	}
-	installation, err := operations.OpenInstallation(t.Context(), dataDir)
+	// The public Schedule build is memoized against the Schedule stream
+	// cursor, so the fixture has to own that stream: the benchmarks would
+	// otherwise measure an installation whose memo can never be invalidated,
+	// and therefore never used either.
+	scheduleStream, err := displaystream.NewProcess(displaySubscriberQueueCapacity)
+	if err != nil {
+		t.Fatalf("create realistic Schedule stream: %v", err)
+	}
+	installation, err := operations.OpenInstallationWithConfig(t.Context(), operations.OpenConfig{
+		DataDir:          dataDir,
+		NotifySchedule:   scheduleStream.Notify,
+		SchedulePosition: func() uint64 { return scheduleStream.Cursor().Position },
+	})
 	if err != nil {
 		t.Fatalf("open realistic installation: %v", err)
 	}
@@ -274,6 +287,7 @@ func prepareRealisticCapacityFixture(tb testing.TB) capacityFixture {
 	}
 	return capacityFixture{
 		dataDir:            dataDir,
+		scheduleStream:     scheduleStream,
 		installation:       installation,
 		actor:              actor,
 		sessionToken:       session.Token,
@@ -608,6 +622,47 @@ func BenchmarkCapacityRealisticPublicScheduleDirect(b *testing.B) {
 		if response.StatusCode != http.StatusOK {
 			b.Fatalf("direct public Schedule status = %d", response.StatusCode)
 		}
+	}
+}
+
+// BenchmarkCapacityRealisticPublicScheduleRepeat measures the second and later
+// attendee requests at one Schedule stream cursor - the reload, the
+// If-None-Match revalidation, the wave that follows a Publish once the first
+// request through has built the snapshot.
+//
+// BenchmarkCapacityRealisticPublicScheduleDirect stays the honest measure of
+// the build itself: it creates a fresh fixture per sample and issues exactly
+// one request, so its number is always a cold build and stays comparable with
+// the recorded baseline. This benchmark deliberately measures the memo, and is
+// only meaningful read next to that one.
+func BenchmarkCapacityRealisticPublicScheduleRepeat(b *testing.B) {
+	fixture := prepareRealisticCapacityFixture(b)
+	application := newCapacityApplicationTB(b, fixture)
+	origin := httptest.NewServer(application)
+	b.Cleanup(origin.Close)
+	client := &http.Client{Timeout: 30 * time.Second}
+	scheduleURL := origin.URL + "/events/" + realisticEventSlug + "/schedule"
+	fetch := func() {
+		request, err := http.NewRequestWithContext(b.Context(), http.MethodGet, scheduleURL, http.NoBody)
+		if err != nil {
+			b.Fatal(err)
+		}
+		response, err := client.Do(request)
+		if err != nil {
+			b.Fatal(err)
+		}
+		_, _ = io.Copy(io.Discard, response.Body)
+		if closeErr := response.Body.Close(); closeErr != nil {
+			b.Fatal(closeErr)
+		}
+		if response.StatusCode != http.StatusOK {
+			b.Fatalf("repeat public Schedule status = %d", response.StatusCode)
+		}
+	}
+	fetch()
+
+	for b.Loop() {
+		fetch()
 	}
 }
 

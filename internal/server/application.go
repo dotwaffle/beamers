@@ -533,6 +533,9 @@ func (application *application) openConfig() operations.OpenConfig {
 		DataDir: application.config.DataDir, AttachmentsDir: application.config.AttachmentsDir,
 		NotifyDisplays: application.config.DisplayStream.Notify,
 		NotifySchedule: application.config.ScheduleStream.Notify,
+		SchedulePosition: func() uint64 {
+			return application.config.ScheduleStream.Cursor().Position
+		},
 		NotifyProgram:  application.config.ProgramStream.Notify,
 		NotifyVoting:   application.config.VotingStream.Notify,
 	}

@@ -1141,6 +1141,7 @@ func BenchmarkCapacityDisplaySnapshotFanout(b *testing.B) {
 
 type capacityFixture struct {
 	dataDir            string
+	scheduleStream     *displaystream.Hub
 	installation       *operations.Installation
 	actor              auth.Account
 	sessionToken       string

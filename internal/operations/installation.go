@@ -87,6 +87,10 @@ type OpenConfig struct {
 	NotifySchedule func()
 	NotifyProgram  func()
 	NotifyVoting   func()
+	// SchedulePosition reports the Schedule stream cursor that NotifySchedule
+	// advances. The public Schedule build is memoized against it; leaving it
+	// nil rebuilds the projection on every attendee request.
+	SchedulePosition func() uint64
 }
 
 // Initialize creates a new installation with the committed schema.
@@ -320,7 +324,9 @@ func OpenInstallationWithConfig(
 		return nil, errors.Join(err, installation.Close())
 	}
 	installation.rundownQueries = rundownQueries
-	scheduleService, err := schedule.New(storage, now)
+	scheduleService, err := schedule.New(schedule.Config{
+		Storage: storage, Now: now, StreamPosition: config.SchedulePosition,
+	})
 	if err != nil {
 		return nil, errors.Join(err, installation.Close())
 	}

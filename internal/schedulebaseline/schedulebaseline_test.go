@@ -169,8 +169,11 @@ func TestFirstPublicPublicationEnrollsImmutableBaseline(t *testing.T) {
 	}); activateErr != nil {
 		t.Fatalf("activate baseline Event: %v", activateErr)
 	}
-	scheduleService, err := schedule.New(storage, func() time.Time {
-		return time.Date(2026, 8, 21, 7, 0, 0, 0, time.UTC)
+	scheduleService, err := schedule.New(schedule.Config{
+		Storage: storage,
+		Now: func() time.Time {
+			return time.Date(2026, 8, 21, 7, 0, 0, 0, time.UTC)
+		},
 	})
 	if err != nil {
 		t.Fatalf("create Schedule service: %v", err)
