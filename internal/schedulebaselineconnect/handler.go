@@ -4,7 +4,6 @@ package schedulebaselineconnect
 import (
 	"context"
 	"errors"
-	"math"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -39,55 +38,12 @@ func NewHandler(
 
 // ErrorInterceptor translates baseline failures into stable Connect codes.
 func ErrorInterceptor() connect.Interceptor {
-	return errorInterceptor{}
-}
-
-type errorInterceptor struct{}
-
-func (errorInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
-	return func(ctx context.Context, request connect.AnyRequest) (connect.AnyResponse, error) {
-		response, err := next(ctx, request)
-		if err == nil {
-			return response, nil
-		}
-		var connectErr *connect.Error
-		if errors.As(err, &connectErr) {
-			return response, err
-		}
-		return response, connectError(err)
-	}
-}
-
-func (errorInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
-	return next
-}
-
-func (errorInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
-	return next
+	return connectapi.ErrorInterceptor(connectError)
 }
 
 // ValidationInterceptor rejects malformed protobuf requests before dispatch.
 func ValidationInterceptor() connect.Interceptor {
-	return validationInterceptor{}
-}
-
-type validationInterceptor struct{}
-
-func (validationInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
-	return func(ctx context.Context, request connect.AnyRequest) (connect.AnyResponse, error) {
-		if err := validateRequest(request.Any()); err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, err)
-		}
-		return next(ctx, request)
-	}
-}
-
-func (validationInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
-	return next
-}
-
-func (validationInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
-	return next
+	return connectapi.ValidationInterceptor(validateRequest)
 }
 
 // Preview returns the exact Event and Public Sessions requiring confirmation.
@@ -164,9 +120,9 @@ func previewResponse(preview schedulebaseline.Preview) *schedulebaselinev1.Previ
 func validateRequest(message any) error {
 	switch request := message.(type) {
 	case *schedulebaselinev1.PreviewRequest:
-		return positiveID(request.GetEventId())
+		return connectapi.PositiveID("event_id", request.GetEventId())
 	case *schedulebaselinev1.CaptureRequest:
-		if err := positiveID(request.GetEventId()); err != nil {
+		if err := connectapi.PositiveID("event_id", request.GetEventId()); err != nil {
 			return err
 		}
 		if err := command.ValidateID(request.GetCommandId()); err != nil {
@@ -183,13 +139,6 @@ func validateRequest(message any) error {
 	default:
 		return errors.New("unsupported Public Schedule Baseline request")
 	}
-}
-
-func positiveID(value int64) error {
-	if value <= 0 || value > math.MaxInt {
-		return errors.New("event_id must be a positive supported integer")
-	}
-	return nil
 }
 
 func connectError(err error) error {

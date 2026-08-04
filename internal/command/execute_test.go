@@ -195,6 +195,56 @@ func TestExecuteNotifiesOnlyAfterSuccess(t *testing.T) {
 	}
 }
 
+func TestExecuteSignalsApplicationSeparatelyFromReplay(t *testing.T) {
+	storage, actorID, ctx, _ := openExecutionTestStore(t)
+	now := time.Date(2026, time.July, 22, 14, 0, 0, 0, time.UTC)
+	identity := func(commandID string) store.CommandIdentity {
+		return store.CommandIdentity{
+			ActorAccountID: actorID, CommandID: commandID, PayloadHash: strings.Repeat("a", 64),
+			Action: "TestCommand", TargetType: "Account", TargetID: "1", Now: now,
+		}
+	}
+
+	var sequence []string
+	plan := Plan[string]{
+		Storage: storage, Identity: identity("executor-applied-signal"),
+		Replay: func(outcome string) (string, error) { return outcome, nil },
+		Apply: func(*store.CommandTx) (Execution[string], error) {
+			return Success("first", `"first"`), nil
+		},
+		Applied: func() { sequence = append(sequence, "applied") },
+		Notify:  func() { sequence = append(sequence, "notify") },
+	}
+	if _, err := Execute(ctx, plan); err != nil {
+		t.Fatalf("first execution: %v", err)
+	}
+	if want := []string{"applied", "notify"}; !slices.Equal(sequence, want) {
+		t.Fatalf("first execution sequence = %v, want %v", sequence, want)
+	}
+
+	sequence = nil
+	if _, err := Execute(ctx, plan); err != nil {
+		t.Fatalf("replay: %v", err)
+	}
+	if want := []string{"notify"}; !slices.Equal(sequence, want) {
+		t.Fatalf("replay sequence = %v, want %v", sequence, want)
+	}
+
+	sequence = nil
+	rejectionErr := errors.New("not allowed")
+	rejection := plan
+	rejection.Identity = identity("executor-applied-rejection")
+	rejection.Apply = func(*store.CommandTx) (Execution[string], error) {
+		return Reject("", store.CommandRejection{Code: "not_allowed"}, rejectionErr), nil
+	}
+	if _, err := Execute(ctx, rejection); !errors.Is(err, rejectionErr) {
+		t.Fatalf("rejection error = %v, want %v", err, rejectionErr)
+	}
+	if len(sequence) != 0 {
+		t.Fatalf("rejected sequence = %v, want no signals", sequence)
+	}
+}
+
 func openExecutionTestStore(t *testing.T) (*store.SQLite, int, context.Context, string) {
 	t.Helper()
 	dataDir := t.TempDir()

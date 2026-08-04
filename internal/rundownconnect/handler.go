@@ -4,7 +4,6 @@ package rundownconnect
 import (
 	"context"
 	"errors"
-	"math"
 	"time"
 
 	"connectrpc.com/connect"
@@ -34,55 +33,12 @@ func NewHandler(commands *rundown.Commands, queries *rundown.Queries) (*Handler,
 
 // ErrorInterceptor translates domain classifications into stable Connect codes.
 func ErrorInterceptor() connect.Interceptor {
-	return errorInterceptor{}
-}
-
-type errorInterceptor struct{}
-
-func (errorInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
-	return func(ctx context.Context, request connect.AnyRequest) (connect.AnyResponse, error) {
-		response, err := next(ctx, request)
-		if err == nil {
-			return response, nil
-		}
-		var connectErr *connect.Error
-		if errors.As(err, &connectErr) {
-			return response, err
-		}
-		return response, connectError(err)
-	}
-}
-
-func (errorInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
-	return next
-}
-
-func (errorInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
-	return next
+	return connectapi.ErrorInterceptor(connectError)
 }
 
 // ValidationInterceptor rejects malformed protobuf shapes before application dispatch.
 func ValidationInterceptor() connect.Interceptor {
-	return validationInterceptor{}
-}
-
-type validationInterceptor struct{}
-
-func (validationInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
-	return func(ctx context.Context, request connect.AnyRequest) (connect.AnyResponse, error) {
-		if err := validateTransportRequest(request.Any()); err != nil {
-			return nil, invalidArgument(err)
-		}
-		return next(ctx, request)
-	}
-}
-
-func (validationInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
-	return next
-}
-
-func (validationInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
-	return next
+	return connectapi.ValidationInterceptor(validateTransportRequest)
 }
 
 func validateTransportRequest(message any) error {
@@ -91,74 +47,74 @@ func validateTransportRequest(message any) error {
 		_, err := editDraftInput(typed)
 		return err
 	case *rundownv1.DeleteDraftSessionRequest:
-		if _, err := positiveInt64("event_id", typed.GetEventId()); err != nil {
+		if _, err := connectapi.PositiveInt("event_id", typed.GetEventId()); err != nil {
 			return err
 		}
-		if _, err := positiveInt64("session_id", typed.GetSessionId()); err != nil {
+		if _, err := connectapi.PositiveInt("session_id", typed.GetSessionId()); err != nil {
 			return err
 		}
-		_, err := nonnegativeInt64("expected_draft_revision", typed.GetExpectedDraftRevision())
+		_, err := connectapi.NonNegativeInt("expected_draft_revision", typed.GetExpectedDraftRevision())
 		return err
 	case *rundownv1.PublishPreviewRequest:
-		if _, err := positiveInt64("event_id", typed.GetEventId()); err != nil {
+		if _, err := connectapi.PositiveInt("event_id", typed.GetEventId()); err != nil {
 			return err
 		}
-		_, err := ints64("change_ids", typed.GetChangeIds())
+		_, err := connectapi.PositiveInts("change_ids", typed.GetChangeIds())
 		return err
 	case *rundownv1.PublishRequest:
-		if _, err := positiveInt64("event_id", typed.GetEventId()); err != nil {
+		if _, err := connectapi.PositiveInt("event_id", typed.GetEventId()); err != nil {
 			return err
 		}
 		confirmation := typed.GetConfirmation()
 		if confirmation == nil {
 			return errors.New("confirmation is required")
 		}
-		if _, err := nonnegativeInt64("confirmation.draft_revision", confirmation.GetDraftRevision()); err != nil {
+		if _, err := connectapi.NonNegativeInt("confirmation.draft_revision", confirmation.GetDraftRevision()); err != nil {
 			return err
 		}
-		if _, err := nonnegativeInt64("confirmation.published_revision", confirmation.GetPublishedRevision()); err != nil {
+		if _, err := connectapi.NonNegativeInt("confirmation.published_revision", confirmation.GetPublishedRevision()); err != nil {
 			return err
 		}
-		_, err := ints64("confirmation.change_ids", confirmation.GetChangeIds())
+		_, err := connectapi.PositiveInts("confirmation.change_ids", confirmation.GetChangeIds())
 		return err
 	case *rundownv1.DiscardDraftChangesRequest:
-		if _, err := positiveInt64("event_id", typed.GetEventId()); err != nil {
+		if _, err := connectapi.PositiveInt("event_id", typed.GetEventId()); err != nil {
 			return err
 		}
-		if _, err := nonnegativeInt64("expected_draft_revision", typed.GetExpectedDraftRevision()); err != nil {
+		if _, err := connectapi.NonNegativeInt("expected_draft_revision", typed.GetExpectedDraftRevision()); err != nil {
 			return err
 		}
-		_, err := ints64("change_ids", typed.GetChangeIds())
+		_, err := connectapi.PositiveInts("change_ids", typed.GetChangeIds())
 		return err
 	case *rundownv1.RevertDraftChangeRequest:
-		if _, err := positiveInt64("event_id", typed.GetEventId()); err != nil {
+		if _, err := connectapi.PositiveInt("event_id", typed.GetEventId()); err != nil {
 			return err
 		}
-		if _, err := nonnegativeInt64("expected_draft_revision", typed.GetExpectedDraftRevision()); err != nil {
+		if _, err := connectapi.NonNegativeInt("expected_draft_revision", typed.GetExpectedDraftRevision()); err != nil {
 			return err
 		}
-		_, err := positiveInt64("change_id", typed.GetChangeId())
+		_, err := connectapi.PositiveInt("change_id", typed.GetChangeId())
 		return err
 	case *rundownv1.GetCrewRundownRequest:
-		_, err := positiveInt64("event_id", typed.GetEventId())
+		_, err := connectapi.PositiveInt("event_id", typed.GetEventId())
 		return err
 	case *rundownv1.PreviewCSVImportRequest:
-		_, err := positiveInt64("event_id", typed.GetEventId())
+		_, err := connectapi.PositiveInt("event_id", typed.GetEventId())
 		return err
 	case *rundownv1.ImportCSVRequest:
-		if _, err := positiveInt64("event_id", typed.GetEventId()); err != nil {
+		if _, err := connectapi.PositiveInt("event_id", typed.GetEventId()); err != nil {
 			return err
 		}
-		_, err := nonnegativeInt64("expected_draft_revision", typed.GetExpectedDraftRevision())
+		_, err := connectapi.NonNegativeInt("expected_draft_revision", typed.GetExpectedDraftRevision())
 		return err
 	case *rundownv1.PreviewICalendarImportRequest:
-		_, err := positiveInt64("event_id", typed.GetEventId())
+		_, err := connectapi.PositiveInt("event_id", typed.GetEventId())
 		return err
 	case *rundownv1.ImportICalendarRequest:
-		if _, err := positiveInt64("event_id", typed.GetEventId()); err != nil {
+		if _, err := connectapi.PositiveInt("event_id", typed.GetEventId()); err != nil {
 			return err
 		}
-		_, err := nonnegativeInt64("expected_draft_revision", typed.GetExpectedDraftRevision())
+		_, err := connectapi.NonNegativeInt("expected_draft_revision", typed.GetExpectedDraftRevision())
 		return err
 	default:
 		return errors.New("unsupported Rundown request")
@@ -174,7 +130,7 @@ func (handler *Handler) PreviewCSVImport(
 	if err != nil {
 		return nil, err
 	}
-	eventID, err := positiveInt64("event_id", request.Msg.GetEventId())
+	eventID, err := connectapi.PositiveInt("event_id", request.Msg.GetEventId())
 	if err != nil {
 		return nil, invalidArgument(err)
 	}
@@ -203,7 +159,7 @@ func (handler *Handler) PreviewICalendarImport(
 	if err != nil {
 		return nil, err
 	}
-	eventID, err := positiveInt64("event_id", request.Msg.GetEventId())
+	eventID, err := connectapi.PositiveInt("event_id", request.Msg.GetEventId())
 	if err != nil {
 		return nil, invalidArgument(err)
 	}
@@ -234,11 +190,11 @@ func (handler *Handler) ImportICalendar(
 	if err != nil {
 		return nil, err
 	}
-	eventID, err := positiveInt64("event_id", request.Msg.GetEventId())
+	eventID, err := connectapi.PositiveInt("event_id", request.Msg.GetEventId())
 	if err != nil {
 		return nil, invalidArgument(err)
 	}
-	revision, err := nonnegativeInt64("expected_draft_revision", request.Msg.GetExpectedDraftRevision())
+	revision, err := connectapi.NonNegativeInt("expected_draft_revision", request.Msg.GetExpectedDraftRevision())
 	if err != nil {
 		return nil, invalidArgument(err)
 	}
@@ -287,11 +243,11 @@ func (handler *Handler) ImportCSV(
 	if err != nil {
 		return nil, err
 	}
-	eventID, err := positiveInt64("event_id", request.Msg.GetEventId())
+	eventID, err := connectapi.PositiveInt("event_id", request.Msg.GetEventId())
 	if err != nil {
 		return nil, invalidArgument(err)
 	}
-	revision, err := nonnegativeInt64("expected_draft_revision", request.Msg.GetExpectedDraftRevision())
+	revision, err := connectapi.NonNegativeInt("expected_draft_revision", request.Msg.GetExpectedDraftRevision())
 	if err != nil {
 		return nil, invalidArgument(err)
 	}
@@ -331,15 +287,15 @@ func (handler *Handler) DeleteDraftSession(
 	if err != nil {
 		return nil, err
 	}
-	eventID, err := positiveInt64("event_id", request.Msg.GetEventId())
+	eventID, err := connectapi.PositiveInt("event_id", request.Msg.GetEventId())
 	if err != nil {
 		return nil, invalidArgument(err)
 	}
-	sessionID, err := positiveInt64("session_id", request.Msg.GetSessionId())
+	sessionID, err := connectapi.PositiveInt("session_id", request.Msg.GetSessionId())
 	if err != nil {
 		return nil, invalidArgument(err)
 	}
-	revision, err := nonnegativeInt64("expected_draft_revision", request.Msg.GetExpectedDraftRevision())
+	revision, err := connectapi.NonNegativeInt("expected_draft_revision", request.Msg.GetExpectedDraftRevision())
 	if err != nil {
 		return nil, invalidArgument(err)
 	}
@@ -363,15 +319,15 @@ func (handler *Handler) DiscardDraftChanges(
 	if err != nil {
 		return nil, err
 	}
-	eventID, err := positiveInt64("event_id", request.Msg.GetEventId())
+	eventID, err := connectapi.PositiveInt("event_id", request.Msg.GetEventId())
 	if err != nil {
 		return nil, invalidArgument(err)
 	}
-	revision, err := nonnegativeInt64("expected_draft_revision", request.Msg.GetExpectedDraftRevision())
+	revision, err := connectapi.NonNegativeInt("expected_draft_revision", request.Msg.GetExpectedDraftRevision())
 	if err != nil {
 		return nil, invalidArgument(err)
 	}
-	changeIDs, err := ints64("change_ids", request.Msg.GetChangeIds())
+	changeIDs, err := connectapi.PositiveInts("change_ids", request.Msg.GetChangeIds())
 	if err != nil {
 		return nil, invalidArgument(err)
 	}
@@ -397,15 +353,15 @@ func (handler *Handler) RevertDraftChange(
 	if err != nil {
 		return nil, err
 	}
-	eventID, err := positiveInt64("event_id", request.Msg.GetEventId())
+	eventID, err := connectapi.PositiveInt("event_id", request.Msg.GetEventId())
 	if err != nil {
 		return nil, invalidArgument(err)
 	}
-	revision, err := nonnegativeInt64("expected_draft_revision", request.Msg.GetExpectedDraftRevision())
+	revision, err := connectapi.NonNegativeInt("expected_draft_revision", request.Msg.GetExpectedDraftRevision())
 	if err != nil {
 		return nil, invalidArgument(err)
 	}
-	changeID, err := positiveInt64("change_id", request.Msg.GetChangeId())
+	changeID, err := connectapi.PositiveInt("change_id", request.Msg.GetChangeId())
 	if err != nil {
 		return nil, invalidArgument(err)
 	}
@@ -455,11 +411,11 @@ func (handler *Handler) PublishPreview(
 	if err != nil {
 		return nil, err
 	}
-	eventID, err := positiveInt64("event_id", request.Msg.GetEventId())
+	eventID, err := connectapi.PositiveInt("event_id", request.Msg.GetEventId())
 	if err != nil {
 		return nil, invalidArgument(err)
 	}
-	changeIDs, err := ints64("change_ids", request.Msg.GetChangeIds())
+	changeIDs, err := connectapi.PositiveInts("change_ids", request.Msg.GetChangeIds())
 	if err != nil {
 		return nil, invalidArgument(err)
 	}
@@ -471,7 +427,7 @@ func (handler *Handler) PublishPreview(
 	}
 	response := &rundownv1.PublishPreviewResponse{
 		DraftRevision: int64(preview.DraftRevision), PublishedRevision: int64(preview.PublishedRevision),
-		ChangeIds: ints(preview.ChangeIDs), AutoIncludedChangeIds: ints(preview.AutoIncludedChangeIDs),
+		ChangeIds: connectapi.Int64s(preview.ChangeIDs), AutoIncludedChangeIds: connectapi.Int64s(preview.AutoIncludedChangeIDs),
 		Fingerprint: preview.Fingerprint, ValidationFailures: preview.ValidationFailures,
 		AffectedStructure: preview.AffectedStructure,
 	}
@@ -490,7 +446,7 @@ func (handler *Handler) Publish(
 	if err != nil {
 		return nil, err
 	}
-	eventID, err := positiveInt64("event_id", request.Msg.GetEventId())
+	eventID, err := connectapi.PositiveInt("event_id", request.Msg.GetEventId())
 	if err != nil {
 		return nil, invalidArgument(err)
 	}
@@ -498,15 +454,15 @@ func (handler *Handler) Publish(
 	if confirmation == nil {
 		return nil, invalidArgument(errors.New("confirmation is required"))
 	}
-	changeIDs, err := ints64("confirmation.change_ids", confirmation.GetChangeIds())
+	changeIDs, err := connectapi.PositiveInts("confirmation.change_ids", confirmation.GetChangeIds())
 	if err != nil {
 		return nil, invalidArgument(err)
 	}
-	draftRevision, err := nonnegativeInt64("confirmation.draft_revision", confirmation.GetDraftRevision())
+	draftRevision, err := connectapi.NonNegativeInt("confirmation.draft_revision", confirmation.GetDraftRevision())
 	if err != nil {
 		return nil, invalidArgument(err)
 	}
-	publishedRevision, err := nonnegativeInt64("confirmation.published_revision", confirmation.GetPublishedRevision())
+	publishedRevision, err := connectapi.NonNegativeInt("confirmation.published_revision", confirmation.GetPublishedRevision())
 	if err != nil {
 		return nil, invalidArgument(err)
 	}
@@ -522,7 +478,7 @@ func (handler *Handler) Publish(
 	}
 	return connect.NewResponse(&rundownv1.PublishResponse{
 		DraftRevision: int64(result.DraftRevision), PublishedRevision: int64(result.PublishedRevision),
-		ChangeIds: ints(result.ChangeIDs),
+		ChangeIds: connectapi.Int64s(result.ChangeIDs),
 	}), nil
 }
 
@@ -535,7 +491,7 @@ func (handler *Handler) GetCrewRundown(
 	if err != nil {
 		return nil, err
 	}
-	eventID, err := positiveInt64("event_id", request.Msg.GetEventId())
+	eventID, err := connectapi.PositiveInt("event_id", request.Msg.GetEventId())
 	if err != nil {
 		return nil, invalidArgument(err)
 	}
@@ -597,40 +553,6 @@ func connectError(err error) error {
 
 func invalidArgument(err error) error {
 	return connect.NewError(connect.CodeInvalidArgument, err)
-}
-
-func positiveInt64(field string, value int64) (int, error) {
-	if value <= 0 || value > int64(math.MaxInt) {
-		return 0, errors.New(field + " must be a positive integer")
-	}
-	return int(value), nil
-}
-
-func nonnegativeInt64(field string, value int64) (int, error) {
-	if value < 0 || value > int64(math.MaxInt) {
-		return 0, errors.New(field + " must be a nonnegative integer")
-	}
-	return int(value), nil
-}
-
-func ints64(field string, values []int64) ([]int, error) {
-	result := make([]int, 0, len(values))
-	for _, value := range values {
-		converted, err := positiveInt64(field, value)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, converted)
-	}
-	return result, nil
-}
-
-func ints(values []int) []int64 {
-	result := make([]int64, 0, len(values))
-	for _, value := range values {
-		result = append(result, int64(value))
-	}
-	return result
 }
 
 func timestamp(field string, value *timestamppb.Timestamp) (time.Time, error) {

@@ -9,15 +9,16 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	rundownv1 "github.com/dotwaffle/beamers/gen/beamers/rundown/v1"
+	"github.com/dotwaffle/beamers/internal/connectapi"
 	"github.com/dotwaffle/beamers/internal/rundown"
 )
 
 func editDraftInput(message *rundownv1.EditDraftRequest) (rundown.EditDraftInput, error) {
-	eventID, err := positiveInt64("event_id", message.GetEventId())
+	eventID, err := connectapi.PositiveInt("event_id", message.GetEventId())
 	if err != nil {
 		return rundown.EditDraftInput{}, err
 	}
-	expectedRevision, err := nonnegativeInt64("expected_draft_revision", message.GetExpectedDraftRevision())
+	expectedRevision, err := connectapi.NonNegativeInt("expected_draft_revision", message.GetExpectedDraftRevision())
 	if err != nil {
 		return rundown.EditDraftInput{}, err
 	}
@@ -238,7 +239,7 @@ func targetRef(field string, message *rundownv1.TargetRef) (rundown.TargetRef, e
 	}
 	switch target := message.GetTarget().(type) {
 	case *rundownv1.TargetRef_Id:
-		id, err := positiveInt64(field, target.Id)
+		id, err := connectapi.PositiveInt(field, target.Id)
 		return rundown.TargetRef{ID: id}, err
 	case *rundownv1.TargetRef_Ref:
 		return rundown.TargetRef{Ref: target.Ref}, nil
@@ -312,7 +313,8 @@ func crewRundown(projection rundown.CrewRundown) *rundownv1.GetCrewRundownRespon
 			PlannedStart: timestamppb.New(item.PlannedStart), PlannedEnd: timestamppb.New(item.PlannedEnd),
 			TimingPolicy: protoTimingPolicy(item.TimingPolicy), MinimumDuration: durationpb.New(item.MinimumDuration),
 			StartBoundary: protoBoundary(item.StartBoundary), EndBoundary: protoBoundary(item.EndBoundary),
-			LaneIds: ints(item.LaneIDs), LocationIds: ints(item.LocationIDs), TrackIds: ints(item.TrackIDs),
+			LaneIds: connectapi.Int64s(item.LaneIDs), LocationIds: connectapi.Int64s(item.LocationIDs),
+			TrackIds: connectapi.Int64s(item.TrackIDs),
 		})
 	}
 	return response

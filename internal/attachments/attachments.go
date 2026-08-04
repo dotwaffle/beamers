@@ -459,33 +459,21 @@ func (service *Service) storeVersion(
 	return created, errors.Join(executeErr, cleanupErr)
 }
 
+// attachmentUploadRejections is the single source for Attachment upload
+// rejection codes in both directions.
+var attachmentUploadRejections = command.RejectionTable{
+	Rejections: []command.Rejection{
+		{Err: ErrUploadTargetNotFound, Code: "attachment_target_not_found"},
+		{Err: ErrUploadClosed, Code: "upload_closed"},
+	},
+}
+
 func attachmentUploadRejection(err error) (store.CommandRejection, bool) {
-	var code string
-	switch {
-	case errors.Is(err, ErrUploadTargetNotFound):
-		code = "attachment_target_not_found"
-	case errors.Is(err, ErrUploadClosed):
-		code = "upload_closed"
-	default:
-		return store.CommandRejection{}, false
-	}
-	return store.CommandRejection{Code: code}, true
+	return attachmentUploadRejections.Rejection(err)
 }
 
 func decodeAttachmentUploadReceipt(outcome string, target any) error {
-	err := store.DecodeCommandReceipt(outcome, target)
-	var rejected *store.RejectedCommandError
-	if !errors.As(err, &rejected) {
-		return err
-	}
-	switch rejected.Rejection.Code {
-	case "attachment_target_not_found":
-		return ErrUploadTargetNotFound
-	case "upload_closed":
-		return ErrUploadClosed
-	default:
-		return err
-	}
+	return attachmentUploadRejections.Restore(store.DecodeCommandReceipt(outcome, target))
 }
 
 type storedFile struct {
@@ -1000,72 +988,28 @@ func (service *Service) readStoredVersion(stored store.AttachmentVersion) ([]byt
 	return content, nil
 }
 
+// attachmentReleaseRejections is the single source for Attachment release
+// rejection codes in both directions.
+var attachmentReleaseRejections = command.RejectionTable{
+	Rejections: []command.Rejection{
+		{Err: ErrProducerRequired, Code: "producer_required"},
+		{Err: ErrReleaseRevision, Code: "stale_revision"},
+		{Err: ErrReleasePolicy, Code: "invalid_release_policy"},
+		{Err: ErrReleaseCueBlocked, Code: "release_cue_blocked"},
+		{Err: ErrReleaseCuePreviewChanged, Code: "release_cue_preview_changed"},
+		{Err: ErrUploadTargetNotFound, Code: "attachment_target_not_found"},
+		{Err: store.ErrCompetitionNotFound, Code: "competition_not_found"},
+	},
+}
+
 func decodeReleaseReceipt[T any](outcome string) (T, error) {
-	var replayed T
-	err := store.DecodeCommandReceipt(outcome, &replayed)
-	var rejected *store.RejectedCommandError
-	if errors.As(err, &rejected) {
-		err = attachmentReleaseRejectionError(rejected.Rejection)
-	}
-	return replayed, err
+	return command.ReplayKnown[T](attachmentReleaseRejections, outcome)
 }
 
 func auditReleaseRejections[T any](
 	apply func(*store.CommandTx) (command.Execution[T], error),
 ) func(*store.CommandTx) (command.Execution[T], error) {
-	return func(transaction *store.CommandTx) (command.Execution[T], error) {
-		execution, err := apply(transaction)
-		rejection, rejected := attachmentReleaseRejection(err)
-		if !rejected {
-			return execution, err
-		}
-		var zero T
-		return command.Reject(zero, rejection, err), nil
-	}
-}
-
-func attachmentReleaseRejection(err error) (store.CommandRejection, bool) {
-	var code string
-	switch {
-	case errors.Is(err, ErrProducerRequired):
-		code = "producer_required"
-	case errors.Is(err, ErrReleaseRevision):
-		code = "stale_revision"
-	case errors.Is(err, ErrReleasePolicy):
-		code = "invalid_release_policy"
-	case errors.Is(err, ErrReleaseCueBlocked):
-		code = "release_cue_blocked"
-	case errors.Is(err, ErrReleaseCuePreviewChanged):
-		code = "release_cue_preview_changed"
-	case errors.Is(err, ErrUploadTargetNotFound):
-		code = "attachment_target_not_found"
-	case errors.Is(err, store.ErrCompetitionNotFound):
-		code = "competition_not_found"
-	default:
-		return store.CommandRejection{}, false
-	}
-	return store.CommandRejection{Code: code}, true
-}
-
-func attachmentReleaseRejectionError(rejection store.CommandRejection) error {
-	switch rejection.Code {
-	case "producer_required":
-		return ErrProducerRequired
-	case "stale_revision":
-		return ErrReleaseRevision
-	case "invalid_release_policy":
-		return ErrReleasePolicy
-	case "release_cue_blocked":
-		return ErrReleaseCueBlocked
-	case "release_cue_preview_changed":
-		return ErrReleaseCuePreviewChanged
-	case "attachment_target_not_found":
-		return ErrUploadTargetNotFound
-	case "competition_not_found":
-		return store.ErrCompetitionNotFound
-	default:
-		return &store.RejectedCommandError{Rejection: rejection}
-	}
+	return command.RejectKnown(attachmentReleaseRejections, apply)
 }
 
 func releaseSuccess[T any](result T, resultErr error) (command.Execution[T], error) {

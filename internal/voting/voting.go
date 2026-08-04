@@ -284,29 +284,26 @@ func key(item store.VotingKey) Key {
 	}
 }
 
+// votingKeyRejections is the single source for Voting Key rejection codes in
+// both directions.
+var votingKeyRejections = command.RejectionTable{
+	Rejections: []command.Rejection{
+		{Err: ErrAlreadyEligible, Code: "voting_already_eligible"},
+		{Err: ErrKeyUnavailable, Code: "voting_key_unavailable"},
+	},
+}
+
 func reject[T any](err error) command.Execution[T] {
-	code := "voting_key_unavailable"
-	if errors.Is(err, ErrAlreadyEligible) {
-		code = "voting_already_eligible"
+	rejection, known := votingKeyRejections.Rejection(err)
+	if !known {
+		rejection = store.CommandRejection{Code: "voting_key_unavailable"}
 	}
 	var zero T
-	return command.Reject(zero, store.CommandRejection{Code: code}, err)
+	return command.Reject(zero, rejection, err)
 }
 
 func decodeReceipt(outcome string, target any) error {
-	err := store.DecodeCommandReceipt(outcome, target)
-	var rejected *store.RejectedCommandError
-	if !errors.As(err, &rejected) {
-		return err
-	}
-	switch rejected.Rejection.Code {
-	case "voting_key_unavailable":
-		return ErrKeyUnavailable
-	case "voting_already_eligible":
-		return ErrAlreadyEligible
-	default:
-		return err
-	}
+	return votingKeyRejections.Restore(store.DecodeCommandReceipt(outcome, target))
 }
 
 func newVotingToken(random io.Reader) (string, error) {

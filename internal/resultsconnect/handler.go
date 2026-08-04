@@ -32,30 +32,8 @@ func NewHandler(service *results.Service) (*Handler, error) {
 }
 
 // ErrorInterceptor translates Results failures into stable Connect codes.
-func ErrorInterceptor() connect.Interceptor { return errorInterceptor{} }
-
-type errorInterceptor struct{}
-
-func (errorInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
-	return func(ctx context.Context, request connect.AnyRequest) (connect.AnyResponse, error) {
-		response, err := next(ctx, request)
-		if err == nil {
-			return response, nil
-		}
-		var connectErr *connect.Error
-		if errors.As(err, &connectErr) {
-			return response, err
-		}
-		return response, connectError(err)
-	}
-}
-
-func (errorInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
-	return next
-}
-
-func (errorInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
-	return next
+func ErrorInterceptor() connect.Interceptor {
+	return connectapi.ErrorInterceptor(connectError)
 }
 
 // GetCompetitionResultsDraft returns the current unreleased Draft.
@@ -342,7 +320,7 @@ func (handler *Handler) SavePrizegivingPlan(
 			CeremonySessionID:     int(request.Msg.GetCeremonySessionId()),
 			CommandID:             request.Msg.GetCommandId(),
 			ExpectedRevision:      int(request.Msg.GetExpectedRevision()),
-			CompetitionSessionIDs: int64sToInts(request.Msg.GetCompetitionSessionIds()),
+			CompetitionSessionIDs: connectapi.Ints(request.Msg.GetCompetitionSessionIds()),
 			Sequence:              sequence, PublicationOrder: publicationOrder,
 			ReleasePolicy: resultsReleasePolicyFromProto(
 				request.Msg.GetReleasePolicy(),
@@ -1436,14 +1414,6 @@ func prizegivingPreviewModeFromProto(
 		resultsv1.PrizegivingPreviewMode_PRIZEGIVING_PREVIEW_MODE_PREVIEW:   results.PrizegivingPreviewModePreview,
 		resultsv1.PrizegivingPreviewMode_PRIZEGIVING_PREVIEW_MODE_REHEARSAL: results.PrizegivingPreviewModeRehearsal,
 	}[value]
-}
-
-func int64sToInts(values []int64) []int {
-	result := make([]int, 0, len(values))
-	for _, value := range values {
-		result = append(result, int(value))
-	}
-	return result
 }
 
 func scorePolicyFromProto(value *resultsv1.ScorePolicy) results.ScorePolicy {

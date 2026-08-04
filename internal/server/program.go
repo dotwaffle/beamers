@@ -47,9 +47,10 @@ func registerProgramControlRoutes(
 	if err := registerConnectRoute(mux, connectRouteConfig{
 		name: "Program control", authentication: authentication, listenerAddress: listenerAddress,
 		tracerProvider: tracerProvider, meterProvider: meterProvider, propagator: propagator,
-		errorInterceptor: programconnect.ErrorInterceptor(),
-		maxBodyBytes:     maxProgramControlRPCBodyBytes,
-		contract:         crewRoute(),
+		errorInterceptor:      programconnect.ErrorInterceptor(),
+		validationInterceptor: programconnect.ValidationInterceptor(),
+		maxBodyBytes:          maxProgramControlRPCBodyBytes,
+		contract:              crewRoute(),
 		build: func(options ...connect.HandlerOption) (string, http.Handler) {
 			return programv1connect.NewProgramControlServiceHandler(adapter, options...)
 		},

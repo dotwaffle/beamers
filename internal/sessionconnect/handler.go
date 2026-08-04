@@ -34,52 +34,13 @@ func NewHandler(service *sessioncontrol.Service) (*Handler, error) {
 }
 
 // ErrorInterceptor translates Session control failures into stable Connect codes.
-func ErrorInterceptor() connect.Interceptor { return errorInterceptor{} }
-
-type errorInterceptor struct{}
-
-func (errorInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
-	return func(ctx context.Context, request connect.AnyRequest) (connect.AnyResponse, error) {
-		response, err := next(ctx, request)
-		if err == nil {
-			return response, nil
-		}
-		var connectErr *connect.Error
-		if errors.As(err, &connectErr) {
-			return response, err
-		}
-		return response, connectError(err)
-	}
-}
-
-func (errorInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
-	return next
-}
-
-func (errorInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
-	return next
+func ErrorInterceptor() connect.Interceptor {
+	return connectapi.ErrorInterceptor(connectError)
 }
 
 // ValidationInterceptor rejects malformed protobuf requests before dispatch.
-func ValidationInterceptor() connect.Interceptor { return validationInterceptor{} }
-
-type validationInterceptor struct{}
-
-func (validationInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
-	return func(ctx context.Context, request connect.AnyRequest) (connect.AnyResponse, error) {
-		if err := validateRequest(request.Any()); err != nil {
-			return nil, connect.NewError(connect.CodeInvalidArgument, err)
-		}
-		return next(ctx, request)
-	}
-}
-
-func (validationInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
-	return next
-}
-
-func (validationInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
-	return next
+func ValidationInterceptor() connect.Interceptor {
+	return connectapi.ValidationInterceptor(validateRequest)
 }
 
 // StartSession starts one Published Session explicitly.
@@ -161,17 +122,17 @@ func (handler *Handler) PreviewReinstateSession(
 	result, err := handler.service.PreviewReinstate(ctx, actor, sessioncontrol.PreviewReinstateInput{
 		EventID: int(request.Msg.GetEventId()), SessionID: int(request.Msg.GetSessionId()),
 		ForecastStart: request.Msg.GetForecastStart().AsTime(),
-		LaneIDs:       ints(request.Msg.GetLaneIds()),
-		LocationIDs:   ints(request.Msg.GetLocationIds()),
+		LaneIDs:       connectapi.Ints(request.Msg.GetLaneIds()),
+		LocationIDs:   connectapi.Ints(request.Msg.GetLocationIds()),
 	})
 	if err != nil {
 		return nil, err
 	}
 	response := &sessionv1.PreviewReinstateSessionResponse{
-		CurrentLaneIds:                   int64s(result.CurrentLaneIDs),
-		ProposedLaneIds:                  int64s(result.ProposedLaneIDs),
-		CurrentLocationIds:               int64s(result.CurrentLocationIDs),
-		ProposedLocationIds:              int64s(result.ProposedLocationIDs),
+		CurrentLaneIds:                   connectapi.Int64s(result.CurrentLaneIDs),
+		ProposedLaneIds:                  connectapi.Int64s(result.ProposedLaneIDs),
+		CurrentLocationIds:               connectapi.Int64s(result.CurrentLocationIDs),
+		ProposedLocationIds:              connectapi.Int64s(result.ProposedLocationIDs),
 		RequiresHardBoundaryConfirmation: result.RequiresHardBoundaryConfirmation,
 		PreviewFingerprint:               result.Fingerprint,
 	}
@@ -198,8 +159,8 @@ func (handler *Handler) ReinstateSession(
 		CommandID:                 request.Msg.GetCommandId(),
 		ExpectedLiveStateRevision: int(request.Msg.GetExpectedLiveStateRevision()),
 		ForecastStart:             request.Msg.GetForecastStart().AsTime(),
-		LaneIDs:                   ints(request.Msg.GetLaneIds()),
-		LocationIDs:               ints(request.Msg.GetLocationIds()),
+		LaneIDs:                   connectapi.Ints(request.Msg.GetLaneIds()),
+		LocationIDs:               connectapi.Ints(request.Msg.GetLocationIds()),
 		PreviewFingerprint:        request.Msg.GetPreviewFingerprint(),
 		Confirmed:                 request.Msg.GetConfirmed(),
 		HardBoundaryConfirmed:     request.Msg.GetHardBoundaryConfirmed(),
@@ -380,10 +341,10 @@ func validateRequest(message any) error {
 		}
 		return validatePreviewFingerprint(request.GetPreviewFingerprint())
 	case *sessionv1.PreviewAdjustTargetRequest:
-		if err := positiveID(request.GetEventId(), "event_id"); err != nil {
+		if err := connectapi.PositiveID("event_id", request.GetEventId()); err != nil {
 			return err
 		}
-		if err := positiveID(request.GetSessionId(), "session_id"); err != nil {
+		if err := connectapi.PositiveID("session_id", request.GetSessionId()); err != nil {
 			return err
 		}
 		return validateTargetAdjustment(request.GetPreset(), request.GetCustom())
@@ -399,10 +360,10 @@ func validateRequest(message any) error {
 		}
 		return validateTargetAdjustment(request.GetPreset(), request.GetCustom())
 	case *sessionv1.PreviewPullForwardRequest:
-		if err := positiveID(request.GetEventId(), "event_id"); err != nil {
+		if err := connectapi.PositiveID("event_id", request.GetEventId()); err != nil {
 			return err
 		}
-		return positiveID(request.GetSessionId(), "session_id")
+		return connectapi.PositiveID("session_id", request.GetSessionId())
 	case *sessionv1.PullForwardRequest:
 		if err := validateCommandEnvelope(
 			request.GetEventId(), request.GetSessionId(), request.GetCommandId(),
@@ -420,10 +381,10 @@ func validateRequest(message any) error {
 		}
 		return nil
 	case *sessionv1.GetSessionHistoryRequest:
-		if err := positiveID(request.GetEventId(), "event_id"); err != nil {
+		if err := connectapi.PositiveID("event_id", request.GetEventId()); err != nil {
 			return err
 		}
-		return positiveID(request.GetSessionId(), "session_id")
+		return connectapi.PositiveID("session_id", request.GetSessionId())
 	default:
 		return errors.New("unsupported Session control request")
 	}
@@ -454,10 +415,10 @@ func validateCommandEnvelope(
 	commandID string,
 	expectedRevision *int64,
 ) error {
-	if err := positiveID(eventID, "event_id"); err != nil {
+	if err := connectapi.PositiveID("event_id", eventID); err != nil {
 		return err
 	}
-	if err := positiveID(sessionID, "session_id"); err != nil {
+	if err := connectapi.PositiveID("session_id", sessionID); err != nil {
 		return err
 	}
 	if err := command.ValidateID(commandID); err != nil {
@@ -486,10 +447,10 @@ func validatePlacementRequest(
 	laneIDs []int64,
 	locationIDs []int64,
 ) error {
-	if err := positiveID(eventID, "event_id"); err != nil {
+	if err := connectapi.PositiveID("event_id", eventID); err != nil {
 		return err
 	}
-	if err := positiveID(sessionID, "session_id"); err != nil {
+	if err := connectapi.PositiveID("session_id", sessionID); err != nil {
 		return err
 	}
 	if forecastStart == nil {
@@ -502,12 +463,12 @@ func validatePlacementRequest(
 		return errors.New("lane_ids and location_ids are required")
 	}
 	for _, laneID := range laneIDs {
-		if err := positiveID(laneID, "lane_ids"); err != nil {
+		if err := connectapi.PositiveID("lane_ids", laneID); err != nil {
 			return err
 		}
 	}
 	for _, locationID := range locationIDs {
-		if err := positiveID(locationID, "location_ids"); err != nil {
+		if err := connectapi.PositiveID("location_ids", locationID); err != nil {
 			return err
 		}
 	}
@@ -613,8 +574,8 @@ func runSnapshot(snapshot sessioncontrol.RunSnapshot) *sessionv1.RunSnapshot {
 		TimingPolicy:    timingPolicy(snapshot.TimingPolicy),
 		MinimumDuration: durationpb.New(time.Duration(snapshot.MinimumDurationSeconds) * time.Second),
 		StartBoundary:   boundary(snapshot.StartBoundary), EndBoundary: boundary(snapshot.EndBoundary),
-		LaneIds: int64s(snapshot.LaneIDs), LocationIds: int64s(snapshot.LocationIDs),
-		TrackIds: int64s(snapshot.TrackIDs), LockedEntryOrderIds: int64s(snapshot.LockedEntryOrderIDs),
+		LaneIds: connectapi.Int64s(snapshot.LaneIDs), LocationIds: connectapi.Int64s(snapshot.LocationIDs),
+		TrackIds: connectapi.Int64s(snapshot.TrackIDs), LockedEntryOrderIds: connectapi.Int64s(snapshot.LockedEntryOrderIDs),
 	}
 }
 
@@ -645,33 +606,10 @@ func boundary(value string) rundownv1.Boundary {
 	}[value]
 }
 
-func int64s(values []int) []int64 {
-	result := make([]int64, len(values))
-	for index, value := range values {
-		result[index] = int64(value)
-	}
-	return result
-}
-
-func ints(values []int64) []int {
-	result := make([]int, len(values))
-	for index, value := range values {
-		result[index] = int(value)
-	}
-	return result
-}
-
 func sessionDetails(details sessioncontrol.Details) *sessionv1.SessionDetails {
 	return &sessionv1.SessionDetails{
 		Title: details.Title, Speaker: details.Speaker, PublicDetails: details.PublicDetails,
 	}
-}
-
-func positiveID(value int64, field string) error {
-	if value <= 0 || value > math.MaxInt {
-		return errors.New(field + " must be a positive supported integer")
-	}
-	return nil
 }
 
 func sessionState(found sessioncontrol.State) *sessionv1.SessionState {

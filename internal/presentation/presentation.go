@@ -324,45 +324,24 @@ func reject(
 	return command.Reject(result, rejection, err), nil
 }
 
+// presentationRejections is the single source for Presentation rejection
+// codes in both directions.
+var presentationRejections = command.RejectionTable{
+	Rejections: []command.Rejection{
+		{Err: ErrProducerRequired, Code: "producer_required"},
+		{Err: ErrPresentationNotFound, Code: "presentation_not_found"},
+		{Err: ErrSubmitterRequired, Code: "submitter_required"},
+		{Err: ErrRevisionConflict, Code: "stale_presentation_submission"},
+		{Err: ErrAccessClosed, Code: "submission_closed"},
+	},
+}
+
 func rejection(err error) (store.CommandRejection, bool) {
-	var code string
-	switch {
-	case errors.Is(err, ErrProducerRequired):
-		code = "producer_required"
-	case errors.Is(err, ErrPresentationNotFound):
-		code = "presentation_not_found"
-	case errors.Is(err, ErrSubmitterRequired):
-		code = "submitter_required"
-	case errors.Is(err, ErrRevisionConflict):
-		code = "stale_presentation_submission"
-	case errors.Is(err, ErrAccessClosed):
-		code = "submission_closed"
-	default:
-		return store.CommandRejection{}, false
-	}
-	return store.CommandRejection{Code: code}, true
+	return presentationRejections.Rejection(err)
 }
 
 func decodeReceipt(outcome string, target any) error {
-	err := store.DecodeCommandReceipt(outcome, target)
-	var rejected *store.RejectedCommandError
-	if !errors.As(err, &rejected) {
-		return err
-	}
-	switch rejected.Rejection.Code {
-	case "producer_required":
-		return ErrProducerRequired
-	case "presentation_not_found":
-		return ErrPresentationNotFound
-	case "submitter_required":
-		return ErrSubmitterRequired
-	case "stale_presentation_submission":
-		return ErrRevisionConflict
-	case "submission_closed":
-		return ErrAccessClosed
-	default:
-		return err
-	}
+	return presentationRejections.Restore(store.DecodeCommandReceipt(outcome, target))
 }
 
 func validateCommand(

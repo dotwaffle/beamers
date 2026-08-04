@@ -33,9 +33,10 @@ func registerCompetitionRoutes(
 	return registerConnectRoute(mux, connectRouteConfig{
 		name: "competition", authentication: authentication, listenerAddress: listenerAddress,
 		tracerProvider: tracerProvider, meterProvider: meterProvider, propagator: propagator,
-		errorInterceptor: competitionconnect.ErrorInterceptor(),
-		maxBodyBytes:     maxCompetitionRPCBodyBytes,
-		contract:         crewRoute(),
+		errorInterceptor:      competitionconnect.ErrorInterceptor(),
+		validationInterceptor: competitionconnect.ValidationInterceptor(),
+		maxBodyBytes:          maxCompetitionRPCBodyBytes,
+		contract:              crewRoute(),
 		build: func(options ...connect.HandlerOption) (string, http.Handler) {
 			return competitionv1connect.NewCompetitionServiceHandler(adapter, options...)
 		},

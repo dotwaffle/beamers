@@ -1222,11 +1222,30 @@ func (service *Service) executeEntryCommand(
 	})
 }
 
+// competitionRejections is the single source for Competition rejection codes
+// in both directions, so a replayed receipt restores the same failure the
+// original command produced.
+var competitionRejections = command.RejectionTable{
+	Rejections: []command.Rejection{
+		{Err: ErrProducerRequired, Code: "producer_required"},
+		{Err: ErrOperatorRequired, Code: "operator_required"},
+		{Err: ErrCompetitionNotFound, Code: "competition_not_found"},
+		{Err: ErrSubmissionClosed, Code: "submission_closed"},
+		{Err: ErrEntryNotFound, Code: "entry_not_found"},
+		{Err: ErrEntryRevisionConflict, Code: "stale_entry_revision"},
+		{Err: ErrSubmissionIneligible, Code: "submission_ineligible"},
+		{Err: ErrSubmitterRequired, Code: "submitter_required"},
+		{Err: ErrEntryAssigned, Code: "entry_already_assigned"},
+		{Err: ErrSubmissionEligibilityRevision, Code: "stale_submission_eligibility"},
+		{Err: ErrPresentedEntryDisposition, Code: "presented_entry"},
+	},
+}
+
 func auditCompetitionRejection[T any](
 	execution command.Execution[T],
 	err error,
 ) (command.Execution[T], error) {
-	rejection, rejected := competitionRejection(err)
+	rejection, rejected := competitionRejections.Rejection(err)
 	if !rejected {
 		return execution, err
 	}
@@ -1234,69 +1253,8 @@ func auditCompetitionRejection[T any](
 	return command.Reject(zero, rejection, err), nil
 }
 
-func competitionRejection(err error) (store.CommandRejection, bool) {
-	var code string
-	switch {
-	case errors.Is(err, ErrProducerRequired):
-		code = "producer_required"
-	case errors.Is(err, ErrOperatorRequired):
-		code = "operator_required"
-	case errors.Is(err, ErrCompetitionNotFound):
-		code = "competition_not_found"
-	case errors.Is(err, ErrSubmissionClosed):
-		code = "submission_closed"
-	case errors.Is(err, ErrEntryNotFound):
-		code = "entry_not_found"
-	case errors.Is(err, ErrEntryRevisionConflict):
-		code = "stale_entry_revision"
-	case errors.Is(err, ErrSubmissionIneligible):
-		code = "submission_ineligible"
-	case errors.Is(err, ErrSubmitterRequired):
-		code = "submitter_required"
-	case errors.Is(err, ErrEntryAssigned):
-		code = "entry_already_assigned"
-	case errors.Is(err, ErrSubmissionEligibilityRevision):
-		code = "stale_submission_eligibility"
-	case errors.Is(err, ErrPresentedEntryDisposition):
-		code = "presented_entry"
-	default:
-		return store.CommandRejection{}, false
-	}
-	return store.CommandRejection{Code: code}, true
-}
-
 func decodeCompetitionReceipt(outcome string, target any) error {
-	err := store.DecodeCommandReceipt(outcome, target)
-	var rejected *store.RejectedCommandError
-	if !errors.As(err, &rejected) {
-		return err
-	}
-	switch rejected.Rejection.Code {
-	case "producer_required":
-		return ErrProducerRequired
-	case "operator_required":
-		return ErrOperatorRequired
-	case "competition_not_found":
-		return ErrCompetitionNotFound
-	case "submission_closed":
-		return ErrSubmissionClosed
-	case "entry_not_found":
-		return ErrEntryNotFound
-	case "stale_entry_revision":
-		return ErrEntryRevisionConflict
-	case "submission_ineligible":
-		return ErrSubmissionIneligible
-	case "submitter_required":
-		return ErrSubmitterRequired
-	case "entry_already_assigned":
-		return ErrEntryAssigned
-	case "stale_submission_eligibility":
-		return ErrSubmissionEligibilityRevision
-	case "presented_entry":
-		return ErrPresentedEntryDisposition
-	default:
-		return err
-	}
+	return competitionRejections.Restore(store.DecodeCommandReceipt(outcome, target))
 }
 
 func validateExceptionCommand(

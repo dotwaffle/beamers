@@ -294,19 +294,25 @@ func replayWindow(outcome string) (Window, error) {
 	return window, nil
 }
 
+// ballotRejections is the single source for Voting Window and ballot rejection
+// codes in both directions.
+var ballotRejections = command.RejectionTable{
+	Rejections: []command.Rejection{
+		{Err: ErrVotingRevision, Code: "voting_revision_conflict"},
+		{Err: ErrVotingIneligible, Code: "voting_ineligible"},
+		{Err: ErrVoteUnavailable, Code: "vote_unavailable"},
+		{Err: ErrWindowUnavailable, Code: "voting_window_unavailable"},
+	},
+}
+
 func ballotFailure[T any](err error) command.Execution[T] {
 	var zero T
 	mapped := ballotError(err)
-	code := "voting_window_unavailable"
-	switch {
-	case errors.Is(mapped, ErrVotingRevision):
-		code = "voting_revision_conflict"
-	case errors.Is(mapped, ErrVotingIneligible):
-		code = "voting_ineligible"
-	case errors.Is(mapped, ErrVoteUnavailable):
-		code = "vote_unavailable"
+	rejection, known := ballotRejections.Rejection(mapped)
+	if !known {
+		rejection = store.CommandRejection{Code: "voting_window_unavailable"}
 	}
-	return command.Reject(zero, store.CommandRejection{Code: code}, mapped)
+	return command.Reject(zero, rejection, mapped)
 }
 
 func ballotError(err error) error {
@@ -331,21 +337,5 @@ func ballotError(err error) error {
 
 func ballotReceiptError(outcome string) error {
 	var result struct{}
-	err := store.DecodeCommandReceipt(outcome, &result)
-	var rejected *store.RejectedCommandError
-	if !errors.As(err, &rejected) {
-		return err
-	}
-	switch rejected.Rejection.Code {
-	case "voting_window_unavailable":
-		return ErrWindowUnavailable
-	case "voting_revision_conflict":
-		return ErrVotingRevision
-	case "voting_ineligible":
-		return ErrVotingIneligible
-	case "vote_unavailable":
-		return ErrVoteUnavailable
-	default:
-		return err
-	}
+	return ballotRejections.Restore(store.DecodeCommandReceipt(outcome, &result))
 }

@@ -653,13 +653,10 @@ func (service *Service) Control(
 	}
 	current := owned.state
 	var executionState controlState
-	replayed := false
 	next, err := command.Execute(actor.Context(ctx), command.Plan[controlState]{
 		Storage: service.storage, Identity: identity,
+		Applied: func() { owned.state = executionState },
 		Notify: func() {
-			if !replayed {
-				owned.state = executionState
-			}
 			if service.notifyProgram != nil {
 				service.notifyProgram()
 			}
@@ -669,7 +666,6 @@ func (service *Service) Control(
 			if decodeErr := store.DecodeCommandReceipt(outcome, &receipt); decodeErr != nil {
 				return controlState{}, decodeErr
 			}
-			replayed = true
 			executionState = receipt.control()
 			return executionState, nil
 		},
@@ -785,13 +781,10 @@ func (service *Service) SelectPreview(
 	}
 	control := owned.state
 	var executionState controlState
-	replayed := false
 	selected, err := command.Execute(actor.Context(ctx), command.Plan[controlState]{
 		Storage: service.storage, Identity: identity,
+		Applied: func() { owned.state = executionState },
 		Notify: func() {
-			if !replayed {
-				owned.state = executionState
-			}
 			if service.notifyProgram != nil {
 				service.notifyProgram()
 			}
@@ -801,7 +794,6 @@ func (service *Service) SelectPreview(
 			if decodeErr := store.DecodeCommandReceipt(outcome, &receipt); decodeErr != nil {
 				return controlState{}, decodeErr
 			}
-			replayed = true
 			executionState = receipt.control()
 			return executionState, nil
 		},
@@ -863,13 +855,10 @@ func (service *Service) Take(
 	control := owned.state
 	committed := false
 	var executionReceipt takeReceipt
-	wasReplay := false
 	outcome, err := command.Execute(actor.Context(ctx), command.Plan[takeReceipt]{
 		Storage: service.storage, Identity: identity,
+		Applied: func() { owned.state = executionReceipt.Control.control() },
 		Notify: func() {
-			if !wasReplay {
-				owned.state = executionReceipt.Control.control()
-			}
 			service.notifyOutput(executionReceipt.Channel.Output.Kind == store.ProgramItemEntry)
 		},
 		Replay: func(outcome string) (takeReceipt, error) {
@@ -877,7 +866,6 @@ func (service *Service) Take(
 			if err := store.DecodeCommandReceipt(outcome, &replayed); err != nil {
 				return takeReceipt{}, err
 			}
-			wasReplay = true
 			executionReceipt = replayed
 			return replayed, nil
 		},
@@ -1029,14 +1017,11 @@ func (service *Service) DeferEntry(
 	control := owned.state
 	committed := false
 	var executionReceipt takeReceipt
-	wasReplay := false
 	outcome, err := command.Execute(actor.Context(ctx), command.Plan[takeReceipt]{
 		Storage:  service.storage,
 		Identity: identity,
+		Applied:  func() { owned.state = executionReceipt.Control.control() },
 		Notify: func() {
-			if !wasReplay {
-				owned.state = executionReceipt.Control.control()
-			}
 			if service.notifyProgram != nil {
 				service.notifyProgram()
 			}
@@ -1046,7 +1031,6 @@ func (service *Service) DeferEntry(
 			if err := store.DecodeCommandReceipt(outcome, &replayed); err != nil {
 				return takeReceipt{}, err
 			}
-			wasReplay = true
 			executionReceipt = replayed
 			return replayed, nil
 		},
@@ -1156,14 +1140,11 @@ func (service *Service) ActOnResult(
 	control := owned.state
 	committed := false
 	var executionReceipt takeReceipt
-	wasReplay := false
 	outcome, err := command.Execute(actor.Context(ctx), command.Plan[takeReceipt]{
 		Storage:  service.storage,
 		Identity: identity,
+		Applied:  func() { owned.state = executionReceipt.Control.control() },
 		Notify: func() {
-			if !wasReplay {
-				owned.state = executionReceipt.Control.control()
-			}
 			service.notifyOutput(false)
 		},
 		Replay: func(outcome string) (takeReceipt, error) {
@@ -1171,7 +1152,6 @@ func (service *Service) ActOnResult(
 			if err := store.DecodeCommandReceipt(outcome, &replayed); err != nil {
 				return takeReceipt{}, err
 			}
-			wasReplay = true
 			executionReceipt = replayed
 			return replayed, nil
 		},
@@ -1543,39 +1523,33 @@ func takeError(code string) error {
 	return rejectionError(code, "program Take rejected")
 }
 
+// programRejections is the single source for Program control rejection codes in
+// both directions, so a replayed receipt restores the same failure the original
+// command produced.
+var programRejections = command.RejectionTable{
+	Rejections: []command.Rejection{
+		{Err: ErrOperatorRequired, Code: string(rejectionOperatorRequired)},
+		{Err: ErrControlOwned, Code: string(rejectionControlOwned)},
+		{Err: ErrControlOwnerRequired, Code: string(rejectionControlOwnerRequired)},
+		{Err: ErrTakeoverConfirmation, Code: string(rejectionTakeoverConfirmation)},
+		{Err: ErrHandoverUnavailable, Code: string(rejectionHandoverUnavailable)},
+		{Err: ErrPreviewItem, Code: string(rejectionPreviewItemInvalid)},
+		{Err: ErrProgramRevision, Code: string(rejectionProgramRevision)},
+		{Err: ErrControlRevision, Code: string(rejectionControlRevision)},
+		{Err: ErrProgramItem, Code: string(rejectionProgramItemInvalid)},
+		{Err: store.ErrEntryOrderRevision, Code: string(rejectionEntryOrderRevision)},
+		{Err: store.ErrEntryOrderPreviewStale, Code: string(rejectionEntryOrderStale)},
+		{Err: ErrEntryRevision, Code: string(rejectionEntryRevision)},
+		{Err: ErrEntryDefer, Code: string(rejectionEntryDefer)},
+		{Err: ErrResultTransition, Code: string(rejectionResultTransition)},
+		{Err: ErrResultRevealRunning, Code: string(rejectionResultRevealRunning)},
+	},
+	RecordMessage: true,
+}
+
 func rejectionError(code, fallback string) error {
-	switch rejectionCode(code) {
-	case rejectionOperatorRequired:
-		return ErrOperatorRequired
-	case rejectionControlOwned:
-		return ErrControlOwned
-	case rejectionControlOwnerRequired:
-		return ErrControlOwnerRequired
-	case rejectionTakeoverConfirmation:
-		return ErrTakeoverConfirmation
-	case rejectionHandoverUnavailable:
-		return ErrHandoverUnavailable
-	case rejectionPreviewItemInvalid:
-		return ErrPreviewItem
-	case rejectionProgramRevision:
-		return ErrProgramRevision
-	case rejectionControlRevision:
-		return ErrControlRevision
-	case rejectionProgramItemInvalid:
-		return ErrProgramItem
-	case rejectionEntryOrderRevision:
-		return store.ErrEntryOrderRevision
-	case rejectionEntryOrderStale:
-		return store.ErrEntryOrderPreviewStale
-	case rejectionEntryRevision:
-		return ErrEntryRevision
-	case rejectionEntryDefer:
-		return ErrEntryDefer
-	case rejectionResultTransition:
-		return ErrResultTransition
-	case rejectionResultRevealRunning:
-		return ErrResultRevealRunning
-	default:
-		return errors.New(fallback)
+	if sentinel := programRejections.Sentinel(code); sentinel != nil {
+		return sentinel
 	}
+	return errors.New(fallback)
 }

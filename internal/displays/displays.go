@@ -1119,21 +1119,25 @@ func assignmentRejection(reason error) command.Execution[Assignment] {
 	return command.Reject(Assignment{}, displayCommandRejection(reason), reason)
 }
 
+// displayRejections is the single source for Display command rejection codes
+// in both directions.
+var displayRejections = command.RejectionTable{
+	Rejections: []command.Rejection{
+		{Err: ErrAdministratorRequired, Code: "administrator_required"},
+		{Err: ErrEnrollmentUnavailable, Code: "enrollment_unavailable"},
+		{Err: ErrDisplayNotFound, Code: "display_not_found"},
+		{Err: ErrDisplayAlreadyEnrolled, Code: "display_already_enrolled"},
+		{Err: ErrAssignmentReference, Code: "assignment_reference"},
+		{Err: ErrInvalidDisplay, Code: "invalid_display"},
+	},
+}
+
 func displayCommandRejection(reason error) store.CommandRejection {
-	code := "invalid_display"
-	switch {
-	case errors.Is(reason, ErrAdministratorRequired):
-		code = "administrator_required"
-	case errors.Is(reason, ErrEnrollmentUnavailable):
-		code = "enrollment_unavailable"
-	case errors.Is(reason, ErrDisplayNotFound):
-		code = "display_not_found"
-	case errors.Is(reason, ErrDisplayAlreadyEnrolled):
-		code = "display_already_enrolled"
-	case errors.Is(reason, ErrAssignmentReference):
-		code = "assignment_reference"
+	rejection, known := displayRejections.Rejection(reason)
+	if !known {
+		return store.CommandRejection{Code: "invalid_display"}
 	}
-	return store.CommandRejection{Code: code}
+	return rejection
 }
 
 func replayDisplay(outcome string) (Display, error) {
@@ -1157,22 +1161,10 @@ func restoreDisplayRejection(err error) error {
 	if !errors.As(err, &rejected) {
 		return err
 	}
-	switch rejected.Rejection.Code {
-	case "administrator_required":
-		return ErrAdministratorRequired
-	case "enrollment_unavailable":
-		return ErrEnrollmentUnavailable
-	case "invalid_display":
-		return ErrInvalidDisplay
-	case "display_not_found":
-		return ErrDisplayNotFound
-	case "display_already_enrolled":
-		return ErrDisplayAlreadyEnrolled
-	case "assignment_reference":
-		return ErrAssignmentReference
-	default:
-		return errors.New("Display command unavailable")
+	if sentinel := displayRejections.Sentinel(rejected.Rejection.Code); sentinel != nil {
+		return sentinel
 	}
+	return errors.New("Display command unavailable")
 }
 
 func jsonMarshal(value any) (string, error) {
