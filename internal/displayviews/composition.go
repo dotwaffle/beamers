@@ -111,8 +111,11 @@ type Theme struct {
 	ForegroundColor string `json:"foreground_color"`
 	BackgroundColor string `json:"background_color"`
 	// SurfaceColor carries the Theme's surface color for Display Region
-	// fills and the Nebula backdrop's color-mix base.
-	SurfaceColor string `json:"surface_color"`
+	// fills and the Nebula backdrop's color-mix base. The JSON tag stays
+	// accent_color: it is the storage and wire key for already-persisted
+	// Display Configuration and the Crew display-configuration API, and
+	// renaming it would silently break both without a migration.
+	SurfaceColor string `json:"accent_color"`
 	SignalColor  string `json:"signal_color"`
 	LiveColor    string `json:"live_color"`
 	DangerColor  string `json:"danger_color"`

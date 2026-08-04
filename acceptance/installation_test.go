@@ -1863,7 +1863,7 @@ func TestProducerConfiguresAccessibleBuiltInDisplayViews(t *testing.T) {
 		`display-transition-none`,
 		`--display-foreground:#f0f6fc`,
 		`--display-background:#0d1117`,
-		`--display-accent:#171c23`,
+		`--display-surface:#171c23`,
 		`--display-signal:#6cb6ff`,
 		`data-region="header"`,
 		`data-region="schedule"`,
