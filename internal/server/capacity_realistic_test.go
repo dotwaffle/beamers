@@ -45,9 +45,13 @@ func newCapacityApplicationTB(
 	fixture capacityFixture,
 ) *application {
 	tb.Helper()
-	displayStream, err := displaystream.NewProcess(displaySubscriberQueueCapacity)
-	if err != nil {
-		tb.Fatalf("create Display stream: %v", err)
+	displayStream := fixture.displayStream
+	if displayStream == nil {
+		created, err := displaystream.NewProcess(displaySubscriberQueueCapacity)
+		if err != nil {
+			tb.Fatalf("create Display stream: %v", err)
+		}
+		displayStream = created
 	}
 	programStream, err := displaystream.NewProcess(displaySubscriberQueueCapacity)
 	if err != nil {
@@ -129,19 +133,28 @@ func prepareRealisticCapacityFixture(tb testing.TB) capacityFixture {
 	if err := operations.Initialize(t.Context(), dataDir); err != nil {
 		t.Fatalf("initialize realistic installation: %v", err)
 	}
-	// The public Schedule build is memoized against the Schedule stream
-	// cursor, so the fixture has to own that stream: the benchmarks would
-	// otherwise measure an installation whose memo can never be invalidated,
-	// and therefore never used either.
+	// The public Schedule and Crew Rundown builds are memoized against these
+	// stream cursors, so the fixture has to own the streams: the benchmarks
+	// would otherwise measure an installation whose memo can never be
+	// invalidated, and therefore never used either.
 	scheduleStream, err := displaystream.NewProcess(displaySubscriberQueueCapacity)
 	if err != nil {
 		t.Fatalf("create realistic Schedule stream: %v", err)
 	}
-	installation, err := operations.OpenInstallationWithConfig(t.Context(), operations.OpenConfig{
+	displayStream, err := displaystream.NewProcess(displaySubscriberQueueCapacity)
+	if err != nil {
+		t.Fatalf("create realistic Display stream: %v", err)
+	}
+	openConfig := operations.OpenConfig{
 		DataDir:          dataDir,
+		NotifyDisplays:   displayStream.Notify,
 		NotifySchedule:   scheduleStream.Notify,
 		SchedulePosition: func() uint64 { return scheduleStream.Cursor().Position },
-	})
+		RundownPosition: func() uint64 {
+			return displayStream.Cursor().Position + scheduleStream.Cursor().Position
+		},
+	}
+	installation, err := operations.OpenInstallationWithConfig(t.Context(), openConfig)
 	if err != nil {
 		t.Fatalf("open realistic installation: %v", err)
 	}
@@ -277,7 +290,10 @@ func prepareRealisticCapacityFixture(tb testing.TB) capacityFixture {
 		locationID,
 		realisticSessionDisplays,
 	)
-	installation, err = operations.OpenInstallation(t.Context(), dataDir)
+	// The reopen has to carry the same stream wiring: an installation opened
+	// without it memoizes nothing, and the benchmarks would quietly measure
+	// only the uncached paths.
+	installation, err = operations.OpenInstallationWithConfig(t.Context(), openConfig)
 	if err != nil {
 		t.Fatalf("reopen realistic installation: %v", err)
 	}
@@ -288,6 +304,7 @@ func prepareRealisticCapacityFixture(tb testing.TB) capacityFixture {
 	return capacityFixture{
 		dataDir:            dataDir,
 		scheduleStream:     scheduleStream,
+		displayStream:      displayStream,
 		installation:       installation,
 		actor:              actor,
 		sessionToken:       session.Token,

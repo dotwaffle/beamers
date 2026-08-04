@@ -1,0 +1,78 @@
+Results for the realistic capacity soak fixture after the store
+read-path work of issue #196: pooled read-only loads, batched public
+Schedule and Display Snapshot queries, bulk Display status loads, and
+the revision-keyed public Schedule and Crew Rundown memos.
+
+Captured on the same workstation as
+capacity_realistic_baseline.txt, with the command that file
+documents:
+
+  go test ./internal/server -run '^$' \
+    -bench 'BenchmarkCapacityRealistic' -benchtime=1x -benchmem -count=8
+
+benchstat against the baseline reports, at -benchtime=1x (every
+sample a cold build against a fresh fixture):
+
+  PublicScheduleDirect         -92.68% sec/op  -74.41% B/op  -82.89% allocs/op
+  CrewRundownLoad              -48.85% sec/op        ~ B/op        ~ allocs/op
+  DisplaySnapshotFanoutAfter-
+  Publish                      -51.82% sec/op   -6.14% B/op  -24.67% allocs/op
+
+CrewRundownLoad keeps its allocation count because its loader was
+already batched: what changed for it is that it no longer queues
+behind the single writer connection, and it now reads one extra
+revision row to decide whether its memo is current.
+
+PublicScheduleRepeat is new and has no baseline. It measures the
+second and later attendee requests at one Schedule stream cursor
+(10.40m sec/op, 9.348k allocs/op) against PublicScheduleDirect's cold
+build in the same run (19.32m sec/op, 45.87k allocs/op). The Crew
+Rundown memo is not visible here because these runs are cold by
+construction; measured in process, a repeated Crew Rundown load at an
+unchanged revision falls from about 7.3ms to about 40us.
+
+The wall-clock figures carry the same caveat as the baseline: an
+ordinary workstation under background load, useful for comparison on
+the same machine rather than as a certified objective. Note also that
+the baseline's own variance is very wide on two of these rows (65%
+and 101%), which is itself a symptom of what this ticket removed:
+read traffic contending for the writer connection.
+
+goos: linux
+goarch: amd64
+pkg: github.com/dotwaffle/beamers/internal/server
+cpu: AMD Ryzen 5 3600 6-Core Processor
+BenchmarkCapacityRealisticPublicScheduleDirect-12                 	       1	  20349460 ns/op	 4227432 B/op	   46539 allocs/op
+BenchmarkCapacityRealisticPublicScheduleDirect-12                 	       1	  19474882 ns/op	 4166088 B/op	   45881 allocs/op
+BenchmarkCapacityRealisticPublicScheduleDirect-12                 	       1	  18980441 ns/op	 4164608 B/op	   45868 allocs/op
+BenchmarkCapacityRealisticPublicScheduleDirect-12                 	       1	  18348641 ns/op	 4164072 B/op	   45860 allocs/op
+BenchmarkCapacityRealisticPublicScheduleDirect-12                 	       1	  18626453 ns/op	 4164976 B/op	   45871 allocs/op
+BenchmarkCapacityRealisticPublicScheduleDirect-12                 	       1	  19246311 ns/op	 4164672 B/op	   45867 allocs/op
+BenchmarkCapacityRealisticPublicScheduleDirect-12                 	       1	  19415320 ns/op	 4164640 B/op	   45867 allocs/op
+BenchmarkCapacityRealisticPublicScheduleDirect-12                 	       1	  19388859 ns/op	 4164608 B/op	   45868 allocs/op
+BenchmarkCapacityRealisticPublicScheduleRepeat-12                 	       1	  10384545 ns/op	 2067208 B/op	    9348 allocs/op
+BenchmarkCapacityRealisticPublicScheduleRepeat-12                 	       1	  11345085 ns/op	 2064632 B/op	    9361 allocs/op
+BenchmarkCapacityRealisticPublicScheduleRepeat-12                 	       1	  10418929 ns/op	 1542464 B/op	    9326 allocs/op
+BenchmarkCapacityRealisticPublicScheduleRepeat-12                 	       1	  10851075 ns/op	 2075576 B/op	    9369 allocs/op
+BenchmarkCapacityRealisticPublicScheduleRepeat-12                 	       1	  10411797 ns/op	 2077096 B/op	    9367 allocs/op
+BenchmarkCapacityRealisticPublicScheduleRepeat-12                 	       1	  10221187 ns/op	 2065416 B/op	    9347 allocs/op
+BenchmarkCapacityRealisticPublicScheduleRepeat-12                 	       1	   9768475 ns/op	 2065416 B/op	    9347 allocs/op
+BenchmarkCapacityRealisticPublicScheduleRepeat-12                 	       1	   9942923 ns/op	 2065480 B/op	    9347 allocs/op
+BenchmarkCapacityRealisticCrewRundownLoad-12                      	       1	   9249527 ns/op	 3296600 B/op	   36296 allocs/op
+BenchmarkCapacityRealisticCrewRundownLoad-12                      	       1	   8449620 ns/op	 3194888 B/op	   35593 allocs/op
+BenchmarkCapacityRealisticCrewRundownLoad-12                      	       1	   8620361 ns/op	 3194952 B/op	   35596 allocs/op
+BenchmarkCapacityRealisticCrewRundownLoad-12                      	       1	   9191567 ns/op	 3203456 B/op	   35601 allocs/op
+BenchmarkCapacityRealisticCrewRundownLoad-12                      	       1	   8884409 ns/op	 3203904 B/op	   35602 allocs/op
+BenchmarkCapacityRealisticCrewRundownLoad-12                      	       1	   8145396 ns/op	 3193832 B/op	   35588 allocs/op
+BenchmarkCapacityRealisticCrewRundownLoad-12                      	       1	   9058096 ns/op	 3204688 B/op	   35611 allocs/op
+BenchmarkCapacityRealisticCrewRundownLoad-12                      	       1	   8777958 ns/op	 3198072 B/op	   35615 allocs/op
+BenchmarkCapacityRealisticDisplaySnapshotFanoutAfterPublish-12    	       1	 215051172 ns/op	        30.00 snapshots/op	85199792 B/op	  826684 allocs/op
+BenchmarkCapacityRealisticDisplaySnapshotFanoutAfterPublish-12    	       1	 133685573 ns/op	        30.00 snapshots/op	87187656 B/op	  824999 allocs/op
+BenchmarkCapacityRealisticDisplaySnapshotFanoutAfterPublish-12    	       1	 135381008 ns/op	        30.00 snapshots/op	84992552 B/op	  824949 allocs/op
+BenchmarkCapacityRealisticDisplaySnapshotFanoutAfterPublish-12    	       1	 130926194 ns/op	        30.00 snapshots/op	83176592 B/op	  824806 allocs/op
+BenchmarkCapacityRealisticDisplaySnapshotFanoutAfterPublish-12    	       1	 133968787 ns/op	        30.00 snapshots/op	88944496 B/op	  825102 allocs/op
+BenchmarkCapacityRealisticDisplaySnapshotFanoutAfterPublish-12    	       1	 134172079 ns/op	        30.00 snapshots/op	83108152 B/op	  824884 allocs/op
+BenchmarkCapacityRealisticDisplaySnapshotFanoutAfterPublish-12    	       1	 132711288 ns/op	        30.00 snapshots/op	84203352 B/op	  824912 allocs/op
+BenchmarkCapacityRealisticDisplaySnapshotFanoutAfterPublish-12    	       1	 139249326 ns/op	        30.00 snapshots/op	82441056 B/op	  824846 allocs/op
+PASS
+ok  	github.com/dotwaffle/beamers/internal/server	27.044s
