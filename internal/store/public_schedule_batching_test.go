@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"sync/atomic"
 	"testing"
@@ -61,6 +62,20 @@ func (transaction *countingTx) Query(ctx context.Context, query string, args, re
 
 func openCountingEntTestClient(t *testing.T) (*ent.Client, *countingDriver) {
 	t.Helper()
+	client, driver, err := buildCountingEntTestClient(systemContext(t.Context()))
+	if err != nil {
+		t.Fatalf("open counting Ent test client: %v", err)
+	}
+	closeEntTestClient(t, client)
+	return client, driver
+}
+
+// buildCountingEntTestClient opens one database behind the counting driver and
+// builds its schema. It reports failures rather than ending the test, so the
+// parallel guard can run the whole setup from several goroutines at once and
+// still cover the path every counting test takes. The caller owns closing the
+// client it returns.
+func buildCountingEntTestClient(ctx context.Context) (*ent.Client, *countingDriver, error) {
 	registerEntSQLite.Do(func() {
 		sql.Register("sqlite3", &sqlite.Driver{})
 	})
@@ -70,19 +85,14 @@ func openCountingEntTestClient(t *testing.T) (*ent.Client, *countingDriver) {
 	)
 	base, err := entsql.Open(dialect.SQLite, dsn)
 	if err != nil {
-		t.Fatalf("open counting Ent test database: %v", err)
+		return nil, nil, fmt.Errorf("open counting Ent test database: %w", err)
 	}
 	driver := &countingDriver{Driver: base}
 	client := ent.NewClient(ent.Driver(driver))
-	t.Cleanup(func() {
-		if err := client.Close(); err != nil {
-			t.Errorf("close counting Ent test database: %v", err)
-		}
-	})
-	if err := client.Schema.Create(systemContext(t.Context())); err != nil {
-		t.Fatalf("create counting Ent test schema: %v", err)
+	if err := createEntTestSchema(ctx, client); err != nil {
+		return nil, nil, errors.Join(err, client.Close())
 	}
-	return client, driver
+	return client, driver, nil
 }
 
 // TestPublicScheduleQueryCountDoesNotScaleWithTheEvent pins the shape of the
