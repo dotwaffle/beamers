@@ -3,8 +3,10 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"sort"
 
 	"github.com/dotwaffle/beamers/ent"
+	"github.com/dotwaffle/beamers/ent/displayassignment"
 	"github.com/dotwaffle/beamers/ent/displayoverride"
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessionrun"
@@ -135,7 +137,9 @@ func (transaction *CommandTx) PriorityOverrideScope(
 	if err != nil {
 		return authz.Facts{}, err
 	}
-	return DisplayOverrideTargetScope(params.EventID, normalized.Target), nil
+	return DisplayOverrideTargetScope(
+		ctx, transaction.transaction.Client(), params.EventID, normalized.Target,
+	)
 }
 
 // ClearDisplayOverrideScope resolves the target of the Override being cleared,
@@ -158,7 +162,12 @@ func (transaction *CommandTx) ClearDisplayOverrideScope(
 		return authz.Facts{}, opaqueError("load Display Override", err)
 	}
 	projected := displayOverride(found)
-	facts := DisplayOverrideTargetScope(eventID, projected.Target)
+	facts, err := DisplayOverrideTargetScope(
+		ctx, transaction.transaction.Client(), eventID, projected.Target,
+	)
+	if err != nil {
+		return authz.Facts{}, err
+	}
 	if projected.Kind == DisplayOverrideEmergencyAlert {
 		facts = facts.Demanding(authz.EmergencyAlert)
 	}
@@ -166,16 +175,77 @@ func (transaction *CommandTx) ClearDisplayOverrideScope(
 }
 
 // DisplayOverrideTargetScope states the DisplayGroups-of-target facts one
-// Override target resolves to today: a Lane target is judged by Lane grant, and
-// every other target by the synthetic key displayOverrideTargetKey builds.
+// Override target resolves to: a Lane target is judged by Lane grant, a
+// Program Channel target by the Display Group keys of the Displays currently
+// consuming it, and every other target by the literal or synthetic key
+// displayOverrideTargetKey builds.
 //
-// D6: the synthetic key encodes a database identifier rather than naming the
-// Display Groups of the Displays the Override will actually disturb. Resolving
-// the target to those Displays both widens and narrows existing authority, so
-// this mirrors today's rule until that discrepancy is decided.
-func DisplayOverrideTargetScope(eventID int, target DisplayOverrideTarget) authz.Facts {
-	if target.Type == DisplayOverrideTargetLane {
-		return authz.DisplayGroupsOfLane(eventID, target.ID)
+// D6 resolved a Program Channel target to the real Display Groups of the
+// Displays it feeds, rather than the synthetic key displayOverrideTargetKey
+// built from its database identifier. Repointing a Program Channel to
+// different consuming Displays therefore changes who may override it: no
+// grant is grandfathered by the identifier alone.
+func DisplayOverrideTargetScope(
+	ctx context.Context,
+	client *ent.Client,
+	eventID int,
+	target DisplayOverrideTarget,
+) (authz.Facts, error) {
+	switch target.Type {
+	case DisplayOverrideTargetLane:
+		return authz.DisplayGroupsOfLane(eventID, target.ID), nil
+	case DisplayOverrideTargetProgramChannel:
+		groupKeys, err := programChannelConsumingDisplayGroupKeys(ctx, client, eventID, target.ID)
+		if err != nil {
+			return authz.Facts{}, err
+		}
+		return authz.DisplayGroups(eventID, groupKeys), nil
+	default:
+		return authz.DisplayGroups(eventID, []string{displayOverrideTargetKey(target)}), nil
 	}
-	return authz.DisplayGroups(eventID, []string{displayOverrideTargetKey(target)})
+}
+
+// programChannelConsumingDisplayGroupKeys returns the Display Group keys
+// carried by every Display Assignment currently routed to channelID's
+// Program Channel, deduplicated and sorted for a stable Facts comparison.
+//
+// A channel feeding a Display with no Display Group key at all contributes
+// none, so an Operator can never be granted authority over it by key; only a
+// Producer, whose shortcut this dimension already carries, can override it.
+// That is a deliberate fail-closed default, not an oversight: it is no
+// stricter than today's rule, under which the synthetic key it replaces was
+// never a key any grant could actually name.
+func programChannelConsumingDisplayGroupKeys(
+	ctx context.Context,
+	client *ent.Client,
+	eventID, channelID int,
+) ([]string, error) {
+	assignments, err := client.DisplayAssignment.Query().
+		Where(
+			displayassignment.EventIDEQ(eventID),
+			displayassignment.ViewKeyEQ("competition-output"),
+		).
+		All(ctx)
+	if err != nil {
+		return nil, opaqueError("resolve Program Channel Override scope", err)
+	}
+	routing, err := loadProgramChannelRouting(ctx, client, eventID)
+	if err != nil {
+		return nil, err
+	}
+	keys := make(map[string]struct{})
+	for _, assignment := range assignments {
+		if routing.channelAt(assignment.LocationID) != channelID {
+			continue
+		}
+		for _, key := range assignment.DisplayGroupKeys {
+			keys[key] = struct{}{}
+		}
+	}
+	result := make([]string, 0, len(keys))
+	for key := range keys {
+		result = append(result, key)
+	}
+	sort.Strings(result)
+	return result, nil
 }

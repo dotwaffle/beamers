@@ -269,8 +269,16 @@ func (installationStore *SQLite) ListActiveDisplayOverrides(
 	result := make([]ActiveDisplayOverride, 0, len(found))
 	for _, item := range found {
 		projected := displayOverride(item)
-		if !authenticated ||
-			!authz.InScope(identity, DisplayOverrideTargetScope(eventID, projected.Target)) {
+		if !authenticated {
+			continue
+		}
+		scope, scopeErr := DisplayOverrideTargetScope(
+			ctx, installationStore.client, eventID, projected.Target,
+		)
+		if scopeErr != nil {
+			return nil, scopeErr
+		}
+		if !authz.InScope(identity, scope) {
 			continue
 		}
 		kind := DisplayOverrideKind(item.Kind.String())
@@ -337,8 +345,16 @@ func (installationStore *SQLite) PreviewPriorityOverride(
 		return DisplayOverridePreview{}, err
 	}
 	identity, authenticated := viewer.FromContext(ctx)
-	if !authenticated ||
-		!authz.InScope(identity, DisplayOverrideTargetScope(params.EventID, params.Target)) ||
+	if !authenticated {
+		return DisplayOverridePreview{}, ErrDisplayOverrideScope
+	}
+	scope, err := DisplayOverrideTargetScope(
+		ctx, installationStore.client, params.EventID, params.Target,
+	)
+	if err != nil {
+		return DisplayOverridePreview{}, err
+	}
+	if !authz.InScope(identity, scope) ||
 		params.Kind == DisplayOverrideEmergencyAlert &&
 			!identity.HasCapability(params.EventID, viewer.EmergencyAlert) {
 		return DisplayOverridePreview{}, ErrDisplayOverrideScope
