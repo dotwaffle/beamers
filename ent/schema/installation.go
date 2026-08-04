@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"entgo.io/ent"
-	"entgo.io/ent/privacy"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 )
@@ -15,16 +14,9 @@ type Installation struct {
 	ent.Schema
 }
 
-// Policy confines Active Event routing to Administrators and internal operations.
-func (Installation) Policy() ent.Policy {
-	return privacy.Policy{
-		Query: privacy.QueryPolicy{
-			denyMissingViewer(), allowAdministrator(), privacy.AlwaysDenyRule(),
-		},
-		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowAdministratorMutation(), privacy.AlwaysDenyRule(),
-		},
-	}
+// Mixin applies the fail-closed authorization tripwire to Installation.
+func (Installation) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
 // Fields defines installation persistence.

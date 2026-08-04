@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"entgo.io/ent"
-	"entgo.io/ent/privacy"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
@@ -15,21 +14,14 @@ type SessionPublishedVersion struct {
 	ent.Schema
 }
 
+// Mixin applies the fail-closed authorization tripwire to SessionPublishedVersion.
+func (SessionPublishedVersion) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
+}
+
 // Hooks enforce Event ownership for every structural membership.
 func (SessionPublishedVersion) Hooks() []ent.Hook {
 	return []ent.Hook{validateSessionMembershipOwnership}
-}
-
-// Policy makes Published Session versions append-only and application-owned.
-func (SessionPublishedVersion) Policy() ent.Policy {
-	return privacy.Policy{
-		Query: privacy.QueryPolicy{
-			denyMissingViewer(), filterGrantedSessionPublishedVersions(), privacy.AlwaysAllowRule(),
-		},
-		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowSessionOwnedCreation(), privacy.AlwaysDenyRule(),
-		},
-	}
 }
 
 // Fields defines Published Session version persistence.

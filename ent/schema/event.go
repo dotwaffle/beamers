@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"entgo.io/ent"
-	"entgo.io/ent/privacy"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 )
@@ -14,16 +13,9 @@ type Event struct {
 	ent.Schema
 }
 
-// Policy makes Event Grants the final read and mutation authorization boundary.
-func (Event) Policy() ent.Policy {
-	return privacy.Policy{
-		Query: privacy.QueryPolicy{
-			denyMissingViewer(), filterGrantedEvents(), privacy.AlwaysAllowRule(),
-		},
-		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowEventMutation(), privacy.AlwaysDenyRule(),
-		},
-	}
+// Mixin applies the fail-closed authorization tripwire to Event.
+func (Event) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
 // Fields defines Event persistence.

@@ -2,7 +2,6 @@ package schema
 
 import (
 	"entgo.io/ent"
-	"entgo.io/ent/privacy"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 
@@ -14,17 +13,9 @@ type AccountProfile struct {
 	ent.Schema
 }
 
-// Policy confines Profile persistence to application services.
-func (AccountProfile) Policy() ent.Policy {
-	return privacy.Policy{
-		Query: privacy.QueryPolicy{
-			filterVisibleAccountProfiles(), privacy.AlwaysAllowRule(),
-		},
-		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowAdministratorMutation(),
-			allowOwnAccountProfileMutation(), privacy.AlwaysDenyRule(),
-		},
-	}
+// Mixin applies the fail-closed authorization tripwire to AccountProfile.
+func (AccountProfile) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
 // Fields defines Profile persistence.

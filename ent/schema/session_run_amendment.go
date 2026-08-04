@@ -14,9 +14,9 @@ type SessionRunAmendment struct {
 	ent.Schema
 }
 
-// Policy keeps Run Amendment evidence behind application services.
-func (SessionRunAmendment) Policy() ent.Policy {
-	return appendOnlySystemPolicy()
+// Mixin applies the fail-closed authorization tripwire to SessionRunAmendment.
+func (SessionRunAmendment) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
 // Indexes supports ordered amendment history lookup by Run.

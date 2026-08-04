@@ -13,9 +13,9 @@ type ReopenWindow struct {
 	ent.Schema
 }
 
-// Policy keeps Reopen Windows behind application services.
-func (ReopenWindow) Policy() ent.Policy {
-	return appendOnlySystemPolicy()
+// Mixin applies the fail-closed authorization tripwire to ReopenWindow.
+func (ReopenWindow) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
 // Fields defines audited, automatically expiring access.

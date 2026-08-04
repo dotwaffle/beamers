@@ -12,9 +12,9 @@ type DraftChangeDependency struct {
 	ent.Schema
 }
 
-// Policy keeps dependency evidence internal and append-only.
-func (DraftChangeDependency) Policy() ent.Policy {
-	return appendOnlySystemPolicy()
+// Mixin applies the fail-closed authorization tripwire to DraftChangeDependency.
+func (DraftChangeDependency) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
 // Fields defines Draft Change dependency persistence.

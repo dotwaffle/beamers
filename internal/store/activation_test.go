@@ -1,13 +1,10 @@
 package store
 
 import (
-	"errors"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
-
-	"entgo.io/ent/privacy"
 
 	"github.com/dotwaffle/beamers/ent/auditentry"
 	"github.com/dotwaffle/beamers/internal/viewer"
@@ -92,25 +89,5 @@ func TestActivateEventRollbackLeavesNoRoutingChange(t *testing.T) {
 	}
 	if active != (ActiveEventState{}) {
 		t.Errorf("Active Event after rollback = %+v, want none", active)
-	}
-}
-
-func TestInstallationActivationPrivacyRequiresAdministrator(t *testing.T) {
-	installationStore := openEventTestInstallation(t)
-	if _, err := installationStore.client.Installation.Query().Only(t.Context()); !errors.Is(err, privacy.Deny) {
-		t.Fatalf("missing-viewer Installation query error = %v, want privacy denial", err)
-	}
-	nonAdministrator := viewer.NewContext(t.Context(), viewer.Identity{AccountID: 42})
-	if _, err := installationStore.client.Installation.Query().Only(nonAdministrator); !errors.Is(err, privacy.Deny) {
-		t.Fatalf("non-Administrator Installation query error = %v, want privacy denial", err)
-	}
-	if _, err := installationStore.client.Installation.Update().
-		SetActivationGeneration(1).
-		Save(nonAdministrator); !errors.Is(err, privacy.Deny) {
-		t.Fatalf("non-Administrator Installation mutation error = %v, want privacy denial", err)
-	}
-	administrator := viewer.NewContext(t.Context(), viewer.Identity{AccountID: 1, Administrator: true})
-	if _, err := installationStore.client.Installation.Query().Only(administrator); err != nil {
-		t.Fatalf("Administrator Installation query: %v", err)
 	}
 }

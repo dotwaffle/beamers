@@ -2,7 +2,6 @@ package schema
 
 import (
 	"entgo.io/ent"
-	"entgo.io/ent/privacy"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 )
@@ -12,16 +11,9 @@ type Rundown struct {
 	ent.Schema
 }
 
-// Policy confines Rundown access to granted Event roles.
-func (Rundown) Policy() ent.Policy {
-	return privacy.Policy{
-		Query: privacy.QueryPolicy{
-			denyMissingViewer(), filterGrantedRundowns(), privacy.AlwaysAllowRule(),
-		},
-		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowEventOwnedMutation(), privacy.AlwaysDenyRule(),
-		},
-	}
+// Mixin applies the fail-closed authorization tripwire to Rundown.
+func (Rundown) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
 // Fields defines Rundown persistence.

@@ -13,9 +13,9 @@ type RecoveryCode struct {
 	ent.Schema
 }
 
-// Policy keeps Recovery Codes inside authentication storage paths.
-func (RecoveryCode) Policy() ent.Policy {
-	return systemOnlyPolicy()
+// Mixin applies the fail-closed authorization tripwire to RecoveryCode.
+func (RecoveryCode) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
 // Fields defines Recovery Code persistence.

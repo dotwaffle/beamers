@@ -14,9 +14,9 @@ type WebAuthnCredential struct {
 	ent.Schema
 }
 
-// Policy keeps WebAuthn Credential material inside authentication storage paths.
-func (WebAuthnCredential) Policy() ent.Policy {
-	return systemOnlyPolicy()
+// Mixin applies the fail-closed authorization tripwire to WebAuthnCredential.
+func (WebAuthnCredential) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
 // Fields defines WebAuthn Credential persistence.

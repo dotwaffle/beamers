@@ -2,7 +2,6 @@ package schema
 
 import (
 	"entgo.io/ent"
-	"entgo.io/ent/privacy"
 	"entgo.io/ent/schema/field"
 )
 
@@ -11,16 +10,9 @@ type RegistrationPolicy struct {
 	ent.Schema
 }
 
-// Policy confines Registration Policy persistence to application services.
-func (RegistrationPolicy) Policy() ent.Policy {
-	return privacy.Policy{
-		Query: privacy.QueryPolicy{
-			privacy.AlwaysAllowRule(),
-		},
-		Mutation: privacy.MutationPolicy{
-			denyMissingViewer(), allowAdministratorMutation(), privacy.AlwaysDenyRule(),
-		},
-	}
+// Mixin applies the fail-closed authorization tripwire to RegistrationPolicy.
+func (RegistrationPolicy) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
 // Fields defines Registration Policy persistence.

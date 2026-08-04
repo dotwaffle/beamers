@@ -14,9 +14,9 @@ type VotingKey struct {
 	ent.Schema
 }
 
-// Policy confines Voting Key secrets to the voting application service.
-func (VotingKey) Policy() ent.Policy {
-	return systemOnlyPolicy()
+// Mixin applies the fail-closed authorization tripwire to VotingKey.
+func (VotingKey) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
 // Fields defines protected key and consumption state.

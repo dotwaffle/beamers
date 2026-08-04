@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"entgo.io/ent"
-	"entgo.io/ent/privacy"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 )
@@ -14,18 +13,9 @@ type Account struct {
 	ent.Schema
 }
 
-// Policy confines Account administration and selection to Administrators.
-func (Account) Policy() ent.Policy {
-	return privacy.Policy{
-		Query: privacy.QueryPolicy{
-			denyMissingViewer(), allowAdministrator(), privacy.AlwaysDenyRule(),
-		},
-		Mutation: privacy.MutationPolicy{
-			allowRegistrationAccountCreation(), denyMissingViewer(),
-			allowAdministratorMutation(), allowOwnAccountNameMutation(),
-			privacy.AlwaysDenyRule(),
-		},
-	}
+// Mixin applies the fail-closed authorization tripwire to Account.
+func (Account) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
 // Fields defines Account persistence.

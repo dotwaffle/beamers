@@ -13,9 +13,9 @@ type Display struct {
 	ent.Schema
 }
 
-// Policy keeps Display identity behind the Display application module.
-func (Display) Policy() ent.Policy {
-	return systemOnlyPolicy()
+// Mixin applies the fail-closed authorization tripwire to Display.
+func (Display) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
 // Fields defines durable Display identity.

@@ -16,9 +16,9 @@ type EventThemeRevision struct {
 	ent.Schema
 }
 
-// Policy keeps Event Theme Revisions behind the application service.
-func (EventThemeRevision) Policy() ent.Policy {
-	return systemOnlyPolicy()
+// Mixin applies the fail-closed authorization tripwire to EventThemeRevision.
+func (EventThemeRevision) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
 // Fields define immutable Event Theme configuration and authorship.

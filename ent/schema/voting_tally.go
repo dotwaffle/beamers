@@ -16,9 +16,9 @@ type VotingTally struct {
 	ent.Schema
 }
 
-// Policy keeps aggregate evidence behind Crew application services.
-func (VotingTally) Policy() ent.Policy {
-	return systemOnlyPolicy()
+// Mixin applies the fail-closed authorization tripwire to VotingTally.
+func (VotingTally) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
 // Fields define aggregate evidence without Account-level Vote data.

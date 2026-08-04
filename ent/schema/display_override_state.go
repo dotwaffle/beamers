@@ -14,9 +14,9 @@ type DisplayOverrideState struct {
 	ent.Schema
 }
 
-// Policy keeps Display Override state behind the Override application module.
-func (DisplayOverrideState) Policy() ent.Policy {
-	return systemOnlyPolicy()
+// Mixin applies the fail-closed authorization tripwire to DisplayOverrideState.
+func (DisplayOverrideState) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
 // Fields defines a replace-in-place per-Display selection.

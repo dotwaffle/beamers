@@ -55,12 +55,6 @@ func FromContext(ctx context.Context) (Identity, bool) {
 	return identity, ok
 }
 
-// CanReadEvent reports whether the identity has an explicit Event Grant.
-func (identity Identity) CanReadEvent(eventID int) bool {
-	_, ok := identity.EventRoles[eventID]
-	return ok
-}
-
 // CanProduceEvent reports whether the identity has Producer authority.
 func (identity Identity) CanProduceEvent(eventID int) bool {
 	return identity.EventRoles[eventID] == Producer

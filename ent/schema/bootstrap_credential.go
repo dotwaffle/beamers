@@ -12,9 +12,9 @@ type BootstrapCredential struct {
 	ent.Schema
 }
 
-// Policy keeps bootstrap credentials inside the host-authorized authentication path.
-func (BootstrapCredential) Policy() ent.Policy {
-	return systemOnlyPolicy()
+// Mixin applies the fail-closed authorization tripwire to BootstrapCredential.
+func (BootstrapCredential) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
 // Fields defines BootstrapCredential persistence.

@@ -13,9 +13,9 @@ type AccountSession struct {
 	ent.Schema
 }
 
-// Policy keeps Account session access inside authentication storage paths.
-func (AccountSession) Policy() ent.Policy {
-	return systemOnlyPolicy()
+// Mixin applies the fail-closed authorization tripwire to AccountSession.
+func (AccountSession) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
 // Fields defines AccountSession persistence.

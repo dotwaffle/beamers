@@ -14,9 +14,9 @@ type Attachment struct {
 	ent.Schema
 }
 
-// Policy keeps Attachment metadata behind application services.
-func (Attachment) Policy() ent.Policy {
-	return appendOnlySystemPolicy()
+// Mixin applies the fail-closed authorization tripwire to Attachment.
+func (Attachment) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
 // Fields defines stable logical Attachment ownership.

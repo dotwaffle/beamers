@@ -7659,7 +7659,8 @@ func (c *MigrationClient) GetX(ctx context.Context, id int) *Migration {
 
 // Hooks returns the client hooks.
 func (c *MigrationClient) Hooks() []Hook {
-	return c.hooks.Migration
+	hooks := c.hooks.Migration
+	return append(hooks[:len(hooks):len(hooks)], migration.Hooks[:]...)
 }
 
 // Interceptors returns the client interceptors.

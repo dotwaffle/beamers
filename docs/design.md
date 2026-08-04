@@ -425,7 +425,7 @@ Public browsers   Crew consoles   Displays   Offline CLI
 | Command module | Provide the deep write Interface: establish identity, verify revisions and idempotency, apply rules, transact state and evidence, then notify. |
 | Domain transitions | Compute deterministic timing, ripple, Competition, Results, and Override decisions from explicit state, command values, and time without I/O. |
 | Query modules | Produce purpose-specific public Schedule, Crew, control, Results, and Display projections instead of generic CRUD data. |
-| Identity and policy | Establish the viewer and enforce Event Grants, scopes, and capabilities, with Ent privacy as the final authorization decision. |
+| Identity and policy | Establish the viewer and enforce Event Grants, scopes, and capabilities at the store and command surface, where refusals become Command Receipts and Audit Entries. |
 | Ent store | Contain generated entities, transactions, migrations, and direct database access; Ent types do not cross this seam. |
 | Rendering | Produce complete and partial HTML with templ and render live Display behavior with small, purpose-built JavaScript modules. |
 | Live distribution | Send bounded, revisioned SSE notifications and heartbeats; complete state always comes from an authorized snapshot. |
@@ -493,9 +493,9 @@ Administrator is installation-wide and does not imply Event access.
 Producer, Operator, and Observer are Event roles granted through Event Grants.
 Capabilities such as unreleased Results access, Override control, Lane control, Display Group control, and high-impact actions can be scoped separately.
 
-Ent privacy policies are the final authorization boundary for operational entities.
-Handlers may repeat checks for clearer errors but cannot grant access denied by policy.
-Privacy bypass is confined to narrow migration, bootstrap, and internal system paths and is inaccessible from request-derived contexts.
+The store and command surface are the final authorization boundary for operational entities.
+Handlers and the command path resolve the acting Account and its Event Grants before store methods run, and store methods add capability checks where an action demands one.
+The Ent privacy layer holds one global fail-closed rule that denies any query or mutation carrying neither a viewer identity nor an explicit store decision.
 
 HTTPS is the default, either directly or through an explicitly trusted reverse proxy.
 The Frontend and Backstage may use separate listeners so an installation can expose public and Account routes while keeping Backstage private.
@@ -680,7 +680,7 @@ Numbers and other public metadata follow Event Locale while stored instants rema
 A release requires:
 
 - Deterministic domain tests for timing, daylight-saving changes, ripple, Competitions, Results, and Overrides.
-- Real SQLite integration tests for migrations, Ent privacy, idempotency, backup, and restore.
+- Real SQLite integration tests for migrations, the Ent authorization tripwire, idempotency, backup, and restore.
 - Browser tests from Crew command through durable commit to multiple Displays.
 - Fault tests for restart, disconnect, stale clients, storage failure, and forced live upgrade.
 - Sustained load and soak testing at the documented capacity envelope.

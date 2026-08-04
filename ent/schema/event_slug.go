@@ -13,9 +13,9 @@ type EventSlug struct {
 	ent.Schema
 }
 
-// Policy keeps Event Slug namespace mutations behind Event services.
-func (EventSlug) Policy() ent.Policy {
-	return systemOnlyPolicy()
+// Mixin applies the fail-closed authorization tripwire to EventSlug.
+func (EventSlug) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
 // Fields defines Event Slug persistence.

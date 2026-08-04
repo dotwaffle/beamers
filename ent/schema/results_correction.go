@@ -16,9 +16,9 @@ type ResultsCorrection struct {
 	ent.Schema
 }
 
-// Policy keeps correction persistence behind the Results application module.
-func (ResultsCorrection) Policy() ent.Policy {
-	return appendOnlySystemPolicy()
+// Mixin applies the fail-closed authorization tripwire to ResultsCorrection.
+func (ResultsCorrection) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
 // Fields define one immutable correction lifecycle revision.

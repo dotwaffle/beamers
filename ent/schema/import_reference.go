@@ -14,9 +14,9 @@ type ImportReference struct {
 	ent.Schema
 }
 
-// Policy keeps Import References append-only behind application services.
-func (ImportReference) Policy() ent.Policy {
-	return appendOnlySystemPolicy()
+// Mixin applies the fail-closed authorization tripwire to ImportReference.
+func (ImportReference) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
 // Fields defines external evidence without making it canonical identity.

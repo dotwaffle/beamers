@@ -14,9 +14,9 @@ type DisplayAssignment struct {
 	ent.Schema
 }
 
-// Policy keeps Assignment access behind the Display application module.
-func (DisplayAssignment) Policy() ent.Policy {
-	return systemOnlyPolicy()
+// Mixin applies the fail-closed authorization tripwire to DisplayAssignment.
+func (DisplayAssignment) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
 // Fields defines Event-specific Display routing.

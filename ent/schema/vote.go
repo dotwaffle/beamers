@@ -14,9 +14,9 @@ type Vote struct {
 	ent.Schema
 }
 
-// Policy keeps Vote values behind Account-scoped voting projections.
-func (Vote) Policy() ent.Policy {
-	return systemOnlyPolicy()
+// Mixin applies the fail-closed authorization tripwire to Vote.
+func (Vote) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
 // Fields defines durable Ballot ownership and score.

@@ -14,9 +14,9 @@ type FederatedIdentity struct {
 	ent.Schema
 }
 
-// Policy keeps Federated Identity material inside authentication storage paths.
-func (FederatedIdentity) Policy() ent.Policy {
-	return systemOnlyPolicy()
+// Mixin applies the fail-closed authorization tripwire to FederatedIdentity.
+func (FederatedIdentity) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
 // Fields defines Federated Identity persistence.

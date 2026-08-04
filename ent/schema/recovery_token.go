@@ -13,9 +13,9 @@ type RecoveryToken struct {
 	ent.Schema
 }
 
-// Policy keeps Recovery Tokens inside authentication storage paths.
-func (RecoveryToken) Policy() ent.Policy {
-	return systemOnlyPolicy()
+// Mixin applies the fail-closed authorization tripwire to RecoveryToken.
+func (RecoveryToken) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
 // Fields defines Recovery Token persistence.

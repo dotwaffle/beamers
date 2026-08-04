@@ -16,9 +16,9 @@ type ResultsPublication struct {
 	ent.Schema
 }
 
-// Policy keeps publication persistence behind application modules.
-func (ResultsPublication) Policy() ent.Policy {
-	return appendOnlySystemPolicy()
+// Mixin applies the fail-closed authorization tripwire to ResultsPublication.
+func (ResultsPublication) Mixin() []ent.Mixin {
+	return []ent.Mixin{AuthorizationTripwire{}}
 }
 
 // Fields define one immutable publication manifest.

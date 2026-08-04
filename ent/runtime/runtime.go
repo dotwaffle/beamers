@@ -81,7 +81,8 @@ import (
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
-	account.Policy = privacy.NewPolicies(schema.Account{})
+	accountMixin := schema.Account{}.Mixin()
+	account.Policy = privacy.NewPolicies(accountMixin[0], schema.Account{})
 	account.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := account.Policy.EvalMutation(ctx, m); err != nil {
@@ -132,7 +133,8 @@ func init() {
 	accountDescCreatedAt := accountFields[4].Descriptor()
 	// account.DefaultCreatedAt holds the default value on creation for the created_at field.
 	account.DefaultCreatedAt = accountDescCreatedAt.Default.(func() time.Time)
-	accountpreference.Policy = privacy.NewPolicies(schema.AccountPreference{})
+	accountpreferenceMixin := schema.AccountPreference{}.Mixin()
+	accountpreference.Policy = privacy.NewPolicies(accountpreferenceMixin[0], schema.AccountPreference{})
 	accountpreference.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := accountpreference.Policy.EvalMutation(ctx, m); err != nil {
@@ -147,7 +149,8 @@ func init() {
 	accountpreferenceDescReducedEffects := accountpreferenceFields[1].Descriptor()
 	// accountpreference.DefaultReducedEffects holds the default value on creation for the reduced_effects field.
 	accountpreference.DefaultReducedEffects = accountpreferenceDescReducedEffects.Default.(bool)
-	accountprofile.Policy = privacy.NewPolicies(schema.AccountProfile{})
+	accountprofileMixin := schema.AccountProfile{}.Mixin()
+	accountprofile.Policy = privacy.NewPolicies(accountprofileMixin[0], schema.AccountProfile{})
 	accountprofile.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := accountprofile.Policy.EvalMutation(ctx, m); err != nil {
@@ -198,7 +201,8 @@ func init() {
 	accountprofileDescPublished := accountprofileFields[3].Descriptor()
 	// accountprofile.DefaultPublished holds the default value on creation for the published field.
 	accountprofile.DefaultPublished = accountprofileDescPublished.Default.(bool)
-	accountsession.Policy = privacy.NewPolicies(schema.AccountSession{})
+	accountsessionMixin := schema.AccountSession{}.Mixin()
+	accountsession.Policy = privacy.NewPolicies(accountsessionMixin[0], schema.AccountSession{})
 	accountsession.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := accountsession.Policy.EvalMutation(ctx, m); err != nil {
@@ -231,7 +235,8 @@ func init() {
 	accountsessionDescCreatedAt := accountsessionFields[2].Descriptor()
 	// accountsession.DefaultCreatedAt holds the default value on creation for the created_at field.
 	accountsession.DefaultCreatedAt = accountsessionDescCreatedAt.Default.(func() time.Time)
-	attachment.Policy = privacy.NewPolicies(schema.Attachment{})
+	attachmentMixin := schema.Attachment{}.Mixin()
+	attachment.Policy = privacy.NewPolicies(attachmentMixin[0], schema.Attachment{})
 	attachment.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := attachment.Policy.EvalMutation(ctx, m); err != nil {
@@ -268,7 +273,8 @@ func init() {
 	attachmentDescCreatedAt := attachmentFields[4].Descriptor()
 	// attachment.DefaultCreatedAt holds the default value on creation for the created_at field.
 	attachment.DefaultCreatedAt = attachmentDescCreatedAt.Default.(func() time.Time)
-	attachmentversion.Policy = privacy.NewPolicies(schema.AttachmentVersion{})
+	attachmentversionMixin := schema.AttachmentVersion{}.Mixin()
+	attachmentversion.Policy = privacy.NewPolicies(attachmentversionMixin[0], schema.AttachmentVersion{})
 	attachmentversion.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := attachmentversion.Policy.EvalMutation(ctx, m); err != nil {
@@ -377,7 +383,8 @@ func init() {
 	attachmentversionDescCreatedAt := attachmentversionFields[15].Descriptor()
 	// attachmentversion.DefaultCreatedAt holds the default value on creation for the created_at field.
 	attachmentversion.DefaultCreatedAt = attachmentversionDescCreatedAt.Default.(func() time.Time)
-	auditentry.Policy = privacy.NewPolicies(schema.AuditEntry{})
+	auditentryMixin := schema.AuditEntry{}.Mixin()
+	auditentry.Policy = privacy.NewPolicies(auditentryMixin[0], schema.AuditEntry{})
 	auditentry.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := auditentry.Policy.EvalMutation(ctx, m); err != nil {
@@ -454,7 +461,8 @@ func init() {
 	auditentryDescNote := auditentryFields[9].Descriptor()
 	// auditentry.NoteValidator is a validator for the "note" field. It is called by the builders before save.
 	auditentry.NoteValidator = auditentryDescNote.Validators[0].(func(string) error)
-	bootstrapcredential.Policy = privacy.NewPolicies(schema.BootstrapCredential{})
+	bootstrapcredentialMixin := schema.BootstrapCredential{}.Mixin()
+	bootstrapcredential.Policy = privacy.NewPolicies(bootstrapcredentialMixin[0], schema.BootstrapCredential{})
 	bootstrapcredential.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := bootstrapcredential.Policy.EvalMutation(ctx, m); err != nil {
@@ -487,7 +495,8 @@ func init() {
 	bootstrapcredentialDescCreatedAt := bootstrapcredentialFields[1].Descriptor()
 	// bootstrapcredential.DefaultCreatedAt holds the default value on creation for the created_at field.
 	bootstrapcredential.DefaultCreatedAt = bootstrapcredentialDescCreatedAt.Default.(func() time.Time)
-	commandreceipt.Policy = privacy.NewPolicies(schema.CommandReceipt{})
+	commandreceiptMixin := schema.CommandReceipt{}.Mixin()
+	commandreceipt.Policy = privacy.NewPolicies(commandreceiptMixin[0], schema.CommandReceipt{})
 	commandreceipt.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := commandreceipt.Policy.EvalMutation(ctx, m); err != nil {
@@ -596,7 +605,8 @@ func init() {
 	commandreceiptDescCreatedAt := commandreceiptFields[9].Descriptor()
 	// commandreceipt.DefaultCreatedAt holds the default value on creation for the created_at field.
 	commandreceipt.DefaultCreatedAt = commandreceiptDescCreatedAt.Default.(func() time.Time)
-	competitionentry.Policy = privacy.NewPolicies(schema.CompetitionEntry{})
+	competitionentryMixin := schema.CompetitionEntry{}.Mixin()
+	competitionentry.Policy = privacy.NewPolicies(competitionentryMixin[0], schema.CompetitionEntry{})
 	competitionentry.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := competitionentry.Policy.EvalMutation(ctx, m); err != nil {
@@ -685,7 +695,8 @@ func init() {
 	competitionentryDescCreatedAt := competitionentryFields[22].Descriptor()
 	// competitionentry.DefaultCreatedAt holds the default value on creation for the created_at field.
 	competitionentry.DefaultCreatedAt = competitionentryDescCreatedAt.Default.(func() time.Time)
-	competitionresultstanding.Policy = privacy.NewPolicies(schema.CompetitionResultStanding{})
+	competitionresultstandingMixin := schema.CompetitionResultStanding{}.Mixin()
+	competitionresultstanding.Policy = privacy.NewPolicies(competitionresultstandingMixin[0], schema.CompetitionResultStanding{})
 	competitionresultstanding.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := competitionresultstanding.Policy.EvalMutation(ctx, m); err != nil {
@@ -712,7 +723,8 @@ func init() {
 	competitionresultstandingDescDurationScoreNanos := competitionresultstandingFields[8].Descriptor()
 	// competitionresultstanding.DurationScoreNanosValidator is a validator for the "duration_score_nanos" field. It is called by the builders before save.
 	competitionresultstanding.DurationScoreNanosValidator = competitionresultstandingDescDurationScoreNanos.Validators[0].(func(int64) error)
-	competitionresultsdraft.Policy = privacy.NewPolicies(schema.CompetitionResultsDraft{})
+	competitionresultsdraftMixin := schema.CompetitionResultsDraft{}.Mixin()
+	competitionresultsdraft.Policy = privacy.NewPolicies(competitionresultsdraftMixin[0], schema.CompetitionResultsDraft{})
 	competitionresultsdraft.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := competitionresultsdraft.Policy.EvalMutation(ctx, m); err != nil {
@@ -765,7 +777,8 @@ func init() {
 	competitionresultsdraftDescCreatedAt := competitionresultsdraftFields[18].Descriptor()
 	// competitionresultsdraft.DefaultCreatedAt holds the default value on creation for the created_at field.
 	competitionresultsdraft.DefaultCreatedAt = competitionresultsdraftDescCreatedAt.Default.(func() time.Time)
-	display.Policy = privacy.NewPolicies(schema.Display{})
+	displayMixin := schema.Display{}.Mixin()
+	display.Policy = privacy.NewPolicies(displayMixin[0], schema.Display{})
 	display.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := display.Policy.EvalMutation(ctx, m); err != nil {
@@ -874,7 +887,8 @@ func init() {
 	displayDescRendererUnstable := displayFields[21].Descriptor()
 	// display.DefaultRendererUnstable holds the default value on creation for the renderer_unstable field.
 	display.DefaultRendererUnstable = displayDescRendererUnstable.Default.(bool)
-	displayassignment.Policy = privacy.NewPolicies(schema.DisplayAssignment{})
+	displayassignmentMixin := schema.DisplayAssignment{}.Mixin()
+	displayassignment.Policy = privacy.NewPolicies(displayassignmentMixin[0], schema.DisplayAssignment{})
 	displayassignment.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := displayassignment.Policy.EvalMutation(ctx, m); err != nil {
@@ -911,7 +925,8 @@ func init() {
 	displayassignmentDescUpdatedAt := displayassignmentFields[6].Descriptor()
 	// displayassignment.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	displayassignment.DefaultUpdatedAt = displayassignmentDescUpdatedAt.Default.(func() time.Time)
-	displaycredential.Policy = privacy.NewPolicies(schema.DisplayCredential{})
+	displaycredentialMixin := schema.DisplayCredential{}.Mixin()
+	displaycredential.Policy = privacy.NewPolicies(displaycredentialMixin[0], schema.DisplayCredential{})
 	displaycredential.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := displaycredential.Policy.EvalMutation(ctx, m); err != nil {
@@ -944,7 +959,8 @@ func init() {
 	displaycredentialDescCreatedAt := displaycredentialFields[2].Descriptor()
 	// displaycredential.DefaultCreatedAt holds the default value on creation for the created_at field.
 	displaycredential.DefaultCreatedAt = displaycredentialDescCreatedAt.Default.(func() time.Time)
-	displayenrollment.Policy = privacy.NewPolicies(schema.DisplayEnrollment{})
+	displayenrollmentMixin := schema.DisplayEnrollment{}.Mixin()
+	displayenrollment.Policy = privacy.NewPolicies(displayenrollmentMixin[0], schema.DisplayEnrollment{})
 	displayenrollment.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := displayenrollment.Policy.EvalMutation(ctx, m); err != nil {
@@ -995,7 +1011,8 @@ func init() {
 	displayenrollmentDescCreatedAt := displayenrollmentFields[2].Descriptor()
 	// displayenrollment.DefaultCreatedAt holds the default value on creation for the created_at field.
 	displayenrollment.DefaultCreatedAt = displayenrollmentDescCreatedAt.Default.(func() time.Time)
-	displayoverride.Policy = privacy.NewPolicies(schema.DisplayOverride{})
+	displayoverrideMixin := schema.DisplayOverride{}.Mixin()
+	displayoverride.Policy = privacy.NewPolicies(displayoverrideMixin[0], schema.DisplayOverride{})
 	displayoverride.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := displayoverride.Policy.EvalMutation(ctx, m); err != nil {
@@ -1068,7 +1085,8 @@ func init() {
 	displayoverrideDescCreatedAt := displayoverrideFields[14].Descriptor()
 	// displayoverride.DefaultCreatedAt holds the default value on creation for the created_at field.
 	displayoverride.DefaultCreatedAt = displayoverrideDescCreatedAt.Default.(func() time.Time)
-	displayoverridestate.Policy = privacy.NewPolicies(schema.DisplayOverrideState{})
+	displayoverridestateMixin := schema.DisplayOverrideState{}.Mixin()
+	displayoverridestate.Policy = privacy.NewPolicies(displayoverridestateMixin[0], schema.DisplayOverrideState{})
 	displayoverridestate.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := displayoverridestate.Policy.EvalMutation(ctx, m); err != nil {
@@ -1089,7 +1107,8 @@ func init() {
 	displayoverridestateDescUpdatedAt := displayoverridestateFields[5].Descriptor()
 	// displayoverridestate.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	displayoverridestate.DefaultUpdatedAt = displayoverridestateDescUpdatedAt.Default.(func() time.Time)
-	draftchange.Policy = privacy.NewPolicies(schema.DraftChange{})
+	draftchangeMixin := schema.DraftChange{}.Mixin()
+	draftchange.Policy = privacy.NewPolicies(draftchangeMixin[0], schema.DraftChange{})
 	draftchange.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := draftchange.Policy.EvalMutation(ctx, m); err != nil {
@@ -1170,7 +1189,8 @@ func init() {
 	draftchangeDescCreatedAt := draftchangeFields[10].Descriptor()
 	// draftchange.DefaultCreatedAt holds the default value on creation for the created_at field.
 	draftchange.DefaultCreatedAt = draftchangeDescCreatedAt.Default.(func() time.Time)
-	draftchangedependency.Policy = privacy.NewPolicies(schema.DraftChangeDependency{})
+	draftchangedependencyMixin := schema.DraftChangeDependency{}.Mixin()
+	draftchangedependency.Policy = privacy.NewPolicies(draftchangedependencyMixin[0], schema.DraftChangeDependency{})
 	draftchangedependency.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := draftchangedependency.Policy.EvalMutation(ctx, m); err != nil {
@@ -1179,7 +1199,8 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
-	draftedit.Policy = privacy.NewPolicies(schema.DraftEdit{})
+	drafteditMixin := schema.DraftEdit{}.Mixin()
+	draftedit.Policy = privacy.NewPolicies(drafteditMixin[0], schema.DraftEdit{})
 	draftedit.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := draftedit.Policy.EvalMutation(ctx, m); err != nil {
@@ -1198,7 +1219,8 @@ func init() {
 	drafteditDescCreatedAt := drafteditFields[3].Descriptor()
 	// draftedit.DefaultCreatedAt holds the default value on creation for the created_at field.
 	draftedit.DefaultCreatedAt = drafteditDescCreatedAt.Default.(func() time.Time)
-	event.Policy = privacy.NewPolicies(schema.Event{})
+	eventMixin := schema.Event{}.Mixin()
+	event.Policy = privacy.NewPolicies(eventMixin[0], schema.Event{})
 	event.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := event.Policy.EvalMutation(ctx, m); err != nil {
@@ -1409,7 +1431,8 @@ func init() {
 	eventDescCreatedAt := eventFields[24].Descriptor()
 	// event.DefaultCreatedAt holds the default value on creation for the created_at field.
 	event.DefaultCreatedAt = eventDescCreatedAt.Default.(func() time.Time)
-	eventawardsdraft.Policy = privacy.NewPolicies(schema.EventAwardsDraft{})
+	eventawardsdraftMixin := schema.EventAwardsDraft{}.Mixin()
+	eventawardsdraft.Policy = privacy.NewPolicies(eventawardsdraftMixin[0], schema.EventAwardsDraft{})
 	eventawardsdraft.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := eventawardsdraft.Policy.EvalMutation(ctx, m); err != nil {
@@ -1432,7 +1455,8 @@ func init() {
 	eventawardsdraftDescCreatedAt := eventawardsdraftFields[5].Descriptor()
 	// eventawardsdraft.DefaultCreatedAt holds the default value on creation for the created_at field.
 	eventawardsdraft.DefaultCreatedAt = eventawardsdraftDescCreatedAt.Default.(func() time.Time)
-	eventgrant.Policy = privacy.NewPolicies(schema.EventGrant{})
+	eventgrantMixin := schema.EventGrant{}.Mixin()
+	eventgrant.Policy = privacy.NewPolicies(eventgrantMixin[0], schema.EventGrant{})
 	eventgrant.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := eventgrant.Policy.EvalMutation(ctx, m); err != nil {
@@ -1447,7 +1471,8 @@ func init() {
 	eventgrantDescCreatedAt := eventgrantFields[6].Descriptor()
 	// eventgrant.DefaultCreatedAt holds the default value on creation for the created_at field.
 	eventgrant.DefaultCreatedAt = eventgrantDescCreatedAt.Default.(func() time.Time)
-	eventslug.Policy = privacy.NewPolicies(schema.EventSlug{})
+	eventslugMixin := schema.EventSlug{}.Mixin()
+	eventslug.Policy = privacy.NewPolicies(eventslugMixin[0], schema.EventSlug{})
 	eventslug.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := eventslug.Policy.EvalMutation(ctx, m); err != nil {
@@ -1484,7 +1509,8 @@ func init() {
 	eventslugDescCreatedAt := eventslugFields[3].Descriptor()
 	// eventslug.DefaultCreatedAt holds the default value on creation for the created_at field.
 	eventslug.DefaultCreatedAt = eventslugDescCreatedAt.Default.(func() time.Time)
-	eventthemerevision.Policy = privacy.NewPolicies(schema.EventThemeRevision{})
+	eventthemerevisionMixin := schema.EventThemeRevision{}.Mixin()
+	eventthemerevision.Policy = privacy.NewPolicies(eventthemerevisionMixin[0], schema.EventThemeRevision{})
 	eventthemerevision.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := eventthemerevision.Policy.EvalMutation(ctx, m); err != nil {
@@ -1507,7 +1533,8 @@ func init() {
 	eventthemerevisionDescCreatedAt := eventthemerevisionFields[3].Descriptor()
 	// eventthemerevision.DefaultCreatedAt holds the default value on creation for the created_at field.
 	eventthemerevision.DefaultCreatedAt = eventthemerevisionDescCreatedAt.Default.(func() time.Time)
-	favoritesession.Policy = privacy.NewPolicies(schema.FavoriteSession{})
+	favoritesessionMixin := schema.FavoriteSession{}.Mixin()
+	favoritesession.Policy = privacy.NewPolicies(favoritesessionMixin[0], schema.FavoriteSession{})
 	favoritesession.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := favoritesession.Policy.EvalMutation(ctx, m); err != nil {
@@ -1516,7 +1543,8 @@ func init() {
 			return next.Mutate(ctx, m)
 		})
 	}
-	federatedidentity.Policy = privacy.NewPolicies(schema.FederatedIdentity{})
+	federatedidentityMixin := schema.FederatedIdentity{}.Mixin()
+	federatedidentity.Policy = privacy.NewPolicies(federatedidentityMixin[0], schema.FederatedIdentity{})
 	federatedidentity.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := federatedidentity.Policy.EvalMutation(ctx, m); err != nil {
@@ -1567,7 +1595,8 @@ func init() {
 	federatedidentityDescCreatedAt := federatedidentityFields[3].Descriptor()
 	// federatedidentity.DefaultCreatedAt holds the default value on creation for the created_at field.
 	federatedidentity.DefaultCreatedAt = federatedidentityDescCreatedAt.Default.(func() time.Time)
-	importreference.Policy = privacy.NewPolicies(schema.ImportReference{})
+	importreferenceMixin := schema.ImportReference{}.Mixin()
+	importreference.Policy = privacy.NewPolicies(importreferenceMixin[0], schema.ImportReference{})
 	importreference.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := importreference.Policy.EvalMutation(ctx, m); err != nil {
@@ -1622,7 +1651,8 @@ func init() {
 	importreferenceDescCreatedAt := importreferenceFields[6].Descriptor()
 	// importreference.DefaultCreatedAt holds the default value on creation for the created_at field.
 	importreference.DefaultCreatedAt = importreferenceDescCreatedAt.Default.(func() time.Time)
-	installation.Policy = privacy.NewPolicies(schema.Installation{})
+	installationMixin := schema.Installation{}.Mixin()
+	installation.Policy = privacy.NewPolicies(installationMixin[0], schema.Installation{})
 	installation.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := installation.Policy.EvalMutation(ctx, m); err != nil {
@@ -1643,7 +1673,8 @@ func init() {
 	installation.DefaultActivationGeneration = installationDescActivationGeneration.Default.(int)
 	// installation.ActivationGenerationValidator is a validator for the "activation_generation" field. It is called by the builders before save.
 	installation.ActivationGenerationValidator = installationDescActivationGeneration.Validators[0].(func(int) error)
-	installationthemerevision.Policy = privacy.NewPolicies(schema.InstallationThemeRevision{})
+	installationthemerevisionMixin := schema.InstallationThemeRevision{}.Mixin()
+	installationthemerevision.Policy = privacy.NewPolicies(installationthemerevisionMixin[0], schema.InstallationThemeRevision{})
 	installationthemerevision.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := installationthemerevision.Policy.EvalMutation(ctx, m); err != nil {
@@ -1662,7 +1693,8 @@ func init() {
 	installationthemerevisionDescCreatedAt := installationthemerevisionFields[2].Descriptor()
 	// installationthemerevision.DefaultCreatedAt holds the default value on creation for the created_at field.
 	installationthemerevision.DefaultCreatedAt = installationthemerevisionDescCreatedAt.Default.(func() time.Time)
-	lane.Policy = privacy.NewPolicies(schema.Lane{})
+	laneMixin := schema.Lane{}.Mixin()
+	lane.Policy = privacy.NewPolicies(laneMixin[0], schema.Lane{})
 	lane.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := lane.Policy.EvalMutation(ctx, m); err != nil {
@@ -1677,7 +1709,8 @@ func init() {
 	laneDescCreatedAt := laneFields[1].Descriptor()
 	// lane.DefaultCreatedAt holds the default value on creation for the created_at field.
 	lane.DefaultCreatedAt = laneDescCreatedAt.Default.(func() time.Time)
-	lanedraft.Policy = privacy.NewPolicies(schema.LaneDraft{})
+	lanedraftMixin := schema.LaneDraft{}.Mixin()
+	lanedraft.Policy = privacy.NewPolicies(lanedraftMixin[0], schema.LaneDraft{})
 	lanedraft.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := lanedraft.Policy.EvalMutation(ctx, m); err != nil {
@@ -1713,7 +1746,8 @@ func init() {
 	lanedraftDescRetired := lanedraftFields[3].Descriptor()
 	// lanedraft.DefaultRetired holds the default value on creation for the retired field.
 	lanedraft.DefaultRetired = lanedraftDescRetired.Default.(bool)
-	lanepublishedversion.Policy = privacy.NewPolicies(schema.LanePublishedVersion{})
+	lanepublishedversionMixin := schema.LanePublishedVersion{}.Mixin()
+	lanepublishedversion.Policy = privacy.NewPolicies(lanepublishedversionMixin[0], schema.LanePublishedVersion{})
 	lanepublishedversion.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := lanepublishedversion.Policy.EvalMutation(ctx, m); err != nil {
@@ -1757,7 +1791,8 @@ func init() {
 	lanepublishedversionDescCreatedAt := lanepublishedversionFields[5].Descriptor()
 	// lanepublishedversion.DefaultCreatedAt holds the default value on creation for the created_at field.
 	lanepublishedversion.DefaultCreatedAt = lanepublishedversionDescCreatedAt.Default.(func() time.Time)
-	location.Policy = privacy.NewPolicies(schema.Location{})
+	locationMixin := schema.Location{}.Mixin()
+	location.Policy = privacy.NewPolicies(locationMixin[0], schema.Location{})
 	location.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := location.Policy.EvalMutation(ctx, m); err != nil {
@@ -1772,7 +1807,8 @@ func init() {
 	locationDescCreatedAt := locationFields[1].Descriptor()
 	// location.DefaultCreatedAt holds the default value on creation for the created_at field.
 	location.DefaultCreatedAt = locationDescCreatedAt.Default.(func() time.Time)
-	locationdraft.Policy = privacy.NewPolicies(schema.LocationDraft{})
+	locationdraftMixin := schema.LocationDraft{}.Mixin()
+	locationdraft.Policy = privacy.NewPolicies(locationdraftMixin[0], schema.LocationDraft{})
 	locationdraft.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := locationdraft.Policy.EvalMutation(ctx, m); err != nil {
@@ -1805,7 +1841,8 @@ func init() {
 	locationdraftDescRetired := locationdraftFields[2].Descriptor()
 	// locationdraft.DefaultRetired holds the default value on creation for the retired field.
 	locationdraft.DefaultRetired = locationdraftDescRetired.Default.(bool)
-	locationpublishedversion.Policy = privacy.NewPolicies(schema.LocationPublishedVersion{})
+	locationpublishedversionMixin := schema.LocationPublishedVersion{}.Mixin()
+	locationpublishedversion.Policy = privacy.NewPolicies(locationpublishedversionMixin[0], schema.LocationPublishedVersion{})
 	locationpublishedversion.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := locationpublishedversion.Policy.EvalMutation(ctx, m); err != nil {
@@ -1846,6 +1883,16 @@ func init() {
 	locationpublishedversionDescCreatedAt := locationpublishedversionFields[4].Descriptor()
 	// locationpublishedversion.DefaultCreatedAt holds the default value on creation for the created_at field.
 	locationpublishedversion.DefaultCreatedAt = locationpublishedversionDescCreatedAt.Default.(func() time.Time)
+	migrationMixin := schema.Migration{}.Mixin()
+	migration.Policy = privacy.NewPolicies(migrationMixin[0], schema.Migration{})
+	migration.Hooks[0] = func(next ent.Mutator) ent.Mutator {
+		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+			if err := migration.Policy.EvalMutation(ctx, m); err != nil {
+				return nil, err
+			}
+			return next.Mutate(ctx, m)
+		})
+	}
 	migrationFields := schema.Migration{}.Fields()
 	_ = migrationFields
 	// migrationDescVersion is the schema descriptor for version field.
@@ -1890,7 +1937,8 @@ func init() {
 	migrationDescAppliedAt := migrationFields[6].Descriptor()
 	// migration.DefaultAppliedAt holds the default value on creation for the applied_at field.
 	migration.DefaultAppliedAt = migrationDescAppliedAt.Default.(func() time.Time)
-	passwordcredential.Policy = privacy.NewPolicies(schema.PasswordCredential{})
+	passwordcredentialMixin := schema.PasswordCredential{}.Mixin()
+	passwordcredential.Policy = privacy.NewPolicies(passwordcredentialMixin[0], schema.PasswordCredential{})
 	passwordcredential.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := passwordcredential.Policy.EvalMutation(ctx, m); err != nil {
@@ -1909,7 +1957,8 @@ func init() {
 	passwordcredentialDescCreatedAt := passwordcredentialFields[2].Descriptor()
 	// passwordcredential.DefaultCreatedAt holds the default value on creation for the created_at field.
 	passwordcredential.DefaultCreatedAt = passwordcredentialDescCreatedAt.Default.(func() time.Time)
-	prizegiving.Policy = privacy.NewPolicies(schema.Prizegiving{})
+	prizegivingMixin := schema.Prizegiving{}.Mixin()
+	prizegiving.Policy = privacy.NewPolicies(prizegivingMixin[0], schema.Prizegiving{})
 	prizegiving.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := prizegiving.Policy.EvalMutation(ctx, m); err != nil {
@@ -1948,7 +1997,8 @@ func init() {
 	prizegivingDescCreatedAt := prizegivingFields[15].Descriptor()
 	// prizegiving.DefaultCreatedAt holds the default value on creation for the created_at field.
 	prizegiving.DefaultCreatedAt = prizegivingDescCreatedAt.Default.(func() time.Time)
-	prizegivingcompetition.Policy = privacy.NewPolicies(schema.PrizegivingCompetition{})
+	prizegivingcompetitionMixin := schema.PrizegivingCompetition{}.Mixin()
+	prizegivingcompetition.Policy = privacy.NewPolicies(prizegivingcompetitionMixin[0], schema.PrizegivingCompetition{})
 	prizegivingcompetition.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := prizegivingcompetition.Policy.EvalMutation(ctx, m); err != nil {
@@ -1967,7 +2017,8 @@ func init() {
 	prizegivingcompetitionDescCompetitionSessionID := prizegivingcompetitionFields[2].Descriptor()
 	// prizegivingcompetition.CompetitionSessionIDValidator is a validator for the "competition_session_id" field. It is called by the builders before save.
 	prizegivingcompetition.CompetitionSessionIDValidator = prizegivingcompetitionDescCompetitionSessionID.Validators[0].(func(int) error)
-	publicschedulebaseline.Policy = privacy.NewPolicies(schema.PublicScheduleBaseline{})
+	publicschedulebaselineMixin := schema.PublicScheduleBaseline{}.Mixin()
+	publicschedulebaseline.Policy = privacy.NewPolicies(publicschedulebaselineMixin[0], schema.PublicScheduleBaseline{})
 	publicschedulebaseline.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := publicschedulebaseline.Policy.EvalMutation(ctx, m); err != nil {
@@ -1986,7 +2037,8 @@ func init() {
 	publicschedulebaselineDescCapturedAt := publicschedulebaselineFields[2].Descriptor()
 	// publicschedulebaseline.DefaultCapturedAt holds the default value on creation for the captured_at field.
 	publicschedulebaseline.DefaultCapturedAt = publicschedulebaselineDescCapturedAt.Default.(func() time.Time)
-	publicschedulebaselineentry.Policy = privacy.NewPolicies(schema.PublicScheduleBaselineEntry{})
+	publicschedulebaselineentryMixin := schema.PublicScheduleBaselineEntry{}.Mixin()
+	publicschedulebaselineentry.Policy = privacy.NewPolicies(publicschedulebaselineentryMixin[0], schema.PublicScheduleBaselineEntry{})
 	publicschedulebaselineentry.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := publicschedulebaselineentry.Policy.EvalMutation(ctx, m); err != nil {
@@ -2005,7 +2057,8 @@ func init() {
 	publicschedulebaselineentryDescRecordedAt := publicschedulebaselineentryFields[4].Descriptor()
 	// publicschedulebaselineentry.DefaultRecordedAt holds the default value on creation for the recorded_at field.
 	publicschedulebaselineentry.DefaultRecordedAt = publicschedulebaselineentryDescRecordedAt.Default.(func() time.Time)
-	recoverycode.Policy = privacy.NewPolicies(schema.RecoveryCode{})
+	recoverycodeMixin := schema.RecoveryCode{}.Mixin()
+	recoverycode.Policy = privacy.NewPolicies(recoverycodeMixin[0], schema.RecoveryCode{})
 	recoverycode.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := recoverycode.Policy.EvalMutation(ctx, m); err != nil {
@@ -2038,7 +2091,8 @@ func init() {
 	recoverycodeDescCreatedAt := recoverycodeFields[2].Descriptor()
 	// recoverycode.DefaultCreatedAt holds the default value on creation for the created_at field.
 	recoverycode.DefaultCreatedAt = recoverycodeDescCreatedAt.Default.(func() time.Time)
-	recoverytoken.Policy = privacy.NewPolicies(schema.RecoveryToken{})
+	recoverytokenMixin := schema.RecoveryToken{}.Mixin()
+	recoverytoken.Policy = privacy.NewPolicies(recoverytokenMixin[0], schema.RecoveryToken{})
 	recoverytoken.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := recoverytoken.Policy.EvalMutation(ctx, m); err != nil {
@@ -2071,7 +2125,8 @@ func init() {
 	recoverytokenDescCreatedAt := recoverytokenFields[2].Descriptor()
 	// recoverytoken.DefaultCreatedAt holds the default value on creation for the created_at field.
 	recoverytoken.DefaultCreatedAt = recoverytokenDescCreatedAt.Default.(func() time.Time)
-	registrationpolicy.Policy = privacy.NewPolicies(schema.RegistrationPolicy{})
+	registrationpolicyMixin := schema.RegistrationPolicy{}.Mixin()
+	registrationpolicy.Policy = privacy.NewPolicies(registrationpolicyMixin[0], schema.RegistrationPolicy{})
 	registrationpolicy.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := registrationpolicy.Policy.EvalMutation(ctx, m); err != nil {
@@ -2086,7 +2141,8 @@ func init() {
 	registrationpolicyDescRegistrationOpen := registrationpolicyFields[0].Descriptor()
 	// registrationpolicy.DefaultRegistrationOpen holds the default value on creation for the registration_open field.
 	registrationpolicy.DefaultRegistrationOpen = registrationpolicyDescRegistrationOpen.Default.(bool)
-	releasedprofileentry.Policy = privacy.NewPolicies(schema.ReleasedProfileEntry{})
+	releasedprofileentryMixin := schema.ReleasedProfileEntry{}.Mixin()
+	releasedprofileentry.Policy = privacy.NewPolicies(releasedprofileentryMixin[0], schema.ReleasedProfileEntry{})
 	releasedprofileentry.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := releasedprofileentry.Policy.EvalMutation(ctx, m); err != nil {
@@ -2105,7 +2161,8 @@ func init() {
 	releasedprofileentryDescName := releasedprofileentryFields[1].Descriptor()
 	// releasedprofileentry.NameValidator is a validator for the "name" field. It is called by the builders before save.
 	releasedprofileentry.NameValidator = releasedprofileentryDescName.Validators[0].(func(string) error)
-	reopenwindow.Policy = privacy.NewPolicies(schema.ReopenWindow{})
+	reopenwindowMixin := schema.ReopenWindow{}.Mixin()
+	reopenwindow.Policy = privacy.NewPolicies(reopenwindowMixin[0], schema.ReopenWindow{})
 	reopenwindow.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := reopenwindow.Policy.EvalMutation(ctx, m); err != nil {
@@ -2156,7 +2213,8 @@ func init() {
 	reopenwindowDescUpdatedAt := reopenwindowFields[9].Descriptor()
 	// reopenwindow.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	reopenwindow.DefaultUpdatedAt = reopenwindowDescUpdatedAt.Default.(func() time.Time)
-	resultscorrection.Policy = privacy.NewPolicies(schema.ResultsCorrection{})
+	resultscorrectionMixin := schema.ResultsCorrection{}.Mixin()
+	resultscorrection.Policy = privacy.NewPolicies(resultscorrectionMixin[0], schema.ResultsCorrection{})
 	resultscorrection.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := resultscorrection.Policy.EvalMutation(ctx, m); err != nil {
@@ -2217,7 +2275,8 @@ func init() {
 	resultscorrectionDescCreatedAt := resultscorrectionFields[13].Descriptor()
 	// resultscorrection.DefaultCreatedAt holds the default value on creation for the created_at field.
 	resultscorrection.DefaultCreatedAt = resultscorrectionDescCreatedAt.Default.(func() time.Time)
-	resultspublication.Policy = privacy.NewPolicies(schema.ResultsPublication{})
+	resultspublicationMixin := schema.ResultsPublication{}.Mixin()
+	resultspublication.Policy = privacy.NewPolicies(resultspublicationMixin[0], schema.ResultsPublication{})
 	resultspublication.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := resultspublication.Policy.EvalMutation(ctx, m); err != nil {
@@ -2248,7 +2307,8 @@ func init() {
 	resultspublicationDescCreatedAt := resultspublicationFields[14].Descriptor()
 	// resultspublication.DefaultCreatedAt holds the default value on creation for the created_at field.
 	resultspublication.DefaultCreatedAt = resultspublicationDescCreatedAt.Default.(func() time.Time)
-	rundown.Policy = privacy.NewPolicies(schema.Rundown{})
+	rundownMixin := schema.Rundown{}.Mixin()
+	rundown.Policy = privacy.NewPolicies(rundownMixin[0], schema.Rundown{})
 	rundown.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := rundown.Policy.EvalMutation(ctx, m); err != nil {
@@ -2271,7 +2331,8 @@ func init() {
 	rundown.DefaultPublishedRevision = rundownDescPublishedRevision.Default.(int)
 	// rundown.PublishedRevisionValidator is a validator for the "published_revision" field. It is called by the builders before save.
 	rundown.PublishedRevisionValidator = rundownDescPublishedRevision.Validators[0].(func(int) error)
-	session.Policy = privacy.NewPolicies(schema.Session{})
+	sessionMixin := schema.Session{}.Mixin()
+	session.Policy = privacy.NewPolicies(sessionMixin[0], schema.Session{})
 	session.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := session.Policy.EvalMutation(ctx, m); err != nil {
@@ -2376,7 +2437,8 @@ func init() {
 	sessionDescCreatedAt := sessionFields[44].Descriptor()
 	// session.DefaultCreatedAt holds the default value on creation for the created_at field.
 	session.DefaultCreatedAt = sessionDescCreatedAt.Default.(func() time.Time)
-	sessioncancellation.Policy = privacy.NewPolicies(schema.SessionCancellation{})
+	sessioncancellationMixin := schema.SessionCancellation{}.Mixin()
+	sessioncancellation.Policy = privacy.NewPolicies(sessioncancellationMixin[0], schema.SessionCancellation{})
 	sessioncancellation.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := sessioncancellation.Policy.EvalMutation(ctx, m); err != nil {
@@ -2399,7 +2461,8 @@ func init() {
 	sessioncancellationDescCreatedAt := sessioncancellationFields[5].Descriptor()
 	// sessioncancellation.DefaultCreatedAt holds the default value on creation for the created_at field.
 	sessioncancellation.DefaultCreatedAt = sessioncancellationDescCreatedAt.Default.(func() time.Time)
-	sessiondraft.Policy = privacy.NewPolicies(schema.SessionDraft{})
+	sessiondraftMixin := schema.SessionDraft{}.Mixin()
+	sessiondraft.Policy = privacy.NewPolicies(sessiondraftMixin[0], schema.SessionDraft{})
 	sessiondraft.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := sessiondraft.Policy.EvalMutation(ctx, m); err != nil {
@@ -2447,7 +2510,8 @@ func init() {
 	sessiondraftDescMinimumDurationSeconds := sessiondraftFields[10].Descriptor()
 	// sessiondraft.MinimumDurationSecondsValidator is a validator for the "minimum_duration_seconds" field. It is called by the builders before save.
 	sessiondraft.MinimumDurationSecondsValidator = sessiondraftDescMinimumDurationSeconds.Validators[0].(func(int) error)
-	sessionpublishedversion.Policy = privacy.NewPolicies(schema.SessionPublishedVersion{})
+	sessionpublishedversionMixin := schema.SessionPublishedVersion{}.Mixin()
+	sessionpublishedversion.Policy = privacy.NewPolicies(sessionpublishedversionMixin[0], schema.SessionPublishedVersion{})
 	sessionpublishedversion.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := sessionpublishedversion.Policy.EvalMutation(ctx, m); err != nil {
@@ -2503,7 +2567,8 @@ func init() {
 	sessionpublishedversionDescCreatedAt := sessionpublishedversionFields[17].Descriptor()
 	// sessionpublishedversion.DefaultCreatedAt holds the default value on creation for the created_at field.
 	sessionpublishedversion.DefaultCreatedAt = sessionpublishedversionDescCreatedAt.Default.(func() time.Time)
-	sessionrun.Policy = privacy.NewPolicies(schema.SessionRun{})
+	sessionrunMixin := schema.SessionRun{}.Mixin()
+	sessionrun.Policy = privacy.NewPolicies(sessionrunMixin[0], schema.SessionRun{})
 	sessionrun.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := sessionrun.Policy.EvalMutation(ctx, m); err != nil {
@@ -2526,7 +2591,8 @@ func init() {
 	sessionrunDescCreatedAt := sessionrunFields[8].Descriptor()
 	// sessionrun.DefaultCreatedAt holds the default value on creation for the created_at field.
 	sessionrun.DefaultCreatedAt = sessionrunDescCreatedAt.Default.(func() time.Time)
-	sessionrunamendment.Policy = privacy.NewPolicies(schema.SessionRunAmendment{})
+	sessionrunamendmentMixin := schema.SessionRunAmendment{}.Mixin()
+	sessionrunamendment.Policy = privacy.NewPolicies(sessionrunamendmentMixin[0], schema.SessionRunAmendment{})
 	sessionrunamendment.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := sessionrunamendment.Policy.EvalMutation(ctx, m); err != nil {
@@ -2549,7 +2615,8 @@ func init() {
 	sessionrunamendmentDescCreatedAt := sessionrunamendmentFields[3].Descriptor()
 	// sessionrunamendment.DefaultCreatedAt holds the default value on creation for the created_at field.
 	sessionrunamendment.DefaultCreatedAt = sessionrunamendmentDescCreatedAt.Default.(func() time.Time)
-	track.Policy = privacy.NewPolicies(schema.Track{})
+	trackMixin := schema.Track{}.Mixin()
+	track.Policy = privacy.NewPolicies(trackMixin[0], schema.Track{})
 	track.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := track.Policy.EvalMutation(ctx, m); err != nil {
@@ -2564,7 +2631,8 @@ func init() {
 	trackDescCreatedAt := trackFields[1].Descriptor()
 	// track.DefaultCreatedAt holds the default value on creation for the created_at field.
 	track.DefaultCreatedAt = trackDescCreatedAt.Default.(func() time.Time)
-	trackdraft.Policy = privacy.NewPolicies(schema.TrackDraft{})
+	trackdraftMixin := schema.TrackDraft{}.Mixin()
+	trackdraft.Policy = privacy.NewPolicies(trackdraftMixin[0], schema.TrackDraft{})
 	trackdraft.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := trackdraft.Policy.EvalMutation(ctx, m); err != nil {
@@ -2597,7 +2665,8 @@ func init() {
 	trackdraftDescRetired := trackdraftFields[2].Descriptor()
 	// trackdraft.DefaultRetired holds the default value on creation for the retired field.
 	trackdraft.DefaultRetired = trackdraftDescRetired.Default.(bool)
-	trackpublishedversion.Policy = privacy.NewPolicies(schema.TrackPublishedVersion{})
+	trackpublishedversionMixin := schema.TrackPublishedVersion{}.Mixin()
+	trackpublishedversion.Policy = privacy.NewPolicies(trackpublishedversionMixin[0], schema.TrackPublishedVersion{})
 	trackpublishedversion.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := trackpublishedversion.Policy.EvalMutation(ctx, m); err != nil {
@@ -2638,7 +2707,8 @@ func init() {
 	trackpublishedversionDescCreatedAt := trackpublishedversionFields[4].Descriptor()
 	// trackpublishedversion.DefaultCreatedAt holds the default value on creation for the created_at field.
 	trackpublishedversion.DefaultCreatedAt = trackpublishedversionDescCreatedAt.Default.(func() time.Time)
-	vote.Policy = privacy.NewPolicies(schema.Vote{})
+	voteMixin := schema.Vote{}.Mixin()
+	vote.Policy = privacy.NewPolicies(voteMixin[0], schema.Vote{})
 	vote.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := vote.Policy.EvalMutation(ctx, m); err != nil {
@@ -2675,7 +2745,8 @@ func init() {
 	voteDescUpdatedAt := voteFields[6].Descriptor()
 	// vote.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	vote.DefaultUpdatedAt = voteDescUpdatedAt.Default.(func() time.Time)
-	votingeligibility.Policy = privacy.NewPolicies(schema.VotingEligibility{})
+	votingeligibilityMixin := schema.VotingEligibility{}.Mixin()
+	votingeligibility.Policy = privacy.NewPolicies(votingeligibilityMixin[0], schema.VotingEligibility{})
 	votingeligibility.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := votingeligibility.Policy.EvalMutation(ctx, m); err != nil {
@@ -2690,7 +2761,8 @@ func init() {
 	votingeligibilityDescCreatedAt := votingeligibilityFields[2].Descriptor()
 	// votingeligibility.DefaultCreatedAt holds the default value on creation for the created_at field.
 	votingeligibility.DefaultCreatedAt = votingeligibilityDescCreatedAt.Default.(func() time.Time)
-	votingkey.Policy = privacy.NewPolicies(schema.VotingKey{})
+	votingkeyMixin := schema.VotingKey{}.Mixin()
+	votingkey.Policy = privacy.NewPolicies(votingkeyMixin[0], schema.VotingKey{})
 	votingkey.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := votingkey.Policy.EvalMutation(ctx, m); err != nil {
@@ -2723,7 +2795,8 @@ func init() {
 	votingkeyDescCreatedAt := votingkeyFields[2].Descriptor()
 	// votingkey.DefaultCreatedAt holds the default value on creation for the created_at field.
 	votingkey.DefaultCreatedAt = votingkeyDescCreatedAt.Default.(func() time.Time)
-	votingtally.Policy = privacy.NewPolicies(schema.VotingTally{})
+	votingtallyMixin := schema.VotingTally{}.Mixin()
+	votingtally.Policy = privacy.NewPolicies(votingtallyMixin[0], schema.VotingTally{})
 	votingtally.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := votingtally.Policy.EvalMutation(ctx, m); err != nil {
@@ -2746,7 +2819,8 @@ func init() {
 	votingtallyDescCreatedAt := votingtallyFields[7].Descriptor()
 	// votingtally.DefaultCreatedAt holds the default value on creation for the created_at field.
 	votingtally.DefaultCreatedAt = votingtallyDescCreatedAt.Default.(func() time.Time)
-	webauthncredential.Policy = privacy.NewPolicies(schema.WebAuthnCredential{})
+	webauthncredentialMixin := schema.WebAuthnCredential{}.Mixin()
+	webauthncredential.Policy = privacy.NewPolicies(webauthncredentialMixin[0], schema.WebAuthnCredential{})
 	webauthncredential.Hooks[0] = func(next ent.Mutator) ent.Mutator {
 		return ent.MutateFunc(func(ctx context.Context, m ent.Mutation) (ent.Value, error) {
 			if err := webauthncredential.Policy.EvalMutation(ctx, m); err != nil {
