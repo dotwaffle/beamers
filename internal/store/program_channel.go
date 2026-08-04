@@ -177,8 +177,13 @@ func (installation *SQLite) LoadProgramChannelAt(
 	eventID, sessionID int,
 	observedAt time.Time,
 ) (ProgramChannelState, error) {
-	return loadProgramChannel(
-		ctx, installation.client, eventID, sessionID, observedAt,
+	return withReadTx(
+		ctx, installation.readClient(), "load Program Channel",
+		func(transaction *ent.Tx) (ProgramChannelState, error) {
+			return loadProgramChannel(
+				ctx, transaction.Client(), eventID, sessionID, observedAt,
+			)
+		},
 	)
 }
 
