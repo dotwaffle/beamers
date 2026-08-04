@@ -401,6 +401,7 @@ func newDiagnosticsTestApplication(
 			TracerProvider: tracenoop.NewTracerProvider(),
 			MeterProvider:  metricnoop.NewMeterProvider(),
 			Propagator:     propagation.TraceContext{},
+			EnablePprof:    true,
 		},
 		Installation: installation, ListenerAddress: listenerAddress,
 		DisplayStream: displayStream, ProgramStream: programStream,

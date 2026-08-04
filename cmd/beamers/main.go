@@ -715,6 +715,11 @@ func runServe(
 		"info",
 		"log verbosity (debug, info, warn, error); SIGHUP toggles debug logging",
 	)
+	enablePprof := flags.Bool(
+		"pprof",
+		false,
+		"expose net/http/pprof, loopback-only or Administrator-authenticated",
+	)
 	if err := flags.Parse(args); err != nil {
 		return fail(err)
 	}
@@ -778,6 +783,7 @@ func runServe(
 		InsecureCrew:    *insecureCrew,
 		InsecureDisplay: *insecureDisplay,
 		Demo:            demo,
+		EnablePprof:     *enablePprof,
 		SceneID:         sceneID,
 	})
 	if err != nil {

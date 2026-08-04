@@ -638,11 +638,13 @@ func (application *application) buildHandler(
 		application.config.AttachmentsDir,
 		application.config.MeterProvider,
 	)
-	registerPprofRoutes(mux, pprofGuardInput{
-		Authentication:  installation.Authentication(),
-		Logger:          application.config.Logger,
-		ListenerAddress: application.config.ListenerAddress,
-	})
+	if application.config.EnablePprof {
+		registerPprofRoutes(mux, pprofGuardInput{
+			Authentication:  installation.Authentication(),
+			Logger:          application.config.Logger,
+			ListenerAddress: application.config.ListenerAddress,
+		})
+	}
 	authenticationLimiter := newAuthFailureLimiter(time.Now, application.config.Logger)
 	registerAuthenticationRoutes(
 		mux,

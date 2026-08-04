@@ -49,6 +49,7 @@ type Config struct {
 	InsecureCrew    bool
 	InsecureDisplay bool
 	Demo            bool
+	EnablePprof     bool
 	SceneID         *federation.Config
 }
 
