@@ -758,6 +758,29 @@ func (queries *Queries) DisplayLocations(
 	return result, nil
 }
 
+// AdministrationLanes returns Published Lanes for the Administrator Event
+// Grant Lane picker, independent of whether the Administrator also holds an
+// Event Grant on eventID: an Administrator routinely grants Lane-scoped
+// access to Events they do not themselves work.
+func (queries *Queries) AdministrationLanes(
+	ctx context.Context,
+	actor auth.Account,
+	eventID int,
+) ([]CrewLane, error) {
+	if !actor.Administrator {
+		return nil, ErrEventAccessDenied
+	}
+	stored, err := queries.storage.LoadAdministrationLanes(ctx, eventID)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]CrewLane, 0, len(stored))
+	for _, lane := range stored {
+		result = append(result, CrewLane{ID: lane.ID, Name: lane.Name, LocationID: lane.LocationID})
+	}
+	return result, nil
+}
+
 // DraftRundown returns current materialized Draft state for an authorized Producer.
 func (queries *Queries) DraftRundown(
 	ctx context.Context,
