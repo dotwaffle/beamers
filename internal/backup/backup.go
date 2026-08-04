@@ -232,9 +232,13 @@ func CreateWithStorage(
 	if err := installArchive(stagedArchive, input.OutputPath, syncDirectory); err != nil {
 		return Manifest{}, err
 	}
-	if err := recordCompletion(input.DataDir, manifest.CreatedAt); err != nil {
-		return Manifest{}, err
-	}
+	// The archive is durable at this point, so the Backup has succeeded
+	// regardless of whether the completion marker below can be written.
+	// recordCompletion is documented as best-effort for exactly this
+	// reason: failing the whole operation here would report the newly
+	// published archive as a failed Backup, and a CLI or browser caller
+	// retrying would then find "backup output already exists" instead.
+	_ = recordCompletion(input.DataDir, manifest.CreatedAt)
 	return manifest, nil
 }
 
@@ -298,9 +302,13 @@ type preflightDiskSpaceInput struct {
 }
 
 // preflightDiskSpace refuses to start a Backup when the filesystem holding
-// its output cannot plausibly hold one. The estimate sums the current
-// database and Attachment Store sizes: Sanitized mode never grows the
-// database, and Store compression is not counted, so this is
+// its output cannot plausibly hold one. CreateWithStorage stages a full
+// database snapshot alongside the archive it streams from that snapshot,
+// and both live in the same directory as OutputPath until installArchive
+// hardlinks the finished archive into place, so peak usage is one
+// database-sized allowance for the snapshot plus a second for the
+// archive's database and Attachment Store entries. Sanitized mode never
+// grows the database, and ZIP compression is not counted, so this is
 // conservative rather than exact.
 func preflightDiskSpace(input preflightDiskSpaceInput) error {
 	var databasePath string
@@ -315,7 +323,7 @@ func preflightDiskSpace(input preflightDiskSpaceInput) error {
 	if err != nil {
 		return err
 	}
-	needed := databaseBytes + attachmentsBytes + backupDiskSpaceMarginBytes
+	needed := 2*databaseBytes + attachmentsBytes + backupDiskSpaceMarginBytes
 	if err := input.RequireFree(filepath.Dir(input.OutputPath), needed); err != nil {
 		return fmt.Errorf("preflight Backup disk space: %w", err)
 	}
