@@ -42,6 +42,15 @@ button[type="button"]:not([class]) {
   color: var(--danger-ink);
 }
 
+/* Commit marks the point of no casual return -- Publish, Activate -- without
+ * borrowing the destructive tone (nothing is being destroyed) or the routine
+ * accent every other submit button already carries. */
+.btn-commit {
+  background: var(--success);
+  border-color: var(--success);
+  color: var(--success-ink);
+}
+
 /* Take commits Preview to Program Output. It is the loudest control Beamers
  * has, and it is deliberately the only one that uses the live color. */
 .btn-take,
@@ -298,6 +307,16 @@ button[disabled] {
   background: #4c1320;
   border-inline-start: var(--signal-bar) solid var(--danger);
   color: #fff0f2;
+  padding: var(--space-3);
+}
+
+/* Success pairs with .error: a filled signal bar for a completed action,
+ * announced through role="status" rather than the interrupting role="alert"
+ * a failure uses. */
+.success {
+  background: #0d3320;
+  border-inline-start: var(--signal-bar) solid var(--success);
+  color: #eafff1;
   padding: var(--space-3);
 }
 
