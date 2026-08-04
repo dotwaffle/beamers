@@ -316,10 +316,16 @@ func account(found store.AccountCredential) Account {
 
 // Context adds the Account's authenticated authorization facts for Ent privacy.
 func (account Account) Context(ctx context.Context) context.Context {
-	return viewer.NewContext(ctx, viewer.Identity{
+	return viewer.NewContext(ctx, account.Identity())
+}
+
+// Identity projects the Account onto the viewer vocabulary the authz package
+// judges Capabilities against.
+func (account Account) Identity() viewer.Identity {
+	return viewer.Identity{
 		AccountID: account.ID, Administrator: account.Administrator,
 		EventRoles: account.EventRoles, EventScopes: account.EventScopes,
-	})
+	}
 }
 
 // CanProduceEvent reports whether the Account has explicit Producer authority.
@@ -335,8 +341,5 @@ func (account Account) CanOperateEvent(eventID int) bool {
 
 // HasCapability reports role-default or explicitly granted Event authority.
 func (account Account) HasCapability(eventID int, capability viewer.Capability) bool {
-	return viewer.Identity{
-		AccountID: account.ID, Administrator: account.Administrator,
-		EventRoles: account.EventRoles, EventScopes: account.EventScopes,
-	}.HasCapability(eventID, capability)
+	return account.Identity().HasCapability(eventID, capability)
 }
