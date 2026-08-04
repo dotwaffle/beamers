@@ -94,7 +94,8 @@ func (service *Service) FirePrizegivingResultsCue(
 		TargetID:       strconv.Itoa(input.CeremonySessionID),
 		Now:            service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[Publication]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[Publication]{
 		Storage:  service.storage,
 		Identity: identity,
 		Authorization: command.Authorization{
@@ -155,7 +156,8 @@ func (service *Service) ReleaseStandaloneResults(
 		TargetID:       strconv.Itoa(input.CompetitionSessionID),
 		Now:            service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[Publication]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[Publication]{
 		Storage:  service.storage,
 		Identity: identity,
 		Authorization: command.Authorization{
@@ -312,7 +314,8 @@ func (service *Service) ReleaseStandaloneEventAwards(
 		TargetID:       strconv.Itoa(input.EventID),
 		Now:            service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[Publication]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[Publication]{
 		Storage:  service.storage,
 		Identity: identity,
 		Authorization: command.Authorization{

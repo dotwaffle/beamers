@@ -17,6 +17,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/events"
 	"github.com/dotwaffle/beamers/internal/rundown"
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
@@ -320,10 +321,10 @@ func TestOversizeImportRejectionIsAuditedAndReplayable(t *testing.T) {
 func publishedSourceEvent(t *testing.T) (*store.SQLite, auth.Account, int) {
 	t.Helper()
 	dataDir := t.TempDir()
-	if err := store.Initialize(t.Context(), dataDir); err != nil {
+	if err := store.Initialize(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir); err != nil {
 		t.Fatalf("initialize storage: %v", err)
 	}
-	storage, err := store.Open(t.Context(), dataDir)
+	storage, err := store.Open(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir)
 	if err != nil {
 		t.Fatalf("open storage: %v", err)
 	}
@@ -334,10 +335,10 @@ func publishedSourceEvent(t *testing.T) (*store.SQLite, auth.Account, int) {
 	})
 	now := time.Date(2026, 8, 1, 10, 0, 0, 0, time.UTC)
 	bootstrapHash := strings.Repeat("b", 64)
-	if err = storage.IssueBootstrap(t.Context(), bootstrapHash, now, now.Add(time.Hour)); err != nil {
+	if err = storage.IssueBootstrap(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), bootstrapHash, now, now.Add(time.Hour)); err != nil {
 		t.Fatalf("issue bootstrap: %v", err)
 	}
-	account, err := storage.BootstrapAdministrator(t.Context(), store.BootstrapAdministratorParams{
+	account, err := storage.BootstrapAdministrator(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), store.BootstrapAdministratorParams{
 		BootstrapHash: bootstrapHash,
 		Name:          "Producer", NormalizedName: "producer", PasswordHash: "test-password-hash",
 		SessionHash: strings.Repeat("s", 64), Now: now, SessionExpiry: now.Add(time.Hour),

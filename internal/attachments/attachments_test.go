@@ -17,6 +17,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/auth"
 	"github.com/dotwaffle/beamers/internal/store"
 	"github.com/dotwaffle/beamers/internal/store/storetest"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 )
 
 func TestReadVersionRequiresEventGrantForAdministrator(t *testing.T) {
@@ -39,7 +40,7 @@ func TestStoreVersionReclaimsRepeatedMaximumSizeFailures(t *testing.T) {
 	}
 	for attempt := range 3 {
 		_, err := service.storeVersion(
-			t.Context(),
+			systemactor.NewContext(t.Context(), systemactor.HostMaintenance),
 			authorization,
 			"failed-upload-"+string(rune('a'+attempt)),
 			"slides",
@@ -61,7 +62,7 @@ func TestStoreVersionReclaimsRepeatedMaximumSizeFailures(t *testing.T) {
 
 func TestNewReconcilesUnreferencedAttachmentFiles(t *testing.T) {
 	dataDir := filepath.Join(t.TempDir(), "data")
-	if err := store.Initialize(t.Context(), dataDir); err != nil {
+	if err := store.Initialize(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir); err != nil {
 		t.Fatalf("initialize storage: %v", err)
 	}
 	root := filepath.Join(t.TempDir(), "attachments")
@@ -83,7 +84,7 @@ func TestNewReconcilesUnreferencedAttachmentFiles(t *testing.T) {
 	); err != nil {
 		t.Fatalf("seed referenced Attachment: %v", err)
 	}
-	storage, err := store.Open(t.Context(), dataDir)
+	storage, err := store.Open(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir)
 	if err != nil {
 		t.Fatalf("open storage: %v", err)
 	}
@@ -112,10 +113,10 @@ func TestNewReconcilesUnreferencedAttachmentFiles(t *testing.T) {
 func newAttachmentTestService(t *testing.T) *Service {
 	t.Helper()
 	dataDir := filepath.Join(t.TempDir(), "data")
-	if err := store.Initialize(t.Context(), dataDir); err != nil {
+	if err := store.Initialize(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir); err != nil {
 		t.Fatalf("initialize storage: %v", err)
 	}
-	storage, err := store.Open(t.Context(), dataDir)
+	storage, err := store.Open(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir)
 	if err != nil {
 		t.Fatalf("open storage: %v", err)
 	}

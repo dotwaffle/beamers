@@ -15,7 +15,7 @@ import (
 func TestCompetitionEntryReplayDeferAndResolution(t *testing.T) {
 	client := openEntTestClient(t)
 	installation := &SQLite{client: client}
-	fixtureContext := systemContext(t.Context())
+	fixtureContext := hostMaintenanceContext(t.Context())
 	event := createSchemaTestEvent(t, client)
 	client.Installation.Create().SetActiveEventID(event.ID).SaveX(fixtureContext)
 	competition := client.Session.Create().
@@ -53,10 +53,10 @@ func TestCompetitionEntryReplayDeferAndResolution(t *testing.T) {
 		SetActualStart(now).
 		SetSnapshotJSON(`{"type":"Competition"}`).
 		SaveX(fixtureContext)
-	producerContext := viewer.NewContext(t.Context(), viewer.Identity{
+	producerContext := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID: 1, EventRoles: map[int]viewer.Role{event.ID: viewer.Producer},
 	})
-	operatorContext := viewer.NewContext(t.Context(), viewer.Identity{
+	operatorContext := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID: 2, EventRoles: map[int]viewer.Role{event.ID: viewer.Operator},
 		EventScopes: map[int]viewer.EventScope{
 			event.ID: {LaneIDs: map[int]struct{}{lane.ID: {}}},
@@ -237,7 +237,7 @@ func TestCompetitionEntryReplayDeferAndResolution(t *testing.T) {
 	if !resolved.ResultsReady || !resolved.ReleaseReady {
 		t.Fatalf("resolved readiness = results %v, release %v", resolved.ResultsReady, resolved.ReleaseReady)
 	}
-	public, err := installation.LoadPublicSchedule(t.Context())
+	public, err := installation.LoadPublicSchedule(hostMaintenanceContext(t.Context()))
 	if err != nil {
 		t.Fatalf("load public Competition resolution: %v", err)
 	}

@@ -72,8 +72,7 @@ func loadCSVImportState(
 	sessions *ent.SessionClient,
 	runs *ent.SessionRunClient,
 ) (CSVImportState, error) {
-	internalContext := systemContext(ctx)
-	foundEvent, err := events.Query().Where(event.IDEQ(eventID)).Only(internalContext)
+	foundEvent, err := events.Query().Where(event.IDEQ(eventID)).Only(ctx)
 	if ent.IsNotFound(err) {
 		return CSVImportState{}, ErrEventNotFound
 	}
@@ -87,7 +86,7 @@ func loadCSVImportState(
 		Sessions:         make(map[string]CSVImportSession),
 		LaneIDs:          make(map[string][]int), LocationIDs: make(map[string][]int), TrackIDs: make(map[string][]int),
 	}
-	foundRundown, err := rundowns.Query().Where(rundown.EventIDEQ(eventID)).Only(internalContext)
+	foundRundown, err := rundowns.Query().Where(rundown.EventIDEQ(eventID)).Only(ctx)
 	if err == nil {
 		state.DraftRevision = foundRundown.DraftRevision
 	} else if !ent.IsNotFound(err) {
@@ -97,32 +96,32 @@ func loadCSVImportState(
 		importreference.EventIDEQ(eventID),
 		importreference.SourceFormatEQ(sourceFormat),
 		importreference.RecordTypeEQ(importreference.RecordTypeSession),
-	).All(internalContext)
+	).All(ctx)
 	if err != nil {
 		return CSVImportState{}, opaqueError("load Schedule Import References", err)
 	}
 	for _, reference := range storedReferences {
-		identity, queryErr := sessions.Get(internalContext, reference.TargetID)
+		identity, queryErr := sessions.Get(ctx, reference.TargetID)
 		if queryErr != nil {
 			return CSVImportState{}, opaqueError("load Schedule Import Reference target", queryErr)
 		}
-		draft, queryErr := identity.QueryDraft().Only(internalContext)
+		draft, queryErr := identity.QueryDraft().Only(ctx)
 		if queryErr != nil {
 			return CSVImportState{}, opaqueError("load Schedule Import Session Draft", queryErr)
 		}
-		laneIDs, queryErr := draft.QueryLanes().IDs(internalContext)
+		laneIDs, queryErr := draft.QueryLanes().IDs(ctx)
 		if queryErr != nil {
 			return CSVImportState{}, opaqueError("load Schedule Import Session Lanes", queryErr)
 		}
-		locationIDs, queryErr := draft.QueryLocations().IDs(internalContext)
+		locationIDs, queryErr := draft.QueryLocations().IDs(ctx)
 		if queryErr != nil {
 			return CSVImportState{}, opaqueError("load Schedule Import Session Locations", queryErr)
 		}
-		trackIDs, queryErr := draft.QueryTracks().IDs(internalContext)
+		trackIDs, queryErr := draft.QueryTracks().IDs(ctx)
 		if queryErr != nil {
 			return CSVImportState{}, opaqueError("load Schedule Import Session Tracks", queryErr)
 		}
-		hasRuns, queryErr := runs.Query().Where(sessionrun.SessionIDEQ(identity.ID)).Exist(internalContext)
+		hasRuns, queryErr := runs.Query().Where(sessionrun.SessionIDEQ(identity.ID)).Exist(ctx)
 		if queryErr != nil {
 			return CSVImportState{}, opaqueError("load Schedule Import Session Run state", queryErr)
 		}
@@ -139,36 +138,36 @@ func loadCSVImportState(
 			},
 		}
 	}
-	storedLanes, err := lanes.Query().Where(lane.EventIDEQ(eventID)).All(internalContext)
+	storedLanes, err := lanes.Query().Where(lane.EventIDEQ(eventID)).All(ctx)
 	if err != nil {
 		return CSVImportState{}, opaqueError("load Schedule Import Lanes", err)
 	}
 	for _, identity := range storedLanes {
-		draft, queryErr := identity.QueryDraft().Only(internalContext)
+		draft, queryErr := identity.QueryDraft().Only(ctx)
 		if queryErr == nil {
 			state.LaneIDs[draft.Name] = append(state.LaneIDs[draft.Name], identity.ID)
 		} else if !ent.IsNotFound(queryErr) {
 			return CSVImportState{}, opaqueError("load Schedule Import Lane Draft", queryErr)
 		}
 	}
-	storedLocations, err := locations.Query().Where(location.EventIDEQ(eventID)).All(internalContext)
+	storedLocations, err := locations.Query().Where(location.EventIDEQ(eventID)).All(ctx)
 	if err != nil {
 		return CSVImportState{}, opaqueError("load Schedule Import Locations", err)
 	}
 	for _, identity := range storedLocations {
-		draft, queryErr := identity.QueryDraft().Only(internalContext)
+		draft, queryErr := identity.QueryDraft().Only(ctx)
 		if queryErr == nil {
 			state.LocationIDs[draft.Name] = append(state.LocationIDs[draft.Name], identity.ID)
 		} else if !ent.IsNotFound(queryErr) {
 			return CSVImportState{}, opaqueError("load Schedule Import Location Draft", queryErr)
 		}
 	}
-	storedTracks, err := tracks.Query().Where(track.EventIDEQ(eventID)).All(internalContext)
+	storedTracks, err := tracks.Query().Where(track.EventIDEQ(eventID)).All(ctx)
 	if err != nil {
 		return CSVImportState{}, opaqueError("load Schedule Import Tracks", err)
 	}
 	for _, identity := range storedTracks {
-		draft, queryErr := identity.QueryDraft().Only(internalContext)
+		draft, queryErr := identity.QueryDraft().Only(ctx)
 		if queryErr == nil {
 			state.TrackIDs[draft.Name] = append(state.TrackIDs[draft.Name], identity.ID)
 		} else if !ent.IsNotFound(queryErr) {
@@ -239,7 +238,6 @@ func (transaction *CommandTx) createImportReferences(
 	if len(createdIDs) != len(externalKeys) {
 		return ErrDraftReference
 	}
-	internalContext := systemContext(ctx)
 	for index, externalKey := range externalKeys {
 		if _, err := transaction.transaction.ImportReference.Create().
 			SetEventID(eventID).
@@ -249,7 +247,7 @@ func (transaction *CommandTx) createImportReferences(
 			SetTargetType("Session").
 			SetTargetID(createdIDs[index]).
 			SetCreatedAt(now).
-			Save(internalContext); err != nil {
+			Save(ctx); err != nil {
 			return opaqueError("create Schedule Import Reference", err)
 		}
 	}

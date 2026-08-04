@@ -25,10 +25,10 @@ func TestLoadProgramChannelAtDoesNotQueueBehindTheWriter(t *testing.T) {
 		t, installationStore.client, event.ID,
 		sessionpublishedversion.TypeCompetition, "Queue Guard Competition",
 	)
-	producerContext := viewer.NewContext(t.Context(), viewer.Identity{
+	producerContext := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID: 1, EventRoles: map[int]viewer.Role{event.ID: viewer.Producer},
 	})
-	busy, err := installationStore.client.Tx(systemContext(t.Context()))
+	busy, err := installationStore.client.Tx(hostMaintenanceContext(t.Context()))
 	if err != nil {
 		t.Fatalf("occupy writer connection: %v", err)
 	}
@@ -47,7 +47,7 @@ func TestLoadProgramChannelAtDoesNotQueueBehindTheWriter(t *testing.T) {
 func TestTakeProgramItemCommitsOutputAndEntryLockTogether(t *testing.T) {
 	client := openEntTestClient(t)
 	installation := &SQLite{client: client}
-	fixtureContext := systemContext(t.Context())
+	fixtureContext := hostMaintenanceContext(t.Context())
 	event := createSchemaTestEvent(t, client)
 	client.Installation.Create().SetActiveEventID(event.ID).SaveX(fixtureContext)
 	competition := client.Session.Create().
@@ -80,7 +80,7 @@ func TestTakeProgramItemCommitsOutputAndEntryLockTogether(t *testing.T) {
 		SetActualStart(time.Date(2026, 8, 21, 12, 1, 0, 0, time.UTC)).
 		SetSnapshotJSON(`{"type":"Competition"}`).
 		SaveX(fixtureContext)
-	producerContext := viewer.NewContext(t.Context(), viewer.Identity{
+	producerContext := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID: 1, EventRoles: map[int]viewer.Role{event.ID: viewer.Producer},
 	})
 	channel, err := installation.LoadProgramChannel(producerContext, event.ID, competition.ID)
@@ -140,7 +140,7 @@ func TestTakeProgramItemCommitsOutputAndEntryLockTogether(t *testing.T) {
 func TestTakePrizegivingResultCommitsUnrevealedProgramOutput(t *testing.T) {
 	client := openEntTestClient(t)
 	installation := &SQLite{client: client}
-	fixtureContext := systemContext(t.Context())
+	fixtureContext := hostMaintenanceContext(t.Context())
 	event := createSchemaTestEvent(t, client)
 	client.Installation.Create().SetActiveEventID(event.ID).SaveX(fixtureContext)
 	ceremony := createPublishedResultsSession(
@@ -163,7 +163,7 @@ func TestTakePrizegivingResultCommitsUnrevealedProgramOutput(t *testing.T) {
 		sessionpublishedversion.TypeCompetition,
 		"Final",
 	)
-	producerContext := viewer.NewContext(t.Context(), viewer.Identity{
+	producerContext := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID: 1, EventRoles: map[int]viewer.Role{event.ID: viewer.Producer},
 	})
 	draftTransaction, err := installation.BeginCommand(producerContext)
@@ -476,7 +476,7 @@ func TestProgramCompetitionResultsOmitsUnreleasedAndCrewOnlyData(t *testing.T) {
 func TestUnlockedPrizegivingCannotEnd(t *testing.T) {
 	client := openEntTestClient(t)
 	installation := &SQLite{client: client}
-	fixtureContext := systemContext(t.Context())
+	fixtureContext := hostMaintenanceContext(t.Context())
 	event := createSchemaTestEvent(t, client)
 	client.Installation.Create().SetActiveEventID(event.ID).SaveX(fixtureContext)
 	ceremony := createPublishedResultsSession(
@@ -503,7 +503,7 @@ func TestUnlockedPrizegivingCannotEnd(t *testing.T) {
 		}}).
 		SetCreatedByAccountID(1).
 		SaveX(fixtureContext)
-	producerContext := viewer.NewContext(t.Context(), viewer.Identity{
+	producerContext := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID: 1, EventRoles: map[int]viewer.Role{event.ID: viewer.Producer},
 	})
 	command := beginCommand(t, installation, producerContext)

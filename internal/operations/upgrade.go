@@ -17,6 +17,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/backup"
 	"github.com/dotwaffle/beamers/internal/diskspace"
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 )
 
 const upgradeJournalVersion = 1
@@ -85,6 +86,7 @@ func PrepareUpgrade(
 	ctx context.Context,
 	config OpenConfig,
 ) (_ *Upgrade, returnErr error) {
+	ctx = systemactor.NewContext(ctx, systemactor.Migration)
 	if config.DataDir == "" {
 		return nil, errors.New("upgrade data directory is required")
 	}
@@ -172,6 +174,7 @@ func (upgrade *Upgrade) Apply(
 	ctx context.Context,
 	approval UpgradeApproval,
 ) (result UpgradeResult, returnErr error) {
+	ctx = systemactor.NewContext(ctx, systemactor.Migration)
 	if upgrade == nil || upgrade.source == nil {
 		return UpgradeResult{}, errors.New("prepared upgrade is required")
 	}

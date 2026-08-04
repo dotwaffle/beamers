@@ -73,8 +73,9 @@ func ValidColumn(column string) bool {
 //
 //	import _ "github.com/dotwaffle/beamers/ent/runtime"
 var (
-	Hooks  [1]ent.Hook
-	Policy ent.Policy
+	Hooks        [2]ent.Hook
+	Interceptors [1]ent.Interceptor
+	Policy       ent.Policy
 	// CredentialIDValidator is a validator for the "credential_id" field. It is called by the builders before save.
 	CredentialIDValidator func([]byte) error
 	// NameValidator is a validator for the "name" field. It is called by the builders before save.

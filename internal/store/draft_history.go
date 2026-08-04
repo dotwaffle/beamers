@@ -47,14 +47,13 @@ func (transaction *CommandTx) changeDraftHistory(ctx context.Context, params Dra
 	if err != nil {
 		return EditDraftResult{}, opaqueError("load Rundown history revision", err)
 	}
-	internalContext := systemContext(ctx)
 	query := transaction.transaction.DraftChange.Query().Where(
 		draftchange.EventIDEQ(params.EventID), draftchange.IDIn(params.ChangeIDs...),
 	)
 	if !revert {
 		query = query.Where(draftchange.StatusEQ(draftchange.StatusEffective))
 	}
-	changes, err := query.Order(ent.Asc(draftchange.FieldID)).All(internalContext)
+	changes, err := query.Order(ent.Asc(draftchange.FieldID)).All(ctx)
 	if err != nil {
 		return EditDraftResult{}, opaqueError("load Draft history changes", err)
 	}
@@ -72,7 +71,7 @@ func (transaction *CommandTx) changeDraftHistory(ctx context.Context, params Dra
 	}
 	_ = updated
 	edit, err := transaction.transaction.DraftEdit.Create().SetEventID(params.EventID).
-		SetActorAccountID(params.ActorAccountID).SetRevision(nextRevision).SetCreatedAt(params.Now).Save(internalContext)
+		SetActorAccountID(params.ActorAccountID).SetRevision(nextRevision).SetCreatedAt(params.Now).Save(ctx)
 	if err != nil {
 		return EditDraftResult{}, opaqueError("record Draft history edit", err)
 	}
@@ -85,7 +84,7 @@ func (transaction *CommandTx) changeDraftHistory(ctx context.Context, params Dra
 		if err = json.Unmarshal([]byte(change.PayloadJSON), &evidence); err != nil || len(evidence.Before) == 0 || string(evidence.Before) == "null" {
 			return EditDraftResult{}, errors.New("draft change has no reversible fact evidence")
 		}
-		currentFact, currentErr := transaction.currentDraftFact(internalContext, change)
+		currentFact, currentErr := transaction.currentDraftFact(ctx, change)
 		if currentErr != nil {
 			return EditDraftResult{}, currentErr
 		}
@@ -93,33 +92,33 @@ func (transaction *CommandTx) changeDraftHistory(ctx context.Context, params Dra
 			return EditDraftResult{}, applyErr
 		}
 		if !revert {
-			changed, updateErr := transaction.transaction.DraftChange.UpdateOne(change).SetStatus(draftchange.StatusDiscarded).Save(internalContext)
+			changed, updateErr := transaction.transaction.DraftChange.UpdateOne(change).SetStatus(draftchange.StatusDiscarded).Save(ctx)
 			if updateErr != nil {
 				return EditDraftResult{}, opaqueError("mark Draft change Discarded", updateErr)
 			}
-			if reactivateErr := transaction.reactivateSupersededDraftFact(internalContext, change); reactivateErr != nil {
+			if reactivateErr := transaction.reactivateSupersededDraftFact(ctx, change); reactivateErr != nil {
 				return EditDraftResult{}, reactivateErr
 			}
 			result.Changes = append(result.Changes, draftChangeResult(changed))
 			continue
 		}
-		inverse, inverseErr := transaction.recordNamedFactChange(internalContext, EditDraftParams{
+		inverse, inverseErr := transaction.recordNamedFactChange(ctx, EditDraftParams{
 			EventID: params.EventID, ActorAccountID: params.ActorAccountID, Now: params.Now,
 		}, edit.ID, nextRevision, "Revert"+change.TargetType, change.TargetType, change.TargetID, change.FactKey,
 			currentFact, evidence.Before)
 		if inverseErr != nil {
 			return EditDraftResult{}, inverseErr
 		}
-		if dependencyErr := transaction.restoreMembershipDependency(internalContext, inverse, evidence.Before); dependencyErr != nil {
+		if dependencyErr := transaction.restoreMembershipDependency(ctx, inverse, evidence.Before); dependencyErr != nil {
 			return EditDraftResult{}, dependencyErr
 		}
-		baseline, baselineErr := transaction.publishedDraftFact(internalContext, change)
+		baseline, baselineErr := transaction.publishedDraftFact(ctx, change)
 		if baselineErr != nil {
 			return EditDraftResult{}, baselineErr
 		}
 		if len(baseline) > 0 && bytes.Equal(baseline, evidence.Before) {
 			inverse, inverseErr = transaction.transaction.DraftChange.UpdateOne(inverse).
-				SetStatus(draftchange.StatusReverted).Save(internalContext)
+				SetStatus(draftchange.StatusReverted).Save(ctx)
 			if inverseErr != nil {
 				return EditDraftResult{}, opaqueError("mark baseline Draft Revert", inverseErr)
 			}
@@ -195,7 +194,7 @@ func (transaction *CommandTx) reactivateSupersededDraftFact(ctx context.Context,
 
 func (transaction *CommandTx) publishedDraftFact(ctx context.Context, selected *ent.DraftChange) (json.RawMessage, error) {
 	if selected.TargetType == draftTargetSession {
-		identity, identityErr := transaction.transaction.Session.Get(systemContext(ctx), selected.TargetID)
+		identity, identityErr := transaction.transaction.Session.Get(ctx, selected.TargetID)
 		if identityErr != nil && !ent.IsNotFound(identityErr) {
 			return nil, opaqueError("load corrected Session Draft baseline", identityErr)
 		}

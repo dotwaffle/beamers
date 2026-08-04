@@ -94,7 +94,7 @@ type DisplayOverrideTarget struct {
 func (installationStore *SQLite) DegradedEmergencyIDFloor(ctx context.Context) (int, error) {
 	found, err := installationStore.client.DisplayOverride.Query().
 		Order(ent.Desc(displayoverride.FieldID)).
-		First(systemContext(ctx))
+		First(ctx)
 	if ent.IsNotFound(err) {
 		return degradedEmergencyIDFloor, nil
 	}
@@ -260,7 +260,7 @@ func (installationStore *SQLite) ListActiveDisplayOverrides(
 			),
 		).
 		Order(ent.Desc(displayoverride.FieldCreatedAt), ent.Desc(displayoverride.FieldID)).
-		All(systemContext(ctx))
+		All(ctx)
 	if err != nil {
 		return nil, opaqueError("list active Display Overrides", err)
 	}
@@ -273,7 +273,7 @@ func (installationStore *SQLite) ListActiveDisplayOverrides(
 		kind := DisplayOverrideKind(item.Kind.String())
 		if kind == DisplayOverrideUrgentNotice || kind == DisplayOverrideEmergencyAlert {
 			targets, targetErr := resolveOverrideTargets(
-				systemContext(ctx), installationStore.client, eventID, projected.Target,
+				ctx, installationStore.client, eventID, projected.Target,
 			)
 			if targetErr != nil {
 				return nil, targetErr
@@ -339,7 +339,7 @@ func (installationStore *SQLite) PreviewPriorityOverride(
 		return DisplayOverridePreview{}, ErrDisplayOverrideScope
 	}
 	targets, err := resolveOverrideTargets(
-		systemContext(ctx), installationStore.client, params.EventID, params.Target,
+		ctx, installationStore.client, params.EventID, params.Target,
 	)
 	if err != nil {
 		return DisplayOverridePreview{}, err
@@ -380,17 +380,16 @@ func (installationStore *SQLite) activeOverrideEvent(
 	ctx context.Context,
 	eventID int,
 ) (*ent.Event, error) {
-	internalContext := systemContext(ctx)
 	active, err := installationStore.client.Installation.Query().
 		Where(installation.ActiveEventIDEQ(eventID)).
-		Exist(internalContext)
+		Exist(ctx)
 	if err != nil {
 		return nil, opaqueError("load active Display Override Event", err)
 	}
 	if !active {
 		return nil, ErrEventNotActive
 	}
-	found, err := installationStore.client.Event.Get(internalContext, eventID)
+	found, err := installationStore.client.Event.Get(ctx, eventID)
 	if ent.IsNotFound(err) {
 		return nil, ErrDisplayOverrideNotFound
 	}
@@ -415,7 +414,7 @@ func (installationStore *SQLite) previewDisplayOverride(
 	assignments, err := installationStore.client.DisplayAssignment.Query().
 		Where(displayassignment.EventIDEQ(eventID)).
 		WithDisplay().
-		All(systemContext(ctx))
+		All(ctx)
 	if err != nil {
 		return DisplayOverridePreview{}, opaqueError("resolve Display Override preview", err)
 	}
@@ -617,7 +616,7 @@ func (transaction *CommandTx) ActivateStageMessage(
 		return DisplayOverride{}, ErrDisplayOverrideScope
 	}
 	return transaction.activateDisplayOverride(
-		systemContext(ctx),
+		ctx,
 		params.EventID,
 		resolved.TargetGroupKey,
 		DisplayOverrideStageMessage,
@@ -647,7 +646,7 @@ func (transaction *CommandTx) ActivateTechnicalDifficulties(
 		return DisplayOverride{}, ErrDisplayOverrideScope
 	}
 	return transaction.activateDisplayOverride(
-		systemContext(ctx),
+		ctx,
 		params.EventID,
 		params.TargetGroupKey,
 		DisplayOverrideTechnicalDifficulties,
@@ -679,7 +678,7 @@ func (transaction *CommandTx) ActivatePriorityOverride(
 		return DisplayOverride{}, ErrDisplayOverrideScope
 	}
 	targets, err := resolveOverrideTargets(
-		systemContext(ctx), transaction.transaction.Client(), params.EventID, params.Target,
+		ctx, transaction.transaction.Client(), params.EventID, params.Target,
 	)
 	if err != nil {
 		return DisplayOverride{}, err
@@ -712,7 +711,7 @@ func (transaction *CommandTx) ActivatePriorityOverride(
 	if !params.UntilCleared {
 		create.SetExpiresAt(params.Now.Add(params.Duration))
 	}
-	created, err := create.Save(systemContext(ctx))
+	created, err := create.Save(ctx)
 	if err != nil {
 		return DisplayOverride{}, opaqueError("activate priority Display Override", err)
 	}
@@ -955,13 +954,12 @@ func (transaction *CommandTx) ClearDisplayOverride(
 	now time.Time,
 	confirmedEmergency bool,
 ) (DisplayOverride, error) {
-	internalContext := systemContext(ctx)
 	found, err := transaction.transaction.DisplayOverride.Query().
 		Where(
 			displayoverride.IDEQ(overrideID),
 			displayoverride.EventIDEQ(eventID),
 		).
-		Only(internalContext)
+		Only(ctx)
 	if ent.IsNotFound(err) {
 		return DisplayOverride{}, ErrDisplayOverrideNotFound
 	}
@@ -984,14 +982,14 @@ func (transaction *CommandTx) ClearDisplayOverride(
 	updated, err := found.Update().
 		SetClearedAt(now).
 		AddRevision(1).
-		Save(internalContext)
+		Save(ctx)
 	if err != nil {
 		return DisplayOverride{}, opaqueError("clear Display Override", err)
 	}
 	if DisplayOverrideKind(found.Kind.String()) != DisplayOverrideStageMessage {
 		if _, err = transaction.transaction.DisplayOverrideState.Delete().
 			Where(displayoverridestate.OverrideIDEQ(found.ID)).
-			Exec(internalContext); err != nil {
+			Exec(ctx); err != nil {
 			return DisplayOverride{}, opaqueError("clear current Display Override selections", err)
 		}
 	}
@@ -1031,8 +1029,7 @@ func (transaction *CommandTx) PersistDegradedEmergencyAlert(
 		}
 		return transaction.insertDegradedEmergencyAlert(ctx, outcome)
 	}
-	internalContext := systemContext(ctx)
-	found, err := transaction.transaction.DisplayOverride.Get(internalContext, outcome.ID)
+	found, err := transaction.transaction.DisplayOverride.Get(ctx, outcome.ID)
 	if ent.IsNotFound(err) {
 		return DisplayOverride{}, ErrDisplayOverrideNotFound
 	}
@@ -1048,7 +1045,7 @@ func (transaction *CommandTx) PersistDegradedEmergencyAlert(
 	updated, err := found.Update().
 		SetClearedAt(outcome.ClearedAt).
 		SetRevision(outcome.Revision).
-		Save(internalContext)
+		Save(ctx)
 	if err != nil {
 		return DisplayOverride{}, opaqueError("persist degraded Emergency clear", err)
 	}
@@ -1066,7 +1063,6 @@ func (transaction *CommandTx) insertDegradedEmergencyAlert(
 	ctx context.Context,
 	outcome DisplayOverride,
 ) (DisplayOverride, error) {
-	internalContext := systemContext(ctx)
 	const insert = `
 INSERT INTO display_overrides (
 	id, target_group_key, kind, text, emphasis, preset_key,
@@ -1075,7 +1071,7 @@ INSERT INTO display_overrides (
 	target_type, target_id, presentation
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	if _, err := transaction.transaction.ExecContext(
-		internalContext,
+		ctx,
 		insert,
 		outcome.ID,
 		outcome.TargetGroupKey,
@@ -1096,7 +1092,7 @@ INSERT INTO display_overrides (
 	); err != nil {
 		return DisplayOverride{}, opaqueError("persist degraded Emergency activation", err)
 	}
-	found, err := transaction.transaction.DisplayOverride.Get(internalContext, outcome.ID)
+	found, err := transaction.transaction.DisplayOverride.Get(ctx, outcome.ID)
 	if err != nil {
 		return DisplayOverride{}, opaqueError("load persisted degraded Emergency Alert", err)
 	}
@@ -1115,7 +1111,6 @@ func (transaction *CommandTx) syncDisplayOverridesForAssignment(
 	assignment DisplayAssignment,
 	now time.Time,
 ) error {
-	ctx = systemContext(ctx)
 	for _, kind := range []DisplayOverrideKind{
 		DisplayOverrideStageMessage,
 		DisplayOverrideTechnicalDifficulties,

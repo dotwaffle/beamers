@@ -28,6 +28,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/schedulebaseline"
 	"github.com/dotwaffle/beamers/internal/sessioncontrol"
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 	"github.com/dotwaffle/beamers/internal/themes"
 	"github.com/dotwaffle/beamers/internal/voting"
 )
@@ -104,6 +105,7 @@ func Initialize(ctx context.Context, dataDir string) error {
 
 // InitializeWithConfig creates an installation only when all configured roots are unused.
 func InitializeWithConfig(ctx context.Context, config OpenConfig) (returnErr error) {
+	ctx = systemactor.NewContext(ctx, systemactor.HostMaintenance)
 	if config.DataDir == "" {
 		return store.Initialize(ctx, config.DataDir)
 	}
@@ -160,6 +162,7 @@ func OpenInstallationWithConfig(
 	ctx context.Context,
 	config OpenConfig,
 ) (*Installation, error) {
+	ctx = systemactor.NewContext(ctx, systemactor.HostMaintenance)
 	if config.AttachmentsDir == "" {
 		config.AttachmentsDir = filepath.Join(config.DataDir, "attachments")
 	}
@@ -379,7 +382,9 @@ func (installation *Installation) CreateBackup(
 	ctx context.Context,
 	input backup.CreateInput,
 ) (backup.Manifest, error) {
-	return backup.CreateWithStorage(ctx, installation.storage, input)
+	return backup.CreateWithStorage(
+		systemactor.NewContext(ctx, systemactor.Backup), installation.storage, input,
+	)
 }
 
 // IssueAdministratorBootstrap creates a short-lived credential while holding
@@ -388,6 +393,7 @@ func IssueAdministratorBootstrap(
 	ctx context.Context,
 	dataDir string,
 ) (token string, returnErr error) {
+	ctx = systemactor.NewContext(ctx, systemactor.HostMaintenance)
 	releaseAccess, err := store.HoldExclusiveAccess(dataDir)
 	if err != nil {
 		return "", err
@@ -424,6 +430,7 @@ func (installation *Installation) RecordInterfaceModes(
 	insecureCrew bool,
 	insecureDisplay bool,
 ) error {
+	ctx = systemactor.NewContext(ctx, systemactor.HostMaintenance)
 	if err := installation.storage.RecordHostInterfaceMode(ctx, "Crew", insecureCrew); err != nil {
 		return err
 	}
@@ -432,16 +439,19 @@ func (installation *Installation) RecordInterfaceModes(
 
 // Ready reports whether storage is usable and on the supported schema.
 func (installation *Installation) Ready(ctx context.Context) error {
+	ctx = systemactor.NewContext(ctx, systemactor.HostMaintenance)
 	return installation.storage.Ready(ctx)
 }
 
 // Capacity returns durable counts used for operational warnings.
 func (installation *Installation) Capacity(ctx context.Context) (Capacity, error) {
+	ctx = systemactor.NewContext(ctx, systemactor.HostMaintenance)
 	return installation.storage.Capacity(ctx)
 }
 
 // Recover persists process-owned degraded state after storage becomes writable.
 func (installation *Installation) Recover(ctx context.Context) (bool, error) {
+	ctx = systemactor.NewContext(ctx, systemactor.HostMaintenance)
 	if installation.overrides == nil {
 		return false, nil
 	}

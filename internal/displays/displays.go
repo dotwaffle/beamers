@@ -30,6 +30,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/publictime"
 	"github.com/dotwaffle/beamers/internal/stagetimer"
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 	"github.com/dotwaffle/beamers/internal/themevalue"
 )
 
@@ -383,6 +384,7 @@ func (service *Service) Authenticate(ctx context.Context, credential string) err
 	if !validDisplayToken(credential) {
 		return ErrDisplayAuthentication
 	}
+	ctx = systemactor.NewContext(ctx, systemactor.Display)
 	if _, err := service.storage.FindDisplayByCredential(ctx, digest(credential)); err != nil {
 		if errors.Is(err, store.ErrDisplayCredential) {
 			return ErrDisplayAuthentication
@@ -397,6 +399,7 @@ func (service *Service) Current(ctx context.Context, credential string) (Snapsho
 	if !validDisplayToken(credential) {
 		return Snapshot{}, ErrDisplayAuthentication
 	}
+	ctx = systemactor.NewContext(ctx, systemactor.Display)
 	now := service.now().UTC()
 	credentialHash := digest(credential)
 	found, err := service.storage.LoadDisplaySnapshot(ctx, credentialHash, now)
@@ -653,6 +656,7 @@ func (service *Service) Acknowledge(
 	if !validDisplayToken(credential) {
 		return Acknowledgment{}, ErrDisplayAuthentication
 	}
+	ctx = systemactor.NewContext(ctx, systemactor.Display)
 	if input.ProtocolVersion != protocolVersion ||
 		input.AssetVersion != AssetVersion() ||
 		input.StreamID == "" ||
@@ -767,7 +771,8 @@ func (service *Service) Assign(
 		Action: "AssignDisplay", TargetType: "Display",
 		TargetID: strconv.Itoa(input.DisplayID), Now: service.now().UTC(),
 	}
-	result, err := command.Execute(actor.Context(ctx), command.Plan[Assignment]{
+	ctx = actor.Context(ctx)
+	result, err := command.Execute(ctx, command.Plan[Assignment]{
 		Storage: service.storage, Identity: identity, Notify: service.notifyDisplays,
 		Authorization: command.Authorization{
 			Facts: authz.Installation(), Refusals: displayRejections,
@@ -829,7 +834,8 @@ func (service *Service) ClaimEnrollment(
 		Action:      "EnrollDisplay",
 		TargetType:  "Display", TargetID: targetID, Now: service.now().UTC(),
 	}
-	result, err := command.Execute(actor.Context(ctx), command.Plan[Display]{
+	ctx = actor.Context(ctx)
+	result, err := command.Execute(ctx, command.Plan[Display]{
 		Storage: service.storage, Identity: identity, Notify: service.notifyDisplays,
 		Authorization: command.Authorization{
 			Facts: authz.Installation(), Refusals: displayRejections,
@@ -878,6 +884,7 @@ func (service *Service) EnrollmentForBrowser(
 	code string,
 	credential string,
 ) (Enrollment, error) {
+	ctx = systemactor.NewContext(ctx, systemactor.Display)
 	now := service.now().UTC()
 	if validEnrollmentCode(code) && validDisplayToken(credential) {
 		expiresAt, pending, err := service.storage.PendingDisplayEnrollment(

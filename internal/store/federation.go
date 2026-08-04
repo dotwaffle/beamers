@@ -31,7 +31,6 @@ func (transaction *CommandTx) LinkFederatedIdentity(
 	subject string,
 	now time.Time,
 ) (FederatedIdentity, error) {
-	ctx = systemContext(ctx)
 	if _, err := transaction.transaction.Account.Query().
 		Where(account.IDEQ(accountID), account.DisabledAtIsNil()).
 		Only(ctx); err != nil {
@@ -86,7 +85,7 @@ func (installation *SQLite) ListFederatedIdentities(
 			ent.Asc(federatedidentity.FieldCreatedAt),
 			ent.Asc(federatedidentity.FieldID),
 		).
-		All(systemContext(ctx))
+		All(ctx)
 	if err != nil {
 		return nil, opaqueError("list Federated Identities", err)
 	}
@@ -102,7 +101,6 @@ func (installation *SQLite) CreateFederatedSession(
 	ctx context.Context,
 	params FederatedSessionParams,
 ) (AccountCredential, []string, bool, error) {
-	ctx = systemContext(ctx)
 	result, err := withTx(ctx, installation.client, "federated sign-in", func(transaction *ent.Tx) (federatedSessionResult, error) {
 		return createFederatedSession(ctx, transaction, params)
 	})

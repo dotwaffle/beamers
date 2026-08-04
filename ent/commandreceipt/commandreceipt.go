@@ -80,8 +80,9 @@ func ValidColumn(column string) bool {
 //
 //	import _ "github.com/dotwaffle/beamers/ent/runtime"
 var (
-	Hooks  [1]ent.Hook
-	Policy ent.Policy
+	Hooks        [2]ent.Hook
+	Interceptors [1]ent.Interceptor
+	Policy       ent.Policy
 	// CommandIDValidator is a validator for the "command_id" field. It is called by the builders before save.
 	CommandIDValidator func(string) error
 	// PayloadHashValidator is a validator for the "payload_hash" field. It is called by the builders before save.

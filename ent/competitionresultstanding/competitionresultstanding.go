@@ -103,8 +103,9 @@ func ValidColumn(column string) bool {
 //
 //	import _ "github.com/dotwaffle/beamers/ent/runtime"
 var (
-	Hooks  [1]ent.Hook
-	Policy ent.Policy
+	Hooks        [2]ent.Hook
+	Interceptors [1]ent.Interceptor
+	Policy       ent.Policy
 	// PlacementValidator is a validator for the "placement" field. It is called by the builders before save.
 	PlacementValidator func(int) error
 	// DisplayOrderValidator is a validator for the "display_order" field. It is called by the builders before save.

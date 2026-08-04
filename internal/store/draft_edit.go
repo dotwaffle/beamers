@@ -162,13 +162,12 @@ func (transaction *CommandTx) EditDraft(
 		return EditDraftResult{}, opaqueError("advance Draft revision", err)
 	}
 	_ = updated
-	internalContext := systemContext(ctx)
 	edit, err := transaction.transaction.DraftEdit.Create().
 		SetEventID(params.EventID).
 		SetActorAccountID(params.ActorAccountID).
 		SetRevision(nextRevision).
 		SetCreatedAt(params.Now).
-		Save(internalContext)
+		Save(ctx)
 	if err != nil {
 		return EditDraftResult{}, opaqueError("record Draft Edit", err)
 	}
@@ -180,7 +179,7 @@ func (transaction *CommandTx) EditDraft(
 	result := EditDraftResult{DraftRevision: nextRevision}
 	for _, input := range params.Locations {
 		if input.ID > 0 {
-			changes, updateErr := transaction.updateLocationDraft(ctx, internalContext, params, edit.ID, nextRevision, input)
+			changes, updateErr := transaction.updateLocationDraft(ctx, params, edit.ID, nextRevision, input)
 			if updateErr != nil {
 				return EditDraftResult{}, updateErr
 			}
@@ -201,7 +200,7 @@ func (transaction *CommandTx) EditDraft(
 			return EditDraftResult{}, opaqueError("create Location Draft state", createErr)
 		}
 		change, createErr := transaction.createDraftChange(
-			internalContext, params, edit.ID, nextRevision,
+			ctx, params, edit.ID, nextRevision,
 			"CreateLocation", "Location", created.ID, input,
 		)
 		if createErr != nil {
@@ -213,7 +212,7 @@ func (transaction *CommandTx) EditDraft(
 	}
 	for _, input := range params.Lanes {
 		if input.ID > 0 {
-			changes, updateErr := transaction.updateLaneDraft(ctx, internalContext, params, edit.ID, nextRevision, input, state)
+			changes, updateErr := transaction.updateLaneDraft(ctx, params, edit.ID, nextRevision, input, state)
 			if updateErr != nil {
 				return EditDraftResult{}, updateErr
 			}
@@ -241,14 +240,14 @@ func (transaction *CommandTx) EditDraft(
 			return EditDraftResult{}, opaqueError("create Lane Draft state", createErr)
 		}
 		change, createErr := transaction.createDraftChange(
-			internalContext, params, edit.ID, nextRevision,
+			ctx, params, edit.ID, nextRevision,
 			"CreateLane", "Lane", created.ID, LaneDraftCreate{Name: input.Name, Location: DraftTarget{ID: locationID}},
 		)
 		if createErr != nil {
 			return EditDraftResult{}, createErr
 		}
 		if dependencyID > 0 {
-			if dependencyErr := transaction.createDraftDependency(internalContext, change.ID, dependencyID); dependencyErr != nil {
+			if dependencyErr := transaction.createDraftDependency(ctx, change.ID, dependencyID); dependencyErr != nil {
 				return EditDraftResult{}, dependencyErr
 			}
 		}
@@ -258,7 +257,7 @@ func (transaction *CommandTx) EditDraft(
 	}
 	for _, input := range params.Tracks {
 		if input.ID > 0 {
-			changes, updateErr := transaction.updateTrackDraft(ctx, internalContext, params, edit.ID, nextRevision, input)
+			changes, updateErr := transaction.updateTrackDraft(ctx, params, edit.ID, nextRevision, input)
 			if updateErr != nil {
 				return EditDraftResult{}, updateErr
 			}
@@ -279,7 +278,7 @@ func (transaction *CommandTx) EditDraft(
 			return EditDraftResult{}, opaqueError("create Track Draft state", createErr)
 		}
 		change, createErr := transaction.createDraftChange(
-			internalContext, params, edit.ID, nextRevision,
+			ctx, params, edit.ID, nextRevision,
 			"CreateTrack", "Track", created.ID, input,
 		)
 		if createErr != nil {
@@ -291,7 +290,7 @@ func (transaction *CommandTx) EditDraft(
 	}
 	for _, input := range params.Sessions {
 		if input.ID > 0 {
-			changes, updateErr := transaction.updateSessionDraft(ctx, internalContext, params, edit.ID, nextRevision, input, state)
+			changes, updateErr := transaction.updateSessionDraft(ctx, params, edit.ID, nextRevision, input, state)
 			if updateErr != nil {
 				return EditDraftResult{}, updateErr
 			}
@@ -303,14 +302,14 @@ func (transaction *CommandTx) EditDraft(
 			return EditDraftResult{}, createErr
 		}
 		change, createErr := transaction.createDraftChange(
-			internalContext, params, edit.ID, nextRevision,
+			ctx, params, edit.ID, nextRevision,
 			"CreateSession", "Session", created.sessionID, created.payload,
 		)
 		if createErr != nil {
 			return EditDraftResult{}, createErr
 		}
 		for _, dependencyID := range created.dependencyIDs {
-			if dependencyErr := transaction.createDraftDependency(internalContext, change.ID, dependencyID); dependencyErr != nil {
+			if dependencyErr := transaction.createDraftDependency(ctx, change.ID, dependencyID); dependencyErr != nil {
 				return EditDraftResult{}, dependencyErr
 			}
 		}
@@ -481,7 +480,7 @@ func (transaction *CommandTx) draftOverlaps(ctx context.Context, params EditDraf
 		Where(draftchange.EventIDEQ(params.EventID), draftchange.RevisionGT(afterRevision),
 			draftchange.StatusIn(draftchange.StatusEffective, draftchange.StatusPublished, draftchange.StatusConflicted)).
 		Order(ent.Desc(draftchange.FieldRevision), ent.Desc(draftchange.FieldID)).
-		All(systemContext(ctx))
+		All(ctx)
 	if err != nil {
 		return nil, opaqueError("check overlapping Draft changes", err)
 	}
@@ -576,7 +575,7 @@ func (transaction *CommandTx) recordNamedFactChange(
 }
 
 func (transaction *CommandTx) updateLocationDraft(
-	ctx, internalContext context.Context,
+	ctx context.Context,
 	params EditDraftParams,
 	editID, revision int,
 	input LocationDraftCreate,
@@ -592,7 +591,7 @@ func (transaction *CommandTx) updateLocationDraft(
 	if state.Name == input.Name {
 		return nil, nil
 	}
-	change, err := transaction.recordFactChange(internalContext, params, editID, revision, "Location", input.ID, "name", state.Name, input.Name)
+	change, err := transaction.recordFactChange(ctx, params, editID, revision, "Location", input.ID, "name", state.Name, input.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -603,7 +602,7 @@ func (transaction *CommandTx) updateLocationDraft(
 }
 
 func (transaction *CommandTx) updateLaneDraft(
-	ctx, internalContext context.Context,
+	ctx context.Context,
 	params EditDraftParams,
 	editID, revision int,
 	input LaneDraftCreate,
@@ -637,12 +636,12 @@ func (transaction *CommandTx) updateLaneDraft(
 		if before == after {
 			continue
 		}
-		change, changeErr := transaction.recordFactChange(internalContext, params, editID, revision, "Lane", input.ID, field, before, after)
+		change, changeErr := transaction.recordFactChange(ctx, params, editID, revision, "Lane", input.ID, field, before, after)
 		if changeErr != nil {
 			return nil, changeErr
 		}
 		if dependencyID > 0 {
-			if dependencyErr := transaction.createDraftDependency(internalContext, change.ID, dependencyID); dependencyErr != nil {
+			if dependencyErr := transaction.createDraftDependency(ctx, change.ID, dependencyID); dependencyErr != nil {
 				return nil, dependencyErr
 			}
 		}
@@ -655,7 +654,7 @@ func (transaction *CommandTx) updateLaneDraft(
 }
 
 func (transaction *CommandTx) updateTrackDraft(
-	ctx, internalContext context.Context,
+	ctx context.Context,
 	params EditDraftParams,
 	editID, revision int,
 	input TrackDraftCreate,
@@ -671,7 +670,7 @@ func (transaction *CommandTx) updateTrackDraft(
 	if state.Name == input.Name {
 		return nil, nil
 	}
-	change, err := transaction.recordFactChange(internalContext, params, editID, revision, "Track", input.ID, "name", state.Name, input.Name)
+	change, err := transaction.recordFactChange(ctx, params, editID, revision, "Track", input.ID, "name", state.Name, input.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -682,7 +681,7 @@ func (transaction *CommandTx) updateTrackDraft(
 }
 
 func (transaction *CommandTx) updateSessionDraft(
-	ctx, internalContext context.Context,
+	ctx context.Context,
 	params EditDraftParams,
 	editID, revision int,
 	input SessionDraftCreate,
@@ -779,14 +778,14 @@ func (transaction *CommandTx) updateSessionDraft(
 		if reflect.DeepEqual(before, after) {
 			continue
 		}
-		change, changeErr := transaction.recordFactChange(internalContext, params, editID, revision, "Session", input.ID, field, before, after)
+		change, changeErr := transaction.recordFactChange(ctx, params, editID, revision, "Session", input.ID, field, before, after)
 		if changeErr != nil {
 			return nil, changeErr
 		}
 		results = append(results, draftChangeResult(change))
 	}
 	membershipResults, membershipErr := transaction.updateSessionMemberships(
-		internalContext, params, editID, revision, input, creations, update,
+		ctx, params, editID, revision, input, creations, update,
 		currentLaneIDs, currentLocationIDs, currentTrackIDs,
 	)
 	if membershipErr != nil {

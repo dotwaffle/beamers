@@ -38,7 +38,7 @@ func (transaction *CommandTx) CreateInstallationThemeRevision(
 		SetConfig(config).
 		SetCreatedByAccountID(createdByAccountID).
 		SetCreatedAt(now).
-		Save(systemContext(ctx))
+		Save(ctx)
 	if err != nil {
 		return InstallationThemeRevision{}, opaqueError("create Installation Theme Revision", err)
 	}
@@ -51,10 +51,9 @@ func (transaction *CommandTx) ActivateInstallationThemeRevision(
 	revisionID int,
 	expectedActiveRevisionID int,
 ) (InstallationThemeRevision, error) {
-	internalContext := systemContext(ctx)
 	var selected InstallationThemeRevision
 	if revisionID > 0 {
-		found, err := transaction.transaction.InstallationThemeRevision.Get(internalContext, revisionID)
+		found, err := transaction.transaction.InstallationThemeRevision.Get(ctx, revisionID)
 		if ent.IsNotFound(err) {
 			return InstallationThemeRevision{}, ErrInstallationThemeRevisionNotFound
 		}
@@ -63,7 +62,7 @@ func (transaction *CommandTx) ActivateInstallationThemeRevision(
 		}
 		selected = installationThemeRevision(found)
 	}
-	routing, err := transaction.transaction.Installation.Query().Only(internalContext)
+	routing, err := transaction.transaction.Installation.Query().Only(ctx)
 	if err != nil {
 		return InstallationThemeRevision{}, opaqueError("load active Installation Theme Revision", err)
 	}
@@ -82,7 +81,7 @@ func (transaction *CommandTx) ActivateInstallationThemeRevision(
 	} else {
 		update.SetActiveThemeRevisionID(revisionID)
 	}
-	if _, err = update.Save(internalContext); ent.IsNotFound(err) {
+	if _, err = update.Save(ctx); ent.IsNotFound(err) {
 		return InstallationThemeRevision{}, ErrActiveInstallationThemeRevisionConflict
 	} else if err != nil {
 		return InstallationThemeRevision{}, opaqueError("activate Installation Theme Revision", err)
@@ -111,7 +110,7 @@ func loadInstallationThemeRevision(
 	client *ent.Client,
 	revisionID int,
 ) (InstallationThemeRevision, error) {
-	found, err := client.InstallationThemeRevision.Get(systemContext(ctx), revisionID)
+	found, err := client.InstallationThemeRevision.Get(ctx, revisionID)
 	if ent.IsNotFound(err) {
 		return InstallationThemeRevision{}, ErrInstallationThemeRevisionNotFound
 	}
@@ -127,7 +126,7 @@ func (installationStore *SQLite) ListInstallationThemeRevisions(
 ) ([]InstallationThemeRevision, error) {
 	found, err := installationStore.client.InstallationThemeRevision.Query().
 		Order(ent.Desc(installationthemerevision.FieldID)).
-		All(systemContext(ctx))
+		All(ctx)
 	if err != nil {
 		return nil, opaqueError("list Installation Theme Revisions", err)
 	}
@@ -165,7 +164,7 @@ func loadActiveInstallationThemeRevision(
 	client *ent.Client,
 	load func(context.Context, int) (InstallationThemeRevision, error),
 ) (InstallationThemeRevision, error) {
-	routing, err := client.Installation.Query().Only(systemContext(ctx))
+	routing, err := client.Installation.Query().Only(ctx)
 	if err != nil {
 		return InstallationThemeRevision{}, opaqueError("load active Installation Theme Revision", err)
 	}

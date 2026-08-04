@@ -14,11 +14,11 @@ import (
 
 func TestBaselineMigrationInitializesCompleteSQLite(t *testing.T) {
 	dataDir := t.TempDir()
-	if err := Initialize(t.Context(), dataDir); err != nil {
+	if err := Initialize(hostMaintenanceContext(t.Context()), dataDir); err != nil {
 		t.Fatalf("initialize clean database: %v", err)
 	}
 
-	installation, err := Open(t.Context(), dataDir)
+	installation, err := Open(hostMaintenanceContext(t.Context()), dataDir)
 	if err != nil {
 		t.Fatalf("open migrated database: %v", err)
 	}
@@ -30,7 +30,7 @@ func TestBaselineMigrationInitializesCompleteSQLite(t *testing.T) {
 	if err = installation.StartupError(); err != nil {
 		t.Fatalf("validate migrated database: %v", err)
 	}
-	if err = installation.Ready(t.Context()); err != nil {
+	if err = installation.Ready(hostMaintenanceContext(t.Context())); err != nil {
 		t.Fatalf("query migrated database through Ent: %v", err)
 	}
 	current, err := CurrentSchemaVersion()
@@ -45,7 +45,7 @@ func TestBaselineMigrationInitializesCompleteSQLite(t *testing.T) {
 		)
 	}
 	database, err := openValidationDatabase(
-		t.Context(),
+		hostMaintenanceContext(t.Context()),
 		filepath.Join(dataDir, databaseFilename),
 	)
 	if err != nil {
@@ -59,7 +59,7 @@ func TestBaselineMigrationInitializesCompleteSQLite(t *testing.T) {
 	var name, safety string
 	var minimumReader, minimumWriter int
 	if err = database.QueryRowContext(
-		t.Context(),
+		hostMaintenanceContext(t.Context()),
 		"SELECT name, safety, minimum_reader_schema_version, "+
 			"minimum_writer_schema_version FROM beamers_schema_migrations "+
 			"WHERE version = 1",
@@ -80,7 +80,7 @@ func TestBaselineMigrationInitializesCompleteSQLite(t *testing.T) {
 	}
 	var triggers string
 	if err = database.QueryRowContext(
-		t.Context(),
+		hostMaintenanceContext(t.Context()),
 		"SELECT group_concat(name, ',') FROM "+
 			"(SELECT name FROM sqlite_schema WHERE type = 'trigger' ORDER BY name)",
 	).Scan(&triggers); err != nil {
@@ -98,7 +98,7 @@ func TestBaselineMigrationInitializesCompleteSQLite(t *testing.T) {
 	}
 	var registrationPolicies int
 	if err = database.QueryRowContext(
-		t.Context(),
+		hostMaintenanceContext(t.Context()),
 		"SELECT COUNT(*) FROM registration_policies",
 	).Scan(&registrationPolicies); err != nil {
 		t.Fatalf("read baseline Registration Policy: %v", err)
@@ -110,13 +110,13 @@ func TestBaselineMigrationInitializesCompleteSQLite(t *testing.T) {
 
 func TestTelemetryOpenTracesOperationsWithoutSQLOrDSN(t *testing.T) {
 	dataDir := t.TempDir()
-	if err := Initialize(t.Context(), dataDir); err != nil {
+	if err := Initialize(hostMaintenanceContext(t.Context()), dataDir); err != nil {
 		t.Fatalf("initialize database: %v", err)
 	}
 	recorder := tracetest.NewSpanRecorder()
 	tracerProvider := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
 	installation, err := OpenWithTelemetry(
-		t.Context(),
+		hostMaintenanceContext(t.Context()),
 		dataDir,
 		tracerProvider,
 		metricnoop.NewMeterProvider(),
@@ -124,7 +124,7 @@ func TestTelemetryOpenTracesOperationsWithoutSQLOrDSN(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open instrumented database: %v", err)
 	}
-	if err = installation.Ready(t.Context()); err != nil {
+	if err = installation.Ready(hostMaintenanceContext(t.Context())); err != nil {
 		t.Fatalf("query instrumented database: %v", err)
 	}
 	if err = installation.Close(); err != nil {
@@ -151,16 +151,16 @@ func TestTelemetryOpenTracesOperationsWithoutSQLOrDSN(t *testing.T) {
 
 func TestMigrationPlanRejectsUnknownCommittedPrefix(t *testing.T) {
 	dataDir := t.TempDir()
-	if err := Initialize(t.Context(), dataDir); err != nil {
+	if err := Initialize(hostMaintenanceContext(t.Context()), dataDir); err != nil {
 		t.Fatalf("initialize fixture database: %v", err)
 	}
 	databasePath := filepath.Join(dataDir, databaseFilename)
-	database, err := openDatabase(t.Context(), databasePath)
+	database, err := openDatabase(hostMaintenanceContext(t.Context()), databasePath)
 	if err != nil {
 		t.Fatalf("open fixture database: %v", err)
 	}
 	if _, err = database.ExecContext(
-		t.Context(),
+		hostMaintenanceContext(t.Context()),
 		"UPDATE beamers_schema_migrations SET checksum = printf('%064d', 0) "+
 			"WHERE version = 1",
 	); err != nil {
@@ -171,23 +171,23 @@ func TestMigrationPlanRejectsUnknownCommittedPrefix(t *testing.T) {
 		t.Fatalf("close fixture database: %v", err)
 	}
 
-	if _, err = PlanMigrations(t.Context(), databasePath); !errors.Is(err, ErrUnsupportedSchema) {
+	if _, err = PlanMigrations(hostMaintenanceContext(t.Context()), databasePath); !errors.Is(err, ErrUnsupportedSchema) {
 		t.Fatalf("unknown prefix error = %v, want %v", err, ErrUnsupportedSchema)
 	}
 }
 
 func TestDeclaredForwardWriterRangeAllowsNewerSchema(t *testing.T) {
 	dataDir := t.TempDir()
-	if err := Initialize(t.Context(), dataDir); err != nil {
+	if err := Initialize(hostMaintenanceContext(t.Context()), dataDir); err != nil {
 		t.Fatalf("initialize installation: %v", err)
 	}
 	databasePath := filepath.Join(dataDir, databaseFilename)
-	database, err := openDatabase(t.Context(), databasePath)
+	database, err := openDatabase(hostMaintenanceContext(t.Context()), databasePath)
 	if err != nil {
 		t.Fatalf("open fixture database: %v", err)
 	}
 	if _, err = database.ExecContext(
-		t.Context(),
+		hostMaintenanceContext(t.Context()),
 		"INSERT INTO beamers_schema_migrations "+
 			"(version, name, checksum, safety, minimum_reader_schema_version, "+
 			"minimum_writer_schema_version, applied_at) "+
@@ -197,7 +197,7 @@ func TestDeclaredForwardWriterRangeAllowsNewerSchema(t *testing.T) {
 		_ = database.Close()
 		t.Fatalf("record future migration: %v", err)
 	}
-	if _, err = database.ExecContext(t.Context(), "PRAGMA user_version = 2"); err != nil {
+	if _, err = database.ExecContext(hostMaintenanceContext(t.Context()), "PRAGMA user_version = 2"); err != nil {
 		_ = database.Close()
 		t.Fatalf("set future schema version: %v", err)
 	}
@@ -205,7 +205,7 @@ func TestDeclaredForwardWriterRangeAllowsNewerSchema(t *testing.T) {
 		t.Fatalf("close future fixture: %v", err)
 	}
 
-	installation, err := Open(t.Context(), dataDir)
+	installation, err := Open(hostMaintenanceContext(t.Context()), dataDir)
 	if err != nil {
 		t.Fatalf("open forward-compatible installation: %v", err)
 	}
@@ -224,15 +224,15 @@ func TestDeclaredForwardWriterRangeAllowsNewerSchema(t *testing.T) {
 
 func TestUnclassifiedMigrationRecordsClosedCompatibilityRange(t *testing.T) {
 	dataDir := t.TempDir()
-	if err := Initialize(t.Context(), dataDir); err != nil {
+	if err := Initialize(hostMaintenanceContext(t.Context()), dataDir); err != nil {
 		t.Fatalf("initialize fixture database: %v", err)
 	}
 	databasePath := filepath.Join(dataDir, databaseFilename)
-	database, err := openDatabase(t.Context(), databasePath)
+	database, err := openDatabase(hostMaintenanceContext(t.Context()), databasePath)
 	if err != nil {
 		t.Fatalf("open fixture database: %v", err)
 	}
-	transaction, err := database.BeginTx(t.Context(), nil)
+	transaction, err := database.BeginTx(hostMaintenanceContext(t.Context()), nil)
 	if err != nil {
 		_ = database.Close()
 		t.Fatalf("begin fixture transaction: %v", err)
@@ -242,7 +242,7 @@ func TestUnclassifiedMigrationRecordsClosedCompatibilityRange(t *testing.T) {
 		name:     "unclassified_fixture",
 		checksum: strings.Repeat("1", 64),
 	}
-	if err = recordMigration(t.Context(), transaction, future); err != nil {
+	if err = recordMigration(hostMaintenanceContext(t.Context()), transaction, future); err != nil {
 		_ = transaction.Rollback()
 		_ = database.Close()
 		t.Fatalf("record unclassified migration: %v", err)
@@ -254,7 +254,7 @@ func TestUnclassifiedMigrationRecordsClosedCompatibilityRange(t *testing.T) {
 	var safety string
 	var minimumReader, minimumWriter int
 	if err = database.QueryRowContext(
-		t.Context(),
+		hostMaintenanceContext(t.Context()),
 		"SELECT safety, minimum_reader_schema_version, "+
 			"minimum_writer_schema_version FROM beamers_schema_migrations "+
 			"WHERE version = 2",
@@ -279,10 +279,10 @@ func TestUnclassifiedMigrationRecordsClosedCompatibilityRange(t *testing.T) {
 
 func TestAuthenticationCredentialsExpire(t *testing.T) {
 	dataDir := t.TempDir()
-	if err := Initialize(t.Context(), dataDir); err != nil {
+	if err := Initialize(hostMaintenanceContext(t.Context()), dataDir); err != nil {
 		t.Fatalf("initialize authentication database: %v", err)
 	}
-	installation, err := Open(t.Context(), dataDir)
+	installation, err := Open(hostMaintenanceContext(t.Context()), dataDir)
 	if err != nil {
 		t.Fatalf("open authentication database: %v", err)
 	}
@@ -295,7 +295,7 @@ func TestAuthenticationCredentialsExpire(t *testing.T) {
 	now := time.Date(2026, time.July, 22, 12, 0, 0, 0, time.UTC)
 	expiredBootstrapHash := strings.Repeat("a", 64)
 	issueErr := installation.IssueBootstrap(
-		t.Context(),
+		hostMaintenanceContext(t.Context()),
 		expiredBootstrapHash,
 		now,
 		now.Add(time.Minute),
@@ -304,7 +304,7 @@ func TestAuthenticationCredentialsExpire(t *testing.T) {
 		t.Fatalf("issue expiring bootstrap credential: %v", issueErr)
 	}
 	_, err = installation.BootstrapAdministrator(
-		t.Context(),
+		hostMaintenanceContext(t.Context()),
 		BootstrapAdministratorParams{
 			BootstrapHash:  expiredBootstrapHash,
 			Name:           "Ada Admin",
@@ -322,7 +322,7 @@ func TestAuthenticationCredentialsExpire(t *testing.T) {
 	validBootstrapHash := strings.Repeat("c", 64)
 	bootstrapTime := now.Add(2 * time.Minute)
 	issueErr = installation.IssueBootstrap(
-		t.Context(),
+		hostMaintenanceContext(t.Context()),
 		validBootstrapHash,
 		bootstrapTime,
 		bootstrapTime.Add(time.Minute),
@@ -332,7 +332,7 @@ func TestAuthenticationCredentialsExpire(t *testing.T) {
 	}
 	sessionHash := strings.Repeat("d", 64)
 	created, err := installation.BootstrapAdministrator(
-		t.Context(),
+		hostMaintenanceContext(t.Context()),
 		BootstrapAdministratorParams{
 			BootstrapHash:  validBootstrapHash,
 			Name:           "Ada Admin",
@@ -350,7 +350,7 @@ func TestAuthenticationCredentialsExpire(t *testing.T) {
 		t.Errorf("created Account = %+v, want Ada Admin Administrator", created)
 	}
 	_, err = installation.FindAccountSession(
-		t.Context(),
+		hostMaintenanceContext(t.Context()),
 		sessionHash,
 		bootstrapTime.Add(2*time.Minute),
 	)

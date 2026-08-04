@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	"entgo.io/ent"
-	"entgo.io/ent/privacy"
 
 	beamersent "github.com/dotwaffle/beamers/ent"
 )
@@ -45,12 +44,11 @@ func validateLaneLocationOwnership(next ent.Mutator) ent.Mutator {
 				return nil, err
 			}
 		}
-		internalContext := privacy.DecisionContext(ctx, privacy.Allow)
-		lane, err := placement.Client().Lane.Get(internalContext, laneID)
+		lane, err := placement.Client().Lane.Get(ctx, laneID)
 		if err != nil {
 			return nil, err
 		}
-		location, err := placement.Client().Location.Get(internalContext, locationID)
+		location, err := placement.Client().Location.Get(ctx, locationID)
 		if err != nil {
 			return nil, err
 		}

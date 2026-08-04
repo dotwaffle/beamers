@@ -95,7 +95,8 @@ func (service *Service) SaveEventAwards(
 		TargetID:       strconv.Itoa(input.EventID),
 		Now:            service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[EventAwardsDraft]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[EventAwardsDraft]{
 		Storage: service.storage, Identity: identity,
 		Authorization: command.Authorization{
 			Facts: authz.Event(input.EventID), Refusals: resultsRejections,
@@ -152,7 +153,8 @@ func (service *Service) MarkEventAwardsReady(
 		TargetID:       strconv.Itoa(input.EventID),
 		Now:            service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[EventAwardsDraft]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[EventAwardsDraft]{
 		Storage: service.storage, Identity: identity,
 		Authorization: command.Authorization{
 			Facts: authz.Event(input.EventID), Refusals: resultsRejections,

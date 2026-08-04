@@ -59,7 +59,8 @@ func (commands *Commands) DeleteDraftSession(
 		PayloadHash: command.PayloadHash(string(payload)), Action: "DeleteDraftSession",
 		TargetType: "Session", TargetID: strconv.Itoa(input.SessionID), Now: commands.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[DeleteDraftSessionResult]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[DeleteDraftSessionResult]{
 		Storage: commands.storage, Identity: identity, Replay: decodeDeleteDraftSessionOutcome,
 		Authorization: command.Authorization{
 			Facts: authz.Event(input.EventID), Refusals: rundownAuthorizationRejections,

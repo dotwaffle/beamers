@@ -159,13 +159,13 @@ func (transaction *CommandTx) LoadStandaloneResultsReleaseState(
 			session.IDEQ(competitionSessionID),
 			session.EventIDEQ(eventID),
 		).
-		Only(systemContext(ctx))
+		Only(ctx)
 	if err != nil {
 		return PrizegivingCompetitionPreflightState{}, ErrCompetitionPrizegivingAssignment
 	}
 	version, err := found.QueryPublishedVersions().
 		Order(ent.Desc(sessionpublishedversion.FieldPublishedRevision)).
-		First(systemContext(ctx))
+		First(ctx)
 	if err != nil || version.Type != sessionpublishedversion.TypeCompetition {
 		return PrizegivingCompetitionPreflightState{}, ErrCompetitionPrizegivingAssignment
 	}
@@ -173,7 +173,7 @@ func (transaction *CommandTx) LoadStandaloneResultsReleaseState(
 		Where(
 			prizegivingcompetition.CompetitionSessionIDEQ(competitionSessionID),
 		).
-		Exist(systemContext(ctx))
+		Exist(ctx)
 	if err != nil {
 		return PrizegivingCompetitionPreflightState{}, opaqueError(
 			"check standalone Competition assignment",
@@ -197,7 +197,7 @@ func (transaction *CommandTx) LoadStandaloneResultsReleaseState(
 			competitionentry.CompetitionSessionIDEQ(competitionSessionID),
 			competitionentry.ResolutionRequiredEQ(true),
 		).
-		Exist(systemContext(ctx))
+		Exist(ctx)
 	if err != nil {
 		return PrizegivingCompetitionPreflightState{}, opaqueError(
 			"load standalone Results required resolutions",
@@ -294,7 +294,6 @@ func (transaction *CommandTx) LoadPrizegivingPlan(
 	ctx context.Context,
 	eventID, ceremonySessionID int,
 ) (PrizegivingPlan, error) {
-	ctx = systemContext(ctx)
 	found, err := transaction.transaction.Prizegiving.Query().
 		Where(
 			prizegiving.EventIDEQ(eventID),
@@ -552,7 +551,7 @@ func (transaction *CommandTx) validatePrizegivingCompetitionAssignments(
 			resultspublication.ScopeEQ(resultspublication.ScopeStandalone),
 			resultspublication.ScopeSessionIDIn(competitionSessionIDs...),
 		).
-		Exist(systemContext(ctx))
+		Exist(ctx)
 	if err != nil {
 		return opaqueError("check standalone Results Publication", err)
 	}

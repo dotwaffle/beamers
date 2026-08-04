@@ -12,7 +12,7 @@ import (
 func TestVotingKeyRedemptionIsSingleUseAndEventScoped(t *testing.T) {
 	client := openEntTestClient(t)
 	installation := &SQLite{client: client}
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	now := time.Date(2026, time.August, 21, 10, 0, 0, 0, time.UTC)
 	event := createSchemaTestEvent(t, client)
 	otherEvent := createSchemaTestEvent(t, client)

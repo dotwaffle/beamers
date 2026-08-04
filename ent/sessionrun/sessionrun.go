@@ -86,8 +86,9 @@ func ValidColumn(column string) bool {
 //
 //	import _ "github.com/dotwaffle/beamers/ent/runtime"
 var (
-	Hooks  [1]ent.Hook
-	Policy ent.Policy
+	Hooks        [2]ent.Hook
+	Interceptors [1]ent.Interceptor
+	Policy       ent.Policy
 	// DefaultTargetAdjustmentSeconds holds the default value on creation for the "target_adjustment_seconds" field.
 	DefaultTargetAdjustmentSeconds int
 	// SnapshotJSONValidator is a validator for the "snapshot_json" field. It is called by the builders before save.

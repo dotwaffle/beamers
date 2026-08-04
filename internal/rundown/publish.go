@@ -191,7 +191,8 @@ func (commands *Commands) Publish(
 		PayloadHash: command.PayloadHash(string(payload)), Action: "Publish",
 		TargetType: "Event", TargetID: strconv.Itoa(input.EventID), Now: commands.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[PublishResult]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[PublishResult]{
 		Storage: commands.storage, Identity: identity, Replay: decodePublishOutcome,
 		Notify: commands.notifyPublishedRundown,
 		Authorization: command.Authorization{
@@ -751,7 +752,7 @@ func (queries *Queries) DisplayLocations(
 	if !actor.Administrator {
 		return nil, ErrEventAccessDenied
 	}
-	stored, err := queries.storage.LoadDisplayLocations(ctx, eventID)
+	stored, err := queries.storage.LoadDisplayLocations(actor.Context(ctx), eventID)
 	if err != nil {
 		return nil, err
 	}
@@ -774,7 +775,7 @@ func (queries *Queries) AdministrationLanes(
 	if !actor.Administrator {
 		return nil, ErrEventAccessDenied
 	}
-	stored, err := queries.storage.LoadAdministrationLanes(ctx, eventID)
+	stored, err := queries.storage.LoadAdministrationLanes(actor.Context(ctx), eventID)
 	if err != nil {
 		return nil, err
 	}

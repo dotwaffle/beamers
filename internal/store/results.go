@@ -269,7 +269,7 @@ func (transaction *CommandTx) LoadCompetitionResultsDraft(
 		WithStandings(func(query *ent.CompetitionResultStandingQuery) {
 			query.Order(ent.Asc(competitionresultstanding.FieldDisplayOrder))
 		}).
-		First(systemContext(ctx))
+		First(ctx)
 	if ent.IsNotFound(err) {
 		return CompetitionResultsDraft{
 			EventID: eventID, SessionID: sessionID,
@@ -292,7 +292,7 @@ func (transaction *CommandTx) LoadEventAwardsDraft(
 	found, err := transaction.transaction.Client().EventAwardsDraft.Query().
 		Where(eventawardsdraft.EventIDEQ(eventID)).
 		Order(ent.Desc(eventawardsdraft.FieldRevision)).
-		First(systemContext(ctx))
+		First(ctx)
 	if ent.IsNotFound(err) {
 		return EventAwardsDraft{EventID: eventID}, nil
 	}
@@ -308,13 +308,12 @@ func (transaction *CommandTx) DesignatePrizegiving(
 	params DesignatePrizegivingParams,
 ) (Prizegiving, error) {
 	client := transaction.transaction.Client()
-	internalContext := systemContext(ctx)
 	ceremony, err := client.Session.Query().
 		Where(
 			session.IDEQ(params.CeremonySessionID),
 			session.EventIDEQ(params.EventID),
 		).
-		Only(internalContext)
+		Only(ctx)
 	if ent.IsNotFound(err) {
 		return Prizegiving{}, ErrPrizegivingSession
 	}
@@ -323,13 +322,13 @@ func (transaction *CommandTx) DesignatePrizegiving(
 	}
 	published, err := ceremony.QueryPublishedVersions().
 		Order(ent.Desc(sessionpublishedversion.FieldPublishedRevision)).
-		First(internalContext)
+		First(ctx)
 	if err != nil || published.Type != sessionpublishedversion.TypeCeremony {
 		return Prizegiving{}, ErrPrizegivingSession
 	}
 	existing, err := client.Prizegiving.Query().
 		Where(prizegiving.CeremonySessionIDEQ(params.CeremonySessionID)).
-		Only(internalContext)
+		Only(ctx)
 	if err == nil {
 		return storedPrizegiving(existing), nil
 	}
@@ -354,15 +353,14 @@ func (transaction *CommandTx) SaveEventAwardsDraft(
 	params SaveEventAwardsDraftParams,
 ) (EventAwardsDraft, error) {
 	client := transaction.transaction.Client()
-	internalContext := systemContext(ctx)
 	if _, err := client.Event.Query().
 		Where(event.IDEQ(params.EventID)).
-		Only(internalContext); ent.IsNotFound(err) {
+		Only(ctx); ent.IsNotFound(err) {
 		return EventAwardsDraft{}, ErrEventNotFound
 	} else if err != nil {
 		return EventAwardsDraft{}, opaqueError("load Event for Awards", err)
 	}
-	current, err := transaction.LoadEventAwardsDraft(internalContext, params.EventID)
+	current, err := transaction.LoadEventAwardsDraft(ctx, params.EventID)
 	if err != nil {
 		return EventAwardsDraft{}, err
 	}
@@ -376,7 +374,7 @@ func (transaction *CommandTx) SaveEventAwardsDraft(
 				competitionentry.IDIn(entryIDs...),
 				competitionentry.EventIDEQ(params.EventID),
 			).
-			Count(internalContext)
+			Count(ctx)
 		if countErr != nil {
 			return EventAwardsDraft{}, opaqueError("validate Event Award Entries", countErr)
 		}
@@ -385,7 +383,7 @@ func (transaction *CommandTx) SaveEventAwardsDraft(
 		}
 	}
 	if pathErr := validateEventAwardPrizegivings(
-		internalContext, client, params.EventID, params.Awards,
+		ctx, client, params.EventID, params.Awards,
 	); pathErr != nil {
 		return EventAwardsDraft{}, pathErr
 	}
@@ -453,9 +451,8 @@ func (transaction *CommandTx) SaveCompetitionResultsDraft(
 	params SaveCompetitionResultsDraftParams,
 ) (CompetitionResultsDraft, error) {
 	client := transaction.transaction.Client()
-	internalContext := systemContext(ctx)
 	if _, _, err := loadCompetitionConfiguration(
-		internalContext,
+		ctx,
 		client.Session,
 		client.Event,
 		params.EventID,
@@ -469,7 +466,7 @@ func (transaction *CommandTx) SaveCompetitionResultsDraft(
 			competitionresultsdraft.CompetitionSessionIDEQ(params.SessionID),
 		).
 		Order(ent.Desc(competitionresultsdraft.FieldRevision)).
-		First(internalContext)
+		First(ctx)
 	currentRevision := 0
 	if err == nil {
 		currentRevision = current.Revision
@@ -497,7 +494,7 @@ func (transaction *CommandTx) SaveCompetitionResultsDraft(
 				competitionentry.EventIDEQ(params.EventID),
 				competitionentry.CompetitionSessionIDEQ(params.SessionID),
 			).
-			Count(internalContext)
+			Count(ctx)
 		if countErr != nil {
 			return CompetitionResultsDraft{}, opaqueError("validate Competition Result Entries", countErr)
 		}
@@ -513,7 +510,7 @@ func (transaction *CommandTx) SaveCompetitionResultsDraft(
 				competitionentry.EventIDEQ(params.EventID),
 				competitionentry.CompetitionSessionIDEQ(params.SessionID),
 			).
-			Count(internalContext)
+			Count(ctx)
 		if countErr != nil {
 			return CompetitionResultsDraft{}, opaqueError("validate Competition Award Entries", countErr)
 		}
@@ -570,7 +567,7 @@ func (transaction *CommandTx) SaveCompetitionResultsDraft(
 			return CompetitionResultsDraft{}, opaqueError("create Competition Result Standing", err)
 		}
 	}
-	return loadCompetitionResultsDraftByID(internalContext, client, created.ID)
+	return loadCompetitionResultsDraftByID(ctx, client, created.ID)
 }
 
 // MarkCompetitionResultsReady marks one exact current revision as reviewed.
@@ -579,14 +576,13 @@ func (transaction *CommandTx) MarkCompetitionResultsReady(
 	params MarkCompetitionResultsReadyParams,
 ) (CompetitionResultsDraft, error) {
 	client := transaction.transaction.Client()
-	internalContext := systemContext(ctx)
 	current, err := client.CompetitionResultsDraft.Query().
 		Where(
 			competitionresultsdraft.EventIDEQ(params.EventID),
 			competitionresultsdraft.CompetitionSessionIDEQ(params.SessionID),
 		).
 		Order(ent.Desc(competitionresultsdraft.FieldRevision)).
-		First(internalContext)
+		First(ctx)
 	if ent.IsNotFound(err) || err == nil && current.Revision != params.ExpectedRevision {
 		return CompetitionResultsDraft{}, ErrCompetitionResultsRevision
 	}
@@ -600,7 +596,7 @@ func (transaction *CommandTx) MarkCompetitionResultsReady(
 	if err != nil {
 		return CompetitionResultsDraft{}, opaqueError("mark Competition Results Ready", err)
 	}
-	return loadCompetitionResultsDraftByID(internalContext, client, updated.ID)
+	return loadCompetitionResultsDraftByID(ctx, client, updated.ID)
 }
 
 // LoadCompetitionResultsReviewState returns the current Draft and the exact
@@ -609,7 +605,6 @@ func (transaction *CommandTx) LoadCompetitionResultsReviewState(
 	ctx context.Context,
 	eventID, sessionID int,
 ) (CompetitionResultsDraft, []CompetitionResultsEligibleEntry, error) {
-	internalContext := systemContext(ctx)
 	client := transaction.transaction.Client()
 	current, err := client.CompetitionResultsDraft.Query().
 		Where(
@@ -617,24 +612,24 @@ func (transaction *CommandTx) LoadCompetitionResultsReviewState(
 			competitionresultsdraft.CompetitionSessionIDEQ(sessionID),
 		).
 		Order(ent.Desc(competitionresultsdraft.FieldRevision)).
-		First(internalContext)
+		First(ctx)
 	if ent.IsNotFound(err) {
 		return CompetitionResultsDraft{}, nil, ErrCompetitionResultsRevision
 	}
 	if err != nil {
 		return CompetitionResultsDraft{}, nil, opaqueError("load Results Draft for review", err)
 	}
-	draft, err := loadCompetitionResultsDraftByID(internalContext, client, current.ID)
+	draft, err := loadCompetitionResultsDraftByID(ctx, client, current.ID)
 	if err != nil {
 		return CompetitionResultsDraft{}, nil, err
 	}
 	_, competition, err := transaction.competitionConfiguration(
-		internalContext, eventID, sessionID,
+		ctx, eventID, sessionID,
 	)
 	if err != nil {
 		return CompetitionResultsDraft{}, nil, err
 	}
-	included, err := transaction.includedCompetitionEntries(internalContext, sessionID)
+	included, err := transaction.includedCompetitionEntries(ctx, sessionID)
 	if err != nil {
 		return CompetitionResultsDraft{}, nil, err
 	}
@@ -666,7 +661,6 @@ func (transaction *CommandTx) SupersedeCompetitionResultsDraft(
 	eventID, sessionID int,
 	now time.Time,
 ) error {
-	internalContext := systemContext(ctx)
 	client := transaction.transaction.Client()
 	current, err := client.CompetitionResultsDraft.Query().
 		Where(
@@ -677,7 +671,7 @@ func (transaction *CommandTx) SupersedeCompetitionResultsDraft(
 		WithStandings(func(query *ent.CompetitionResultStandingQuery) {
 			query.Order(ent.Asc(competitionresultstanding.FieldDisplayOrder))
 		}).
-		First(internalContext)
+		First(ctx)
 	if ent.IsNotFound(err) {
 		return nil
 	}
@@ -695,7 +689,7 @@ func (transaction *CommandTx) SupersedeCompetitionResultsDraft(
 	}
 	awards := append([]CompetitionAwardInput(nil), found.Awards...)
 	_, err = transaction.SaveCompetitionResultsDraft(
-		internalContext,
+		ctx,
 		SaveCompetitionResultsDraftParams{
 			EventID: eventID, SessionID: sessionID,
 			ExpectedRevision:   found.Revision,

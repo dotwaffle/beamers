@@ -91,11 +91,10 @@ func loadPublishState(
 	if err != nil {
 		return PublishState{}, opaqueError("load Rundown revisions", err)
 	}
-	internalContext := systemContext(ctx)
 	storedChanges, err := changes.Query().
 		Where(draftchange.EventIDEQ(eventID)).
 		Order(ent.Asc(draftchange.FieldID)).
-		All(internalContext)
+		All(ctx)
 	if err != nil {
 		return PublishState{}, opaqueError("load Draft Changes", err)
 	}
@@ -107,7 +106,7 @@ func loadPublishState(
 	if len(ids) > 0 {
 		storedDependencies, queryErr := dependencies.Query().
 			Where(draftchangedependency.ChangeIDIn(ids...)).
-			All(internalContext)
+			All(ctx)
 		if queryErr != nil {
 			return PublishState{}, opaqueError("load Draft Change dependencies", queryErr)
 		}
@@ -121,7 +120,7 @@ func loadPublishState(
 	}
 	liveSessions, err := sessions.Query().Where(
 		session.EventIDEQ(eventID), session.LifecycleEQ(session.LifecycleLive),
-	).All(internalContext)
+	).All(ctx)
 	if err != nil {
 		return PublishState{}, opaqueError("load Live Sessions for Publish Preview", err)
 	}
@@ -130,19 +129,19 @@ func loadPublishState(
 	}
 	for _, live := range liveSessions {
 		state.LiveTargetIDs["Session"] = append(state.LiveTargetIDs["Session"], live.ID)
-		version, queryErr := live.QueryPublishedVersions().Order(ent.Desc("published_revision")).First(internalContext)
+		version, queryErr := live.QueryPublishedVersions().Order(ent.Desc("published_revision")).First(ctx)
 		if queryErr != nil {
 			return PublishState{}, opaqueError("load Live Session placement for Publish Preview", queryErr)
 		}
-		laneIDs, queryErr := version.QueryLanes().IDs(internalContext)
+		laneIDs, queryErr := version.QueryLanes().IDs(ctx)
 		if queryErr != nil {
 			return PublishState{}, opaqueError("load Live Session Lanes for Publish Preview", queryErr)
 		}
-		locationIDs, queryErr := version.QueryLocations().IDs(internalContext)
+		locationIDs, queryErr := version.QueryLocations().IDs(ctx)
 		if queryErr != nil {
 			return PublishState{}, opaqueError("load Live Session Locations for Publish Preview", queryErr)
 		}
-		trackIDs, queryErr := version.QueryTracks().IDs(internalContext)
+		trackIDs, queryErr := version.QueryTracks().IDs(ctx)
 		if queryErr != nil {
 			return PublishState{}, opaqueError("load Live Session Tracks for Publish Preview", queryErr)
 		}
@@ -197,14 +196,13 @@ func (transaction *CommandTx) Publish(ctx context.Context, params PublishParams)
 	if err != nil {
 		return PublishResult{}, opaqueError("load confirmed Rundown revisions", err)
 	}
-	internalContext := systemContext(ctx)
 	changes, err := transaction.transaction.DraftChange.Query().
 		Where(
 			draftchange.EventIDEQ(params.EventID),
 			draftchange.IDIn(params.ChangeIDs...),
 			draftchange.StatusEQ(draftchange.StatusEffective),
 		).
-		All(internalContext)
+		All(ctx)
 	if err != nil {
 		return PublishResult{}, opaqueError("load confirmed Draft Changes", err)
 	}
@@ -230,7 +228,7 @@ func (transaction *CommandTx) Publish(ctx context.Context, params PublishParams)
 		Where(draftchange.IDIn(params.ChangeIDs...)).
 		SetStatus(draftchange.StatusPublished).
 		SetPublishedRevision(nextPublishedRevision).
-		Save(internalContext); updateErr != nil {
+		Save(ctx); updateErr != nil {
 		return PublishResult{}, opaqueError("mark Draft Changes Published", updateErr)
 	}
 	updated, err := transaction.transaction.Rundown.UpdateOneID(current.ID).
@@ -959,7 +957,7 @@ func (installation *SQLite) LoadPublishImpactDisplays(
 		Where(displayassignment.EventIDEQ(eventID)).
 		WithDisplay().
 		Order(ent.Asc(displayassignment.FieldDisplayID)).
-		All(systemContext(ctx))
+		All(ctx)
 	if err != nil {
 		return nil, opaqueError("load Publish Preview Displays", err)
 	}
@@ -1118,7 +1116,7 @@ func (installation *SQLite) LoadDisplayLocations(
 	ctx context.Context,
 	eventID int,
 ) ([]PublishedLocation, error) {
-	return loadPublishedLocations(systemContext(ctx), installation.readClient(), eventID)
+	return loadPublishedLocations(ctx, installation.readClient(), eventID)
 }
 
 // LoadAdministrationLanes returns only current Published Lanes for the
@@ -1128,7 +1126,7 @@ func (installation *SQLite) LoadAdministrationLanes(
 	ctx context.Context,
 	eventID int,
 ) ([]PublishedLane, error) {
-	return loadPublishedLanes(systemContext(ctx), installation.client, eventID)
+	return loadPublishedLanes(ctx, installation.client, eventID)
 }
 
 func loadPublishedLanes(

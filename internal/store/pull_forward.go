@@ -126,7 +126,7 @@ func previewPullForward(
 ) (PullForwardPreview, error) {
 	active, err := client.Installation.Query().
 		Where(installation.ActiveEventIDEQ(eventID)).
-		Exist(systemContext(ctx))
+		Exist(ctx)
 	if err != nil {
 		return PullForwardPreview{}, opaqueError("check active Event for Pull Forward", err)
 	}
@@ -148,7 +148,7 @@ func previewPullForward(
 	if identity.Lifecycle != session.LifecycleEnded {
 		return PullForwardPreview{}, ErrSessionLifecycleTransition
 	}
-	timing, err := loadTimingState(systemContext(ctx), client, eventID, sessionID)
+	timing, err := loadTimingState(ctx, client, eventID, sessionID)
 	if err != nil {
 		return PullForwardPreview{}, err
 	}

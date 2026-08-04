@@ -202,12 +202,12 @@ func (transaction *CommandTx) CreateEvent(ctx context.Context, params CreateEven
 		SetSlug(publicSlug).
 		SetExposed(false).
 		SetCreatedAt(params.Now).
-		Save(systemContext(ctx)); err != nil {
+		Save(ctx); err != nil {
 		return Event{}, opaqueError("reserve Event Slug", err)
 	}
 	if _, createErr := transaction.transaction.Rundown.Create().
 		SetEventID(created.ID).
-		Save(systemContext(ctx)); createErr != nil {
+		Save(ctx); createErr != nil {
 		return Event{}, opaqueError("create Event Rundown", createErr)
 	}
 	return eventProjection(created), nil
@@ -217,7 +217,7 @@ func (transaction *CommandTx) CreateEvent(ctx context.Context, params CreateEven
 func (installation *SQLite) ListEvents(ctx context.Context) ([]Event, error) {
 	found, err := installation.client.Event.Query().
 		Order(ent.Asc(event.FieldID)).
-		All(systemContext(ctx))
+		All(ctx)
 	if err != nil {
 		return nil, opaqueError("list Events", err)
 	}
@@ -233,11 +233,11 @@ func (installation *SQLite) ListPublicEvents(ctx context.Context) ([]PublicEvent
 	found, err := installation.client.Event.Query().
 		Where(event.PublicEQ(true)).
 		Order(ent.Asc(event.FieldID)).
-		All(systemContext(ctx))
+		All(ctx)
 	if err != nil {
 		return nil, 0, opaqueError("list public Events", err)
 	}
-	active, err := installation.LoadActiveEvent(systemContext(ctx))
+	active, err := installation.LoadActiveEvent(ctx)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -255,7 +255,7 @@ func (installation *SQLite) FindPublicEvent(
 ) (PublicEvent, bool, error) {
 	reserved, err := installation.client.EventSlug.Query().
 		Where(eventslug.SlugEQ(slug)).
-		Only(systemContext(ctx))
+		Only(ctx)
 	if ent.IsNotFound(err) {
 		return PublicEvent{}, false, ErrEventNotFound
 	}
@@ -264,7 +264,7 @@ func (installation *SQLite) FindPublicEvent(
 	}
 	found, err := reserved.QueryEvent().
 		Where(event.PublicEQ(true)).
-		Only(systemContext(ctx))
+		Only(ctx)
 	if ent.IsNotFound(err) {
 		return PublicEvent{}, false, ErrEventNotFound
 	}
@@ -281,7 +281,7 @@ func (installation *SQLite) ListEventSlugAliases(
 	found, err := installation.client.EventSlug.Query().
 		WithEvent().
 		Order(ent.Asc(eventslug.FieldID)).
-		All(systemContext(ctx))
+		All(ctx)
 	if err != nil {
 		return nil, opaqueError("list Event Slug Aliases", err)
 	}
@@ -310,7 +310,7 @@ func (transaction *CommandTx) PruneEventSlugAlias(
 	found, err := transaction.transaction.EventSlug.Query().
 		Where(eventslug.IDEQ(aliasID)).
 		WithEvent().
-		Only(systemContext(ctx))
+		Only(ctx)
 	if ent.IsNotFound(err) {
 		return EventSlugAlias{}, ErrEventSlugAliasNotFound
 	}
@@ -324,7 +324,7 @@ func (transaction *CommandTx) PruneEventSlugAlias(
 	if found.Slug == linked.PublicSlug {
 		return EventSlugAlias{}, ErrEventSlugAliasNotFound
 	}
-	if err = transaction.transaction.EventSlug.DeleteOne(found).Exec(systemContext(ctx)); err != nil {
+	if err = transaction.transaction.EventSlug.DeleteOne(found).Exec(ctx); err != nil {
 		return EventSlugAlias{}, opaqueError("prune Event Slug Alias", err)
 	}
 	return EventSlugAlias{
@@ -337,7 +337,7 @@ func (transaction *CommandTx) PruneEventSlugAlias(
 func (installation *SQLite) ListEventGrants(ctx context.Context) ([]EventGrant, error) {
 	found, err := installation.client.EventGrant.Query().
 		Order(ent.Asc(eventgrant.FieldID)).
-		All(systemContext(ctx))
+		All(ctx)
 	if err != nil {
 		return nil, opaqueError("list Event Grants", err)
 	}
@@ -381,7 +381,7 @@ func (transaction *CommandTx) GrantEventAccess(
 ) (EventGrant, error) {
 	eventExists, err := transaction.transaction.Event.Query().
 		Where(event.IDEQ(params.EventID)).
-		Exist(systemContext(ctx))
+		Exist(ctx)
 	if err != nil {
 		return EventGrant{}, opaqueError("find Event for Grant", err)
 	}
@@ -400,7 +400,7 @@ func (transaction *CommandTx) GrantEventAccess(
 	if len(params.LaneIDs) > 0 {
 		laneCount, countErr := transaction.transaction.Lane.Query().Where(
 			lane.IDIn(params.LaneIDs...), lane.EventIDEQ(params.EventID),
-		).Count(systemContext(ctx))
+		).Count(ctx)
 		if countErr != nil {
 			return EventGrant{}, opaqueError("validate Event Grant Lanes", countErr)
 		}
@@ -439,7 +439,7 @@ func (transaction *CommandTx) UpdateEvent(ctx context.Context, params UpdateEven
 	current, currentErr := transaction.transaction.Event.Query().Where(
 		event.IDEQ(params.EventID),
 		event.RevisionEQ(params.ExpectedRevision),
-	).Only(systemContext(ctx))
+	).Only(ctx)
 	if ent.IsNotFound(currentErr) {
 		return Event{}, ErrRevisionConflict
 	}
@@ -483,7 +483,7 @@ func (transaction *CommandTx) UpdateEvent(ctx context.Context, params UpdateEven
 				eventslug.SlugEQ(publicSlug),
 			).
 			SetExposed(true).
-			Save(systemContext(ctx)); err != nil {
+			Save(ctx); err != nil {
 			return Event{}, opaqueError("mark Event Slug public", err)
 		}
 	}
@@ -548,7 +548,7 @@ func (transaction *CommandTx) availableEventSlug(ctx context.Context, name strin
 		}
 		exists, err := transaction.transaction.EventSlug.Query().
 			Where(eventslug.SlugEQ(candidate)).
-			Exist(systemContext(ctx))
+			Exist(ctx)
 		if err != nil {
 			return "", opaqueError("find available Event Slug", err)
 		}
@@ -567,7 +567,7 @@ func (transaction *CommandTx) replaceEventSlug(
 ) error {
 	exists, err := transaction.transaction.EventSlug.Query().
 		Where(eventslug.SlugEQ(slug)).
-		Exist(systemContext(ctx))
+		Exist(ctx)
 	if err != nil {
 		return opaqueError("check Event Slug availability", err)
 	}
@@ -580,7 +580,7 @@ func (transaction *CommandTx) replaceEventSlug(
 				eventslug.EventIDEQ(found.ID),
 				eventslug.SlugEQ(found.PublicSlug),
 			).
-			Only(systemContext(ctx))
+			Only(ctx)
 		switch {
 		case currentErr != nil && !ent.IsNotFound(currentErr):
 			return opaqueError("read previous Event Slug", currentErr)
@@ -590,12 +590,12 @@ func (transaction *CommandTx) replaceEventSlug(
 				SetSlug(found.PublicSlug).
 				SetExposed(true).
 				SetCreatedAt(now).
-				Save(systemContext(ctx)); currentErr != nil {
+				Save(ctx); currentErr != nil {
 				return opaqueError("retain previous Event Slug", currentErr)
 			}
 		case currentErr == nil && !current.Exposed:
 			if currentErr = transaction.transaction.EventSlug.DeleteOne(current).
-				Exec(systemContext(ctx)); currentErr != nil {
+				Exec(ctx); currentErr != nil {
 				return opaqueError("release private Event Slug", currentErr)
 			}
 		}
@@ -615,7 +615,7 @@ func (transaction *CommandTx) reserveCurrentEventSlug(
 		SetSlug(slug).
 		SetExposed(exposed).
 		SetCreatedAt(now).
-		Save(systemContext(ctx))
+		Save(ctx)
 	if ent.IsConstraintError(err) {
 		return ErrEventSlugUnavailable
 	}
@@ -687,7 +687,7 @@ func (installation *SQLite) FindCrewEventOverview(
 	if err != nil {
 		return CrewEventOverview{}, err
 	}
-	active, err := installation.LoadActiveEvent(systemContext(ctx))
+	active, err := installation.LoadActiveEvent(ctx)
 	if err != nil {
 		return CrewEventOverview{}, err
 	}

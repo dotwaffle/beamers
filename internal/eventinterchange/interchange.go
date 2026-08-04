@@ -134,7 +134,8 @@ func (service *Service) Export(
 		TargetID:       strconv.Itoa(input.EventID),
 		Now:            service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[Artifact]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[Artifact]{
 		Storage:  service.storage,
 		Identity: identity,
 		Replay:   replayExport,
@@ -219,7 +220,8 @@ func (service *Service) Import(
 		TargetID:       "unidentified",
 		Now:            service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[ImportResult]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[ImportResult]{
 		Storage:  service.storage,
 		Identity: identity,
 		Replay:   replayImport,

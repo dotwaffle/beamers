@@ -104,8 +104,9 @@ func ValidColumn(column string) bool {
 //
 //	import _ "github.com/dotwaffle/beamers/ent/runtime"
 var (
-	Hooks  [1]ent.Hook
-	Policy ent.Policy
+	Hooks        [2]ent.Hook
+	Interceptors [1]ent.Interceptor
+	Policy       ent.Policy
 	// TargetGroupKeyValidator is a validator for the "target_group_key" field. It is called by the builders before save.
 	TargetGroupKeyValidator func(string) error
 	// DefaultTargetID holds the default value on creation for the "target_id" field.

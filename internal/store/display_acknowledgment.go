@@ -48,14 +48,13 @@ func (installationStore *SQLite) RecordDisplayAcknowledgment(
 	credentialHash string,
 	applied DisplayAcknowledgment,
 ) (DisplayAcknowledgment, error) {
-	internalContext := systemContext(ctx)
-	return withTx(internalContext, installationStore.client, "Display acknowledgment", func(transaction *ent.Tx) (DisplayAcknowledgment, error) {
-		return recordDisplayAcknowledgment(internalContext, transaction, credentialHash, applied)
+	return withTx(ctx, installationStore.client, "Display acknowledgment", func(transaction *ent.Tx) (DisplayAcknowledgment, error) {
+		return recordDisplayAcknowledgment(ctx, transaction, credentialHash, applied)
 	})
 }
 
 func recordDisplayAcknowledgment(
-	internalContext context.Context,
+	ctx context.Context,
 	transaction *ent.Tx,
 	credentialHash string,
 	applied DisplayAcknowledgment,
@@ -63,7 +62,7 @@ func recordDisplayAcknowledgment(
 	credential, err := transaction.DisplayCredential.Query().Where(
 		displaycredential.TokenHashEQ(credentialHash),
 		displaycredential.RevokedAtIsNil(),
-	).WithDisplay().Only(internalContext)
+	).WithDisplay().Only(ctx)
 	if ent.IsNotFound(err) {
 		return DisplayAcknowledgment{}, ErrDisplayCredential
 	}
@@ -124,7 +123,7 @@ func recordDisplayAcknowledgment(
 		SetClockUncertaintyMilliseconds(applied.ClockUncertaintyMilliseconds).
 		SetRendererUnstable(applied.RendererUnstable).
 		SetAppliedAt(applied.AppliedAt).
-		Save(internalContext)
+		Save(ctx)
 	if err != nil {
 		return DisplayAcknowledgment{}, opaqueError("record Display acknowledgment", err)
 	}

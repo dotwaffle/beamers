@@ -14,10 +14,12 @@ import (
 	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 )
 
 // IssueBootstrap creates a host-authorized short-lived first-Administrator credential.
 func (service *Service) IssueBootstrap(ctx context.Context) (string, error) {
+	ctx = systemactor.NewContext(ctx, systemactor.HostMaintenance)
 	if service.storageDegraded() {
 		return "", ErrStorageDegraded
 	}
@@ -39,6 +41,7 @@ func (service *Service) IssueBootstrap(ctx context.Context) (string, error) {
 
 // SetupRequired reports whether browser setup still needs a first Account.
 func (service *Service) SetupRequired(ctx context.Context) (bool, error) {
+	ctx = systemactor.NewContext(ctx, systemactor.PublicVisitor)
 	if service.storageDegraded() {
 		return false, ErrStorageDegraded
 	}
@@ -89,7 +92,7 @@ func (service *Service) BootstrapFirstAccount(
 	now := service.now().UTC()
 	expiresAt := now.Add(service.sessionTTL)
 	created, err := service.storage.BootstrapAdministrator(
-		ctx,
+		systemactor.NewContext(ctx, systemactor.HostMaintenance),
 		store.BootstrapAdministratorParams{
 			BootstrapHash:      tokenDigest(bootstrapToken),
 			Name:               displayName,
@@ -114,6 +117,7 @@ func (service *Service) BootstrapFirstAccount(
 
 // RegistrationOpen reports whether visitors may create Accounts.
 func (service *Service) RegistrationOpen(ctx context.Context) (bool, error) {
+	ctx = systemactor.NewContext(ctx, systemactor.PublicVisitor)
 	if service.storageDegraded() {
 		return false, ErrStorageDegraded
 	}
@@ -158,13 +162,15 @@ func (service *Service) Register(
 	if err != nil {
 		return Account{}, err
 	}
-	created, err := service.storage.RegisterAccount(ctx, store.CreateAccountParams{
-		Name:               displayName,
-		NormalizedName:     normalizedHandle,
-		WebAuthnUserHandle: userHandle,
-		PasswordHash:       passwordHash,
-		Now:                service.now().UTC(),
-	})
+	created, err := service.storage.RegisterAccount(
+		systemactor.NewContext(ctx, systemactor.PublicVisitor),
+		store.CreateAccountParams{
+			Name:               displayName,
+			NormalizedName:     normalizedHandle,
+			WebAuthnUserHandle: userHandle,
+			PasswordHash:       passwordHash,
+			Now:                service.now().UTC(),
+		})
 	if err != nil {
 		return Account{}, err
 	}
@@ -209,6 +215,7 @@ func (service *Service) PublicProfile(
 	if !valid {
 		return Profile{}, false, nil
 	}
+	ctx = systemactor.NewContext(ctx, systemactor.PublicVisitor)
 	found, ok, err := service.storage.PublicProfile(ctx, normalizedHandle)
 	if err != nil || !ok {
 		return Profile{}, ok, err
@@ -263,7 +270,8 @@ func (service *Service) UpdateProfile(
 		PayloadHash: command.PayloadHash(string(payload)), Action: "UpdateAccountProfile",
 		TargetType: "Account", TargetID: strconv.Itoa(actor.ID), Now: service.now().UTC(),
 	}
-	_, err = command.Execute(actor.Context(ctx), command.Plan[struct{}]{
+	ctx = actor.Context(ctx)
+	_, err = command.Execute(ctx, command.Plan[struct{}]{
 		Storage: service.storage, Identity: identity,
 		Authorization: command.Authorization{Facts: authz.Installation(), Refusals: accountRejections},
 		Replay: func(outcome string) (struct{}, error) {
@@ -388,7 +396,8 @@ func (service *Service) createAccount(
 		ActorAccountID: actor.ID, CommandID: commandID, PayloadHash: payloadHash,
 		Action: "CreateAccount", TargetType: "Account", TargetID: "unidentified", Now: service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[Account]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[Account]{
 		Storage: service.storage, Identity: identity,
 		Authorization: command.Authorization{Facts: authz.Installation(), Refusals: accountRejections},
 		Replay: func(outcome string) (Account, error) {
@@ -471,7 +480,8 @@ func (service *Service) DisableAccount(
 		PayloadHash: command.PayloadHash(string(payload)), Action: "DisableAccount",
 		TargetType: "Account", TargetID: strconv.Itoa(accountID), Now: service.now().UTC(),
 	}
-	_, err = command.Execute(actor.Context(ctx), command.Plan[struct{}]{
+	ctx = actor.Context(ctx)
+	_, err = command.Execute(ctx, command.Plan[struct{}]{
 		Storage: service.storage, Identity: identity,
 		Authorization: command.Authorization{Facts: authz.Installation(), Refusals: accountRejections},
 		Replay: func(outcome string) (struct{}, error) {
@@ -609,7 +619,9 @@ func (service *Service) SetReducedEffects(
 	if err != nil {
 		return err
 	}
-	return service.storage.SetAccountReducedEffects(ctx, authenticated.ID, enabled)
+	return service.storage.SetAccountReducedEffects(
+		authenticated.Context(ctx), authenticated.ID, enabled,
+	)
 }
 
 // ReducedEffects returns the preference for the authenticated Account.
@@ -621,7 +633,7 @@ func (service *Service) ReducedEffects(
 	if err != nil {
 		return false, err
 	}
-	return service.storage.AccountReducedEffects(ctx, authenticated.ID)
+	return service.storage.AccountReducedEffects(authenticated.Context(ctx), authenticated.ID)
 }
 
 func (service *Service) newWebAuthnUserHandle() ([]byte, error) {

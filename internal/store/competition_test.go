@@ -20,10 +20,10 @@ import (
 
 func TestCompetitionPreflightUsesOneReadSnapshot(t *testing.T) {
 	dataDir := t.TempDir()
-	if err := Initialize(t.Context(), dataDir); err != nil {
+	if err := Initialize(hostMaintenanceContext(t.Context()), dataDir); err != nil {
 		t.Fatalf("initialize Competition Preflight database: %v", err)
 	}
-	installation, err := Open(t.Context(), dataDir)
+	installation, err := Open(hostMaintenanceContext(t.Context()), dataDir)
 	if err != nil {
 		t.Fatalf("open Competition Preflight database: %v", err)
 	}
@@ -34,7 +34,7 @@ func TestCompetitionPreflightUsesOneReadSnapshot(t *testing.T) {
 	}()
 
 	client := installation.client
-	fixtureContext := systemContext(t.Context())
+	fixtureContext := hostMaintenanceContext(t.Context())
 	event := createSchemaTestEvent(t, client)
 	competition := client.Session.Create().
 		SetEventID(event.ID).
@@ -103,7 +103,7 @@ func TestCompetitionPreflightUsesOneReadSnapshot(t *testing.T) {
 		})
 	}))
 
-	producerContext := viewer.NewContext(t.Context(), viewer.Identity{
+	producerContext := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID: 1, EventRoles: map[int]viewer.Role{event.ID: viewer.Producer},
 	})
 	type preflightResult struct {
@@ -135,7 +135,7 @@ func TestCompetitionPreflightUsesOneReadSnapshot(t *testing.T) {
 		defer func() {
 			_ = writer.Rollback()
 		}()
-		writerContext := systemContext(fixtureContext)
+		writerContext := hostMaintenanceContext(fixtureContext)
 		if _, writerErr = writer.AttachmentVersion.UpdateOneID(version.ID).
 			SetPrimary(false).
 			SetFinal(true).
@@ -187,7 +187,7 @@ func TestCompetitionPreflightUsesOneReadSnapshot(t *testing.T) {
 func TestCompetitionDeadlineClosesEntryHistory(t *testing.T) {
 	client := openEntTestClient(t)
 	installation := &SQLite{client: client}
-	fixtureContext := systemContext(t.Context())
+	fixtureContext := hostMaintenanceContext(t.Context())
 	event := createSchemaTestEvent(t, client)
 	event.Update().
 		SetEntryDefaultDisposition("Included").
@@ -208,7 +208,7 @@ func TestCompetitionDeadlineClosesEntryHistory(t *testing.T) {
 		SetEndBoundary(sessionpublishedversion.EndBoundaryHard).
 		SetSubmissionDeadline(deadline).
 		SaveX(fixtureContext)
-	producerContext := viewer.NewContext(t.Context(), viewer.Identity{
+	producerContext := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID: 1, EventRoles: map[int]viewer.Role{event.ID: viewer.Producer},
 	})
 	beforeDeadline, err := installation.BeginCommand(producerContext)
@@ -265,7 +265,7 @@ func TestCompetitionDeadlineClosesEntryHistory(t *testing.T) {
 func TestTakeCompetitionEntrySlideLocksRunOrderAndPresentation(t *testing.T) {
 	client := openEntTestClient(t)
 	installation := &SQLite{client: client}
-	fixtureContext := systemContext(t.Context())
+	fixtureContext := hostMaintenanceContext(t.Context())
 	event := createSchemaTestEvent(t, client)
 	competition := client.Session.Create().
 		SetEventID(event.ID).
@@ -307,7 +307,7 @@ func TestTakeCompetitionEntrySlideLocksRunOrderAndPresentation(t *testing.T) {
 		SetActualStart(time.Date(2026, 8, 21, 12, 1, 0, 0, time.UTC)).
 		SetSnapshotJSON(`{"type":"Competition"}`).
 		SaveX(fixtureContext)
-	producerContext := viewer.NewContext(t.Context(), viewer.Identity{
+	producerContext := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID: 1, EventRoles: map[int]viewer.Role{event.ID: viewer.Producer},
 	})
 	preview, fingerprint, err := installation.LoadCompetitionEntryOrder(

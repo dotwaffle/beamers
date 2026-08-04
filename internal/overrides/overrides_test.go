@@ -15,6 +15,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/events"
 	"github.com/dotwaffle/beamers/internal/store"
 	"github.com/dotwaffle/beamers/internal/store/storetest"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
@@ -35,10 +36,10 @@ func TestTechnicalDifficultiesRejectsDurationBeforeConversion(t *testing.T) {
 
 func TestCanceledEmergencyActivationDoesNotEnterDegradedMode(t *testing.T) {
 	dataDir := t.TempDir()
-	if err := store.Initialize(t.Context(), dataDir); err != nil {
+	if err := store.Initialize(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir); err != nil {
 		t.Fatalf("initialize canceled Emergency storage: %v", err)
 	}
-	storage, err := store.Open(t.Context(), dataDir)
+	storage, err := store.Open(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir)
 	if err != nil {
 		t.Fatalf("open canceled Emergency storage: %v", err)
 	}
@@ -100,10 +101,10 @@ func TestCanceledEmergencyActivationDoesNotEnterDegradedMode(t *testing.T) {
 func TestEmergencyAlertDegradesWithoutOpeningOtherMutationPaths(t *testing.T) {
 	now := time.Date(2026, time.July, 24, 11, 0, 0, 0, time.UTC)
 	dataDir := t.TempDir()
-	if err := store.Initialize(t.Context(), dataDir); err != nil {
+	if err := store.Initialize(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir); err != nil {
 		t.Fatalf("initialize Override storage: %v", err)
 	}
-	storage, err := store.Open(t.Context(), dataDir)
+	storage, err := store.Open(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir)
 	if err != nil {
 		t.Fatalf("open Override storage: %v", err)
 	}
@@ -277,10 +278,10 @@ func TestEmergencyAlertDegradesWithoutOpeningOtherMutationPaths(t *testing.T) {
 
 func TestRecoverEndsPreviewOnlyDegradation(t *testing.T) {
 	dataDir := t.TempDir()
-	if err := store.Initialize(t.Context(), dataDir); err != nil {
+	if err := store.Initialize(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir); err != nil {
 		t.Fatalf("initialize preview recovery storage: %v", err)
 	}
-	storage, err := store.Open(t.Context(), dataDir)
+	storage, err := store.Open(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir)
 	if err != nil {
 		t.Fatalf("open preview recovery storage: %v", err)
 	}
@@ -315,7 +316,7 @@ func TestRecoverEndsPreviewOnlyDegradation(t *testing.T) {
 		t.Fatal("failed preview did not enter degraded operation")
 	}
 
-	recoveredStorage, err := store.Open(t.Context(), dataDir)
+	recoveredStorage, err := store.Open(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir)
 	if err != nil {
 		t.Fatalf("reopen preview recovery storage: %v", err)
 	}
@@ -351,10 +352,10 @@ func TestRecoverEndsPreviewOnlyDegradation(t *testing.T) {
 func TestRecoverPersistsDegradedEmergencyEvidenceExactlyOnce(t *testing.T) {
 	now := time.Date(2026, time.July, 24, 13, 0, 0, 0, time.UTC)
 	dataDir := t.TempDir()
-	if err := store.Initialize(t.Context(), dataDir); err != nil {
+	if err := store.Initialize(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir); err != nil {
 		t.Fatalf("initialize recovery storage: %v", err)
 	}
-	storage, err := store.Open(t.Context(), dataDir)
+	storage, err := store.Open(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir)
 	if err != nil {
 		t.Fatalf("open recovery storage: %v", err)
 	}
@@ -567,7 +568,7 @@ func TestRecoverPersistsDegradedEmergencyEvidenceExactlyOnce(t *testing.T) {
 		}
 	}
 
-	recoveredStorage, err := store.Open(t.Context(), dataDir)
+	recoveredStorage, err := store.Open(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir)
 	if err != nil {
 		t.Fatalf("reopen recovered storage: %v", err)
 	}

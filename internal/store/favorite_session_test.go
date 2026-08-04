@@ -8,7 +8,7 @@ import (
 func TestSetFavoriteSessionIgnoresOnlyDuplicate(t *testing.T) {
 	client := openEntTestClient(t)
 	installation := &SQLite{client: client}
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	owner := client.Account.Create().
 		SetName("Favorite Owner").
 		SetNormalizedName("favorite-owner").
@@ -31,7 +31,7 @@ func TestSetFavoriteSessionIgnoresOnlyDuplicate(t *testing.T) {
 func TestDisableAccountDetachesFavoriteSessions(t *testing.T) {
 	client := openEntTestClient(t)
 	installation := &SQLite{client: client}
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	owner := client.Account.Create().
 		SetName("Favorite Owner").
 		SetNormalizedName("favorite-owner").

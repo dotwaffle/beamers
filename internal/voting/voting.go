@@ -121,7 +121,8 @@ func (service *Service) Issue(
 		TargetID:   strconv.Itoa(input.EventID),
 		Now:        now,
 	}
-	result, err := command.Execute(actor.Context(ctx), command.Plan[[]IssuedKey]{
+	ctx = actor.Context(ctx)
+	result, err := command.Execute(ctx, command.Plan[[]IssuedKey]{
 		Storage: service.storage, Identity: identity,
 		Authorization: command.Authorization{
 			Facts: authz.Event(input.EventID), Refusals: votingKeyRejections,
@@ -187,7 +188,8 @@ func (service *Service) Redeem(
 		PayloadHash: command.PayloadHash(strconv.Itoa(eventID), tokenDigest(normalized)),
 		Action:      "RedeemVotingKey", TargetType: "Event", TargetID: strconv.Itoa(eventID), Now: now,
 	}
-	_, err = command.Execute(actor.Context(ctx), command.Plan[struct{}]{
+	ctx = actor.Context(ctx)
+	_, err = command.Execute(ctx, command.Plan[struct{}]{
 		Storage: service.storage, Identity: identity,
 		Authorization: command.Authorization{
 			Facts: authz.Installation(), Refusals: votingKeyRejections,
@@ -258,7 +260,8 @@ func (service *Service) Revoke(
 		PayloadHash: command.PayloadHash(strconv.Itoa(eventID), strconv.Itoa(keyID)),
 		Action:      "RevokeVotingKey", TargetType: "VotingKey", TargetID: strconv.Itoa(keyID), Now: now,
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[Key]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[Key]{
 		Storage: service.storage, Identity: identity,
 		Authorization: command.Authorization{
 			Facts: authz.Event(eventID), Refusals: votingKeyRejections,

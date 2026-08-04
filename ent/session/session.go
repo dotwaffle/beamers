@@ -311,8 +311,9 @@ func ValidColumn(column string) bool {
 //
 //	import _ "github.com/dotwaffle/beamers/ent/runtime"
 var (
-	Hooks  [1]ent.Hook
-	Policy ent.Policy
+	Hooks        [2]ent.Hook
+	Interceptors [1]ent.Interceptor
+	Policy       ent.Policy
 	// DefaultLiveStateRevision holds the default value on creation for the "live_state_revision" field.
 	DefaultLiveStateRevision int
 	// LiveStateRevisionValidator is a validator for the "live_state_revision" field. It is called by the builders before save.

@@ -69,7 +69,8 @@ func (service *Service) Configure(
 		actor, "ConfigureCompetitionVoting", input.EventID, input.SessionID,
 		input.CommandID, input.ExpectedRevision, input.MethodOverride, input.SelfVoteOverride,
 	)
-	window, err := command.Execute(actor.Context(ctx), command.Plan[Window]{
+	ctx = actor.Context(ctx)
+	window, err := command.Execute(ctx, command.Plan[Window]{
 		Storage: service.storage, Identity: identity,
 		Notify: service.notifyVoting, Replay: replayWindow,
 		Authorization: command.Authorization{
@@ -145,7 +146,8 @@ func (service *Service) changeWindow(
 		actor, action, input.EventID, input.SessionID,
 		input.CommandID, input.ExpectedRevision,
 	)
-	window, err := command.Execute(actor.Context(ctx), command.Plan[Window]{
+	ctx = actor.Context(ctx)
+	window, err := command.Execute(ctx, command.Plan[Window]{
 		Storage: service.storage, Identity: identity,
 		Notify: service.notifyVoting, Replay: replayWindow,
 		Authorization: command.Authorization{
@@ -191,7 +193,8 @@ func (service *Service) Vote(
 		actor, "CastCompetitionVote", input.EventID, input.SessionID,
 		input.CommandID, input.ExpectedRevision, input.EntryID, input.Value,
 	)
-	_, err := command.Execute(actor.Context(ctx), command.Plan[struct{}]{
+	ctx = actor.Context(ctx)
+	_, err := command.Execute(ctx, command.Plan[struct{}]{
 		Storage: service.storage, Identity: identity, Notify: service.notifyVoting,
 		Authorization: command.Authorization{
 			Facts: authz.Installation(), Refusals: ballotRejections,

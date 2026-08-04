@@ -20,6 +20,7 @@ import (
 
 	"github.com/dotwaffle/beamers/internal/diskspace"
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 )
 
 const (
@@ -92,6 +93,7 @@ type RestoreInput struct {
 
 // Create writes and verifies one installation Backup.
 func Create(ctx context.Context, input CreateInput) (manifest Manifest, returnErr error) {
+	ctx = systemactor.NewContext(ctx, systemactor.Backup)
 	if input.DataDir == "" {
 		return Manifest{}, errors.New("backup data directory is required")
 	}
@@ -131,6 +133,7 @@ func CreateWithStorage(
 	if installation == nil || input.OutputPath == "" {
 		return Manifest{}, errors.New("backup storage and output are required")
 	}
+	ctx = systemactor.NewContext(ctx, systemactor.Backup)
 	if input.Mode == "" {
 		input.Mode = Sanitized
 	}
@@ -519,6 +522,7 @@ func validateArchiveResources(files []*zip.File) error {
 
 // Restore prepares and applies one verified Backup without replacing existing state.
 func Restore(ctx context.Context, input RestoreInput) (Manifest, error) {
+	ctx = systemactor.NewContext(ctx, systemactor.Backup)
 	plan, err := PrepareRestore(ctx, input)
 	if err != nil {
 		return Manifest{}, err

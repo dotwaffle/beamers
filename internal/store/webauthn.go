@@ -39,7 +39,7 @@ func (installation *SQLite) PasswordActive(ctx context.Context, accountID int) (
 			passwordcredential.RevokedAtIsNil(),
 			passwordcredential.HasAccountWith(account.DisabledAtIsNil()),
 		).
-		Exist(systemContext(ctx))
+		Exist(ctx)
 	if err != nil {
 		return false, opaqueError("inspect Account password Credential", err)
 	}
@@ -57,7 +57,7 @@ func (installation *SQLite) ListWebAuthnCredentials(
 			webauthncredential.HasAccountWith(account.DisabledAtIsNil()),
 		).
 		Order(ent.Asc(webauthncredential.FieldCreatedAt), ent.Asc(webauthncredential.FieldID)).
-		All(systemContext(ctx))
+		All(ctx)
 	if err != nil {
 		return nil, opaqueError("list WebAuthn Credentials", err)
 	}
@@ -88,7 +88,6 @@ func (installation *SQLite) webAuthnAccount(
 	ctx context.Context,
 	match predicate.Account,
 ) (WebAuthnAccount, error) {
-	ctx = systemContext(ctx)
 	found, err := installation.client.Account.Query().
 		Where(match, account.DisabledAtIsNil()).
 		WithWebauthnCredentials(func(query *ent.WebAuthnCredentialQuery) {
@@ -126,10 +125,9 @@ func (transaction *CommandTx) AddWebAuthnCredential(
 	attachment string,
 	now time.Time,
 ) (WebAuthnCredential, error) {
-	internalContext := systemContext(ctx)
 	if _, err := transaction.transaction.Account.Query().
 		Where(account.IDEQ(accountID), account.DisabledAtIsNil()).
-		Only(internalContext); err != nil {
+		Only(ctx); err != nil {
 		return WebAuthnCredential{}, opaqueError("read WebAuthn Credential Account", err)
 	}
 	created, err := transaction.transaction.WebAuthnCredential.Create().
@@ -139,7 +137,7 @@ func (transaction *CommandTx) AddWebAuthnCredential(
 		SetCredential(credentialJSON).
 		SetAttachment(attachment).
 		SetCreatedAt(now).
-		Save(internalContext)
+		Save(ctx)
 	if ent.IsConstraintError(err) {
 		return WebAuthnCredential{}, ErrAccountExists
 	}
@@ -159,18 +157,17 @@ func (installation *SQLite) CreateWebAuthnSession(
 	now time.Time,
 	expiresAt time.Time,
 ) (AccountCredential, []string, error) {
-	internalContext := systemContext(ctx)
 	type webAuthnSession struct {
 		credential AccountCredential
 		revoked    []string
 	}
-	result, err := withTx(internalContext, installation.client, "WebAuthn sign-in", func(transaction *ent.Tx) (webAuthnSession, error) {
+	result, err := withTx(ctx, installation.client, "WebAuthn sign-in", func(transaction *ent.Tx) (webAuthnSession, error) {
 		stored, err := transaction.WebAuthnCredential.Query().Where(
 			webauthncredential.AccountIDEQ(accountID),
 			webauthncredential.CredentialIDEQ(credentialID),
 			webauthncredential.RevokedAtIsNil(),
 			webauthncredential.HasAccountWith(account.DisabledAtIsNil()),
-		).Only(internalContext)
+		).Only(ctx)
 		if ent.IsNotFound(err) {
 			return webAuthnSession{}, ErrInvalidSession
 		}
@@ -180,11 +177,11 @@ func (installation *SQLite) CreateWebAuthnSession(
 		if _, err = stored.Update().
 			SetCredential(credentialJSON).
 			SetLastUsedAt(now).
-			Save(internalContext); err != nil {
+			Save(ctx); err != nil {
 			return webAuthnSession{}, opaqueError("update WebAuthn Credential", err)
 		}
 		revoked, err := createBoundedAccountSession(
-			internalContext,
+			ctx,
 			transaction,
 			accountID,
 			sessionHash,
@@ -196,7 +193,7 @@ func (installation *SQLite) CreateWebAuthnSession(
 		}
 		found, err := transaction.Account.Query().
 			Where(account.IDEQ(accountID), account.DisabledAtIsNil()).
-			Only(internalContext)
+			Only(ctx)
 		if err != nil {
 			return webAuthnSession{}, opaqueError("read WebAuthn Account session", err)
 		}
@@ -214,11 +211,10 @@ func (transaction *CommandTx) RemovePassword(
 	accountID int,
 	now time.Time,
 ) (int, error) {
-	internalContext := systemContext(ctx)
 	credential, err := transaction.transaction.PasswordCredential.Query().Where(
 		passwordcredential.AccountIDEQ(accountID),
 		passwordcredential.RevokedAtIsNil(),
-	).Only(internalContext)
+	).Only(ctx)
 	if ent.IsNotFound(err) {
 		return 0, ErrFinalCredential
 	}
@@ -226,7 +222,7 @@ func (transaction *CommandTx) RemovePassword(
 		return 0, opaqueError("read password Credential for removal", err)
 	}
 	credentialCount, err := activeAccountCredentialCount(
-		internalContext,
+		ctx,
 		transaction.transaction.Client(),
 		accountID,
 	)
@@ -236,7 +232,7 @@ func (transaction *CommandTx) RemovePassword(
 	if credentialCount <= 1 {
 		return credential.ID, ErrFinalCredential
 	}
-	if _, err = credential.Update().SetRevokedAt(now).Save(internalContext); err != nil {
+	if _, err = credential.Update().SetRevokedAt(now).Save(ctx); err != nil {
 		return 0, opaqueError("remove password Credential", err)
 	}
 	return credential.ID, nil
@@ -249,12 +245,11 @@ func (transaction *CommandTx) RevokeWebAuthnCredential(
 	credentialID int,
 	now time.Time,
 ) error {
-	internalContext := systemContext(ctx)
 	stored, err := transaction.transaction.WebAuthnCredential.Query().Where(
 		webauthncredential.IDEQ(credentialID),
 		webauthncredential.AccountIDEQ(accountID),
 		webauthncredential.RevokedAtIsNil(),
-	).Only(internalContext)
+	).Only(ctx)
 	if ent.IsNotFound(err) {
 		return ErrInvalidSession
 	}
@@ -262,7 +257,7 @@ func (transaction *CommandTx) RevokeWebAuthnCredential(
 		return opaqueError("read WebAuthn Credential for revocation", err)
 	}
 	credentialCount, err := activeAccountCredentialCount(
-		internalContext,
+		ctx,
 		transaction.transaction.Client(),
 		accountID,
 	)
@@ -272,7 +267,7 @@ func (transaction *CommandTx) RevokeWebAuthnCredential(
 	if credentialCount <= 1 {
 		return ErrFinalCredential
 	}
-	if _, err = stored.Update().SetRevokedAt(now).Save(internalContext); err != nil {
+	if _, err = stored.Update().SetRevokedAt(now).Save(ctx); err != nil {
 		return opaqueError("revoke WebAuthn Credential", err)
 	}
 	return nil

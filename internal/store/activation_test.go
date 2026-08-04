@@ -14,7 +14,7 @@ func TestActivateEventCommitsGenerationReceiptAndAuditTogether(t *testing.T) {
 	installationStore := openEventTestInstallation(t)
 	now := time.Date(2026, time.July, 22, 17, 0, 0, 0, time.UTC)
 	administrator := bootstrapEventTestAdministrator(t, installationStore, now)
-	ctx := viewer.NewContext(t.Context(), viewer.Identity{
+	ctx := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID: administrator.ID, Administrator: true,
 	})
 	event := createEventTestEvent(t, installationStore, ctx, administrator.ID, "Revision 2026", now)
@@ -48,7 +48,7 @@ func TestActivateEventCommitsGenerationReceiptAndAuditTogether(t *testing.T) {
 	if active != activated {
 		t.Errorf("Active Event = %+v, want %+v", active, activated)
 	}
-	receipts, err := installationStore.client.CommandReceipt.Query().All(systemContext(t.Context()))
+	receipts, err := installationStore.client.CommandReceipt.Query().All(hostMaintenanceContext(t.Context()))
 	if err != nil {
 		t.Fatalf("read activation Command Receipt: %v", err)
 	}
@@ -69,7 +69,7 @@ func TestActivateEventRollbackLeavesNoRoutingChange(t *testing.T) {
 	installationStore := openEventTestInstallation(t)
 	now := time.Date(2026, time.July, 22, 17, 0, 0, 0, time.UTC)
 	administrator := bootstrapEventTestAdministrator(t, installationStore, now)
-	ctx := viewer.NewContext(t.Context(), viewer.Identity{
+	ctx := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID: administrator.ID, Administrator: true,
 	})
 	event := createEventTestEvent(t, installationStore, ctx, administrator.ID, "Revision 2026", now)

@@ -20,7 +20,7 @@ func TestAppendOnlyMixin(t *testing.T) {
 	t.Parallel()
 	installation := openTripwireTestInstallation(t)
 	entities := entityClients(t, installation.client)
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	found := 0
 	for name, entity := range entities {
 		if !isAppendOnlyEntity(name) {
@@ -88,7 +88,7 @@ func assertAppendOnlyDenial(t *testing.T, subject string, err error) {
 func TestAppendOnlyMixinRefusesSingleRowMutations(t *testing.T) {
 	t.Parallel()
 	client := openEntTestClient(t)
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	event := createSchemaTestEvent(t, client)
 	location := client.Location.Create().SetEventID(event.ID).SaveX(ctx)
 	published := client.LocationPublishedVersion.Create().

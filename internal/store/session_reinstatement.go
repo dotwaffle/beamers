@@ -174,7 +174,7 @@ func previewReinstateSession(
 ) (ReinstatePreview, error) {
 	active, err := client.Installation.Query().
 		Where(installation.ActiveEventIDEQ(eventID)).
-		Exist(systemContext(ctx))
+		Exist(ctx)
 	if err != nil {
 		return ReinstatePreview{}, opaqueError("check active Event for reinstatement", err)
 	}
@@ -208,7 +208,7 @@ func previewReinstateSession(
 		return ReinstatePreview{}, err
 	}
 	proposedLaneIDs, proposedLocationIDs, err := validatePlacement(
-		systemContext(ctx), client, eventID, forecastStart, laneIDs, locationIDs,
+		ctx, client, eventID, forecastStart, laneIDs, locationIDs,
 	)
 	if err != nil {
 		return ReinstatePreview{}, err
@@ -223,7 +223,7 @@ func previewReinstateSession(
 		EndBoundary:     timingripple.Boundary(version.EndBoundary.String()),
 		LaneIDs:         proposedLaneIDs, LocationIDs: proposedLocationIDs,
 	}
-	timing, err := loadTimingState(systemContext(ctx), client, eventID, 0)
+	timing, err := loadTimingState(ctx, client, eventID, 0)
 	if err != nil {
 		return ReinstatePreview{}, err
 	}

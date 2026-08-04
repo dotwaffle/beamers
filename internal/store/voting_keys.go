@@ -43,7 +43,7 @@ func (installation *SQLite) ListVotingKeys(
 	found, err := installation.reader.VotingKey.Query().
 		Where(votingkey.EventIDEQ(eventID)).
 		Order(ent.Asc(votingkey.FieldID)).
-		All(systemContext(ctx))
+		All(ctx)
 	if err != nil {
 		return nil, opaqueError("list Voting Keys", err)
 	}
@@ -66,7 +66,7 @@ func (transaction *CommandTx) CreateVotingKey(
 		SetTokenHash(params.TokenHash).
 		SetCreatedAt(params.CreatedAt).
 		SetExpiresAt(params.ExpiresAt).
-		Save(systemContext(ctx))
+		Save(ctx)
 	if ent.IsConstraintError(err) {
 		return VotingKey{}, ErrVotingKeyConflict
 	}
@@ -83,14 +83,13 @@ func (transaction *CommandTx) RedeemVotingKey(
 	eventID, accountID int,
 	now time.Time,
 ) (VotingKey, error) {
-	internalContext := systemContext(ctx)
 	key, err := transaction.transaction.VotingKey.Query().Where(
 		votingkey.TokenHashEQ(tokenHash),
 		votingkey.EventIDEQ(eventID),
 		votingkey.RevokedAtIsNil(),
 		votingkey.RedeemedAtIsNil(),
 		votingkey.ExpiresAtGT(now),
-	).Only(internalContext)
+	).Only(ctx)
 	if ent.IsNotFound(err) {
 		return VotingKey{}, ErrVotingKeyUnavailable
 	}
@@ -100,7 +99,7 @@ func (transaction *CommandTx) RedeemVotingKey(
 	enabled, err := transaction.transaction.Account.Query().Where(
 		account.IDEQ(accountID),
 		account.DisabledAtIsNil(),
-	).Exist(internalContext)
+	).Exist(ctx)
 	if err != nil {
 		return VotingKey{}, opaqueError("load Voting Key Account", err)
 	}
@@ -110,7 +109,7 @@ func (transaction *CommandTx) RedeemVotingKey(
 	eligible, err := transaction.transaction.VotingEligibility.Query().Where(
 		votingeligibility.EventIDEQ(eventID),
 		votingeligibility.AccountIDEQ(accountID),
-	).Exist(internalContext)
+	).Exist(ctx)
 	if err != nil {
 		return VotingKey{}, opaqueError("inspect Voting Eligibility", err)
 	}
@@ -121,7 +120,7 @@ func (transaction *CommandTx) RedeemVotingKey(
 		SetEventID(eventID).
 		SetAccountID(accountID).
 		SetCreatedAt(now).
-		Save(internalContext); err != nil {
+		Save(ctx); err != nil {
 		return VotingKey{}, opaqueError("create Voting Eligibility", err)
 	}
 	updated, err := transaction.transaction.VotingKey.Update().Where(
@@ -130,7 +129,7 @@ func (transaction *CommandTx) RedeemVotingKey(
 		votingkey.RedeemedAtIsNil(),
 	).SetRedeemedAt(now).
 		SetRedeemedByAccountID(accountID).
-		Save(internalContext)
+		Save(ctx)
 	if err != nil {
 		return VotingKey{}, opaqueError("consume Voting Key", err)
 	}
@@ -148,13 +147,12 @@ func (transaction *CommandTx) RevokeVotingKey(
 	eventID, keyID int,
 	now time.Time,
 ) (VotingKey, error) {
-	internalContext := systemContext(ctx)
 	found, err := transaction.transaction.VotingKey.Query().Where(
 		votingkey.IDEQ(keyID),
 		votingkey.EventIDEQ(eventID),
 		votingkey.RevokedAtIsNil(),
 		votingkey.RedeemedAtIsNil(),
-	).Only(internalContext)
+	).Only(ctx)
 	if ent.IsNotFound(err) {
 		return VotingKey{}, ErrVotingKeyUnavailable
 	}
@@ -165,7 +163,7 @@ func (transaction *CommandTx) RevokeVotingKey(
 		votingkey.IDEQ(found.ID),
 		votingkey.RevokedAtIsNil(),
 		votingkey.RedeemedAtIsNil(),
-	).SetRevokedAt(now).Save(internalContext)
+	).SetRevokedAt(now).Save(ctx)
 	if err != nil {
 		return VotingKey{}, opaqueError("revoke Voting Key", err)
 	}

@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 )
 
 const restoreJournalVersion = 1
@@ -72,6 +73,7 @@ func PrepareRestore(
 	if input.InputPath == "" || input.DataDir == "" {
 		return RestorePlan{}, errors.New("Restore input and data directory are required")
 	}
+	ctx = systemactor.NewContext(ctx, systemactor.Backup)
 	input.ForceReason = strings.TrimSpace(input.ForceReason)
 	if input.ForceUnsupported &&
 		(input.ForceReason == "" || !input.AcknowledgeUnsupportedRisks) {
@@ -311,6 +313,7 @@ func PrepareRestore(
 
 // ApplyRestore executes one prepared journal and proves the installed state ready.
 func ApplyRestore(ctx context.Context, journalPath string) (Manifest, error) {
+	ctx = systemactor.NewContext(ctx, systemactor.Backup)
 	return applyRestoreWithOptions(ctx, journalPath, ApplyOptions{}, nil)
 }
 
@@ -320,6 +323,7 @@ func ApplyRestoreWithOptions(
 	journalPath string,
 	options ApplyOptions,
 ) (Manifest, error) {
+	ctx = systemactor.NewContext(ctx, systemactor.Backup)
 	return applyRestoreWithOptions(ctx, journalPath, options, nil)
 }
 
@@ -350,6 +354,7 @@ func CancelPreparedRestore(
 	ctx context.Context,
 	journalPath string,
 ) (returnErr error) {
+	ctx = systemactor.NewContext(ctx, systemactor.Backup)
 	journal, err := readRestoreJournal(journalPath)
 	if err != nil {
 		return err

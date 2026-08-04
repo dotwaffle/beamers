@@ -67,8 +67,9 @@ func ValidColumn(column string) bool {
 //
 //	import _ "github.com/dotwaffle/beamers/ent/runtime"
 var (
-	Hooks  [1]ent.Hook
-	Policy ent.Policy
+	Hooks        [2]ent.Hook
+	Interceptors [1]ent.Interceptor
+	Policy       ent.Policy
 	// PublicMessageValidator is a validator for the "public_message" field. It is called by the builders before save.
 	PublicMessageValidator func(string) error
 	// CrewNotesValidator is a validator for the "crew_notes" field. It is called by the builders before save.

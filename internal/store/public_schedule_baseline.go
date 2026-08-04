@@ -77,8 +77,7 @@ func loadPublicScheduleBaselineState(
 	client *ent.Client,
 	eventID int,
 ) (PublicScheduleBaselineState, error) {
-	internalContext := systemContext(ctx)
-	foundEvent, err := client.Event.Get(internalContext, eventID)
+	foundEvent, err := client.Event.Get(ctx, eventID)
 	if ent.IsNotFound(err) {
 		return PublicScheduleBaselineState{}, ErrEventNotFound
 	}
@@ -87,7 +86,7 @@ func loadPublicScheduleBaselineState(
 	}
 	foundRundown, err := client.Rundown.Query().
 		Where(rundown.EventIDEQ(eventID)).
-		Only(internalContext)
+		Only(ctx)
 	if ent.IsNotFound(err) {
 		return PublicScheduleBaselineState{}, ErrEventNotFound
 	}
@@ -98,7 +97,7 @@ func loadPublicScheduleBaselineState(
 		EventID: eventID, EventName: foundEvent.Name,
 		PublishedRevision: foundRundown.PublishedRevision,
 	}
-	routing, err := client.Installation.Query().Only(internalContext)
+	routing, err := client.Installation.Query().Only(ctx)
 	if err != nil && !ent.IsNotFound(err) {
 		return PublicScheduleBaselineState{}, opaqueError("load Public Schedule Baseline routing", err)
 	}
@@ -107,7 +106,7 @@ func loadPublicScheduleBaselineState(
 	}
 	baseline, err := client.PublicScheduleBaseline.Query().
 		Where(publicschedulebaseline.EventIDEQ(eventID)).
-		Only(internalContext)
+		Only(ctx)
 	if err != nil && !ent.IsNotFound(err) {
 		return PublicScheduleBaselineState{}, opaqueError("load existing Public Schedule Baseline", err)
 	}
@@ -117,14 +116,14 @@ func loadPublicScheduleBaselineState(
 	}
 	identities, err := client.Session.Query().
 		Where(session.EventIDEQ(eventID)).
-		All(internalContext)
+		All(ctx)
 	if err != nil {
 		return PublicScheduleBaselineState{}, opaqueError("load Public Schedule Baseline Sessions", err)
 	}
 	for _, identity := range identities {
 		version, versionErr := identity.QueryPublishedVersions().
 			Order(ent.Desc(sessionpublishedversion.FieldPublishedRevision)).
-			First(internalContext)
+			First(ctx)
 		if ent.IsNotFound(versionErr) {
 			continue
 		}
@@ -174,12 +173,11 @@ func (transaction *CommandTx) CapturePublicScheduleBaseline(
 			return PublicScheduleBaselineCaptureResult{}, ErrPublicScheduleBaselineInvalid
 		}
 	}
-	internalContext := systemContext(ctx)
 	baseline, err := transaction.transaction.PublicScheduleBaseline.Create().
 		SetEventID(params.EventID).
 		SetSourcePublishedRevision(state.PublishedRevision).
 		SetCapturedAt(params.Now).
-		Save(internalContext)
+		Save(ctx)
 	if ent.IsConstraintError(err) {
 		return PublicScheduleBaselineCaptureResult{}, ErrPublicScheduleBaselineExists
 	}
@@ -197,7 +195,7 @@ func (transaction *CommandTx) CapturePublicScheduleBaseline(
 				SetRecordedAt(params.Now))
 		}
 		if _, err := transaction.transaction.PublicScheduleBaselineEntry.CreateBulk(entries...).
-			Save(internalContext); err != nil {
+			Save(ctx); err != nil {
 			return PublicScheduleBaselineCaptureResult{}, opaqueError(
 				"capture Public Schedule Baseline entries",
 				err,
@@ -216,10 +214,9 @@ func (transaction *CommandTx) enrollPublicScheduleBaselineEntries(
 	publishedRevision int,
 	now time.Time,
 ) error {
-	internalContext := systemContext(ctx)
 	baseline, err := transaction.transaction.PublicScheduleBaseline.Query().
 		Where(publicschedulebaseline.EventIDEQ(eventID)).
-		Only(internalContext)
+		Only(ctx)
 	if ent.IsNotFound(err) {
 		return nil
 	}
@@ -228,7 +225,7 @@ func (transaction *CommandTx) enrollPublicScheduleBaselineEntries(
 	}
 	storedEntries, err := transaction.transaction.PublicScheduleBaselineEntry.Query().
 		Where(publicschedulebaselineentry.BaselineIDEQ(baseline.ID)).
-		All(internalContext)
+		All(ctx)
 	if err != nil {
 		return opaqueError("load Public Schedule Baseline entries for Publish", err)
 	}
@@ -238,7 +235,7 @@ func (transaction *CommandTx) enrollPublicScheduleBaselineEntries(
 	}
 	identities, err := transaction.transaction.Session.Query().
 		Where(session.EventIDEQ(eventID)).
-		All(internalContext)
+		All(ctx)
 	if err != nil {
 		return opaqueError("load Sessions for Public Schedule Baseline enrollment", err)
 	}
@@ -249,7 +246,7 @@ func (transaction *CommandTx) enrollPublicScheduleBaselineEntries(
 		}
 		version, versionErr := identity.QueryPublishedVersions().
 			Order(ent.Desc(sessionpublishedversion.FieldPublishedRevision)).
-			First(internalContext)
+			First(ctx)
 		if ent.IsNotFound(versionErr) {
 			continue
 		}
@@ -277,7 +274,7 @@ func (transaction *CommandTx) enrollPublicScheduleBaselineEntries(
 		return nil
 	}
 	if _, err := transaction.transaction.PublicScheduleBaselineEntry.CreateBulk(entries...).
-		Save(internalContext); err != nil {
+		Save(ctx); err != nil {
 		return opaqueError("enroll Published Sessions in Public Schedule Baseline", err)
 	}
 	return nil

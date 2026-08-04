@@ -32,7 +32,7 @@ func countDisplayStatusStatements(t *testing.T, scale int) int64 {
 	fixture := buildPublicScheduleFixture(t, client, scale)
 	buildDisplayStatusFixture(t, client, fixture, scale)
 	before := driver.statements.Load()
-	activeEventID, statuses, err := installationStore.ListDisplayStatuses(t.Context())
+	activeEventID, statuses, err := installationStore.ListDisplayStatuses(hostMaintenanceContext(t.Context()))
 	if err != nil {
 		t.Fatalf("list Display statuses at scale %d: %v", scale, err)
 	}
@@ -64,7 +64,7 @@ func buildDisplayStatusFixture(
 	scale int,
 ) {
 	t.Helper()
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	client.Rundown.Create().
 		SetEventID(fixture.eventID).SetDraftRevision(1).SetPublishedRevision(1).
 		SaveX(ctx)

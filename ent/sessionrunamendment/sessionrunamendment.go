@@ -61,8 +61,9 @@ func ValidColumn(column string) bool {
 //
 //	import _ "github.com/dotwaffle/beamers/ent/runtime"
 var (
-	Hooks  [1]ent.Hook
-	Policy ent.Policy
+	Hooks        [2]ent.Hook
+	Interceptors [1]ent.Interceptor
+	Policy       ent.Policy
 	// ActorAccountIDValidator is a validator for the "actor_account_id" field. It is called by the builders before save.
 	ActorAccountIDValidator func(int) error
 	// DetailsJSONValidator is a validator for the "details_json" field. It is called by the builders before save.

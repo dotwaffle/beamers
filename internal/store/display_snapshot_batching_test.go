@@ -35,7 +35,7 @@ func countDisplaySnapshotStatements(t *testing.T, scale int) int64 {
 	credentialHash := buildDisplaySnapshotFixture(t, client, fixture)
 	now := time.Date(2026, 8, 21, 10, 0, 0, 0, time.UTC)
 	before := driver.statements.Load()
-	snapshot, err := installationStore.LoadDisplaySnapshot(t.Context(), credentialHash, now)
+	snapshot, err := installationStore.LoadDisplaySnapshot(hostMaintenanceContext(t.Context()), credentialHash, now)
 	if err != nil {
 		t.Fatalf("load Display Snapshot at scale %d: %v", scale, err)
 	}
@@ -63,7 +63,7 @@ func buildDisplaySnapshotFixture(
 	fixture publicScheduleFixture,
 ) string {
 	t.Helper()
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	client.Rundown.Create().
 		SetEventID(fixture.eventID).SetDraftRevision(1).SetPublishedRevision(1).
 		SaveX(ctx)

@@ -143,7 +143,8 @@ func (service *Service) SavePrizegivingPlan(
 		Action:      "SavePrizegivingPlan", TargetType: "Session",
 		TargetID: strconv.Itoa(input.CeremonySessionID), Now: service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[PrizegivingPlan]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[PrizegivingPlan]{
 		Storage: service.storage, Identity: identity,
 		Authorization: command.Authorization{
 			Facts: authz.Event(input.EventID), Refusals: resultsRejections,
@@ -221,7 +222,8 @@ func (service *Service) RunPrizegivingPreflight(
 		Action:      "RunPrizegivingPreflight", TargetType: "Session",
 		TargetID: strconv.Itoa(input.CeremonySessionID), Now: service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[PrizegivingPreflight]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[PrizegivingPreflight]{
 		Storage: service.storage, Identity: identity,
 		Authorization: command.Authorization{
 			Facts: authz.Event(input.EventID), Refusals: resultsRejections,

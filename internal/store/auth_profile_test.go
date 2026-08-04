@@ -40,7 +40,7 @@ func updateAccountProfileForTest(
 func TestPublicProfileAcceptsOnlyReleasedEntries(t *testing.T) {
 	client := openEntTestClient(t)
 	installation := &SQLite{client: client}
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	profileOwner := client.Account.Create().
 		SetName("Profile Owner").
 		SetNormalizedName("profile-owner").

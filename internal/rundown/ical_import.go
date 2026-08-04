@@ -102,7 +102,8 @@ func (commands *Commands) ImportICalendar(
 		PayloadHash: command.PayloadHash(string(payload)), Action: "ImportICalendar",
 		TargetType: "Event", TargetID: strconv.Itoa(input.EventID), Now: commands.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[CSVImportResult]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[CSVImportResult]{
 		Storage: commands.storage, Identity: identity, Replay: decodeICalendarImportOutcome,
 		Authorization: command.Authorization{
 			Facts: authz.Event(input.EventID), Refusals: rundownAuthorizationRejections,

@@ -95,7 +95,7 @@ func (installation *SQLite) AccountOwnsUploadTarget(
 	targetID, accountID int,
 ) (bool, error) {
 	return accountOwnsUploadTarget(
-		systemContext(ctx),
+		ctx,
 		installation.client,
 		eventID,
 		targetType,
@@ -341,11 +341,10 @@ func (transaction *CommandTx) SaveAttachmentVersion(
 	ctx context.Context,
 	params SaveAttachmentVersionParams,
 ) (AttachmentVersion, error) {
-	internalContext := systemContext(ctx)
 	switch params.UploaderType {
 	case "Account":
 		owned, err := accountOwnsUploadTarget(
-			internalContext,
+			ctx,
 			transaction.transaction.Client(),
 			params.Authorization.EventID,
 			params.Authorization.TargetType,
@@ -359,7 +358,7 @@ func (transaction *CommandTx) SaveAttachmentVersion(
 			return AttachmentVersion{}, ErrUploadTargetNotFound
 		}
 		open, err := uploadTargetOpen(
-			internalContext,
+			ctx,
 			transaction.transaction.Client(),
 			params.Authorization,
 			params.Now,
@@ -372,7 +371,7 @@ func (transaction *CommandTx) SaveAttachmentVersion(
 		}
 	case "Crew":
 		if err := transaction.validateUploadTarget(
-			internalContext, params.Authorization.EventID,
+			ctx, params.Authorization.EventID,
 			params.Authorization.TargetType, params.Authorization.TargetID,
 		); err != nil {
 			return AttachmentVersion{}, err
@@ -385,7 +384,7 @@ func (transaction *CommandTx) SaveAttachmentVersion(
 		attachment.OwnerTypeEQ(attachment.OwnerType(params.Authorization.TargetType)),
 		attachment.OwnerIDEQ(params.Authorization.TargetID),
 		attachment.NameEQ(params.Name),
-	).Only(internalContext)
+	).Only(ctx)
 	if ent.IsNotFound(err) {
 		logical, err = transaction.transaction.Attachment.Create().
 			SetEventID(params.Authorization.EventID).
@@ -393,14 +392,14 @@ func (transaction *CommandTx) SaveAttachmentVersion(
 			SetOwnerID(params.Authorization.TargetID).
 			SetName(params.Name).
 			SetCreatedAt(params.Now).
-			Save(internalContext)
+			Save(ctx)
 	}
 	if err != nil {
 		return AttachmentVersion{}, opaqueError("load Attachment", err)
 	}
 	latest, err := transaction.transaction.AttachmentVersion.Query().Where(
 		attachmentversion.AttachmentIDEQ(logical.ID),
-	).Order(ent.Desc(attachmentversion.FieldVersion)).First(internalContext)
+	).Order(ent.Desc(attachmentversion.FieldVersion)).First(ctx)
 	version := 1
 	if err == nil {
 		version = latest.Version + 1
@@ -413,7 +412,7 @@ func (transaction *CommandTx) SaveAttachmentVersion(
 			attachment.OwnerTypeEQ(attachment.OwnerType(params.Authorization.TargetType)),
 			attachment.OwnerIDEQ(params.Authorization.TargetID),
 		)).
-		Count(internalContext)
+		Count(ctx)
 	if err != nil {
 		return AttachmentVersion{}, opaqueError("count owner Attachment Versions", err)
 	}
@@ -431,7 +430,7 @@ func (transaction *CommandTx) SaveAttachmentVersion(
 		SetReleaseEligibility(attachmentversion.ReleaseEligibility(params.ReleaseEligibility)).
 		SetPrimary(primary).
 		SetCreatedAt(params.Now)
-	created, err := create.Save(internalContext)
+	created, err := create.Save(ctx)
 	if err != nil {
 		return AttachmentVersion{}, opaqueError("create Attachment Version", err)
 	}
@@ -439,7 +438,7 @@ func (transaction *CommandTx) SaveAttachmentVersion(
 		if _, updateErr := transaction.transaction.CompetitionEntry.UpdateOneID(params.Authorization.TargetID).
 			AddContentRevision(1).
 			AddRevision(1).
-			Save(internalContext); updateErr != nil {
+			Save(ctx); updateErr != nil {
 			return AttachmentVersion{}, opaqueError("invalidate Entry review after upload", updateErr)
 		}
 	}
@@ -451,11 +450,10 @@ func (installation *SQLite) LoadAttachmentVersion(
 	ctx context.Context,
 	eventID, versionID int,
 ) (AttachmentVersion, error) {
-	internalContext := systemContext(ctx)
 	version, err := installation.client.AttachmentVersion.Query().
 		Where(attachmentversion.IDEQ(versionID)).
 		WithAttachment().
-		Only(internalContext)
+		Only(ctx)
 	if ent.IsNotFound(err) {
 		return AttachmentVersion{}, ErrUploadTargetNotFound
 	}
@@ -474,10 +472,9 @@ func (installation *SQLite) LoadCompetitionAttachmentCrewState(
 	ctx context.Context,
 	eventID, sessionID int,
 ) (CompetitionAttachmentCrewState, error) {
-	internalContext := systemContext(ctx)
 	foundEvent, err := installation.client.Event.Query().
 		Where(event.IDEQ(eventID)).
-		Only(internalContext)
+		Only(ctx)
 	if ent.IsNotFound(err) {
 		return CompetitionAttachmentCrewState{}, ErrUploadTargetNotFound
 	}
@@ -487,7 +484,7 @@ func (installation *SQLite) LoadCompetitionAttachmentCrewState(
 	}
 	foundSession, err := installation.client.Session.Query().
 		Where(session.IDEQ(sessionID), session.EventIDEQ(eventID)).
-		Only(internalContext)
+		Only(ctx)
 	if ent.IsNotFound(err) {
 		return CompetitionAttachmentCrewState{}, ErrUploadTargetNotFound
 	}
@@ -500,7 +497,7 @@ func (installation *SQLite) LoadCompetitionAttachmentCrewState(
 			competitionentry.EventIDEQ(eventID),
 			competitionentry.CompetitionSessionIDEQ(sessionID),
 		).
-		All(internalContext)
+		All(ctx)
 	if err != nil {
 		return CompetitionAttachmentCrewState{},
 			opaqueError("load Competition Attachment owners", err)
@@ -524,7 +521,7 @@ func (installation *SQLite) LoadCompetitionAttachmentCrewState(
 		)).
 		WithAttachment().
 		Order(ent.Asc(attachmentversion.FieldID)).
-		All(internalContext)
+		All(ctx)
 	if err != nil {
 		return CompetitionAttachmentCrewState{},
 			opaqueError("load Competition Attachment Versions", err)
@@ -545,7 +542,7 @@ func (installation *SQLite) LoadCompetitionAttachmentCrewState(
 			reopenwindow.TargetIDIn(entryIDs...),
 		).
 		Order(ent.Asc(reopenwindow.FieldID)).
-		All(internalContext)
+		All(ctx)
 	if err != nil {
 		return CompetitionAttachmentCrewState{},
 			opaqueError("load Competition Reopen Windows", err)
@@ -571,7 +568,7 @@ func (installation *SQLite) LoadReopenWindows(
 			reopenwindow.TargetIDEQ(targetID),
 		).
 		Order(ent.Asc(reopenwindow.FieldID)).
-		All(systemContext(ctx))
+		All(ctx)
 	if err != nil {
 		return nil, opaqueError("load Reopen Windows", err)
 	}
@@ -587,11 +584,10 @@ func (installation *SQLite) LoadAccountAttachmentState(
 	ctx context.Context,
 	accountID int,
 ) (AccountAttachmentState, error) {
-	internalContext := systemContext(ctx)
 	entries, err := installation.client.CompetitionEntry.Query().
 		Where(competitionentry.SubmitterAccountIDEQ(accountID)).
 		Order(ent.Asc(competitionentry.FieldID)).
-		All(internalContext)
+		All(ctx)
 	if err != nil {
 		return AccountAttachmentState{}, opaqueError(
 			"load Account Attachment owners",
@@ -603,7 +599,7 @@ func (installation *SQLite) LoadAccountAttachmentState(
 		entryIDs = append(entryIDs, entry.ID)
 	}
 	presentations, err := installation.LoadAccountPresentationSubmissions(
-		internalContext,
+		ctx,
 		accountID,
 	)
 	if err != nil {
@@ -635,7 +631,7 @@ func (installation *SQLite) LoadAccountAttachmentState(
 		)).
 		WithAttachment().
 		Order(ent.Asc(attachmentversion.FieldID)).
-		All(internalContext)
+		All(ctx)
 	if err != nil {
 		return AccountAttachmentState{}, opaqueError(
 			"load Account Attachment Versions",
@@ -676,7 +672,7 @@ func (installation *SQLite) LoadAccountAttachmentState(
 	windows, err := installation.client.ReopenWindow.Query().
 		Where(reopenwindow.Or(windowOwners...)).
 		Order(ent.Asc(reopenwindow.FieldID)).
-		All(internalContext)
+		All(ctx)
 	if err != nil {
 		return AccountAttachmentState{}, opaqueError(
 			"load Account Reopen Windows",
@@ -701,7 +697,7 @@ func (installation *SQLite) ReferencedAttachmentStorageKeys(
 	if err := installation.client.AttachmentVersion.Query().
 		Unique(true).
 		Select(attachmentversion.FieldStorageKey).
-		Scan(systemContext(ctx), &keys); err != nil {
+		Scan(ctx, &keys); err != nil {
 		return nil, opaqueError("list referenced Attachment storage keys", err)
 	}
 	return keys, nil
@@ -735,8 +731,7 @@ func (transaction *CommandTx) CreateReopenWindow(
 	actorAccountID int,
 	now time.Time,
 ) (ReopenWindow, error) {
-	internalContext := systemContext(ctx)
-	if err := transaction.validateUploadTarget(internalContext, eventID, targetType, targetID); err != nil {
+	if err := transaction.validateUploadTarget(ctx, eventID, targetType, targetID); err != nil {
 		return ReopenWindow{}, err
 	}
 	created, err := transaction.transaction.ReopenWindow.Create().
@@ -748,7 +743,7 @@ func (transaction *CommandTx) CreateReopenWindow(
 		SetCreatedByAccountID(actorAccountID).
 		SetCreatedAt(now).
 		SetUpdatedAt(now).
-		Save(internalContext)
+		Save(ctx)
 	if err != nil {
 		return ReopenWindow{}, opaqueError("create Reopen Window", err)
 	}
@@ -763,10 +758,9 @@ func (transaction *CommandTx) UpdateReopenWindow(
 	closeWindow bool,
 	now time.Time,
 ) (ReopenWindow, error) {
-	internalContext := systemContext(ctx)
 	window, err := transaction.transaction.ReopenWindow.Query().Where(
 		reopenwindow.IDEQ(windowID), reopenwindow.EventIDEQ(eventID),
-	).Only(internalContext)
+	).Only(ctx)
 	if ent.IsNotFound(err) {
 		return ReopenWindow{}, ErrUploadTargetNotFound
 	}
@@ -788,7 +782,7 @@ func (transaction *CommandTx) UpdateReopenWindow(
 	} else {
 		update.SetExpiresAt(expiresAt)
 	}
-	updated, err := update.Save(internalContext)
+	updated, err := update.Save(ctx)
 	if err != nil {
 		return ReopenWindow{}, opaqueError("update Reopen Window", err)
 	}

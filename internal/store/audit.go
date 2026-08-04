@@ -48,7 +48,7 @@ func (installation *SQLite) RecordHostInterfaceMode(
 			auditentry.TargetIDEQ(target),
 		).
 		Order(ent.Desc(auditentry.FieldID)).
-		First(systemContext(ctx))
+		First(ctx)
 	switch {
 	case ent.IsNotFound(err):
 		if !enabled {
@@ -67,7 +67,7 @@ func (installation *SQLite) RecordHostInterfaceMode(
 		SetTargetID(target).
 		SetResult(auditentry.ResultSucceeded).
 		SetNote(state).
-		Save(systemContext(ctx)); err != nil {
+		Save(ctx); err != nil {
 		return opaqueError("record insecure Interface Audit state", err)
 	}
 	return nil

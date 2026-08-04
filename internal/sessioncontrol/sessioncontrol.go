@@ -527,7 +527,8 @@ func (service *Service) AdjustTarget(
 		PayloadHash: command.PayloadHash(string(payload)), Action: "AdjustTarget",
 		TargetType: "Session", TargetID: strconv.Itoa(input.SessionID), Now: service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[TargetAdjustmentResult]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[TargetAdjustmentResult]{
 		Storage: service.storage, Identity: identity, Notify: service.notifyLive,
 		Authorization: command.Authorization{
 			EventID: input.EventID,
@@ -621,7 +622,8 @@ func (service *Service) PullForward(
 		PayloadHash: command.PayloadHash(string(payload)), Action: "PullForward",
 		TargetType: "Session", TargetID: strconv.Itoa(input.SessionID), Now: service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[PullForwardResult]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[PullForwardResult]{
 		Storage: service.storage, Identity: identity, Notify: service.notifyLive,
 		Authorization: command.Authorization{
 			EventID: input.EventID,
@@ -713,7 +715,8 @@ func (service *Service) Reinstate(
 		PayloadHash: command.PayloadHash(string(payload)), Action: "ReinstateSession",
 		TargetType: "Session", TargetID: strconv.Itoa(input.SessionID), Now: service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[ReinstateResult]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[ReinstateResult]{
 		Storage: service.storage, Identity: identity, Notify: service.notifyLive,
 		Authorization: command.Authorization{
 			Facts:    authz.Event(input.EventID),
@@ -787,7 +790,8 @@ func (service *Service) CorrectLiveDetails(
 		PayloadHash: command.PayloadHash(string(payload)), Action: "CorrectLiveDetails",
 		TargetType: "Session", TargetID: strconv.Itoa(input.SessionID), Now: service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[Correction]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[Correction]{
 		Storage: service.storage, Identity: identity, Notify: service.notifyLive,
 		Authorization: command.Authorization{
 			EventID: input.EventID,
@@ -1127,7 +1131,8 @@ func (service *Service) execute(
 		PayloadHash: command.PayloadHash(input.Payload), Action: input.Action,
 		TargetType: "Session", TargetID: strconv.Itoa(input.SessionID), Now: service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[State]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[State]{
 		Storage: service.storage, Identity: identity, Notify: service.notifyLive,
 		Authorization: command.Authorization{
 			EventID: input.EventID,

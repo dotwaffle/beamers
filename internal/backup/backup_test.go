@@ -23,12 +23,13 @@ import (
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/diskspace"
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 
 	_ "modernc.org/sqlite"
 )
 
 func TestSanitizedBackupIncludesConfiguredAttachmentsAndRemovesCredentials(t *testing.T) {
-	ctx := t.Context()
+	ctx := systemactor.NewContext(t.Context(), systemactor.HostMaintenance)
 	dataDir := filepath.Join(t.TempDir(), "installation")
 	if err := store.Initialize(ctx, dataDir); err != nil {
 		t.Fatalf("initialize installation: %v", err)
@@ -163,7 +164,7 @@ func TestSanitizedBackupIncludesConfiguredAttachmentsAndRemovesCredentials(t *te
 
 func TestPreflightDiskSpaceRefusesWhenInsufficient(t *testing.T) {
 	dataDir := filepath.Join(t.TempDir(), "installation")
-	if err := store.Initialize(t.Context(), dataDir); err != nil {
+	if err := store.Initialize(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir); err != nil {
 		t.Fatalf("initialize installation: %v", err)
 	}
 	outputPath := filepath.Join(t.TempDir(), "backup.zip")
@@ -182,7 +183,7 @@ func TestPreflightDiskSpaceRefusesWhenInsufficient(t *testing.T) {
 
 func TestPreflightDiskSpaceAllowsSufficientCapacity(t *testing.T) {
 	dataDir := filepath.Join(t.TempDir(), "installation")
-	if err := store.Initialize(t.Context(), dataDir); err != nil {
+	if err := store.Initialize(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir); err != nil {
 		t.Fatalf("initialize installation: %v", err)
 	}
 	outputPath := filepath.Join(t.TempDir(), "backup.zip")
@@ -210,7 +211,7 @@ func TestPreflightDiskSpaceAllowsSufficientCapacity(t *testing.T) {
 }
 
 func TestCreateRecordsCompletionMarkerForDiagnosticsAge(t *testing.T) {
-	ctx := t.Context()
+	ctx := systemactor.NewContext(t.Context(), systemactor.HostMaintenance)
 	dataDir := filepath.Join(t.TempDir(), "installation")
 	if err := store.Initialize(ctx, dataDir); err != nil {
 		t.Fatalf("initialize installation: %v", err)
@@ -269,7 +270,7 @@ func TestInstallArchiveSyncsPublishedFilenameBeforeSuccess(t *testing.T) {
 }
 
 func TestBackupConfigurationIsVerifiedAndRestoreRequiresAcknowledgment(t *testing.T) {
-	ctx := t.Context()
+	ctx := systemactor.NewContext(t.Context(), systemactor.HostMaintenance)
 	dataDir := filepath.Join(t.TempDir(), "installation")
 	if err := store.Initialize(ctx, dataDir); err != nil {
 		t.Fatalf("initialize installation: %v", err)
@@ -392,7 +393,7 @@ func TestFullFidelityBackupRetainsSecureCreateAccountReceipt(t *testing.T) {
 
 func testBackupRetainsSecureCreateAccountReceipt(t *testing.T, mode Mode) {
 	t.Helper()
-	ctx := t.Context()
+	ctx := systemactor.NewContext(t.Context(), systemactor.HostMaintenance)
 	dataDir := filepath.Join(t.TempDir(), "installation")
 	if err := store.Initialize(ctx, dataDir); err != nil {
 		t.Fatalf("initialize installation: %v", err)
@@ -568,7 +569,7 @@ func testBackupRetainsSecureCreateAccountReceipt(t *testing.T, mode Mode) {
 }
 
 func TestVerifyRejectsTamperedAttachment(t *testing.T) {
-	ctx := t.Context()
+	ctx := systemactor.NewContext(t.Context(), systemactor.HostMaintenance)
 	dataDir := filepath.Join(t.TempDir(), "installation")
 	if err := store.Initialize(ctx, dataDir); err != nil {
 		t.Fatalf("initialize installation: %v", err)
@@ -732,7 +733,7 @@ func TestArchiveResourceLimits(t *testing.T) {
 }
 
 func TestRestoreAcceptsAttachmentAtSizeBoundary(t *testing.T) {
-	ctx := t.Context()
+	ctx := systemactor.NewContext(t.Context(), systemactor.HostMaintenance)
 	dataDir := filepath.Join(t.TempDir(), "installation")
 	if err := store.Initialize(ctx, dataDir); err != nil {
 		t.Fatalf("initialize installation: %v", err)
@@ -837,7 +838,7 @@ func TestExtractFileStopsWhenCanceled(t *testing.T) {
 
 func TestVerifyRejectsTamperedManifest(t *testing.T) {
 	dataDir := filepath.Join(t.TempDir(), "installation")
-	if err := store.Initialize(t.Context(), dataDir); err != nil {
+	if err := store.Initialize(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir); err != nil {
 		t.Fatalf("initialize installation: %v", err)
 	}
 	archivePath := filepath.Join(t.TempDir(), "backup.zip")
@@ -903,7 +904,7 @@ func assertRejectedRestoreCleansStaging(
 
 func TestVerifyRejectsTrailingManifestContent(t *testing.T) {
 	dataDir := filepath.Join(t.TempDir(), "installation")
-	if err := store.Initialize(t.Context(), dataDir); err != nil {
+	if err := store.Initialize(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir); err != nil {
 		t.Fatalf("initialize installation: %v", err)
 	}
 	archivePath := filepath.Join(t.TempDir(), "backup.zip")
@@ -950,7 +951,7 @@ func TestVerifyRejectsTrailingManifestContent(t *testing.T) {
 }
 
 func TestRestoreRejectsFullFidelityBackupRelabeledSanitized(t *testing.T) {
-	ctx := t.Context()
+	ctx := systemactor.NewContext(t.Context(), systemactor.HostMaintenance)
 	dataDir := filepath.Join(t.TempDir(), "installation")
 	if err := store.Initialize(ctx, dataDir); err != nil {
 		t.Fatalf("initialize installation: %v", err)
@@ -1017,7 +1018,7 @@ func TestRestoreRejectsFullFidelityBackupRelabeledSanitized(t *testing.T) {
 }
 
 func TestRestoreReplacesExistingInstallationThroughDurableJournal(t *testing.T) {
-	ctx := t.Context()
+	ctx := systemactor.NewContext(t.Context(), systemactor.HostMaintenance)
 	sourceDataDir := filepath.Join(t.TempDir(), "source")
 	if err := store.Initialize(ctx, sourceDataDir); err != nil {
 		t.Fatalf("initialize source installation: %v", err)
@@ -1093,7 +1094,7 @@ func TestRestoreReplacesExistingInstallationThroughDurableJournal(t *testing.T) 
 }
 
 func TestRestoreRejectsStagingChangedAfterPreview(t *testing.T) {
-	ctx := t.Context()
+	ctx := systemactor.NewContext(t.Context(), systemactor.HostMaintenance)
 	sourceDataDir := filepath.Join(t.TempDir(), "source")
 	if err := store.Initialize(ctx, sourceDataDir); err != nil {
 		t.Fatalf("initialize source installation: %v", err)
@@ -1141,7 +1142,7 @@ func TestRestoreRejectsStagingChangedAfterPreview(t *testing.T) {
 }
 
 func TestCancelPreparedRestoreRemovesReservedStateAndAllowsAnotherPreview(t *testing.T) {
-	ctx := t.Context()
+	ctx := systemactor.NewContext(t.Context(), systemactor.HostMaintenance)
 	sourceDataDir := filepath.Join(t.TempDir(), "source")
 	if err := store.Initialize(ctx, sourceDataDir); err != nil {
 		t.Fatalf("initialize source installation: %v", err)
@@ -1231,7 +1232,7 @@ func TestCancelPreparedRestoreRemovesReservedStateAndAllowsAnotherPreview(t *tes
 }
 
 func TestCancelPreparedRestoreRefusesDamageAndStartedCutover(t *testing.T) {
-	ctx := t.Context()
+	ctx := systemactor.NewContext(t.Context(), systemactor.HostMaintenance)
 	sourceDataDir := filepath.Join(t.TempDir(), "source")
 	if err := store.Initialize(ctx, sourceDataDir); err != nil {
 		t.Fatalf("initialize source installation: %v", err)
@@ -1324,7 +1325,7 @@ func TestCancelPreparedRestoreRefusesDamageAndStartedCutover(t *testing.T) {
 }
 
 func TestRestoreRecoversInterruptedCrossFilesystemCutover(t *testing.T) {
-	ctx := t.Context()
+	ctx := systemactor.NewContext(t.Context(), systemactor.HostMaintenance)
 	sourceDataDir := filepath.Join(t.TempDir(), "source")
 	if err := store.Initialize(ctx, sourceDataDir); err != nil {
 		t.Fatalf("initialize source installation: %v", err)
@@ -1423,7 +1424,7 @@ func TestRestoreRecoversInterruptedCrossFilesystemCutover(t *testing.T) {
 func TestForcedUnsupportedRestoreReportsUnknownSchemaAndMakesNoSafetyClaim(
 	t *testing.T,
 ) {
-	ctx := t.Context()
+	ctx := systemactor.NewContext(t.Context(), systemactor.HostMaintenance)
 	sourceDataDir := filepath.Join(t.TempDir(), "source")
 	if err := store.Initialize(ctx, sourceDataDir); err != nil {
 		t.Fatalf("initialize source installation: %v", err)

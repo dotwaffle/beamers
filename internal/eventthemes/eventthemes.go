@@ -12,6 +12,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 	"github.com/dotwaffle/beamers/internal/themes"
 	"github.com/dotwaffle/beamers/internal/themevalue"
 	"github.com/dotwaffle/beamers/internal/viewer"
@@ -103,6 +104,7 @@ func (service *Service) Active(
 	eventID int,
 	variant string,
 ) (ActiveTheme, error) {
+	ctx = systemactor.NewContext(ctx, systemactor.PublicVisitor)
 	base, err := service.installation.Active(ctx)
 	if err != nil {
 		return ActiveTheme{}, err
@@ -159,7 +161,8 @@ func (service *Service) Preview(
 	if !producer(actor, eventID) {
 		return Preview{}, ErrProducerRequired
 	}
-	found, err := service.loadRevision(actor.Context(ctx), eventID, revisionID)
+	ctx = actor.Context(ctx)
+	found, err := service.loadRevision(ctx, eventID, revisionID)
 	if err != nil {
 		return Preview{}, err
 	}
@@ -207,7 +210,8 @@ func (service *Service) CreateDraft(
 		Action:      "CreateEventThemeRevision", TargetType: "EventThemeRevision",
 		TargetID: strconv.Itoa(eventID) + ":pending", Now: service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[Revision]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[Revision]{
 		Storage: service.storage, Identity: identity, Replay: replayRevision,
 		Authorization: command.Authorization{
 			Facts: authz.Event(eventID), Refusals: eventThemeAuthorizationRejections,
@@ -256,7 +260,8 @@ func (service *Service) Activate(
 		Action:      "ActivateEventThemeRevision", TargetType: "EventThemeRevision",
 		TargetID: strconv.Itoa(input.RevisionID), Now: service.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[Revision]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[Revision]{
 		Storage: service.storage, Identity: identity, Replay: replayRevision,
 		Notify: service.notifyThemeChange,
 		Authorization: command.Authorization{

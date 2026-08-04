@@ -24,7 +24,7 @@ func TestPrizegivingPlanAssignmentIsUniqueAndLockIsImmutable(t *testing.T) {
 	competition := createPublishedResultsSession(
 		t, client, event.ID, sessionpublishedversion.TypeCompetition, "Final",
 	)
-	ctx := viewer.NewContext(t.Context(), viewer.Identity{
+	ctx := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID:  7,
 		EventRoles: map[int]viewer.Role{event.ID: viewer.Producer},
 	})
@@ -94,7 +94,7 @@ func TestPrizegivingPlanAssignmentIsUniqueAndLockIsImmutable(t *testing.T) {
 	if err = preflightTransaction.Rollback(); err != nil {
 		t.Fatalf("roll back Prizegiving Preflight state load: %v", err)
 	}
-	viewContext := viewer.NewContext(t.Context(), viewer.Identity{
+	viewContext := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID:  8,
 		EventRoles: map[int]viewer.Role{event.ID: viewer.Observer},
 		EventScopes: map[int]viewer.EventScope{
@@ -211,7 +211,7 @@ func TestPrizegivingDefaultsOrderAndPreviewUsesLockedSources(t *testing.T) {
 		t, client, event.ID, sessionpublishedversion.TypeCompetition, "Early",
 		time.Date(2026, 8, 21, 10, 0, 0, 0, time.UTC),
 	)
-	ctx := viewer.NewContext(t.Context(), viewer.Identity{
+	ctx := viewer.NewContext(hostMaintenanceContext(t.Context()), viewer.Identity{
 		AccountID: 7, EventRoles: map[int]viewer.Role{event.ID: viewer.Producer},
 	})
 	now := time.Date(2026, 8, 21, 14, 0, 0, 0, time.UTC)
@@ -440,7 +440,7 @@ func createPublishedResultsSessionAt(
 	plannedStart time.Time,
 ) *ent.Session {
 	t.Helper()
-	ctx := systemContext(t.Context())
+	ctx := hostMaintenanceContext(t.Context())
 	found := client.Session.Create().
 		SetEventID(eventID).
 		SetLifecycle(session.LifecycleEnded).

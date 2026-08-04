@@ -12,11 +12,14 @@ import (
 	"unicode/utf8"
 
 	"golang.org/x/crypto/argon2"
+
+	"github.com/dotwaffle/beamers/internal/systemactor"
 )
 
 // SignIn verifies an Account credential without distinguishing unknown,
 // disabled, and incorrect credentials.
 func (service *Service) SignIn(ctx context.Context, name, password string) (Session, error) {
+	ctx = systemactor.NewContext(ctx, systemactor.PublicVisitor)
 	if service.storageDegraded() {
 		return Session{}, ErrStorageDegraded
 	}
@@ -84,6 +87,7 @@ func (service *Service) Reauthenticate(
 	if !actor.Administrator {
 		return ErrAdministratorRequired
 	}
+	ctx = actor.Context(ctx)
 	handle := actor.Handle
 	if handle == "" {
 		handle = actor.Name

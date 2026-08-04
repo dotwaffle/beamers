@@ -102,7 +102,7 @@ func (installation *SQLite) IssueDisplayEnrollment(
 		SetCredentialHash(params.CredentialHash).
 		SetCreatedAt(params.CreatedAt).
 		SetExpiresAt(params.ExpiresAt).
-		Save(systemContext(ctx))
+		Save(ctx)
 	if ent.IsConstraintError(err) {
 		return ErrDisplayEnrollmentConflict
 	}
@@ -120,12 +120,11 @@ func (transaction *CommandTx) ClaimDisplayEnrollment(
 	displayID int,
 	now time.Time,
 ) (Display, error) {
-	internalContext := systemContext(ctx)
 	enrollment, err := transaction.transaction.DisplayEnrollment.Query().Where(
 		displayenrollment.CodeHashEQ(codeHash),
 		displayenrollment.UsedAtIsNil(),
 		displayenrollment.ExpiresAtGT(now),
-	).Only(internalContext)
+	).Only(ctx)
 	if ent.IsNotFound(err) {
 		return Display{}, ErrDisplayEnrollmentUnavailable
 	}
@@ -138,12 +137,12 @@ func (transaction *CommandTx) ClaimDisplayEnrollment(
 			SetName(name).
 			SetCreatedAt(now).
 			SetEnrolledAt(now).
-			Save(internalContext)
+			Save(ctx)
 		if err != nil {
 			return Display{}, opaqueError("create enrolled Display", err)
 		}
 	} else {
-		claimed, err = transaction.transaction.Display.Get(internalContext, displayID)
+		claimed, err = transaction.transaction.Display.Get(ctx, displayID)
 		if ent.IsNotFound(err) {
 			return Display{}, ErrDisplayNotFound
 		}
@@ -153,7 +152,7 @@ func (transaction *CommandTx) ClaimDisplayEnrollment(
 		active, credentialErr := transaction.transaction.DisplayCredential.Query().Where(
 			displaycredential.DisplayIDEQ(displayID),
 			displaycredential.RevokedAtIsNil(),
-		).Exist(internalContext)
+		).Exist(ctx)
 		if credentialErr != nil {
 			return Display{}, opaqueError("inspect Display credentials", credentialErr)
 		}
@@ -165,13 +164,13 @@ func (transaction *CommandTx) ClaimDisplayEnrollment(
 		SetDisplayID(claimed.ID).
 		SetTokenHash(enrollment.CredentialHash).
 		SetCreatedAt(now).
-		Save(internalContext); credentialErr != nil {
+		Save(ctx); credentialErr != nil {
 		return Display{}, opaqueError("create Display credential", credentialErr)
 	}
 	updated, err := transaction.transaction.DisplayEnrollment.Update().Where(
 		displayenrollment.IDEQ(enrollment.ID),
 		displayenrollment.UsedAtIsNil(),
-	).SetUsedAt(now).Save(internalContext)
+	).SetUsedAt(now).Save(ctx)
 	if err != nil {
 		return Display{}, opaqueError("consume Display Enrollment", err)
 	}
@@ -189,7 +188,7 @@ func (installation *SQLite) FindDisplayByCredential(
 	credential, err := installation.reader.DisplayCredential.Query().Where(
 		displaycredential.TokenHashEQ(tokenHash),
 		displaycredential.RevokedAtIsNil(),
-	).WithDisplay().Only(systemContext(ctx))
+	).WithDisplay().Only(ctx)
 	if ent.IsNotFound(err) {
 		return Display{}, ErrDisplayCredential
 	}
@@ -209,17 +208,16 @@ func (transaction *CommandTx) AssignDisplay(
 	assignment DisplayAssignment,
 	now time.Time,
 ) (DisplayAssignment, error) {
-	internalContext := systemContext(ctx)
 	if exists, err := transaction.transaction.Display.Query().Where(
 		display.IDEQ(assignment.DisplayID),
-	).Exist(internalContext); err != nil {
+	).Exist(ctx); err != nil {
 		return DisplayAssignment{}, opaqueError("find Display for Assignment", err)
 	} else if !exists {
 		return DisplayAssignment{}, ErrDisplayNotFound
 	}
 	if exists, err := transaction.transaction.Event.Query().Where(
 		event.IDEQ(assignment.EventID),
-	).Exist(internalContext); err != nil {
+	).Exist(ctx); err != nil {
 		return DisplayAssignment{}, opaqueError("find Event for Display Assignment", err)
 	} else if !exists {
 		return DisplayAssignment{}, ErrDisplayAssignmentReference
@@ -227,14 +225,14 @@ func (transaction *CommandTx) AssignDisplay(
 	if exists, err := transaction.transaction.Location.Query().Where(
 		location.IDEQ(assignment.LocationID),
 		location.EventIDEQ(assignment.EventID),
-	).Exist(internalContext); err != nil {
+	).Exist(ctx); err != nil {
 		return DisplayAssignment{}, opaqueError("find Location for Display Assignment", err)
 	} else if !exists {
 		return DisplayAssignment{}, ErrDisplayAssignmentReference
 	}
 	published, err := transaction.transaction.LocationPublishedVersion.Query().Where(
 		locationpublishedversion.LocationIDEQ(assignment.LocationID),
-	).Order(ent.Desc(locationpublishedversion.FieldPublishedRevision)).First(internalContext)
+	).Order(ent.Desc(locationpublishedversion.FieldPublishedRevision)).First(ctx)
 	if ent.IsNotFound(err) || err == nil && published.Retired {
 		return DisplayAssignment{}, ErrDisplayAssignmentReference
 	}
@@ -244,7 +242,7 @@ func (transaction *CommandTx) AssignDisplay(
 	existing, err := transaction.transaction.DisplayAssignment.Query().Where(
 		displayassignment.DisplayIDEQ(assignment.DisplayID),
 		displayassignment.EventIDEQ(assignment.EventID),
-	).Only(internalContext)
+	).Only(ctx)
 	switch {
 	case ent.IsNotFound(err):
 		_, err = transaction.transaction.DisplayAssignment.Create().
@@ -255,14 +253,14 @@ func (transaction *CommandTx) AssignDisplay(
 			SetDisplayGroupKeys(assignment.DisplayGroupKeys).
 			SetCreatedAt(now).
 			SetUpdatedAt(now).
-			Save(internalContext)
+			Save(ctx)
 	case err == nil:
 		_, err = transaction.transaction.DisplayAssignment.UpdateOneID(existing.ID).
 			SetLocationID(assignment.LocationID).
 			SetViewKey(assignment.ViewKey).
 			SetDisplayGroupKeys(assignment.DisplayGroupKeys).
 			SetUpdatedAt(now).
-			Save(internalContext)
+			Save(ctx)
 	}
 	if err != nil {
 		return DisplayAssignment{}, opaqueError("save Display Assignment", err)
@@ -285,20 +283,19 @@ func (installation *SQLite) LoadDisplayStatus(
 	ctx context.Context,
 	displayID int,
 ) (DisplayStatus, error) {
-	internalContext := systemContext(ctx)
-	found, err := installation.readClient().Display.Get(internalContext, displayID)
+	found, err := installation.readClient().Display.Get(ctx, displayID)
 	if ent.IsNotFound(err) {
 		return DisplayStatus{}, ErrDisplayNotFound
 	}
 	if err != nil {
 		return DisplayStatus{}, opaqueError("load Display status", err)
 	}
-	routing, err := loadDisplayRouting(internalContext, installation.readClient())
+	routing, err := loadDisplayRouting(ctx, installation.readClient())
 	if err != nil {
 		return DisplayStatus{}, err
 	}
 	inputs, err := loadDisplayStatusInputs(
-		internalContext, installation.readClient(), routing, []*ent.Display{found},
+		ctx, installation.readClient(), routing, []*ent.Display{found},
 	)
 	if err != nil {
 		return DisplayStatus{}, err
@@ -308,22 +305,21 @@ func (installation *SQLite) LoadDisplayStatus(
 
 // ListDisplayStatuses returns one snapshot's Active Event and crew-visible Assignment summaries.
 func (installation *SQLite) ListDisplayStatuses(ctx context.Context) (int, []DisplayStatus, error) {
-	internalContext := systemContext(ctx)
 	type snapshot struct {
 		activeEventID int
 		statuses      []DisplayStatus
 	}
-	found, err := withReadTx(internalContext, installation.readClient(), "Display status snapshot", func(transaction *ent.Tx) (snapshot, error) {
+	found, err := withReadTx(ctx, installation.readClient(), "Display status snapshot", func(transaction *ent.Tx) (snapshot, error) {
 		client := transaction.Client()
-		routing, err := loadDisplayRouting(internalContext, client)
+		routing, err := loadDisplayRouting(ctx, client)
 		if err != nil {
 			return snapshot{}, err
 		}
-		displays, err := client.Display.Query().Order(ent.Asc(display.FieldID)).All(internalContext)
+		displays, err := client.Display.Query().Order(ent.Asc(display.FieldID)).All(ctx)
 		if err != nil {
 			return snapshot{}, opaqueError("list Displays", err)
 		}
-		inputs, err := loadDisplayStatusInputs(internalContext, client, routing, displays)
+		inputs, err := loadDisplayStatusInputs(ctx, client, routing, displays)
 		if err != nil {
 			return snapshot{}, err
 		}
@@ -545,7 +541,7 @@ func (installation *SQLite) PendingDisplayEnrollment(
 		displayenrollment.CredentialHashEQ(credentialHash),
 		displayenrollment.UsedAtIsNil(),
 		displayenrollment.ExpiresAtGT(now),
-	).Only(systemContext(ctx))
+	).Only(ctx)
 	if ent.IsNotFound(err) {
 		return time.Time{}, false, nil
 	}

@@ -78,17 +78,16 @@ type PublicCompetitionEntry struct {
 
 // LoadPublicSchedule returns the Active Event's current public projection.
 func (installationStore *SQLite) LoadPublicSchedule(ctx context.Context) (PublicScheduleState, error) {
-	internalContext := systemContext(ctx)
 	active, err := installationStore.readClient().Installation.Query().
 		Where(installation.ActiveEventIDNotNil()).
-		Only(internalContext)
+		Only(ctx)
 	if ent.IsNotFound(err) {
 		return PublicScheduleState{}, nil
 	}
 	if err != nil {
 		return PublicScheduleState{}, opaqueError("load public Schedule routing", err)
 	}
-	activeEvent, err := installationStore.readClient().Event.Get(internalContext, *active.ActiveEventID)
+	activeEvent, err := installationStore.readClient().Event.Get(ctx, *active.ActiveEventID)
 	if err != nil {
 		return PublicScheduleState{}, opaqueError("load public Schedule Event", err)
 	}
@@ -97,10 +96,10 @@ func (installationStore *SQLite) LoadPublicSchedule(ctx context.Context) (Public
 		Timezone: activeEvent.Timezone, EventLocale: activeEvent.EventLocale,
 		ContentLanguage: activeEvent.ContentLanguage, EventDayBoundary: activeEvent.EventDayBoundary,
 	}
-	if err := installationStore.loadPublicScheduleNames(internalContext, &result); err != nil {
+	if err := installationStore.loadPublicScheduleNames(ctx, &result); err != nil {
 		return PublicScheduleState{}, err
 	}
-	if err := installationStore.loadPublicScheduleSessions(internalContext, &result); err != nil {
+	if err := installationStore.loadPublicScheduleSessions(ctx, &result); err != nil {
 		return PublicScheduleState{}, err
 	}
 	return result, nil

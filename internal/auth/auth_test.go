@@ -12,6 +12,7 @@ import (
 
 	_ "github.com/dotwaffle/beamers/ent/runtime"
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
@@ -377,10 +378,10 @@ func TestAuthenticateUsesOnlyUnexpiredPreviouslyValidatedSessionDuringStorageFai
 ) {
 	now := time.Date(2026, time.July, 24, 10, 0, 0, 0, time.UTC)
 	dataDir := t.TempDir()
-	if err := store.Initialize(t.Context(), dataDir); err != nil {
+	if err := store.Initialize(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir); err != nil {
 		t.Fatalf("initialize authentication storage: %v", err)
 	}
-	storage, err := store.Open(t.Context(), dataDir)
+	storage, err := store.Open(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir)
 	if err != nil {
 		t.Fatalf("open authentication storage: %v", err)
 	}
@@ -529,10 +530,10 @@ func TestSignInBoundsSessionsAndPrunesExpiryWithoutTokenReuse(t *testing.T) {
 	const expectedLimit = 8
 	now := time.Date(2026, time.July, 26, 10, 0, 0, 0, time.UTC)
 	dataDir := t.TempDir()
-	if err := store.Initialize(t.Context(), dataDir); err != nil {
+	if err := store.Initialize(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir); err != nil {
 		t.Fatalf("initialize authentication storage: %v", err)
 	}
-	storage, err := store.Open(t.Context(), dataDir)
+	storage, err := store.Open(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir)
 	if err != nil {
 		t.Fatalf("open authentication storage: %v", err)
 	}
@@ -877,10 +878,10 @@ func TestAccountRecoveryIsSingleUseDurableAndRevokesSessions(t *testing.T) {
 func openAccountTestService(t *testing.T) (*Service, Account) {
 	t.Helper()
 	dataDir := t.TempDir()
-	if err := store.Initialize(t.Context(), dataDir); err != nil {
+	if err := store.Initialize(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir); err != nil {
 		t.Fatalf("initialize authentication storage: %v", err)
 	}
-	storage, err := store.Open(t.Context(), dataDir)
+	storage, err := store.Open(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir)
 	if err != nil {
 		t.Fatalf("open authentication storage: %v", err)
 	}

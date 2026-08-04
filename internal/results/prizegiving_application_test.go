@@ -34,6 +34,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/rundown"
 	"github.com/dotwaffle/beamers/internal/sessioncontrol"
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
@@ -180,7 +181,7 @@ func TestPrizegivingPublicCommandsPreflightAndPreview(t *testing.T) {
 		t.Fatalf("lock Prizegiving = %+v, %v", locked, err)
 	}
 	beforeCue, err := storage.LoadResultsPublication(
-		t.Context(),
+		systemactor.NewContext(t.Context(), systemactor.HostMaintenance),
 		eventID,
 		store.ResultsPublicationPrizegiving,
 		ceremonyID,
@@ -326,7 +327,7 @@ func TestPrizegivingReleaseBlocksOnTemplateRenderFailure(t *testing.T) {
 		t.Fatalf("render-failure release error = %v", err)
 	}
 	stored, err := storage.LoadResultsPublication(
-		t.Context(),
+		systemactor.NewContext(t.Context(), systemactor.HostMaintenance),
 		eventID,
 		store.ResultsPublicationPrizegiving,
 		ceremonyID,
@@ -729,7 +730,7 @@ func TestStandaloneResultsReleaseRequiresReadyUnassignedCompetition(t *testing.T
 		t.Fatalf("release standalone Results = %+v, %v", released, err)
 	}
 	stored, err := storage.LoadResultsPublication(
-		t.Context(),
+		systemactor.NewContext(t.Context(), systemactor.HostMaintenance),
 		eventID,
 		store.ResultsPublicationStandalone,
 		competitionID,
@@ -748,7 +749,7 @@ func TestStandaloneResultsReleaseRequiresReadyUnassignedCompetition(t *testing.T
 		t.Fatalf("stored standalone Results Publication = %+v, %v", stored, err)
 	}
 	eventPublication, err := storage.LoadResultsPublication(
-		t.Context(),
+		systemactor.NewContext(t.Context(), systemactor.HostMaintenance),
 		eventID,
 		store.ResultsPublicationEvent,
 		eventID,
@@ -923,7 +924,7 @@ func TestStandaloneResultsReleaseRequiresReadyUnassignedCompetition(t *testing.T
 		t.Fatalf("replay Results Correction RPC = %+v, %v", replayedCorrection, err)
 	}
 	latest, err := storage.LoadResultsPublication(
-		t.Context(),
+		systemactor.NewContext(t.Context(), systemactor.HostMaintenance),
 		eventID,
 		store.ResultsPublicationStandalone,
 		competitionID,
@@ -937,7 +938,7 @@ func TestStandaloneResultsReleaseRequiresReadyUnassignedCompetition(t *testing.T
 		t.Fatalf("corrected Results Publication = %+v, %v", latest, err)
 	}
 	eventPublication, err = storage.LoadResultsPublication(
-		t.Context(),
+		systemactor.NewContext(t.Context(), systemactor.HostMaintenance),
 		eventID,
 		store.ResultsPublicationEvent,
 		eventID,
@@ -951,7 +952,7 @@ func TestStandaloneResultsReleaseRequiresReadyUnassignedCompetition(t *testing.T
 		t.Fatalf("corrected Event Results Publication = %+v, %v", eventPublication, err)
 	}
 	original, found, err := storage.LoadResultsPublicationRevision(
-		t.Context(),
+		systemactor.NewContext(t.Context(), systemactor.HostMaintenance),
 		eventID,
 		store.ResultsPublicationStandalone,
 		competitionID,
@@ -1156,7 +1157,7 @@ func TestStandaloneNoPublicResultsReleaseDoesNotRequireReadyReview(t *testing.T)
 		t.Fatalf("release standalone No Public Results = %+v, %v", released, err)
 	}
 	eventPublication, err := storage.LoadResultsPublication(
-		t.Context(),
+		systemactor.NewContext(t.Context(), systemactor.HostMaintenance),
 		eventID,
 		store.ResultsPublicationEvent,
 		eventID,
@@ -1480,7 +1481,7 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 		)
 	}
 	beforeElapsed, err := storage.LoadResultsPublication(
-		t.Context(),
+		systemactor.NewContext(t.Context(), systemactor.HostMaintenance),
 		eventID,
 		store.ResultsPublicationPrizegiving,
 		ceremonyID,
@@ -1504,7 +1505,7 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 		t.Fatalf("restored Program Result = %+v", revealed)
 	}
 	progressive, err := storage.LoadResultsPublication(
-		t.Context(),
+		systemactor.NewContext(t.Context(), systemactor.HostMaintenance),
 		eventID,
 		store.ResultsPublicationPrizegiving,
 		ceremonyID,
@@ -1604,7 +1605,7 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 		t.Fatalf("Reveal second static Result = %+v, %v", secondRevealed, err)
 	}
 	progressive, err = storage.LoadResultsPublication(
-		t.Context(),
+		systemactor.NewContext(t.Context(), systemactor.HostMaintenance),
 		eventID,
 		store.ResultsPublicationPrizegiving,
 		ceremonyID,
@@ -1637,7 +1638,7 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 		t.Fatalf("roll back Ceremony End: %v", err)
 	}
 	afterRollback, err := storage.LoadResultsPublication(
-		t.Context(),
+		systemactor.NewContext(t.Context(), systemactor.HostMaintenance),
 		eventID,
 		store.ResultsPublicationPrizegiving,
 		ceremonyID,
@@ -1646,7 +1647,7 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 		t.Fatalf("Publication after rollback = %+v, %v", afterRollback, err)
 	}
 	eventAfterRollback, err := storage.LoadResultsPublication(
-		t.Context(),
+		systemactor.NewContext(t.Context(), systemactor.HostMaintenance),
 		eventID,
 		store.ResultsPublicationEvent,
 		eventID,
@@ -1667,7 +1668,7 @@ func TestPrizegivingPublicProgramControlRevealsLockedResult(t *testing.T) {
 		t.Fatalf("end resolved Prizegiving = %+v, %v", ended, err)
 	}
 	finalPublication, err := storage.LoadResultsPublication(
-		t.Context(),
+		systemactor.NewContext(t.Context(), systemactor.HostMaintenance),
 		eventID,
 		store.ResultsPublicationPrizegiving,
 		ceremonyID,
@@ -1799,10 +1800,10 @@ func openPrizegivingApplicationTest(
 ) (*store.SQLite, auth.Account, int, prizegivingApplicationTestControl) {
 	t.Helper()
 	dataDir := t.TempDir()
-	if err := store.Initialize(t.Context(), dataDir); err != nil {
+	if err := store.Initialize(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir); err != nil {
 		t.Fatalf("initialize storage: %v", err)
 	}
-	storage, err := store.Open(t.Context(), dataDir)
+	storage, err := store.Open(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir)
 	if err != nil {
 		t.Fatalf("open storage: %v", err)
 	}
@@ -1817,7 +1818,7 @@ func openPrizegivingApplicationTest(
 		if closeErr := currentStorage.Close(); closeErr != nil {
 			t.Fatalf("close storage for restart: %v", closeErr)
 		}
-		currentStorage, err = store.Open(t.Context(), dataDir)
+		currentStorage, err = store.Open(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir)
 		if err != nil {
 			t.Fatalf("reopen storage after restart: %v", err)
 		}
@@ -1826,7 +1827,7 @@ func openPrizegivingApplicationTest(
 	now := time.Date(2026, 8, 1, 10, 0, 0, 0, time.UTC)
 	bootstrapHash := strings.Repeat("b", 64)
 	if err = storage.IssueBootstrap(
-		t.Context(),
+		systemactor.NewContext(t.Context(), systemactor.HostMaintenance),
 		bootstrapHash,
 		now,
 		now.Add(time.Hour),
@@ -1838,7 +1839,7 @@ func openPrizegivingApplicationTest(
 	)
 	sessionDigest := sha256.Sum256([]byte(sessionToken))
 	created, err := storage.BootstrapAdministrator(
-		t.Context(),
+		systemactor.NewContext(t.Context(), systemactor.HostMaintenance),
 		store.BootstrapAdministratorParams{
 			BootstrapHash: bootstrapHash,
 			Name:          "Producer", NormalizedName: "producer",

@@ -23,15 +23,14 @@ type Capacity struct {
 
 // Capacity returns bounded counts used for operational warnings.
 func (installationStore *SQLite) Capacity(ctx context.Context) (Capacity, error) {
-	internalContext := systemContext(ctx)
-	displayCount, err := installationStore.client.Display.Query().Count(internalContext)
+	displayCount, err := installationStore.client.Display.Query().Count(ctx)
 	if err != nil {
 		return Capacity{}, opaqueError("count Displays for capacity", err)
 	}
 	found := Capacity{Displays: displayCount}
 	active, err := installationStore.client.Installation.Query().
 		Where(installation.ActiveEventIDNotNil()).
-		Only(internalContext)
+		Only(ctx)
 	if ent.IsNotFound(err) {
 		return found, nil
 	}
@@ -47,22 +46,22 @@ func (installationStore *SQLite) Capacity(ctx context.Context) (Capacity, error)
 		{&found.Locations, "Locations", func() (int, error) {
 			return installationStore.client.Location.Query().
 				Where(location.EventIDEQ(found.ActiveEventID)).
-				Count(internalContext)
+				Count(ctx)
 		}},
 		{&found.Lanes, "Lanes", func() (int, error) {
 			return installationStore.client.Lane.Query().
 				Where(lane.EventIDEQ(found.ActiveEventID)).
-				Count(internalContext)
+				Count(ctx)
 		}},
 		{&found.Sessions, "Sessions", func() (int, error) {
 			return installationStore.client.Session.Query().
 				Where(session.EventIDEQ(found.ActiveEventID)).
-				Count(internalContext)
+				Count(ctx)
 		}},
 		{&found.Entries, "Entries", func() (int, error) {
 			return installationStore.client.CompetitionEntry.Query().
 				Where(competitionentry.EventIDEQ(found.ActiveEventID)).
-				Count(internalContext)
+				Count(ctx)
 		}},
 	}
 	for _, item := range counts {

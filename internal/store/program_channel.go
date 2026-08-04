@@ -501,14 +501,13 @@ func loadPrizegivingProgramChannel(
 	version *ent.SessionPublishedVersion,
 	observedAt time.Time,
 ) (ProgramChannelState, error) {
-	internalContext := systemContext(ctx)
 	plan, err := client.Prizegiving.Query().
 		Where(
 			prizegiving.EventIDEQ(found.EventID),
 			prizegiving.CeremonySessionIDEQ(found.ID),
 			prizegiving.LockedEQ(true),
 		).
-		Only(internalContext)
+		Only(ctx)
 	if ent.IsNotFound(err) {
 		return ProgramChannelState{}, ErrProgramItem
 	}
@@ -528,7 +527,7 @@ func loadPrizegivingProgramChannel(
 			if !value.RevealPausedAt.IsZero() {
 				var coverageErr error
 				transitions, coverageErr = prizegivingRevealCoverageTransitions(
-					internalContext,
+					ctx,
 					client,
 					found.EventID,
 					found.ID,
@@ -557,7 +556,7 @@ func loadPrizegivingProgramChannel(
 					plan.PreflightLock.EventAwardsDraftRevision,
 				),
 			).
-			Only(internalContext)
+			Only(ctx)
 		if loadErr != nil {
 			return ProgramChannelState{}, opaqueError(
 				"load locked Prizegiving Event Awards",
@@ -578,7 +577,7 @@ func loadPrizegivingProgramChannel(
 	)
 	for _, locked := range plan.PreflightLock.Sequence {
 		item, loadErr := loadPrizegivingProgramItem(
-			internalContext,
+			ctx,
 			client,
 			version.Title,
 			plan.PreflightLock.CompetitionSources,

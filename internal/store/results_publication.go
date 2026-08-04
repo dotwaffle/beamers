@@ -134,7 +134,6 @@ func (transaction *CommandTx) AppendResultsPublication(
 	ctx context.Context,
 	params AppendResultsPublicationParams,
 ) (ResultsPublication, error) {
-	ctx = systemContext(ctx)
 	current, found, err := loadResultsPublication(
 		ctx,
 		transaction.transaction.Client(),
@@ -260,7 +259,7 @@ func (transaction *CommandTx) LoadResultsPublicationRenderSource(
 	lock PrizegivingPreflightLock,
 ) (ResultsPublicationRenderSource, error) {
 	return loadResultsPublicationRenderSource(
-		systemContext(ctx),
+		ctx,
 		transaction.transaction.Client(),
 		eventID,
 		lock,
@@ -274,7 +273,7 @@ func (installation *SQLite) LoadResultsPublicationRenderSource(
 	lock PrizegivingPreflightLock,
 ) (ResultsPublicationRenderSource, error) {
 	return loadResultsPublicationRenderSource(
-		systemContext(ctx),
+		ctx,
 		installation.client,
 		eventID,
 		lock,
@@ -287,7 +286,6 @@ func loadResultsPublicationRenderSource(
 	eventID int,
 	lock PrizegivingPreflightLock,
 ) (ResultsPublicationRenderSource, error) {
-	ctx = systemContext(ctx)
 	if len(lock.RenderSource) != 0 {
 		var frozen ResultsPublicationRenderSource
 		if json.Unmarshal(lock.RenderSource, &frozen) != nil {
@@ -431,7 +429,7 @@ func (installation *SQLite) LoadResultsPublication(
 	scopeSessionID int,
 ) (ResultsPublication, error) {
 	found, _, err := loadResultsPublication(
-		systemContext(ctx),
+		ctx,
 		installation.client,
 		eventID,
 		scope,
@@ -454,7 +452,7 @@ func (installation *SQLite) LoadResultsPublicationRevision(
 			resultspublication.ScopeSessionIDEQ(scopeSessionID),
 			resultspublication.RevisionEQ(revision),
 		).
-		Only(systemContext(ctx))
+		Only(ctx)
 	if ent.IsNotFound(err) {
 		return ResultsPublication{}, false, nil
 	}
@@ -481,7 +479,7 @@ func (installation *SQLite) ListResultsPublicationHistory(
 			resultspublication.ScopeSessionIDEQ(scopeSessionID),
 		).
 		Order(ent.Asc(resultspublication.FieldRevision)).
-		All(systemContext(ctx))
+		All(ctx)
 	if err != nil {
 		return nil, opaqueError("list Results Publication history", err)
 	}
@@ -500,7 +498,7 @@ func (transaction *CommandTx) LoadResultsPublication(
 	scopeSessionID int,
 ) (ResultsPublication, error) {
 	found, _, err := loadResultsPublication(
-		systemContext(ctx),
+		ctx,
 		transaction.transaction.Client(),
 		eventID,
 		scope,
@@ -514,7 +512,6 @@ func (transaction *CommandTx) LoadEventResultsAggregateState(
 	ctx context.Context,
 	eventID int,
 ) (EventResultsAggregateState, error) {
-	ctx = systemContext(ctx)
 	client := transaction.transaction.Client()
 	sessions, err := client.Session.Query().
 		Where(session.EventIDEQ(eventID)).

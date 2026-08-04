@@ -10,48 +10,67 @@ import (
 	"entgo.io/ent/privacy"
 
 	"github.com/dotwaffle/beamers/ent"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
 // TestPrivacyTripwire proves the fail-closed tripwire covers every generated
-// entity: work carrying neither a viewer identity nor an explicit store
-// decision is denied before any SQL runs, and either one carries it through.
+// entity: work naming neither a viewer identity nor a System Actor is denied
+// before any SQL runs, and either name carries it through.
 func TestPrivacyTripwire(t *testing.T) {
 	t.Parallel()
 	installation := openTripwireTestInstallation(t)
 	entities := entityClients(t, installation.client)
 	tests := []struct {
 		name     string
-		decided  func(context.Context) context.Context
+		named    func(context.Context) context.Context
 		wantDeny bool
 	}{
 		{
-			name:     "undecided authorization",
-			decided:  func(ctx context.Context) context.Context { return ctx },
+			name:     "unnamed authorization",
+			named:    func(ctx context.Context) context.Context { return ctx },
 			wantDeny: true,
 		},
 		{
 			name: "viewer identity naming no Account",
-			decided: func(ctx context.Context) context.Context {
+			named: func(ctx context.Context) context.Context {
 				return viewer.NewContext(ctx, viewer.Identity{})
 			},
 			wantDeny: true,
 		},
 		{
-			name:    "explicit store decision",
-			decided: systemContext,
+			// An Ent allow decision short-circuits the privacy policy, so this
+			// case pins the hook and interceptor that refuse it anyway: naming
+			// the actor is the only way past the tripwire.
+			name: "unnamed Ent allow decision",
+			named: func(ctx context.Context) context.Context {
+				return privacy.DecisionContext(ctx, privacy.Allow)
+			},
+			wantDeny: true,
 		},
 		{
 			name: "viewer identity",
-			decided: func(ctx context.Context) context.Context {
+			named: func(ctx context.Context) context.Context {
 				return viewer.NewContext(ctx, viewer.Identity{AccountID: 1})
 			},
 		},
 	}
+	for _, actor := range systemactor.All() {
+		tests = append(tests, struct {
+			name     string
+			named    func(context.Context) context.Context
+			wantDeny bool
+		}{
+			name: "System Actor " + actor.String(),
+			named: func(ctx context.Context) context.Context {
+				return systemactor.NewContext(ctx, actor)
+			},
+		})
+	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			ctx := test.decided(t.Context())
+			ctx := test.named(t.Context())
 			for name, entity := range entities {
 				assertTripwire(t, name+" query", countEntities(ctx, entity), test.wantDeny)
 				if !test.wantDeny {

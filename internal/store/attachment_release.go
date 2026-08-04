@@ -245,7 +245,7 @@ func (transaction *CommandTx) FireEventAttachmentReleaseCue(
 		return eventAttachmentRelease(found), ErrAttachmentReleaseRevision
 	}
 	preview, err := attachmentReleaseCuePreview(
-		systemContext(ctx), transaction.transaction.Client(), eventID,
+		ctx, transaction.transaction.Client(), eventID,
 	)
 	if err != nil {
 		return AttachmentReleaseConfiguration{}, err
@@ -274,7 +274,7 @@ func (installationStore *SQLite) PreviewEventAttachmentReleaseCue(
 	ctx context.Context,
 	eventID int,
 ) (AttachmentReleaseCuePreview, error) {
-	return attachmentReleaseCuePreview(systemContext(ctx), installationStore.client, eventID)
+	return attachmentReleaseCuePreview(ctx, installationStore.client, eventID)
 }
 
 type attachmentReleaseCuePreviewVersion struct {
@@ -424,7 +424,7 @@ func (transaction *CommandTx) SetAttachmentVersionRelease(
 	version, err := transaction.transaction.AttachmentVersion.Query().
 		Where(attachmentversion.IDEQ(params.VersionID)).
 		WithAttachment().
-		Only(systemContext(ctx))
+		Only(ctx)
 	if ent.IsNotFound(err) {
 		return AttachmentVersion{}, ErrUploadTargetNotFound
 	}
@@ -441,7 +441,7 @@ func (transaction *CommandTx) SetAttachmentVersionRelease(
 	updated, err := version.Update().
 		SetReleaseHold(params.Hold).
 		AddReleaseRevision(1).
-		Save(systemContext(ctx))
+		Save(ctx)
 	if err != nil {
 		return AttachmentVersion{}, opaqueError("set Attachment Version release control", err)
 	}
@@ -452,10 +452,9 @@ func (transaction *CommandTx) SetAttachmentVersionRelease(
 func (installationStore *SQLite) LoadReleasedAttachmentVersions(
 	ctx context.Context,
 ) ([]AttachmentVersion, error) {
-	internalContext := systemContext(ctx)
 	active, err := installationStore.client.Installation.Query().
 		Where(installation.ActiveEventIDNotNil()).
-		Only(internalContext)
+		Only(ctx)
 	if ent.IsNotFound(err) || active.ActiveEventID == nil {
 		return nil, nil
 	}
@@ -463,11 +462,11 @@ func (installationStore *SQLite) LoadReleasedAttachmentVersions(
 		return nil, opaqueError("load Active Event Attachment releases", err)
 	}
 	eventID := *active.ActiveEventID
-	foundEvent, err := installationStore.client.Event.Get(internalContext, eventID)
+	foundEvent, err := installationStore.client.Event.Get(ctx, eventID)
 	if err != nil {
 		return nil, opaqueError("load Attachment Release Event", err)
 	}
-	return installationStore.loadReleasedAttachmentVersions(internalContext, eventID, foundEvent)
+	return installationStore.loadReleasedAttachmentVersions(ctx, eventID, foundEvent)
 }
 
 func (installationStore *SQLite) loadReleasedAttachmentVersions(
@@ -524,8 +523,7 @@ func (installationStore *SQLite) LoadFinalFileVersions(
 	ctx context.Context,
 	eventID int,
 ) ([]FinalFileVersion, error) {
-	internalContext := systemContext(ctx)
-	foundEvent, err := installationStore.client.Event.Get(internalContext, eventID)
+	foundEvent, err := installationStore.client.Event.Get(ctx, eventID)
 	if ent.IsNotFound(err) {
 		return nil, ErrUploadTargetNotFound
 	}
@@ -533,7 +531,7 @@ func (installationStore *SQLite) LoadFinalFileVersions(
 		return nil, opaqueError("load Final Files Export Event", err)
 	}
 	released, err := installationStore.loadReleasedAttachmentVersions(
-		internalContext, eventID, foundEvent,
+		ctx, eventID, foundEvent,
 	)
 	if err != nil {
 		return nil, err
@@ -544,7 +542,7 @@ func (installationStore *SQLite) LoadFinalFileVersions(
 		entryID, entryName := 0, ""
 		if version.OwnerType == UploadTargetEntry {
 			entry, queryErr := installationStore.client.CompetitionEntry.Get(
-				internalContext, version.OwnerID,
+				ctx, version.OwnerID,
 			)
 			if queryErr != nil {
 				return nil, opaqueError("load Final Files Export Entry", queryErr)
@@ -555,7 +553,7 @@ func (installationStore *SQLite) LoadFinalFileVersions(
 			Where(sessionpublishedversion.SessionIDEQ(sessionID)).
 			Order(ent.Desc(sessionpublishedversion.FieldPublishedRevision)).
 			WithTracks().
-			First(internalContext)
+			First(ctx)
 		if queryErr != nil {
 			return nil, opaqueError("load Final Files Export Session", queryErr)
 		}
@@ -565,7 +563,7 @@ func (installationStore *SQLite) LoadFinalFileVersions(
 			label, labelErr := installationStore.client.TrackPublishedVersion.Query().
 				Where(trackpublishedversion.TrackIDEQ(identity.ID)).
 				Order(ent.Desc(trackpublishedversion.FieldPublishedRevision)).
-				First(internalContext)
+				First(ctx)
 			if labelErr != nil {
 				return nil, opaqueError("load Final Files Export Track", labelErr)
 			}

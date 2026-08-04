@@ -19,6 +19,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/results"
 	"github.com/dotwaffle/beamers/internal/revisioncache"
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 )
 
 // ErrInvalidFilter means one attendee Schedule filter is malformed.
@@ -188,6 +189,7 @@ func (service *Service) publicSchedule(ctx context.Context) (store.PublicSchedul
 
 // Current returns the Active Event's cacheable public Schedule snapshot.
 func (service *Service) Current(ctx context.Context, filter Filter) (Snapshot, error) {
+	ctx = systemactor.NewContext(ctx, systemactor.PublicVisitor)
 	return service.snapshot(ctx, true, filter)
 }
 
@@ -201,6 +203,7 @@ func (service *Service) Personalized(
 	if accountID <= 0 {
 		return Snapshot{}, errors.New("account is required for Schedule")
 	}
+	ctx = systemactor.NewContext(ctx, systemactor.PublicVisitor)
 	snapshot, err := service.snapshot(ctx, true, filter)
 	if err != nil {
 		return Snapshot{}, err
@@ -459,6 +462,7 @@ func (service *Service) Find(
 	sessionID int,
 	viewerTimezone string,
 ) (Snapshot, Session, bool, error) {
+	ctx = systemactor.NewContext(ctx, systemactor.PublicVisitor)
 	snapshot, err := service.snapshot(ctx, false, Filter{ViewerTimezone: viewerTimezone})
 	if err != nil {
 		return Snapshot{}, Session{}, false, err
@@ -476,6 +480,7 @@ func (service *Service) FindCompetition(
 	sessionID int,
 	eventSlug string,
 ) (Snapshot, Session, bool, error) {
+	ctx = systemactor.NewContext(ctx, systemactor.PublicVisitor)
 	snapshot, session, found, err := service.Find(ctx, sessionID, "")
 	if err != nil || !found || session.Type != "Competition" {
 		return snapshot, session, false, err
@@ -569,6 +574,7 @@ func (service *Service) FindPersonalized(
 	if accountID <= 0 {
 		return Snapshot{}, Session{}, false, errors.New("account is required for Schedule")
 	}
+	ctx = systemactor.NewContext(ctx, systemactor.PublicVisitor)
 	snapshot, err := service.snapshot(
 		ctx,
 		false,
@@ -638,6 +644,7 @@ func (service *Service) SetFavorite(
 	if accountID <= 0 || sessionID <= 0 {
 		return ErrSessionUnavailable
 	}
+	ctx = systemactor.NewContext(ctx, systemactor.PublicVisitor)
 	_, _, found, err := service.Find(ctx, sessionID, "")
 	if err != nil {
 		return err

@@ -14,6 +14,7 @@ import (
 	"github.com/dotwaffle/beamers/internal/schedule"
 	"github.com/dotwaffle/beamers/internal/schedulebaseline"
 	"github.com/dotwaffle/beamers/internal/store"
+	"github.com/dotwaffle/beamers/internal/systemactor"
 	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
@@ -214,10 +215,10 @@ func TestBaselineRequiresProducerAuthority(t *testing.T) {
 func openBaselineTest(t *testing.T) (*store.SQLite, auth.Account, int) {
 	t.Helper()
 	dataDir := t.TempDir()
-	if err := store.Initialize(t.Context(), dataDir); err != nil {
+	if err := store.Initialize(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir); err != nil {
 		t.Fatalf("initialize storage: %v", err)
 	}
-	storage, err := store.Open(t.Context(), dataDir)
+	storage, err := store.Open(systemactor.NewContext(t.Context(), systemactor.HostMaintenance), dataDir)
 	if err != nil {
 		t.Fatalf("open storage: %v", err)
 	}
@@ -229,7 +230,7 @@ func openBaselineTest(t *testing.T) (*store.SQLite, auth.Account, int) {
 	now := time.Date(2026, 7, 23, 18, 0, 0, 0, time.UTC)
 	bootstrapHash := strings.Repeat("b", 64)
 	if issueErr := storage.IssueBootstrap(
-		t.Context(),
+		systemactor.NewContext(t.Context(), systemactor.HostMaintenance),
 		bootstrapHash,
 		now,
 		now.Add(time.Hour),
@@ -237,7 +238,7 @@ func openBaselineTest(t *testing.T) (*store.SQLite, auth.Account, int) {
 		t.Fatalf("issue bootstrap: %v", issueErr)
 	}
 	created, err := storage.BootstrapAdministrator(
-		t.Context(),
+		systemactor.NewContext(t.Context(), systemactor.HostMaintenance),
 		store.BootstrapAdministratorParams{
 			BootstrapHash: bootstrapHash, Name: "Producer", NormalizedName: "producer",
 			PasswordHash: "test-password-hash", SessionHash: strings.Repeat("s", 64),

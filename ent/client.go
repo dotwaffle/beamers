@@ -1155,7 +1155,8 @@ func (c *AccountClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *AccountClient) Interceptors() []Interceptor {
-	return c.inters.Account
+	inters := c.inters.Account
+	return append(inters[:len(inters):len(inters)], account.Interceptors[:]...)
 }
 
 func (c *AccountClient) mutate(ctx context.Context, m *AccountMutation) (Value, error) {
@@ -1305,7 +1306,8 @@ func (c *AccountPreferenceClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *AccountPreferenceClient) Interceptors() []Interceptor {
-	return c.inters.AccountPreference
+	inters := c.inters.AccountPreference
+	return append(inters[:len(inters):len(inters)], accountpreference.Interceptors[:]...)
 }
 
 func (c *AccountPreferenceClient) mutate(ctx context.Context, m *AccountPreferenceMutation) (Value, error) {
@@ -1455,7 +1457,8 @@ func (c *AccountProfileClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *AccountProfileClient) Interceptors() []Interceptor {
-	return c.inters.AccountProfile
+	inters := c.inters.AccountProfile
+	return append(inters[:len(inters):len(inters)], accountprofile.Interceptors[:]...)
 }
 
 func (c *AccountProfileClient) mutate(ctx context.Context, m *AccountProfileMutation) (Value, error) {
@@ -1605,7 +1608,8 @@ func (c *AccountSessionClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *AccountSessionClient) Interceptors() []Interceptor {
-	return c.inters.AccountSession
+	inters := c.inters.AccountSession
+	return append(inters[:len(inters):len(inters)], accountsession.Interceptors[:]...)
 }
 
 func (c *AccountSessionClient) mutate(ctx context.Context, m *AccountSessionMutation) (Value, error) {
@@ -1755,7 +1759,8 @@ func (c *AttachmentClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *AttachmentClient) Interceptors() []Interceptor {
-	return c.inters.Attachment
+	inters := c.inters.Attachment
+	return append(inters[:len(inters):len(inters)], attachment.Interceptors[:]...)
 }
 
 func (c *AttachmentClient) mutate(ctx context.Context, m *AttachmentMutation) (Value, error) {
@@ -1905,7 +1910,8 @@ func (c *AttachmentVersionClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *AttachmentVersionClient) Interceptors() []Interceptor {
-	return c.inters.AttachmentVersion
+	inters := c.inters.AttachmentVersion
+	return append(inters[:len(inters):len(inters)], attachmentversion.Interceptors[:]...)
 }
 
 func (c *AttachmentVersionClient) mutate(ctx context.Context, m *AttachmentVersionMutation) (Value, error) {
@@ -2055,7 +2061,8 @@ func (c *AuditEntryClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *AuditEntryClient) Interceptors() []Interceptor {
-	return c.inters.AuditEntry
+	inters := c.inters.AuditEntry
+	return append(inters[:len(inters):len(inters)], auditentry.Interceptors[:]...)
 }
 
 func (c *AuditEntryClient) mutate(ctx context.Context, m *AuditEntryMutation) (Value, error) {
@@ -2189,7 +2196,8 @@ func (c *BootstrapCredentialClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *BootstrapCredentialClient) Interceptors() []Interceptor {
-	return c.inters.BootstrapCredential
+	inters := c.inters.BootstrapCredential
+	return append(inters[:len(inters):len(inters)], bootstrapcredential.Interceptors[:]...)
 }
 
 func (c *BootstrapCredentialClient) mutate(ctx context.Context, m *BootstrapCredentialMutation) (Value, error) {
@@ -2339,7 +2347,8 @@ func (c *CommandReceiptClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *CommandReceiptClient) Interceptors() []Interceptor {
-	return c.inters.CommandReceipt
+	inters := c.inters.CommandReceipt
+	return append(inters[:len(inters):len(inters)], commandreceipt.Interceptors[:]...)
 }
 
 func (c *CommandReceiptClient) mutate(ctx context.Context, m *CommandReceiptMutation) (Value, error) {
@@ -2553,7 +2562,8 @@ func (c *CompetitionEntryClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *CompetitionEntryClient) Interceptors() []Interceptor {
-	return c.inters.CompetitionEntry
+	inters := c.inters.CompetitionEntry
+	return append(inters[:len(inters):len(inters)], competitionentry.Interceptors[:]...)
 }
 
 func (c *CompetitionEntryClient) mutate(ctx context.Context, m *CompetitionEntryMutation) (Value, error) {
@@ -2751,7 +2761,8 @@ func (c *CompetitionResultStandingClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *CompetitionResultStandingClient) Interceptors() []Interceptor {
-	return c.inters.CompetitionResultStanding
+	inters := c.inters.CompetitionResultStanding
+	return append(inters[:len(inters):len(inters)], competitionresultstanding.Interceptors[:]...)
 }
 
 func (c *CompetitionResultStandingClient) mutate(ctx context.Context, m *CompetitionResultStandingMutation) (Value, error) {
@@ -2949,7 +2960,8 @@ func (c *CompetitionResultsDraftClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *CompetitionResultsDraftClient) Interceptors() []Interceptor {
-	return c.inters.CompetitionResultsDraft
+	inters := c.inters.CompetitionResultsDraft
+	return append(inters[:len(inters):len(inters)], competitionresultsdraft.Interceptors[:]...)
 }
 
 func (c *CompetitionResultsDraftClient) mutate(ctx context.Context, m *CompetitionResultsDraftMutation) (Value, error) {
@@ -3131,7 +3143,8 @@ func (c *DisplayClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *DisplayClient) Interceptors() []Interceptor {
-	return c.inters.Display
+	inters := c.inters.Display
+	return append(inters[:len(inters):len(inters)], display.Interceptors[:]...)
 }
 
 func (c *DisplayClient) mutate(ctx context.Context, m *DisplayMutation) (Value, error) {
@@ -3313,7 +3326,8 @@ func (c *DisplayAssignmentClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *DisplayAssignmentClient) Interceptors() []Interceptor {
-	return c.inters.DisplayAssignment
+	inters := c.inters.DisplayAssignment
+	return append(inters[:len(inters):len(inters)], displayassignment.Interceptors[:]...)
 }
 
 func (c *DisplayAssignmentClient) mutate(ctx context.Context, m *DisplayAssignmentMutation) (Value, error) {
@@ -3463,7 +3477,8 @@ func (c *DisplayCredentialClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *DisplayCredentialClient) Interceptors() []Interceptor {
-	return c.inters.DisplayCredential
+	inters := c.inters.DisplayCredential
+	return append(inters[:len(inters):len(inters)], displaycredential.Interceptors[:]...)
 }
 
 func (c *DisplayCredentialClient) mutate(ctx context.Context, m *DisplayCredentialMutation) (Value, error) {
@@ -3597,7 +3612,8 @@ func (c *DisplayEnrollmentClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *DisplayEnrollmentClient) Interceptors() []Interceptor {
-	return c.inters.DisplayEnrollment
+	inters := c.inters.DisplayEnrollment
+	return append(inters[:len(inters):len(inters)], displayenrollment.Interceptors[:]...)
 }
 
 func (c *DisplayEnrollmentClient) mutate(ctx context.Context, m *DisplayEnrollmentMutation) (Value, error) {
@@ -3763,7 +3779,8 @@ func (c *DisplayOverrideClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *DisplayOverrideClient) Interceptors() []Interceptor {
-	return c.inters.DisplayOverride
+	inters := c.inters.DisplayOverride
+	return append(inters[:len(inters):len(inters)], displayoverride.Interceptors[:]...)
 }
 
 func (c *DisplayOverrideClient) mutate(ctx context.Context, m *DisplayOverrideMutation) (Value, error) {
@@ -3929,7 +3946,8 @@ func (c *DisplayOverrideStateClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *DisplayOverrideStateClient) Interceptors() []Interceptor {
-	return c.inters.DisplayOverrideState
+	inters := c.inters.DisplayOverrideState
+	return append(inters[:len(inters):len(inters)], displayoverridestate.Interceptors[:]...)
 }
 
 func (c *DisplayOverrideStateClient) mutate(ctx context.Context, m *DisplayOverrideStateMutation) (Value, error) {
@@ -4127,7 +4145,8 @@ func (c *DraftChangeClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *DraftChangeClient) Interceptors() []Interceptor {
-	return c.inters.DraftChange
+	inters := c.inters.DraftChange
+	return append(inters[:len(inters):len(inters)], draftchange.Interceptors[:]...)
 }
 
 func (c *DraftChangeClient) mutate(ctx context.Context, m *DraftChangeMutation) (Value, error) {
@@ -4293,7 +4312,8 @@ func (c *DraftChangeDependencyClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *DraftChangeDependencyClient) Interceptors() []Interceptor {
-	return c.inters.DraftChangeDependency
+	inters := c.inters.DraftChangeDependency
+	return append(inters[:len(inters):len(inters)], draftchangedependency.Interceptors[:]...)
 }
 
 func (c *DraftChangeDependencyClient) mutate(ctx context.Context, m *DraftChangeDependencyMutation) (Value, error) {
@@ -4475,7 +4495,8 @@ func (c *DraftEditClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *DraftEditClient) Interceptors() []Interceptor {
-	return c.inters.DraftEdit
+	inters := c.inters.DraftEdit
+	return append(inters[:len(inters):len(inters)], draftedit.Interceptors[:]...)
 }
 
 func (c *DraftEditClient) mutate(ctx context.Context, m *DraftEditMutation) (Value, error) {
@@ -5041,7 +5062,8 @@ func (c *EventClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *EventClient) Interceptors() []Interceptor {
-	return c.inters.Event
+	inters := c.inters.Event
+	return append(inters[:len(inters):len(inters)], event.Interceptors[:]...)
 }
 
 func (c *EventClient) mutate(ctx context.Context, m *EventMutation) (Value, error) {
@@ -5191,7 +5213,8 @@ func (c *EventAwardsDraftClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *EventAwardsDraftClient) Interceptors() []Interceptor {
-	return c.inters.EventAwardsDraft
+	inters := c.inters.EventAwardsDraft
+	return append(inters[:len(inters):len(inters)], eventawardsdraft.Interceptors[:]...)
 }
 
 func (c *EventAwardsDraftClient) mutate(ctx context.Context, m *EventAwardsDraftMutation) (Value, error) {
@@ -5357,7 +5380,8 @@ func (c *EventGrantClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *EventGrantClient) Interceptors() []Interceptor {
-	return c.inters.EventGrant
+	inters := c.inters.EventGrant
+	return append(inters[:len(inters):len(inters)], eventgrant.Interceptors[:]...)
 }
 
 func (c *EventGrantClient) mutate(ctx context.Context, m *EventGrantMutation) (Value, error) {
@@ -5507,7 +5531,8 @@ func (c *EventSlugClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *EventSlugClient) Interceptors() []Interceptor {
-	return c.inters.EventSlug
+	inters := c.inters.EventSlug
+	return append(inters[:len(inters):len(inters)], eventslug.Interceptors[:]...)
 }
 
 func (c *EventSlugClient) mutate(ctx context.Context, m *EventSlugMutation) (Value, error) {
@@ -5657,7 +5682,8 @@ func (c *EventThemeRevisionClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *EventThemeRevisionClient) Interceptors() []Interceptor {
-	return c.inters.EventThemeRevision
+	inters := c.inters.EventThemeRevision
+	return append(inters[:len(inters):len(inters)], eventthemerevision.Interceptors[:]...)
 }
 
 func (c *EventThemeRevisionClient) mutate(ctx context.Context, m *EventThemeRevisionMutation) (Value, error) {
@@ -5823,7 +5849,8 @@ func (c *FavoriteSessionClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *FavoriteSessionClient) Interceptors() []Interceptor {
-	return c.inters.FavoriteSession
+	inters := c.inters.FavoriteSession
+	return append(inters[:len(inters):len(inters)], favoritesession.Interceptors[:]...)
 }
 
 func (c *FavoriteSessionClient) mutate(ctx context.Context, m *FavoriteSessionMutation) (Value, error) {
@@ -5973,7 +6000,8 @@ func (c *FederatedIdentityClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *FederatedIdentityClient) Interceptors() []Interceptor {
-	return c.inters.FederatedIdentity
+	inters := c.inters.FederatedIdentity
+	return append(inters[:len(inters):len(inters)], federatedidentity.Interceptors[:]...)
 }
 
 func (c *FederatedIdentityClient) mutate(ctx context.Context, m *FederatedIdentityMutation) (Value, error) {
@@ -6123,7 +6151,8 @@ func (c *ImportReferenceClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *ImportReferenceClient) Interceptors() []Interceptor {
-	return c.inters.ImportReference
+	inters := c.inters.ImportReference
+	return append(inters[:len(inters):len(inters)], importreference.Interceptors[:]...)
 }
 
 func (c *ImportReferenceClient) mutate(ctx context.Context, m *ImportReferenceMutation) (Value, error) {
@@ -6289,7 +6318,8 @@ func (c *InstallationClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *InstallationClient) Interceptors() []Interceptor {
-	return c.inters.Installation
+	inters := c.inters.Installation
+	return append(inters[:len(inters):len(inters)], installation.Interceptors[:]...)
 }
 
 func (c *InstallationClient) mutate(ctx context.Context, m *InstallationMutation) (Value, error) {
@@ -6423,7 +6453,8 @@ func (c *InstallationThemeRevisionClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *InstallationThemeRevisionClient) Interceptors() []Interceptor {
-	return c.inters.InstallationThemeRevision
+	inters := c.inters.InstallationThemeRevision
+	return append(inters[:len(inters):len(inters)], installationthemerevision.Interceptors[:]...)
 }
 
 func (c *InstallationThemeRevisionClient) mutate(ctx context.Context, m *InstallationThemeRevisionMutation) (Value, error) {
@@ -6637,7 +6668,8 @@ func (c *LaneClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *LaneClient) Interceptors() []Interceptor {
-	return c.inters.Lane
+	inters := c.inters.Lane
+	return append(inters[:len(inters):len(inters)], lane.Interceptors[:]...)
 }
 
 func (c *LaneClient) mutate(ctx context.Context, m *LaneMutation) (Value, error) {
@@ -6803,7 +6835,8 @@ func (c *LaneDraftClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *LaneDraftClient) Interceptors() []Interceptor {
-	return c.inters.LaneDraft
+	inters := c.inters.LaneDraft
+	return append(inters[:len(inters):len(inters)], lanedraft.Interceptors[:]...)
 }
 
 func (c *LaneDraftClient) mutate(ctx context.Context, m *LaneDraftMutation) (Value, error) {
@@ -6969,7 +7002,8 @@ func (c *LanePublishedVersionClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *LanePublishedVersionClient) Interceptors() []Interceptor {
-	return c.inters.LanePublishedVersion
+	inters := c.inters.LanePublishedVersion
+	return append(inters[:len(inters):len(inters)], lanepublishedversion.Interceptors[:]...)
 }
 
 func (c *LanePublishedVersionClient) mutate(ctx context.Context, m *LanePublishedVersionMutation) (Value, error) {
@@ -7231,7 +7265,8 @@ func (c *LocationClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *LocationClient) Interceptors() []Interceptor {
-	return c.inters.Location
+	inters := c.inters.Location
+	return append(inters[:len(inters):len(inters)], location.Interceptors[:]...)
 }
 
 func (c *LocationClient) mutate(ctx context.Context, m *LocationMutation) (Value, error) {
@@ -7381,7 +7416,8 @@ func (c *LocationDraftClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *LocationDraftClient) Interceptors() []Interceptor {
-	return c.inters.LocationDraft
+	inters := c.inters.LocationDraft
+	return append(inters[:len(inters):len(inters)], locationdraft.Interceptors[:]...)
 }
 
 func (c *LocationDraftClient) mutate(ctx context.Context, m *LocationDraftMutation) (Value, error) {
@@ -7531,7 +7567,8 @@ func (c *LocationPublishedVersionClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *LocationPublishedVersionClient) Interceptors() []Interceptor {
-	return c.inters.LocationPublishedVersion
+	inters := c.inters.LocationPublishedVersion
+	return append(inters[:len(inters):len(inters)], locationpublishedversion.Interceptors[:]...)
 }
 
 func (c *LocationPublishedVersionClient) mutate(ctx context.Context, m *LocationPublishedVersionMutation) (Value, error) {
@@ -7665,7 +7702,8 @@ func (c *MigrationClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *MigrationClient) Interceptors() []Interceptor {
-	return c.inters.Migration
+	inters := c.inters.Migration
+	return append(inters[:len(inters):len(inters)], migration.Interceptors[:]...)
 }
 
 func (c *MigrationClient) mutate(ctx context.Context, m *MigrationMutation) (Value, error) {
@@ -7815,7 +7853,8 @@ func (c *PasswordCredentialClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *PasswordCredentialClient) Interceptors() []Interceptor {
-	return c.inters.PasswordCredential
+	inters := c.inters.PasswordCredential
+	return append(inters[:len(inters):len(inters)], passwordcredential.Interceptors[:]...)
 }
 
 func (c *PasswordCredentialClient) mutate(ctx context.Context, m *PasswordCredentialMutation) (Value, error) {
@@ -7997,7 +8036,8 @@ func (c *PrizegivingClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *PrizegivingClient) Interceptors() []Interceptor {
-	return c.inters.Prizegiving
+	inters := c.inters.Prizegiving
+	return append(inters[:len(inters):len(inters)], prizegiving.Interceptors[:]...)
 }
 
 func (c *PrizegivingClient) mutate(ctx context.Context, m *PrizegivingMutation) (Value, error) {
@@ -8179,7 +8219,8 @@ func (c *PrizegivingCompetitionClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *PrizegivingCompetitionClient) Interceptors() []Interceptor {
-	return c.inters.PrizegivingCompetition
+	inters := c.inters.PrizegivingCompetition
+	return append(inters[:len(inters):len(inters)], prizegivingcompetition.Interceptors[:]...)
 }
 
 func (c *PrizegivingCompetitionClient) mutate(ctx context.Context, m *PrizegivingCompetitionMutation) (Value, error) {
@@ -8345,7 +8386,8 @@ func (c *PublicScheduleBaselineClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *PublicScheduleBaselineClient) Interceptors() []Interceptor {
-	return c.inters.PublicScheduleBaseline
+	inters := c.inters.PublicScheduleBaseline
+	return append(inters[:len(inters):len(inters)], publicschedulebaseline.Interceptors[:]...)
 }
 
 func (c *PublicScheduleBaselineClient) mutate(ctx context.Context, m *PublicScheduleBaselineMutation) (Value, error) {
@@ -8511,7 +8553,8 @@ func (c *PublicScheduleBaselineEntryClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *PublicScheduleBaselineEntryClient) Interceptors() []Interceptor {
-	return c.inters.PublicScheduleBaselineEntry
+	inters := c.inters.PublicScheduleBaselineEntry
+	return append(inters[:len(inters):len(inters)], publicschedulebaselineentry.Interceptors[:]...)
 }
 
 func (c *PublicScheduleBaselineEntryClient) mutate(ctx context.Context, m *PublicScheduleBaselineEntryMutation) (Value, error) {
@@ -8661,7 +8704,8 @@ func (c *RecoveryCodeClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *RecoveryCodeClient) Interceptors() []Interceptor {
-	return c.inters.RecoveryCode
+	inters := c.inters.RecoveryCode
+	return append(inters[:len(inters):len(inters)], recoverycode.Interceptors[:]...)
 }
 
 func (c *RecoveryCodeClient) mutate(ctx context.Context, m *RecoveryCodeMutation) (Value, error) {
@@ -8811,7 +8855,8 @@ func (c *RecoveryTokenClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *RecoveryTokenClient) Interceptors() []Interceptor {
-	return c.inters.RecoveryToken
+	inters := c.inters.RecoveryToken
+	return append(inters[:len(inters):len(inters)], recoverytoken.Interceptors[:]...)
 }
 
 func (c *RecoveryTokenClient) mutate(ctx context.Context, m *RecoveryTokenMutation) (Value, error) {
@@ -8945,7 +8990,8 @@ func (c *RegistrationPolicyClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *RegistrationPolicyClient) Interceptors() []Interceptor {
-	return c.inters.RegistrationPolicy
+	inters := c.inters.RegistrationPolicy
+	return append(inters[:len(inters):len(inters)], registrationpolicy.Interceptors[:]...)
 }
 
 func (c *RegistrationPolicyClient) mutate(ctx context.Context, m *RegistrationPolicyMutation) (Value, error) {
@@ -9079,7 +9125,8 @@ func (c *ReleasedProfileEntryClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *ReleasedProfileEntryClient) Interceptors() []Interceptor {
-	return c.inters.ReleasedProfileEntry
+	inters := c.inters.ReleasedProfileEntry
+	return append(inters[:len(inters):len(inters)], releasedprofileentry.Interceptors[:]...)
 }
 
 func (c *ReleasedProfileEntryClient) mutate(ctx context.Context, m *ReleasedProfileEntryMutation) (Value, error) {
@@ -9213,7 +9260,8 @@ func (c *ReopenWindowClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *ReopenWindowClient) Interceptors() []Interceptor {
-	return c.inters.ReopenWindow
+	inters := c.inters.ReopenWindow
+	return append(inters[:len(inters):len(inters)], reopenwindow.Interceptors[:]...)
 }
 
 func (c *ReopenWindowClient) mutate(ctx context.Context, m *ReopenWindowMutation) (Value, error) {
@@ -9363,7 +9411,8 @@ func (c *ResultsCorrectionClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *ResultsCorrectionClient) Interceptors() []Interceptor {
-	return c.inters.ResultsCorrection
+	inters := c.inters.ResultsCorrection
+	return append(inters[:len(inters):len(inters)], resultscorrection.Interceptors[:]...)
 }
 
 func (c *ResultsCorrectionClient) mutate(ctx context.Context, m *ResultsCorrectionMutation) (Value, error) {
@@ -9513,7 +9562,8 @@ func (c *ResultsPublicationClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *ResultsPublicationClient) Interceptors() []Interceptor {
-	return c.inters.ResultsPublication
+	inters := c.inters.ResultsPublication
+	return append(inters[:len(inters):len(inters)], resultspublication.Interceptors[:]...)
 }
 
 func (c *ResultsPublicationClient) mutate(ctx context.Context, m *ResultsPublicationMutation) (Value, error) {
@@ -9663,7 +9713,8 @@ func (c *RundownClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *RundownClient) Interceptors() []Interceptor {
-	return c.inters.Rundown
+	inters := c.inters.Rundown
+	return append(inters[:len(inters):len(inters)], rundown.Interceptors[:]...)
 }
 
 func (c *RundownClient) mutate(ctx context.Context, m *RundownMutation) (Value, error) {
@@ -10037,7 +10088,8 @@ func (c *SessionClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *SessionClient) Interceptors() []Interceptor {
-	return c.inters.Session
+	inters := c.inters.Session
+	return append(inters[:len(inters):len(inters)], session.Interceptors[:]...)
 }
 
 func (c *SessionClient) mutate(ctx context.Context, m *SessionMutation) (Value, error) {
@@ -10187,7 +10239,8 @@ func (c *SessionCancellationClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *SessionCancellationClient) Interceptors() []Interceptor {
-	return c.inters.SessionCancellation
+	inters := c.inters.SessionCancellation
+	return append(inters[:len(inters):len(inters)], sessioncancellation.Interceptors[:]...)
 }
 
 func (c *SessionCancellationClient) mutate(ctx context.Context, m *SessionCancellationMutation) (Value, error) {
@@ -10385,7 +10438,8 @@ func (c *SessionDraftClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *SessionDraftClient) Interceptors() []Interceptor {
-	return c.inters.SessionDraft
+	inters := c.inters.SessionDraft
+	return append(inters[:len(inters):len(inters)], sessiondraft.Interceptors[:]...)
 }
 
 func (c *SessionDraftClient) mutate(ctx context.Context, m *SessionDraftMutation) (Value, error) {
@@ -10583,7 +10637,8 @@ func (c *SessionPublishedVersionClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *SessionPublishedVersionClient) Interceptors() []Interceptor {
-	return c.inters.SessionPublishedVersion
+	inters := c.inters.SessionPublishedVersion
+	return append(inters[:len(inters):len(inters)], sessionpublishedversion.Interceptors[:]...)
 }
 
 func (c *SessionPublishedVersionClient) mutate(ctx context.Context, m *SessionPublishedVersionMutation) (Value, error) {
@@ -10749,7 +10804,8 @@ func (c *SessionRunClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *SessionRunClient) Interceptors() []Interceptor {
-	return c.inters.SessionRun
+	inters := c.inters.SessionRun
+	return append(inters[:len(inters):len(inters)], sessionrun.Interceptors[:]...)
 }
 
 func (c *SessionRunClient) mutate(ctx context.Context, m *SessionRunMutation) (Value, error) {
@@ -10899,7 +10955,8 @@ func (c *SessionRunAmendmentClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *SessionRunAmendmentClient) Interceptors() []Interceptor {
-	return c.inters.SessionRunAmendment
+	inters := c.inters.SessionRunAmendment
+	return append(inters[:len(inters):len(inters)], sessionrunamendment.Interceptors[:]...)
 }
 
 func (c *SessionRunAmendmentClient) mutate(ctx context.Context, m *SessionRunAmendmentMutation) (Value, error) {
@@ -11113,7 +11170,8 @@ func (c *TrackClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *TrackClient) Interceptors() []Interceptor {
-	return c.inters.Track
+	inters := c.inters.Track
+	return append(inters[:len(inters):len(inters)], track.Interceptors[:]...)
 }
 
 func (c *TrackClient) mutate(ctx context.Context, m *TrackMutation) (Value, error) {
@@ -11263,7 +11321,8 @@ func (c *TrackDraftClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *TrackDraftClient) Interceptors() []Interceptor {
-	return c.inters.TrackDraft
+	inters := c.inters.TrackDraft
+	return append(inters[:len(inters):len(inters)], trackdraft.Interceptors[:]...)
 }
 
 func (c *TrackDraftClient) mutate(ctx context.Context, m *TrackDraftMutation) (Value, error) {
@@ -11413,7 +11472,8 @@ func (c *TrackPublishedVersionClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *TrackPublishedVersionClient) Interceptors() []Interceptor {
-	return c.inters.TrackPublishedVersion
+	inters := c.inters.TrackPublishedVersion
+	return append(inters[:len(inters):len(inters)], trackpublishedversion.Interceptors[:]...)
 }
 
 func (c *TrackPublishedVersionClient) mutate(ctx context.Context, m *TrackPublishedVersionMutation) (Value, error) {
@@ -11611,7 +11671,8 @@ func (c *VoteClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *VoteClient) Interceptors() []Interceptor {
-	return c.inters.Vote
+	inters := c.inters.Vote
+	return append(inters[:len(inters):len(inters)], vote.Interceptors[:]...)
 }
 
 func (c *VoteClient) mutate(ctx context.Context, m *VoteMutation) (Value, error) {
@@ -11777,7 +11838,8 @@ func (c *VotingEligibilityClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *VotingEligibilityClient) Interceptors() []Interceptor {
-	return c.inters.VotingEligibility
+	inters := c.inters.VotingEligibility
+	return append(inters[:len(inters):len(inters)], votingeligibility.Interceptors[:]...)
 }
 
 func (c *VotingEligibilityClient) mutate(ctx context.Context, m *VotingEligibilityMutation) (Value, error) {
@@ -11943,7 +12005,8 @@ func (c *VotingKeyClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *VotingKeyClient) Interceptors() []Interceptor {
-	return c.inters.VotingKey
+	inters := c.inters.VotingKey
+	return append(inters[:len(inters):len(inters)], votingkey.Interceptors[:]...)
 }
 
 func (c *VotingKeyClient) mutate(ctx context.Context, m *VotingKeyMutation) (Value, error) {
@@ -12125,7 +12188,8 @@ func (c *VotingTallyClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *VotingTallyClient) Interceptors() []Interceptor {
-	return c.inters.VotingTally
+	inters := c.inters.VotingTally
+	return append(inters[:len(inters):len(inters)], votingtally.Interceptors[:]...)
 }
 
 func (c *VotingTallyClient) mutate(ctx context.Context, m *VotingTallyMutation) (Value, error) {
@@ -12275,7 +12339,8 @@ func (c *WebAuthnCredentialClient) Hooks() []Hook {
 
 // Interceptors returns the client interceptors.
 func (c *WebAuthnCredentialClient) Interceptors() []Interceptor {
-	return c.inters.WebAuthnCredential
+	inters := c.inters.WebAuthnCredential
+	return append(inters[:len(inters):len(inters)], webauthncredential.Interceptors[:]...)
 }
 
 func (c *WebAuthnCredentialClient) mutate(ctx context.Context, m *WebAuthnCredentialMutation) (Value, error) {

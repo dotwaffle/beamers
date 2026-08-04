@@ -155,7 +155,8 @@ func (commands *Commands) Capture(
 		PayloadHash: command.PayloadHash(string(payload)), Action: "CapturePublicScheduleBaseline",
 		TargetType: "Event", TargetID: strconv.Itoa(input.EventID), Now: commands.now().UTC(),
 	}
-	return command.Execute(actor.Context(ctx), command.Plan[CaptureResult]{
+	ctx = actor.Context(ctx)
+	return command.Execute(ctx, command.Plan[CaptureResult]{
 		Storage: commands.storage, Identity: identity, Replay: decodeCaptureResult,
 		Notify: commands.notifyBaseline,
 		Authorization: command.Authorization{

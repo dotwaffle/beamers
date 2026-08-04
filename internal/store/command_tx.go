@@ -76,14 +76,13 @@ func (installation *SQLite) ProbeCommandEvidence(
 	defer func() {
 		returnErr = errors.Join(returnErr, transaction.Rollback())
 	}()
-	internalContext := systemContext(ctx)
 	const receiptInsert = `
 INSERT INTO command_receipts (
 	command_id, payload_hash, action, target_type, target_id,
 	outcome_json, created_at
 ) VALUES ('emergency-alert-storage-probe', ?, ?, ?, ?, '{}', ?)`
 	if _, err = transaction.ExecContext(
-		internalContext,
+		ctx,
 		receiptInsert,
 		strings.Repeat("0", 64),
 		"ProbeEmergencyAlertStorage",
@@ -101,7 +100,7 @@ INSERT INTO audit_entries (
 	actor_kind, created_at, action, target_type, target_id, result
 ) VALUES ('Account', ?, ?, ?, ?, 'Succeeded')`
 	if _, err = transaction.ExecContext(
-		internalContext,
+		ctx,
 		auditInsert,
 		now.UTC(),
 		"ProbeEmergencyAlertStorage",
@@ -167,7 +166,7 @@ func (transaction *CommandTx) RecordOutcomeWithAudit(
 		SetNote(details.Note)
 	audit.SetActorKind(auditentry.ActorKindAccount).
 		SetActorAccountID(identity.ActorAccountID)
-	if _, err := audit.Save(systemContext(ctx)); err != nil {
+	if _, err := audit.Save(ctx); err != nil {
 		return opaqueError("record command Audit Entry", err)
 	}
 	return nil
@@ -203,7 +202,7 @@ func (transaction *CommandTx) RecordRejection(
 // CommitConflict records one conflicting Command ID reuse without altering its receipt.
 func (transaction *CommandTx) CommitConflict(ctx context.Context, identity CommandIdentity) error {
 	if err := auditRejectedCommand(
-		systemContext(ctx),
+		ctx,
 		transaction.transaction.AuditEntry,
 		identity,
 	); err != nil {
