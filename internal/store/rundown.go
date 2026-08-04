@@ -1121,6 +1121,53 @@ func (installation *SQLite) LoadDisplayLocations(
 	return loadPublishedLocations(systemContext(ctx), installation.readClient(), eventID)
 }
 
+// LoadAdministrationLanes returns only current Published Lanes for the
+// Administrator Event Grant Lane picker, independent of whether the
+// Administrator also holds an Event Grant on eventID.
+func (installation *SQLite) LoadAdministrationLanes(
+	ctx context.Context,
+	eventID int,
+) ([]PublishedLane, error) {
+	return loadPublishedLanes(systemContext(ctx), installation.client, eventID)
+}
+
+func loadPublishedLanes(
+	ctx context.Context,
+	client *ent.Client,
+	eventID int,
+) ([]PublishedLane, error) {
+	lanes, err := client.Lane.Query().Where(lane.EventIDEQ(eventID)).All(ctx)
+	if err != nil {
+		return nil, opaqueError("load Crew Lanes", err)
+	}
+	laneVersions, err := client.LanePublishedVersion.Query().
+		Where(
+			lanepublishedversion.HasLaneWith(lane.EventIDEQ(eventID)),
+			latestPublishedVersion(
+				lanepublishedversion.Table,
+				lanepublishedversion.FieldLaneID,
+			),
+		).
+		All(ctx)
+	if err != nil {
+		return nil, opaqueError("load current Published Lanes", err)
+	}
+	laneVersionsByIdentity := make(map[int]*ent.LanePublishedVersion, len(laneVersions))
+	for _, version := range laneVersions {
+		laneVersionsByIdentity[version.LaneID] = version
+	}
+	result := make([]PublishedLane, 0, len(lanes))
+	for _, identity := range lanes {
+		version := laneVersionsByIdentity[identity.ID]
+		if version != nil && !version.Retired {
+			result = append(result, PublishedLane{
+				ID: identity.ID, Name: version.Name, LocationID: version.LocationID,
+			})
+		}
+	}
+	return result, nil
+}
+
 func loadCrewRundown(ctx context.Context, client *ent.Client, eventID int) (CrewRundownState, error) {
 	revisions, err := client.Rundown.Query().Where(rundown.EventIDEQ(eventID)).Only(ctx)
 	if ent.IsNotFound(err) {

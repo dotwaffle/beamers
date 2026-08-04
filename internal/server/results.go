@@ -441,12 +441,10 @@ func prizegivingPreflightFindings(
 func eventAwardsInput(request *http.Request) ([]results.EventAward, error) {
 	keys := request.Form["event_award_key"]
 	names := request.Form["event_award_name"]
-	entryIDs := request.Form["event_award_recipient_entry_ids"]
 	displayNames := request.Form["event_award_recipient_names"]
 	paths := request.Form["event_award_path"]
 	orders := request.Form["event_award_display_order"]
 	if len(keys) != len(names) ||
-		len(keys) != len(entryIDs) ||
 		len(keys) != len(displayNames) ||
 		len(keys) != len(paths) ||
 		len(keys) != len(orders) {
@@ -457,9 +455,10 @@ func eventAwardsInput(request *http.Request) ([]results.EventAward, error) {
 	}
 	awards := make([]results.EventAward, 0, len(keys))
 	for index := range keys {
+		rowEntryIDs := request.Form["event_award_recipient_entry_ids_"+strconv.Itoa(index)]
 		if strings.TrimSpace(keys[index]) == "" &&
 			strings.TrimSpace(names[index]) == "" &&
-			strings.TrimSpace(entryIDs[index]) == "" &&
+			len(rowEntryIDs) == 0 &&
 			strings.TrimSpace(displayNames[index]) == "" {
 			continue
 		}
@@ -470,11 +469,11 @@ func eventAwardsInput(request *http.Request) ([]results.EventAward, error) {
 				"must be a positive integer",
 			)
 		}
-		recipients, err := awardRecipients(entryIDs[index], displayNames[index])
+		recipients, err := awardRecipients(rowEntryIDs, displayNames[index])
 		if err != nil {
 			return nil, formValidationError(
 				"event_award_recipient_entry_ids_"+strconv.Itoa(index),
-				"must contain comma-separated positive integers",
+				"must identify valid Entries",
 			)
 		}
 		pathKind, pathSessionID, _ := strings.Cut(paths[index], ":")
@@ -737,12 +736,10 @@ func prizegivingOrders(
 func competitionAwardsInput(request *http.Request) ([]results.Award, error) {
 	keys := request.Form["award_key"]
 	names := request.Form["award_name"]
-	entryIDs := request.Form["award_recipient_entry_ids"]
 	displayNames := request.Form["award_recipient_names"]
 	promoted := request.Form["award_promoted"]
 	orders := request.Form["award_display_order"]
 	if len(keys) != len(names) ||
-		len(keys) != len(entryIDs) ||
 		len(keys) != len(displayNames) ||
 		len(keys) != len(promoted) ||
 		len(keys) != len(orders) {
@@ -753,9 +750,10 @@ func competitionAwardsInput(request *http.Request) ([]results.Award, error) {
 	}
 	awards := make([]results.Award, 0, len(keys))
 	for index := range keys {
+		rowEntryIDs := request.Form["award_recipient_entry_ids_"+strconv.Itoa(index)]
 		if strings.TrimSpace(keys[index]) == "" &&
 			strings.TrimSpace(names[index]) == "" &&
-			strings.TrimSpace(entryIDs[index]) == "" &&
+			len(rowEntryIDs) == 0 &&
 			strings.TrimSpace(displayNames[index]) == "" {
 			continue
 		}
@@ -773,11 +771,11 @@ func competitionAwardsInput(request *http.Request) ([]results.Award, error) {
 				"must be Yes or No",
 			)
 		}
-		recipients, err := awardRecipients(entryIDs[index], displayNames[index])
+		recipients, err := awardRecipients(rowEntryIDs, displayNames[index])
 		if err != nil {
 			return nil, formValidationError(
 				"award_recipient_entry_ids_"+strconv.Itoa(index),
-				"must contain comma-separated positive integers",
+				"must identify valid Entries",
 			)
 		}
 		awards = append(awards, results.Award{
@@ -788,17 +786,13 @@ func competitionAwardsInput(request *http.Request) ([]results.Award, error) {
 	return awards, nil
 }
 
-func awardRecipients(entryIDs, displayNames string) ([]results.AwardRecipient, error) {
+func awardRecipients(entryIDs []string, displayNames string) ([]results.AwardRecipient, error) {
 	recipients := make([]results.AwardRecipient, 0)
-	for value := range strings.SplitSeq(entryIDs, ",") {
-		value = strings.TrimSpace(value)
-		if value == "" {
-			continue
-		}
-		entryID, err := strconv.Atoi(value)
-		if err != nil || entryID <= 0 {
-			return nil, results.ErrInvalidInput
-		}
+	ids, err := positiveFormIDs(entryIDs)
+	if err != nil {
+		return nil, results.ErrInvalidInput
+	}
+	for _, entryID := range ids {
 		recipients = append(recipients, results.AwardRecipient{EntryID: entryID})
 	}
 	for value := range strings.SplitSeq(displayNames, "\n") {

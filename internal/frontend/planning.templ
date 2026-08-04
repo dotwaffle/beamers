@@ -1,6 +1,7 @@
 package frontend
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"slices"
@@ -104,6 +105,225 @@ func planningContains(values []int, wanted int) bool {
 	return false
 }
 
+// draftEntityNames indexes a materialized Draft's structural names by
+// TargetType and TargetID, so a Draft Change can be rendered as a sentence
+// naming the entity it affects instead of a bare numeric ID.
+type draftEntityNames struct {
+	locations map[int]string
+	lanes     map[int]string
+	tracks    map[int]string
+	sessions  map[int]string
+}
+
+func newDraftEntityNames(draft rundown.DraftRundown) draftEntityNames {
+	names := draftEntityNames{
+		locations: make(map[int]string, len(draft.Locations)),
+		lanes:     make(map[int]string, len(draft.Lanes)),
+		tracks:    make(map[int]string, len(draft.Tracks)),
+		sessions:  make(map[int]string, len(draft.Sessions)),
+	}
+	for _, location := range draft.Locations {
+		names.locations[location.ID] = location.Name
+	}
+	for _, lane := range draft.Lanes {
+		names.lanes[lane.ID] = lane.Name
+	}
+	for _, track := range draft.Tracks {
+		names.tracks[track.ID] = track.Name
+	}
+	for _, session := range draft.Sessions {
+		names.sessions[session.ID] = session.Title
+	}
+	return names
+}
+
+// entity returns a human label for one Draft Change target, falling back to
+// a bare numeric reference when the target no longer exists in the current
+// materialized Draft (e.g. a superseded or rejected Change).
+func (names draftEntityNames) entity(targetType string, targetID int) string {
+	var (
+		name  string
+		found bool
+	)
+	switch targetType {
+	case "Location":
+		name, found = names.locations[targetID]
+	case "Lane":
+		name, found = names.lanes[targetID]
+	case "Track":
+		name, found = names.tracks[targetID]
+	case "Session":
+		name, found = names.sessions[targetID]
+	}
+	if !found || name == "" {
+		return targetType + " #" + strconv.Itoa(targetID)
+	}
+	return targetType + " \"" + name + "\""
+}
+
+// draftChangeFieldLabels maps a Session creation/update FactKey to the label
+// used on the Draft session editor, so the Publish review speaks the same
+// vocabulary as the form that produced the Change.
+var draftChangeFieldLabels = map[string]string{
+	"name":                       "name",
+	"location":                   "Location",
+	"title":                      "title",
+	"speaker":                    "Speaker",
+	"type":                       "Type",
+	"audience_visibility":        "Audience visibility",
+	"public_details":             "Public details",
+	"crew_notes":                 "Crew notes",
+	"planned_start":              "Planned start",
+	"planned_end":                "Planned end",
+	"timing_policy":              "Timing policy",
+	"minimum_duration":           "Minimum duration",
+	"start_boundary":             "Start boundary",
+	"end_boundary":               "End boundary",
+	"upload_deadline":            "Presentation upload deadline",
+	"submission_deadline":        "Competition submission deadline",
+	"entry_default_disposition":  "New Entry disposition",
+	"lanes":                      "Lanes",
+	"locations":                  "Locations",
+	"tracks":                     "Tracks",
+}
+
+var draftChangeEnumFields = map[string]bool{
+	"type": true, "audience_visibility": true, "timing_policy": true,
+	"start_boundary": true, "end_boundary": true, "entry_default_disposition": true,
+}
+
+var draftChangeTimeFields = map[string]bool{
+	"planned_start": true, "planned_end": true,
+	"upload_deadline": true, "submission_deadline": true,
+}
+
+// draftChangeValue decodes one side of a Draft Change's JSON evidence for
+// display. An empty or unparsable payload renders as "(none)" rather than
+// failing the page: the Publish review must stay readable even for Change
+// evidence this helper does not yet recognize.
+func draftChangeValue(field, raw string, names draftEntityNames) string {
+	if strings.TrimSpace(raw) == "" {
+		return "(none)"
+	}
+	var decoded any
+	if err := json.Unmarshal([]byte(raw), &decoded); err != nil {
+		return raw
+	}
+	switch field {
+	case "location":
+		if id, ok := decoded.(float64); ok {
+			return names.entity("Location", int(id))
+		}
+	case "lanes":
+		return draftChangeIDList(decoded, names, "Lane")
+	case "locations":
+		return draftChangeIDList(decoded, names, "Location")
+	case "tracks":
+		return draftChangeIDList(decoded, names, "Track")
+	case "minimum_duration":
+		if seconds, ok := decoded.(float64); ok {
+			return time.Duration(int64(seconds) * int64(time.Second)).String()
+		}
+	}
+	if draftChangeTimeFields[field] {
+		if text, ok := decoded.(string); ok && text != "" {
+			if parsed, err := time.Parse(time.RFC3339, text); err == nil {
+				return parsed.Format("2006-01-02 15:04 MST")
+			}
+		}
+	}
+	switch value := decoded.(type) {
+	case nil:
+		return "(none)"
+	case bool:
+		return strconv.FormatBool(value)
+	case string:
+		if value == "" {
+			return "(blank)"
+		}
+		if draftChangeEnumFields[field] {
+			return humanizeIdentifier(value)
+		}
+		return "\"" + value + "\""
+	case float64:
+		return strconv.FormatFloat(value, 'f', -1, 64)
+	default:
+		return raw
+	}
+}
+
+func draftChangeIDList(decoded any, names draftEntityNames, targetType string) string {
+	values, ok := decoded.([]any)
+	if !ok {
+		return "(none)"
+	}
+	if len(values) == 0 {
+		return "none"
+	}
+	labels := make([]string, 0, len(values))
+	for _, value := range values {
+		if id, ok := value.(float64); ok {
+			labels = append(labels, names.entity(targetType, int(id)))
+		}
+	}
+	return strings.Join(labels, ", ")
+}
+
+// draftChangeSentence renders one Draft Change as a readable sentence
+// (entity, field, old -> new) instead of the raw target/fact/JSON triple the
+// domain model tracks internally.
+func draftChangeSentence(change rundown.DraftChange, names draftEntityNames) string {
+	entity := names.entity(change.TargetType, change.TargetID)
+	if change.FactKey == "entity" {
+		return "New " + entity + " created."
+	}
+	family, encodedID, isMembership := strings.Cut(change.FactKey, ":")
+	if isMembership {
+		id, err := strconv.Atoi(encodedID)
+		memberType := "Lane"
+		switch family {
+		case "locations":
+			memberType = "Location"
+		case "tracks":
+			memberType = "Track"
+		}
+		member := entity
+		if err == nil {
+			member = names.entity(memberType, id)
+		}
+		included := draftChangeValue("", change.CurrentValueJSON, names) == "true"
+		if included {
+			return entity + ": " + member + " added."
+		}
+		return entity + ": " + member + " removed."
+	}
+	label, known := draftChangeFieldLabels[change.FactKey]
+	if !known {
+		label = humanizeIdentifier(change.FactKey)
+	}
+	previous := draftChangeValue(change.FactKey, change.PreviousValueJSON, names)
+	current := draftChangeValue(change.FactKey, change.CurrentValueJSON, names)
+	return entity + ": " + label + " " + previous + " → " + current
+}
+
+// draftChangeStatusTone maps a Draft Change's Status onto a badge tone.
+// Effective is the only status a Producer can still select for Publish, so
+// it alone reads as success; everything else is informational history.
+func draftChangeStatusTone(status string) string {
+	switch status {
+	case "Effective":
+		return "success"
+	case "Published":
+		return "ended"
+	case "Conflicted":
+		return "danger"
+	case "Superseded", "Discarded", "Reverted":
+		return "neutral"
+	default:
+		return "draft"
+	}
+}
+
 func PlanningFieldID(target string, id int, field string) string {
 	prefix := target
 	if id > 0 {
@@ -196,6 +416,59 @@ templ planningDraftSelect(
 		}
 	</select>
 	@FieldError(page.Errors, PlanningFieldID("draft", 0, field))
+}
+
+// planningDraftIDOption is one selectable current Draft entity for the
+// planningDraftIDSelect picker (a current Draft Location, Lane, or Track).
+type planningDraftIDOption struct {
+	ID   int
+	Name string
+}
+
+templ planningDraftIDSelect(
+	page PlanningPage,
+	field, label string,
+	options []planningDraftIDOption,
+) {
+	<label for={ PlanningFieldID("draft", 0, field) }>{ label }</label>
+	<select
+		id={ PlanningFieldID("draft", 0, field) }
+		name={ field }
+		{ page.Errors.Attributes(PlanningFieldID("draft", 0, field))... }
+	>
+		<option value="" selected?={ page.draftValue("draft", 0, field, "") == "" }>— none —</option>
+		for _, option := range options {
+			<option
+				value={ strconv.Itoa(option.ID) }
+				selected?={ page.draftValue("draft", 0, field, "") == strconv.Itoa(option.ID) }
+			>{ option.Name }</option>
+		}
+	</select>
+	@FieldError(page.Errors, PlanningFieldID("draft", 0, field))
+}
+
+func planningDraftLocationOptions(draft rundown.DraftRundown) []planningDraftIDOption {
+	options := make([]planningDraftIDOption, len(draft.Locations))
+	for index, location := range draft.Locations {
+		options[index] = planningDraftIDOption{ID: location.ID, Name: location.Name}
+	}
+	return options
+}
+
+func planningDraftLaneOptions(draft rundown.DraftRundown) []planningDraftIDOption {
+	options := make([]planningDraftIDOption, len(draft.Lanes))
+	for index, lane := range draft.Lanes {
+		options[index] = planningDraftIDOption{ID: lane.ID, Name: lane.Name}
+	}
+	return options
+}
+
+func planningDraftTrackOptions(draft rundown.DraftRundown) []planningDraftIDOption {
+	options := make([]planningDraftIDOption, len(draft.Tracks))
+	for index, track := range draft.Tracks {
+		options[index] = planningDraftIDOption{ID: track.ID, Name: track.Name}
+	}
+	return options
 }
 
 templ planningEditInput(
@@ -392,16 +665,10 @@ templ Planning(page PlanningPage) {
 									{ page.Errors.Attributes("draft-lane-name")... }
 								/>
 								@FieldError(page.Errors, "draft-lane-name")
-								<label for="draft-lane-location-id">Current Draft Location ID</label>
-								<input
-									id="draft-lane-location-id"
-									type="number"
-									min="1"
-									name="lane_location_id"
-									value={ page.draftValue("draft", 0, "lane_location_id", "") }
-									{ page.Errors.Attributes("draft-lane-location-id")... }
-								/>
-								@FieldError(page.Errors, "draft-lane-location-id")
+								@planningDraftIDSelect(
+									page, "lane_location_id", "Current Draft Location",
+									planningDraftLocationOptions(page.Draft),
+								)
 							</fieldset>
 							<fieldset>
 								<legend>Track</legend>
@@ -433,9 +700,18 @@ templ Planning(page PlanningPage) {
 								@planningDraftInput(page, "minimum_duration", "Minimum duration", "text", "15m", false)
 								@planningDraftSelect(page, "start_boundary", "Start boundary", []string{"Soft", "Hard"}, "Soft")
 								@planningDraftSelect(page, "end_boundary", "End boundary", []string{"Soft", "Hard"}, "Soft")
-								@planningDraftInput(page, "session_lane_id", "Current Draft Lane ID", "number", "", false)
-								@planningDraftInput(page, "session_location_id", "Current Draft Location ID", "number", "", false)
-								@planningDraftInput(page, "session_track_id", "Current Draft Track ID", "number", "", false)
+								@planningDraftIDSelect(
+									page, "session_lane_id", "Current Draft Lane",
+									planningDraftLaneOptions(page.Draft),
+								)
+								@planningDraftIDSelect(
+									page, "session_location_id", "Current Draft Location",
+									planningDraftLocationOptions(page.Draft),
+								)
+								@planningDraftIDSelect(
+									page, "session_track_id", "Current Draft Track",
+									planningDraftTrackOptions(page.Draft),
+								)
 								@planningDraftInput(page, "upload_deadline", "Presentation upload deadline", "datetime-local", "", false)
 								@planningDraftSelect(page, "upload_deadline_occurrence", "Upload deadline occurrence", []string{"", "Earlier", "Later"}, "")
 								@planningDraftInput(page, "submission_deadline", "Competition submission deadline", "datetime-local", "", false)
@@ -445,6 +721,99 @@ templ Planning(page PlanningPage) {
 							<button type="submit">Apply Draft edit</button>
 						</form>
 					</details>
+					<section>
+						<h2>Draft review</h2>
+						for _, failure := range page.CurrentPreview.ValidationFailures {
+							@ErrorFlash(failure)
+						}
+						if len(page.CurrentPreview.Changes) == 0 {
+							@EmptyState("No effective Draft changes.")
+						} else {
+							<ul>
+								for _, change := range page.CurrentPreview.Changes {
+									<li>
+										@Badge(draftChangeStatusTone(change.Status), change.Status)
+										{ " " }
+										{ draftChangeSentence(change, newDraftEntityNames(page.Draft)) }
+									</li>
+								}
+							</ul>
+							if len(page.CurrentPreview.ChangeIDs) != 0 {
+								<form method="post">
+									<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+									<input type="hidden" name="action" value="publish-preview"/>
+									<fieldset
+										id="publish-changes"
+										{ page.Errors.Attributes("publish-changes")... }
+									>
+										<legend>Draft changes</legend>
+										for _, change := range page.CurrentPreview.Changes {
+											if change.Status == "Effective" {
+												<label>
+													<input type="checkbox" name="change_id" value={ strconv.Itoa(change.ID) } checked/>
+													{ draftChangeSentence(change, newDraftEntityNames(page.Draft)) }
+												</label>
+											}
+										}
+									</fieldset>
+									@FieldError(page.Errors, "publish-changes")
+									<button type="submit">Preview publish</button>
+								</form>
+							}
+						}
+						if page.PublishPreview != nil {
+							<h3>Confirm publish</h3>
+							<div class="tiles">
+								@Metric("Draft revision", strconv.Itoa(page.PublishPreview.DraftRevision))
+								@Metric("Published revision", strconv.Itoa(page.PublishPreview.PublishedRevision))
+							</div>
+							for _, failure := range page.PublishPreview.ValidationFailures {
+								@ErrorFlash(failure)
+							}
+							<ul>
+								for _, change := range page.PublishPreview.Changes {
+									<li>
+										{ draftChangeSentence(change, newDraftEntityNames(page.Draft)) }
+										if planningContains(page.PublishPreview.AutoIncludedChangeIDs, change.ID) {
+											<strong>Automatically included dependency</strong>
+										}
+									</li>
+								}
+							</ul>
+							if len(page.PublishPreview.AffectedStructure) != 0 {
+								<p>Affected structure: { strings.Join(page.PublishPreview.AffectedStructure, ", ") }</p>
+							}
+							if len(page.PublishPreview.AffectedLanes) != 0 {
+								<p>Affected Lanes: { strings.Join(page.PublishPreview.AffectedLanes, ", ") }</p>
+							}
+							if len(page.PublishPreview.AffectedDisplays) != 0 {
+								<p>Affected Displays: { strings.Join(page.PublishPreview.AffectedDisplays, ", ") }</p>
+							} else {
+								<p>Affected Displays: none currently assigned.</p>
+							}
+							if len(page.PublishPreview.ValidationFailures) == 0 {
+								<form method="post">
+									<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
+									<input type="hidden" name="action" value="publish"/>
+									<input type="hidden" name="command_id" value={ page.CommandID }/>
+									<input type="hidden" name="draft_revision" value={ strconv.Itoa(page.PublishPreview.DraftRevision) }/>
+									<input type="hidden" name="published_revision" value={ strconv.Itoa(page.PublishPreview.PublishedRevision) }/>
+									<input type="hidden" name="fingerprint" value={ page.PublishPreview.Fingerprint }/>
+									for _, changeID := range page.PublishPreview.ChangeIDs {
+										<input type="hidden" name="change_id" value={ strconv.Itoa(changeID) }/>
+									}
+									<label for="publish-note">Publish note</label>
+									<textarea
+										id="publish-note"
+										name="publish_note"
+										{ page.Errors.Attributes("publish-note")... }
+									>{ page.Form.Get("publish_note") }</textarea>
+									@FieldError(page.Errors, "publish-note")
+									<button class="btn-commit" type="submit">Publish reviewed selection</button>
+								</form>
+							}
+						}
+					</section>
 					<section>
 						<h2>Materialized Draft</h2>
 						for _, location := range page.Draft.Locations {
@@ -526,6 +895,11 @@ templ Planning(page PlanningPage) {
 							</form>
 						}
 						for _, session := range page.Draft.Sessions {
+							<details open?={ page.draftSubmitted("session", session.ID) }>
+								<summary>
+									<span>Session #{ strconv.Itoa(session.ID) }: { session.Title }</span>
+									@StateAxes(page.Draft.PublishedRevision > 0, session.Lifecycle, session.AudienceVisibility)
+								</summary>
 							<form class="stack" method="post">
 								<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
 								<input type="hidden" name="action" value="draft"/>
@@ -615,100 +989,7 @@ templ Planning(page PlanningPage) {
 								@FieldError(page.Errors, PlanningFieldID("session", session.ID, "session_track_ids"))
 								<button type="submit">Update Session</button>
 							</form>
-						}
-					</section>
-					<section>
-						<h2>Draft review</h2>
-						for _, failure := range page.CurrentPreview.ValidationFailures {
-							@ErrorFlash(failure)
-						}
-						if len(page.CurrentPreview.Changes) == 0 {
-							@EmptyState("No effective Draft changes.")
-						} else {
-							<ul>
-								for _, change := range page.CurrentPreview.Changes {
-									<li>
-										Change #{ strconv.Itoa(change.ID) }:
-										{ change.Status } { change.TargetType } { change.FactKey }
-										{ change.CurrentValueJSON }
-									</li>
-								}
-							</ul>
-							if len(page.CurrentPreview.ChangeIDs) != 0 {
-								<form method="post">
-									<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
-									<input type="hidden" name="action" value="publish-preview"/>
-									<fieldset
-										id="publish-changes"
-										{ page.Errors.Attributes("publish-changes")... }
-									>
-										<legend>Draft changes</legend>
-										for _, change := range page.CurrentPreview.Changes {
-											if change.Status == "Effective" {
-												<label>
-													<input type="checkbox" name="change_id" value={ strconv.Itoa(change.ID) } checked/>
-													Change #{ strconv.Itoa(change.ID) }
-												</label>
-											}
-										}
-									</fieldset>
-									@FieldError(page.Errors, "publish-changes")
-									<button type="submit">Preview publish</button>
-								</form>
-							}
-						}
-						if page.PublishPreview != nil {
-							<h3>Confirm publish</h3>
-							<div class="tiles">
-								@Metric("Draft revision", strconv.Itoa(page.PublishPreview.DraftRevision))
-								@Metric("Published revision", strconv.Itoa(page.PublishPreview.PublishedRevision))
-							</div>
-							for _, failure := range page.PublishPreview.ValidationFailures {
-								@ErrorFlash(failure)
-							}
-							<ul>
-								for _, change := range page.PublishPreview.Changes {
-									<li>
-										Change #{ strconv.Itoa(change.ID) }:
-										{ change.TargetType } { change.FactKey } { change.CurrentValueJSON }
-										if planningContains(page.PublishPreview.AutoIncludedChangeIDs, change.ID) {
-											<strong>Automatically included dependency</strong>
-										}
-									</li>
-								}
-							</ul>
-							if len(page.PublishPreview.AffectedStructure) != 0 {
-								<p>Affected structure: { strings.Join(page.PublishPreview.AffectedStructure, ", ") }</p>
-							}
-							if len(page.PublishPreview.AffectedLanes) != 0 {
-								<p>Affected Lanes: { strings.Join(page.PublishPreview.AffectedLanes, ", ") }</p>
-							}
-							if len(page.PublishPreview.AffectedDisplays) != 0 {
-								<p>Affected Displays: { strings.Join(page.PublishPreview.AffectedDisplays, ", ") }</p>
-							} else {
-								<p>Affected Displays: none currently assigned.</p>
-							}
-							if len(page.PublishPreview.ValidationFailures) == 0 {
-								<form method="post">
-									<input type="hidden" name="csrf_token" value={ page.CSRFToken }/>
-									<input type="hidden" name="action" value="publish"/>
-									<input type="hidden" name="command_id" value={ page.CommandID }/>
-									<input type="hidden" name="draft_revision" value={ strconv.Itoa(page.PublishPreview.DraftRevision) }/>
-									<input type="hidden" name="published_revision" value={ strconv.Itoa(page.PublishPreview.PublishedRevision) }/>
-									<input type="hidden" name="fingerprint" value={ page.PublishPreview.Fingerprint }/>
-									for _, changeID := range page.PublishPreview.ChangeIDs {
-										<input type="hidden" name="change_id" value={ strconv.Itoa(changeID) }/>
-									}
-									<label for="publish-note">Publish note</label>
-									<textarea
-										id="publish-note"
-										name="publish_note"
-										{ page.Errors.Attributes("publish-note")... }
-									>{ page.Form.Get("publish_note") }</textarea>
-									@FieldError(page.Errors, "publish-note")
-									<button class="btn-commit" type="submit">Publish reviewed selection</button>
-								</form>
-							}
+							</details>
 						}
 					</section>
 					<details open?={ strings.HasPrefix(page.SubmittedAction, "csv-") }>

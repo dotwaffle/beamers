@@ -705,6 +705,7 @@ func (application *application) buildHandler(
 		installation.Authentication(),
 		installation.Events(),
 		installation.Activation(),
+		installation.RundownQueries(),
 		application.config.Logger,
 	)
 	registerVotingRoutes(

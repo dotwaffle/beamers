@@ -314,6 +314,26 @@ func (handlers entryHandlers) submitEntryConfiguration(
 	}
 }
 
+// manualEntryOrderIDs parses the Manual Order position picker's repeated
+// "manual_entry_ids" values, one per rendered position select. A blank
+// position (left "unranked") is skipped rather than rejected, so a Producer
+// need not fill every slot to submit a partial order.
+func manualEntryOrderIDs(values []string) ([]int, error) {
+	ids := make([]int, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		id, err := strconv.Atoi(value)
+		if err != nil || id <= 0 {
+			return nil, competition.ErrInvalidInput
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
+}
+
 func (handlers entryHandlers) configureEntryOrder(
 	request *http.Request,
 	actor auth.Account,
@@ -330,14 +350,19 @@ func (handlers entryHandlers) configureEntryOrder(
 			return competition.ErrInvalidInput
 		}
 	}
-	ids, err := commaSeparatedInts(request.Form.Get("manual_entry_ids"))
+	ids, err := manualEntryOrderIDs(request.Form["manual_entry_ids"])
 	if err != nil {
 		return err
 	}
-	for _, id := range ids {
-		if id <= 0 {
-			return competition.ErrInvalidInput
-		}
+	policy := competition.EntryOrderPolicy(request.Form.Get("order_policy"))
+	if policy != competition.EntryOrderManual {
+		// The Manual order picker renders one position select per Entry
+		// regardless of the currently chosen policy, so a Producer can
+		// switch away from Manual order without first clearing every
+		// position back to "unranked." Only Manual order consumes the
+		// picker's selections; Submission order and Deterministic
+		// shuffle require no Manual Entry IDs.
+		ids = nil
 	}
 	_, err = handlers.competition.ConfigureEntryOrder(
 		request.Context(),
@@ -345,7 +370,7 @@ func (handlers entryHandlers) configureEntryOrder(
 		competition.ConfigureEntryOrderInput{
 			EventID: eventID, SessionID: sessionID,
 			CommandID: request.Form.Get("command_id"), ExpectedRevision: revision,
-			Policy: competition.EntryOrderPolicy(request.Form.Get("order_policy")),
+			Policy: policy,
 			Seed:   seed, ManualEntryIDs: ids,
 		},
 	)
