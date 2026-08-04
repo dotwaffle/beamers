@@ -799,9 +799,9 @@ func CompetitionVoting(page CompetitionVotingPage) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var34 string
-		templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(page.Window.Method)
+		templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.JoinStringErrs(humanizeIdentifier(page.Window.Method))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `voting.templ`, Line: 242, Col: 67}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `voting.templ`, Line: 242, Col: 87}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 		if templ_7745c5c3_Err != nil {
@@ -814,7 +814,7 @@ func CompetitionVoting(page CompetitionVotingPage) templ.Component {
 		var templ_7745c5c3_Var35 string
 		templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.JoinStringErrs(page.Window.SelfVotePolicy)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `voting.templ`, Line: 242, Col: 117}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `voting.templ`, Line: 242, Col: 137}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 		if templ_7745c5c3_Err != nil {

@@ -239,7 +239,7 @@ templ CompetitionVoting(page CompetitionVotingPage) {
 					if page.Message != "" {
 						@ErrorFlash(page.Message)
 					}
-					<p>Window: { page.Window.State }. Method: { page.Window.Method }. Self-Vote Policy: { page.Window.SelfVotePolicy }.</p>
+					<p>Window: { page.Window.State }. Method: { humanizeIdentifier(page.Window.Method) }. Self-Vote Policy: { page.Window.SelfVotePolicy }.</p>
 					<p>
 						Eligible: { strconv.Itoa(page.Participation.Eligible) }.
 						Participating: { strconv.Itoa(page.Participation.Participating) }.
