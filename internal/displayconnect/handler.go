@@ -326,11 +326,11 @@ func sessionMessage(found displays.Session) *displayv1.DisplaySession {
 		AvailabilityMessage: found.AvailabilityMessage,
 		PresentedStartLabel: string(found.PresentedStartLabel),
 		PresentedEndLabel:   string(found.PresentedEndLabel),
-		TimelineDay:         found.TimelineDay,
-		TimelineOffset:      uint32(found.TimelineOffset),    //nolint:gosec // Projection is bounded to 0..10000.
-		TimelineWidth:       uint32(found.TimelineWidth),     //nolint:gosec // Projection is bounded to 1..10000.
-		TimelineLane:        uint32(found.TimelineLane),      //nolint:gosec // Slice index.
-		TimelineLaneCount:   uint32(found.TimelineLaneCount), //nolint:gosec // Slice length.
+		TimelineDay:         found.Timeline.Day,
+		TimelineOffset:      uint32(found.Timeline.Offset),    //nolint:gosec // Projection is bounded to 0..10000.
+		TimelineWidth:       uint32(found.Timeline.Width),     //nolint:gosec // Projection is bounded to 1..10000.
+		TimelineLane:        uint32(found.Timeline.Lane),      //nolint:gosec // Slice index.
+		TimelineLaneCount:   uint32(found.Timeline.LaneCount), //nolint:gosec // Slice length.
 	}
 	if !found.ForecastStart.IsZero() {
 		result.ForecastStart = timestamppb.New(found.ForecastStart)
@@ -366,6 +366,12 @@ func stageTimerMessage(found displays.StageTimer) *displayv1.StageTimer {
 	result.AdjustmentSeconds = int64(found.AdjustmentSeconds)
 	if !found.AdjustmentNoticeExpiresAt.IsZero() {
 		result.AdjustmentNoticeExpiresAt = timestamppb.New(found.AdjustmentNoticeExpiresAt)
+	}
+	if !found.SpanStart.IsZero() {
+		result.SpanStart = timestamppb.New(found.SpanStart)
+	}
+	if !found.SpanEnd.IsZero() {
+		result.SpanEnd = timestamppb.New(found.SpanEnd)
 	}
 	for _, threshold := range found.Thresholds {
 		result.Thresholds = append(result.Thresholds, &displayv1.TimerThreshold{

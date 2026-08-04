@@ -186,6 +186,8 @@ func TestDisplayPageServerRendersStageTimerState(t *testing.T) {
 			Thresholds: []stagetimer.Threshold{
 				{Remaining: time.Minute, Emphasis: stagetimer.Urgent},
 			},
+			SpanStart: now.Add(-30 * time.Minute),
+			SpanEnd:   now.Add(30 * time.Second),
 		},
 	}
 	var rendered strings.Builder
@@ -202,6 +204,10 @@ func TestDisplayPageServerRendersStageTimerState(t *testing.T) {
 		"Urgent",
 		"Time adjusted: +5:00",
 		"data-timer-adjustment-notice",
+		// The bar carries the span the projection bounded, the same values the
+		// streamed payload ships, so both renderers draw the same progress.
+		`data-progress-start="2099-08-21T07:30:30Z"`,
+		`data-progress-end="2099-08-21T08:01:00Z"`,
 	} {
 		if !strings.Contains(rendered.String(), want) {
 			t.Errorf("Stage Timer page missing %q: %s", want, rendered.String())
@@ -359,11 +365,9 @@ func TestTimelineSizesBlocksByTheirSpan(t *testing.T) {
 				PresentedStart:        time.Date(2099, 8, 21, 8, 0, 0, 0, time.UTC),
 				PresentedStartLabel:   publictime.LabelForecastStart,
 				DisplayPresentedStart: "08:00",
-				TimelineDay:           "2099-08-21",
-				TimelineOffset:        0,
-				TimelineWidth:         1042,
-				TimelineLane:          0,
-				TimelineLaneCount:     1,
+				Timeline: TimelineGeometry{
+					Day: "2099-08-21", Offset: 0, Width: 1042, Lane: 0, LaneCount: 1,
+				},
 			},
 			{
 				Title:                 "Long Keynote",
@@ -373,22 +377,18 @@ func TestTimelineSizesBlocksByTheirSpan(t *testing.T) {
 				PresentedStart:        time.Date(2099, 8, 21, 8, 15, 0, 0, time.UTC),
 				PresentedStartLabel:   publictime.LabelForecastStart,
 				DisplayPresentedStart: "08:15",
-				TimelineDay:           "2099-08-21",
-				TimelineOffset:        1042,
-				TimelineWidth:         6250,
-				TimelineLane:          0,
-				TimelineLaneCount:     1,
+				Timeline: TimelineGeometry{
+					Day: "2099-08-21", Offset: 1042, Width: 6250, Lane: 0, LaneCount: 1,
+				},
 			},
 			{
 				Unavailable:         true,
 				AvailabilityMessage: "Location unavailable until Aug 21, 2099 10:15 UTC",
 				ForecastStart:       time.Date(2099, 8, 21, 9, 45, 0, 0, time.UTC),
 				ForecastEnd:         time.Date(2099, 8, 21, 10, 15, 0, 0, time.UTC),
-				TimelineDay:         "2099-08-21",
-				TimelineOffset:      7292,
-				TimelineWidth:       2083,
-				TimelineLane:        0,
-				TimelineLaneCount:   1,
+				Timeline: TimelineGeometry{
+					Day: "2099-08-21", Offset: 7292, Width: 2083, Lane: 0, LaneCount: 1,
+				},
 			},
 		},
 	}).Render(context.Background(), &rendered)
@@ -447,16 +447,16 @@ func TestTimelineProjectionUsesEventDaysAndOverlapLanes(t *testing.T) {
 		t.Fatalf("project Timeline: %v", err)
 	}
 
-	if sessions[0].TimelineDay != "2099-08-21" ||
-		sessions[0].TimelineOffset != 1667 ||
-		sessions[0].TimelineWidth != 417 {
+	if sessions[0].Timeline.Day != "2099-08-21" ||
+		sessions[0].Timeline.Offset != 1667 ||
+		sessions[0].Timeline.Width != 417 {
 		t.Errorf("first Session geometry = %+v", sessions[0])
 	}
-	if sessions[0].TimelineLane != 0 || sessions[1].TimelineLane != 1 ||
-		sessions[0].TimelineLaneCount != 2 || sessions[1].TimelineLaneCount != 2 {
+	if sessions[0].Timeline.Lane != 0 || sessions[1].Timeline.Lane != 1 ||
+		sessions[0].Timeline.LaneCount != 2 || sessions[1].Timeline.LaneCount != 2 {
 		t.Errorf("overlap lanes = %+v, %+v", sessions[0], sessions[1])
 	}
-	if sessions[2].TimelineDay != "2099-08-22" || sessions[2].TimelineOffset != 0 {
+	if sessions[2].Timeline.Day != "2099-08-22" || sessions[2].Timeline.Offset != 0 {
 		t.Errorf("boundary Session geometry = %+v", sessions[2])
 	}
 }
@@ -477,7 +477,7 @@ func TestTimelineProjectionUsesCanonicalDSTBoundary(t *testing.T) {
 	if err := projectTimeline(sessions, zone, "02:30"); err != nil {
 		t.Fatalf("project Timeline: %v", err)
 	}
-	if sessions[0].TimelineDay != "2026-03-29" || sessions[0].TimelineOffset != 213 {
+	if sessions[0].Timeline.Day != "2026-03-29" || sessions[0].Timeline.Offset != 213 {
 		t.Errorf("DST-gap Timeline geometry = %+v", sessions[0])
 	}
 }

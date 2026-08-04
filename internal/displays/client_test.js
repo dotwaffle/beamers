@@ -425,6 +425,45 @@ test("Stage Timer shows manual elapsed time and accessible threshold emphasis", 
   assert.match(nodeText(urgentRegion), /Urgent/);
 });
 
+test("Stage Timer draws the elapsed bar from the projected span only", async () => {
+  const projected = await startBrowser({
+    snapshot: stageTimerSnapshot({
+      serverTime: "2099-08-21T08:30:00Z",
+      stageTimer: {
+        sessionId: "42",
+        title: "Closing Keynote",
+        mode: "STAGE_TIMER_MODE_COUNTDOWN",
+        anchor: "2099-08-21T09:00:00Z",
+        thresholds: [],
+        spanStart: "2099-08-21T08:00:00Z",
+        spanEnd: "2099-08-21T09:00:00Z",
+      },
+    }),
+  });
+  const region = projected.document.main.children[1];
+  const bar = region.children.find((node) => node.dataset?.progressStart);
+  assert.ok(bar);
+  assert.equal(bar["aria-valuenow"], "50");
+
+  // Without the projected span the renderer derives nothing itself, even with
+  // the counted Session in the payload: the projection is the single source.
+  const underived = await startBrowser({
+    snapshot: stageTimerSnapshot({
+      serverTime: "2099-08-21T08:30:00Z",
+      sessions: [{...displaySession("Closing Keynote"), id: "42", lifecycle: "Live"}],
+      stageTimer: {
+        sessionId: "42",
+        title: "Closing Keynote",
+        mode: "STAGE_TIMER_MODE_COUNTDOWN",
+        anchor: "2099-08-21T09:00:00Z",
+        thresholds: [],
+      },
+    }),
+  });
+  const bare = underived.document.main.children[1];
+  assert.equal(bare.children.find((node) => node.dataset?.progressStart), undefined);
+});
+
 test("Stage Timer shows and expires a distinct adjustment notice", async () => {
   const browser = await startBrowser({
     snapshot: stageTimerSnapshot({

@@ -1126,8 +1126,13 @@ type StageTimer struct {
 	ForecastEnd               *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=forecast_end,json=forecastEnd,proto3" json:"forecast_end,omitempty"`
 	AdjustmentSeconds         int64                  `protobuf:"zigzag64,7,opt,name=adjustment_seconds,json=adjustmentSeconds,proto3" json:"adjustment_seconds,omitempty"`
 	AdjustmentNoticeExpiresAt *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=adjustment_notice_expires_at,json=adjustmentNoticeExpiresAt,proto3" json:"adjustment_notice_expires_at,omitempty"`
-	unknownFields             protoimpl.UnknownFields
-	sizeCache                 protoimpl.SizeCache
+	// span_start and span_end bound the Session the timer is counting, projected
+	// once server-side so every renderer draws the same elapsed bar. A missing
+	// edge means the span is unmeasurable and no bar is drawn.
+	SpanStart     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=span_start,json=spanStart,proto3" json:"span_start,omitempty"`
+	SpanEnd       *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=span_end,json=spanEnd,proto3" json:"span_end,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *StageTimer) Reset() {
@@ -1212,6 +1217,20 @@ func (x *StageTimer) GetAdjustmentSeconds() int64 {
 func (x *StageTimer) GetAdjustmentNoticeExpiresAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.AdjustmentNoticeExpiresAt
+	}
+	return nil
+}
+
+func (x *StageTimer) GetSpanStart() *timestamppb.Timestamp {
+	if x != nil {
+		return x.SpanStart
+	}
+	return nil
+}
+
+func (x *StageTimer) GetSpanEnd() *timestamppb.Timestamp {
+	if x != nil {
+		return x.SpanEnd
 	}
 	return nil
 }
@@ -1771,7 +1790,7 @@ const file_beamers_display_v1_display_proto_rawDesc = "" +
 	"\x13timeline_lane_count\x18\x18 \x01(\rR\x11timelineLaneCount\"|\n" +
 	"\x0eTimerThreshold\x12+\n" +
 	"\x11remaining_seconds\x18\x01 \x01(\x03R\x10remainingSeconds\x12=\n" +
-	"\bemphasis\x18\x02 \x01(\x0e2!.beamers.display.v1.TimerEmphasisR\bemphasis\"\xbc\x03\n" +
+	"\bemphasis\x18\x02 \x01(\x0e2!.beamers.display.v1.TimerEmphasisR\bemphasis\"\xae\x04\n" +
 	"\n" +
 	"StageTimer\x12\x1d\n" +
 	"\n" +
@@ -1784,7 +1803,11 @@ const file_beamers_display_v1_display_proto_rawDesc = "" +
 	"thresholds\x12=\n" +
 	"\fforecast_end\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\vforecastEnd\x12-\n" +
 	"\x12adjustment_seconds\x18\a \x01(\x12R\x11adjustmentSeconds\x12[\n" +
-	"\x1cadjustment_notice_expires_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\x19adjustmentNoticeExpiresAt\"\xd2\a\n" +
+	"\x1cadjustment_notice_expires_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\x19adjustmentNoticeExpiresAt\x129\n" +
+	"\n" +
+	"span_start\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tspanStart\x125\n" +
+	"\bspan_end\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\aspanEnd\"\xd2\a\n" +
 	"\x12AcknowledgeRequest\x12)\n" +
 	"\x10protocol_version\x18\x01 \x01(\tR\x0fprotocolVersion\x12\x1b\n" +
 	"\tstream_id\x18\x02 \x01(\tR\bstreamId\x12'\n" +
@@ -1908,17 +1931,19 @@ var file_beamers_display_v1_display_proto_depIdxs = []int32{
 	11, // 23: beamers.display.v1.StageTimer.thresholds:type_name -> beamers.display.v1.TimerThreshold
 	16, // 24: beamers.display.v1.StageTimer.forecast_end:type_name -> google.protobuf.Timestamp
 	16, // 25: beamers.display.v1.StageTimer.adjustment_notice_expires_at:type_name -> google.protobuf.Timestamp
-	15, // 26: beamers.display.v1.AcknowledgeResponse.acknowledgment:type_name -> beamers.display.v1.DisplayAcknowledgment
-	16, // 27: beamers.display.v1.DisplayAcknowledgment.applied_at:type_name -> google.protobuf.Timestamp
-	2,  // 28: beamers.display.v1.DisplayService.GetSnapshot:input_type -> beamers.display.v1.GetSnapshotRequest
-	13, // 29: beamers.display.v1.DisplayService.Acknowledge:input_type -> beamers.display.v1.AcknowledgeRequest
-	3,  // 30: beamers.display.v1.DisplayService.GetSnapshot:output_type -> beamers.display.v1.GetSnapshotResponse
-	14, // 31: beamers.display.v1.DisplayService.Acknowledge:output_type -> beamers.display.v1.AcknowledgeResponse
-	30, // [30:32] is the sub-list for method output_type
-	28, // [28:30] is the sub-list for method input_type
-	28, // [28:28] is the sub-list for extension type_name
-	28, // [28:28] is the sub-list for extension extendee
-	0,  // [0:28] is the sub-list for field type_name
+	16, // 26: beamers.display.v1.StageTimer.span_start:type_name -> google.protobuf.Timestamp
+	16, // 27: beamers.display.v1.StageTimer.span_end:type_name -> google.protobuf.Timestamp
+	15, // 28: beamers.display.v1.AcknowledgeResponse.acknowledgment:type_name -> beamers.display.v1.DisplayAcknowledgment
+	16, // 29: beamers.display.v1.DisplayAcknowledgment.applied_at:type_name -> google.protobuf.Timestamp
+	2,  // 30: beamers.display.v1.DisplayService.GetSnapshot:input_type -> beamers.display.v1.GetSnapshotRequest
+	13, // 31: beamers.display.v1.DisplayService.Acknowledge:input_type -> beamers.display.v1.AcknowledgeRequest
+	3,  // 32: beamers.display.v1.DisplayService.GetSnapshot:output_type -> beamers.display.v1.GetSnapshotResponse
+	14, // 33: beamers.display.v1.DisplayService.Acknowledge:output_type -> beamers.display.v1.AcknowledgeResponse
+	32, // [32:34] is the sub-list for method output_type
+	30, // [30:32] is the sub-list for method input_type
+	30, // [30:30] is the sub-list for extension type_name
+	30, // [30:30] is the sub-list for extension extendee
+	0,  // [0:30] is the sub-list for field type_name
 }
 
 func init() { file_beamers_display_v1_display_proto_init() }

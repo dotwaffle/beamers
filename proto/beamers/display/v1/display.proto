@@ -142,6 +142,11 @@ message StageTimer {
   google.protobuf.Timestamp forecast_end = 6;
   sint64 adjustment_seconds = 7;
   google.protobuf.Timestamp adjustment_notice_expires_at = 8;
+  // span_start and span_end bound the Session the timer is counting, projected
+  // once server-side so every renderer draws the same elapsed bar. A missing
+  // edge means the span is unmeasurable and no bar is drawn.
+  google.protobuf.Timestamp span_start = 9;
+  google.protobuf.Timestamp span_end = 10;
 }
 
 message AcknowledgeRequest {
