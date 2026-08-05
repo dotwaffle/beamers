@@ -8,10 +8,9 @@ runs="${BEAMERS_BROWSER_RUNS:-1}"
 repository="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 cd "$repository"
 
-# Log the runner's image identity once up front so a silent failure
-# later in the log can be correlated with a specific runner rollout.
-# ImageOS/ImageVersion are only set on GitHub-hosted runners; guard
-# them for local runs where they are unset.
+# Log the runner image once. This identifies the runner rollout when a later
+# failure has no output. GitHub-hosted runners set ImageOS and ImageVersion.
+# Local runs can leave them unset.
 echo "runner image: ImageOS=${ImageOS:-unset} ImageVersion=${ImageVersion:-unset}" >&2
 
 case "$engine" in
@@ -41,11 +40,9 @@ trap cleanup EXIT HUP INT TERM
 max_attempts=3
 backoff_seconds=(5 10)
 
-# dump_failure_diagnostics prints the exit code, any captured stderr,
-# the certification container's inspected state (if it exists), and
-# the runner's image identity. It exists so a transient container
-# failure that used to kill the job with zero output is diagnosable
-# and correlatable with runner rollouts after the fact.
+# dump_failure_diagnostics prints the exit code, captured stderr, available
+# container state, and runner image. These details identify silent container
+# failures and correlate them with runner rollouts.
 dump_failure_diagnostics() {
   local description="$1" status="$2" stderr_file="$3"
   echo "FAILED: $description (exit $status)" >&2
@@ -62,12 +59,9 @@ dump_failure_diagnostics() {
   echo "ImageOS=${ImageOS:-unset} ImageVersion=${ImageVersion:-unset}" >&2
 }
 
-# run_with_retry runs its remaining arguments as a command, retrying up
-# to max_attempts times with a short backoff between attempts. Every
-# failed attempt is diagnosed via dump_failure_diagnostics before the
-# function decides whether to retry or give up. The command's exit
-# code is captured explicitly (never left to trigger errexit silently)
-# so it can be inspected and reported.
+# run_with_retry runs a command up to max_attempts times with a short delay.
+# It calls dump_failure_diagnostics after each failed attempt. It captures the
+# exit code so errexit does not hide the failure.
 run_with_retry() {
   local description="$1"
   shift
@@ -139,17 +133,13 @@ fi
 
 mkdir -p "$repository/artifacts"
 
-# Probe browser and webdriver versions via docker exec on the
-# already-running, already-ready certification container, rather than
-# launching two extra throwaway containers. This removes two of the
-# three container starts that could fail silently, and the evidence
-# now reflects the exact container that goes on to certify.
+# Read browser and WebDriver versions from the ready certification container.
+# This avoids two temporary containers and records versions from the container
+# under test.
 #
-# The command's own exit status is captured explicitly with "||"
-# rather than via "if ! var=$(cmd); then status=$?; fi" — inside that
-# pattern's then-branch, "$?" reflects the negated if-condition (which
-# is always 0), not the command, and would silently report success on
-# a real failure.
+# Capture each command's status with "||". The pattern
+# "if ! var=$(cmd); then status=$?; fi" reports the negated condition's status,
+# which is always zero.
 probe_stderr="$(mktemp)"
 status=0
 browser_version="$(
