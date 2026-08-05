@@ -36,6 +36,10 @@ type ReinstatePreview struct {
 	PreviousForecastStart            time.Time
 	RequiresHardBoundaryConfirmation bool
 	Fingerprint                      string
+	// AffectedLaneIDs is the proposed placement's own Lanes, unioned with the
+	// Lanes of every Session the timing ripple moves. ReinstateLaneScope
+	// judges Lane authority against this set.
+	AffectedLaneIDs []int
 }
 
 // ReinstateSessionParams identifies one confirmed Placement Preview.
@@ -253,6 +257,7 @@ func previewReinstateSession(
 		Fingerprint: timingripple.Fingerprint(
 			timing.Sessions, action, identity.LiveStateRevision,
 		),
+		AffectedLaneIDs: unionLaneIDs(proposedLaneIDs, timing.affectedLaneIDs(plan.Changes)),
 	}, nil
 }
 

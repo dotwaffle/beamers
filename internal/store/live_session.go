@@ -22,7 +22,6 @@ import (
 	"github.com/dotwaffle/beamers/ent/sessionrun"
 	"github.com/dotwaffle/beamers/ent/sessionrunamendment"
 	"github.com/dotwaffle/beamers/internal/prizegivingvalue"
-	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
 var (
@@ -174,9 +173,6 @@ func (transaction *CommandTx) StartSession(
 	if err != nil {
 		return LiveSessionState{}, err
 	}
-	if scopeErr := requireSessionLaneScope(ctx, eventID, snapshot.LaneIDs); scopeErr != nil {
-		return LiveSessionState{}, scopeErr
-	}
 	if identity.LiveStateRevision != expectedRevision {
 		return liveSessionState(ctx, transaction.transaction.SessionRun, identity)
 	}
@@ -266,9 +262,6 @@ func (transaction *CommandTx) EndSession(
 	}
 	if err != nil {
 		return LiveSessionState{}, opaqueError("load Session live state", err)
-	}
-	if scopeErr := requireSessionControlScope(ctx, identity); scopeErr != nil {
-		return LiveSessionState{}, scopeErr
 	}
 	if identity.LiveStateRevision != expectedRevision {
 		return liveSessionState(ctx, transaction.transaction.SessionRun, identity)
@@ -432,9 +425,6 @@ func (transaction *CommandTx) CorrectLiveDetails(
 	}
 	if err != nil {
 		return LiveDetailCorrection{}, opaqueError("load Session for Live Detail Correction", err)
-	}
-	if scopeErr := requireSessionControlScope(ctx, identity); scopeErr != nil {
-		return LiveDetailCorrection{}, scopeErr
 	}
 	if identity.LiveStateRevision != params.ExpectedRevision {
 		current, currentErr := liveSessionState(ctx, transaction.transaction.SessionRun, identity)
@@ -701,33 +691,6 @@ func (transaction *CommandTx) requireActiveEvent(ctx context.Context, eventID in
 	}
 	if !active {
 		return ErrEventNotActive
-	}
-	return nil
-}
-
-func requireSessionControlScope(ctx context.Context, identity *ent.Session) error {
-	laneIDs, err := sessionLanes(ctx, identity)
-	if err != nil {
-		return err
-	}
-	return requireSessionLaneScope(ctx, identity.EventID, laneIDs)
-}
-
-func requireSessionLaneScope(ctx context.Context, eventID int, laneIDs []int) error {
-	identity, ok := viewer.FromContext(ctx)
-	if !ok {
-		return ErrSessionScopeRequired
-	}
-	if identity.CanProduceEvent(eventID) {
-		return nil
-	}
-	if len(laneIDs) == 0 {
-		return ErrSessionScopeRequired
-	}
-	for _, laneID := range laneIDs {
-		if !identity.CanOperateLane(eventID, laneID) {
-			return ErrSessionScopeRequired
-		}
 	}
 	return nil
 }

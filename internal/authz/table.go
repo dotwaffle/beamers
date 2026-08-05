@@ -49,7 +49,6 @@ const (
 	noteProgramChannelScope      = "D3: programcontrol authorizes Event-wide through CanOperateEvent and consults no EventScope. The draft proposes DisplayGroups-of-target, resolving the Program Channel to its consuming Displays; that narrows authority and needs a decision."
 	noteCompetitionEntryScope    = "D4: live Competition Entry actions authorize Event-wide where the analogous Session actions are Lane-scoped. The draft proposes Lanes-of-target; that narrows authority and needs a decision."
 	noteCompetitionEntryProducer = "D4: this action's guard is CanProduceEvent today, so an Operator is refused by the imperative check even though the row's Capability admits one. The row is no stricter than today; the decision that resolves D4 also settles which authority is right."
-	noteReinstateScope           = "D5: Reinstate Session has no Lane scope check and is guarded by CanProduceEvent, unlike its six siblings. The draft proposes OperateSession / Lanes-of-target; the imperative Producer guard remains until that is decided."
 	noteOverrideTargetKey        = "D6, resolved: a Program Channel Override target expands at plan time to the Display Group keys of the Displays consuming it, so repointing the channel changes who may override it. Location and Display targets remain judged by the synthetic key displayOverrideTargetKey builds, which the decision left unchanged."
 	noteOverrideTargetRule       = "D7: Stage Message and Technical Difficulties targets are judged by literal Display Group key today, Urgent Notice and Clear by target. Both are literal keys in practice, so one rule here is parity-preserving."
 	noteDegradedEmergency        = "D8: the degraded Emergency Alert path decides this rule a second time in memory at capture time and persists only the outcome. One row now covers both paths; the in-memory copy is deleted with its area in Stage 3."
@@ -102,7 +101,7 @@ var table = []Row{
 	{Action: "AdjustTarget", Capabilities: []Capability{OperateSession}, Scope: ScopeLanes, Code: codeOperatorRequired, ScopeCode: codeSessionScopeRequired},
 	{Action: "PullForward", Capabilities: []Capability{OperateSession}, Scope: ScopeLanes, Code: codeOperatorRequired, ScopeCode: codeSessionScopeRequired},
 	{Action: "CorrectLiveDetails", Capabilities: []Capability{OperateSession}, Scope: ScopeLanes, Code: codeOperatorRequired, ScopeCode: codeSessionScopeRequired},
-	{Action: "ReinstateSession", Capabilities: []Capability{OperateSession}, Scope: ScopeEvent, Code: codeProducerRequired, ScopeCode: codeProducerRequired, Note: noteReinstateScope},
+	{Action: "ReinstateSession", Capabilities: []Capability{OperateSession}, Scope: ScopeLanes, Code: codeOperatorRequired, ScopeCode: codeSessionScopeRequired},
 
 	// Program Channel control.
 	{Action: "TakeProgramOutput", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeEvent, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},

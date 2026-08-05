@@ -21,8 +21,9 @@ var (
 
 // PullForwardPreview is one authoritative early-finish recalculation.
 type PullForwardPreview struct {
-	Result    pullforward.Result
-	Revisions map[int]int
+	Result          pullforward.Result
+	Revisions       map[int]int
+	AffectedLaneIDs []int
 }
 
 // PullForwardParams identifies one confirmed Pull Forward command.
@@ -171,10 +172,8 @@ func previewPullForward(
 	if err != nil {
 		return PullForwardPreview{}, err
 	}
-	if scopeErr := requireSessionLaneScope(
-		ctx, eventID, timing.affectedLaneIDs(result.Changes),
-	); scopeErr != nil {
-		return PullForwardPreview{}, scopeErr
-	}
-	return PullForwardPreview{Result: result, Revisions: timing.Revisions}, nil
+	return PullForwardPreview{
+		Result: result, Revisions: timing.Revisions,
+		AffectedLaneIDs: timing.affectedLaneIDs(result.Changes),
+	}, nil
 }

@@ -3,7 +3,10 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"slices"
 	"sort"
+	"time"
 
 	"github.com/dotwaffle/beamers/ent"
 	"github.com/dotwaffle/beamers/ent/displayassignment"
@@ -11,6 +14,7 @@ import (
 	"github.com/dotwaffle/beamers/ent/session"
 	"github.com/dotwaffle/beamers/ent/sessionrun"
 	"github.com/dotwaffle/beamers/internal/authz"
+	"github.com/dotwaffle/beamers/internal/sessiontarget"
 )
 
 // Scope loaders are the plan phase the Capability Table's scoped rows are
@@ -66,30 +70,178 @@ func (transaction *CommandTx) LiveSessionLaneScope(
 		return authz.Facts{}, err
 	}
 
-	found, err := transaction.transaction.Session.Query().
+	laneIDs, err := liveSessionSnapshotLaneIDs(ctx, transaction.transaction, eventID, sessionID)
+	if err != nil {
+		return authz.Facts{}, err
+	}
+	return authz.Lanes(eventID, laneIDs), nil
+}
+
+// liveSessionSnapshotLaneIDs loads the Lanes named by a live Session's open
+// Run Snapshot, the shared lookup LiveSessionLaneScope and
+// AdjustSessionTargetLaneScope both judge their anchor against.
+func liveSessionSnapshotLaneIDs(
+	ctx context.Context,
+	tx *ent.Tx,
+	eventID, sessionID int,
+) ([]int, error) {
+	found, err := tx.Session.Query().
 		Where(session.IDEQ(sessionID), session.EventIDEQ(eventID)).
 		Only(ctx)
 	if ent.IsNotFound(err) {
-		return authz.Facts{}, ErrSessionNotFound
+		return nil, ErrSessionNotFound
 	}
 	if err != nil {
-		return authz.Facts{}, opaqueError("load live Session scope", err)
+		return nil, opaqueError("load live Session scope", err)
 	}
 	if found.Lifecycle != session.LifecycleLive {
-		return authz.Facts{}, ErrSessionLifecycleTransition
+		return nil, ErrSessionLifecycleTransition
 	}
-	run, err := transaction.transaction.SessionRun.Query().
+	run, err := tx.SessionRun.Query().
 		Where(sessionrun.SessionIDEQ(sessionID), sessionrun.ActualEndIsNil()).
 		Order(ent.Desc(sessionrun.FieldID)).
 		First(ctx)
 	if err != nil {
-		return authz.Facts{}, opaqueError("load live Session Run scope", err)
+		return nil, opaqueError("load live Session Run scope", err)
 	}
 	var snapshot SessionRunSnapshot
 	if decodeErr := json.Unmarshal([]byte(run.SnapshotJSON), &snapshot); decodeErr != nil {
-		return authz.Facts{}, opaqueError("decode live Session Run Snapshot scope", decodeErr)
+		return nil, opaqueError("decode live Session Run Snapshot scope", decodeErr)
 	}
-	return authz.Lanes(eventID, snapshot.LaneIDs), nil
+	return snapshot.LaneIDs, nil
+}
+
+// AdjustSessionTargetLaneScope resolves the Lanes an Adjust Target command is
+// judged against: the anchor's live Run Snapshot Lanes, unioned with the
+// Lanes of every Session the timing ripple moves once the preview succeeds.
+//
+// The imperative guard Stage 3 deletes applied these as two sequential
+// checks — the snapshot Lanes unconditionally, the ripple's Lanes only once
+// the preview computed successfully — and refused on whichever failed first.
+// A Session must hold every Lane in the union to pass either sequential
+// check, so judging the union against one row reproduces both. Only the
+// preview's own domain rejections are swallowed and left to surface from
+// Apply's own preview call exactly as they did before, rather than being
+// misreported as an out-of-scope refusal; every other failure — the Session
+// or Event structural checks previewSessionTarget runs before it, and any
+// opaque store failure — propagates unchanged, so a technical fault cannot
+// be mistaken for "no additional Lanes" and under-scope the check.
+func (transaction *CommandTx) AdjustSessionTargetLaneScope(
+	ctx context.Context,
+	eventID, sessionID int,
+	adjustment sessiontarget.Adjustment,
+	now time.Time,
+) (authz.Facts, error) {
+	if err := requireActor(ctx, "CommandTx.AdjustSessionTargetLaneScope"); err != nil {
+		return authz.Facts{}, err
+	}
+
+	laneIDs, err := liveSessionSnapshotLaneIDs(ctx, transaction.transaction, eventID, sessionID)
+	if err != nil {
+		return authz.Facts{}, err
+	}
+	preview, previewErr := previewSessionTarget(
+		ctx, transaction.transaction.Client(), eventID, sessionID, adjustment, now,
+	)
+	switch {
+	case previewErr == nil:
+		laneIDs = unionLaneIDs(laneIDs, preview.AffectedLaneIDs)
+	case isSessionTargetPreviewDomainError(previewErr):
+		// Leave laneIDs at the anchor's own Lanes; Apply's own preview call
+		// will recompute and return this same domain rejection.
+	default:
+		return authz.Facts{}, previewErr
+	}
+	return authz.Lanes(eventID, laneIDs), nil
+}
+
+// isSessionTargetPreviewDomainError reports whether err is one of
+// sessiontarget.Preview's own rejections, rather than a structural failure
+// previewSessionTarget raises before ever calling it.
+func isSessionTargetPreviewDomainError(err error) bool {
+	return errors.Is(err, sessiontarget.ErrPresetNotConfigured) ||
+		errors.Is(err, sessiontarget.ErrTargetBeforeNow) ||
+		errors.Is(err, sessiontarget.ErrNoCountdownTarget)
+}
+
+// PullForwardLaneScope resolves the Lanes a Pull Forward command is judged
+// against: the Lanes of every Session the timing ripple moves once the
+// anchor ends early.
+//
+// D14: the imperative guard Stage 3 deletes judged this against every Lane
+// the ripple moves, not the anchor Session's own Lanes; the row this
+// replaces stated the anchor, which was narrower. This reproduces the
+// guard's full semantics instead. A preview domain failure propagates
+// unchanged, matching the guard, which never reached its scope check when
+// the preview itself failed.
+func (transaction *CommandTx) PullForwardLaneScope(
+	ctx context.Context,
+	eventID, sessionID int,
+) (authz.Facts, error) {
+	if err := requireActor(ctx, "CommandTx.PullForwardLaneScope"); err != nil {
+		return authz.Facts{}, err
+	}
+
+	preview, err := previewPullForward(ctx, transaction.transaction.Client(), eventID, sessionID)
+	if err != nil {
+		return authz.Facts{}, err
+	}
+	return authz.Lanes(eventID, preview.AffectedLaneIDs), nil
+}
+
+// ReinstateLaneScope resolves the Lanes a Reinstate Session command is judged
+// against: the proposed placement's Lanes, unioned with the Lanes of every
+// Session the timing ripple moves once that placement is previewed.
+//
+// A Reinstated Session has no current placement to judge — it is Canceled,
+// so it holds no live Run Snapshot and its last Published placement is about
+// to be replaced outright by the caller's proposed Lanes. Scope must
+// therefore be judged against the Lanes the command actually grants the
+// Session on success, matching Apply, which writes the proposed Lanes
+// unconditionally rather than the ones the Session held before
+// cancellation. The ripple Lanes are unioned in for the same reason
+// AdjustSessionTargetLaneScope and PullForwardLaneScope union theirs: an
+// Operator who can move only the anchor is not authorized to move every
+// Session the placement displaces.
+//
+// Every failure previewReinstateSession can return here propagates
+// unchanged rather than being swallowed: unlike an Adjust Target preview,
+// which recomputes the same anchor's ripple against timing state that
+// cannot itself be invalid input, a Reinstate preview's own domain checks
+// (ErrReinstatePlacement) are cheap to classify directly, so there is no
+// narrower "structural vs domain" failure to distinguish.
+func (transaction *CommandTx) ReinstateLaneScope(
+	ctx context.Context,
+	eventID, sessionID int,
+	forecastStart time.Time,
+	laneIDs, locationIDs []int,
+) (authz.Facts, error) {
+	if err := requireActor(ctx, "CommandTx.ReinstateLaneScope"); err != nil {
+		return authz.Facts{}, err
+	}
+
+	preview, err := previewReinstateSession(
+		ctx, transaction.transaction.Client(), eventID, sessionID,
+		forecastStart, laneIDs, locationIDs,
+	)
+	if err != nil {
+		return authz.Facts{}, err
+	}
+	return authz.Lanes(eventID, preview.AffectedLaneIDs), nil
+}
+
+// unionLaneIDs returns the deduplicated union of a and b, preserving a's
+// order then b's.
+func unionLaneIDs(a, b []int) []int {
+	seen := make(map[int]struct{}, len(a)+len(b))
+	union := make([]int, 0, len(a)+len(b))
+	for _, id := range slices.Concat(a, b) {
+		if _, ok := seen[id]; !ok {
+			seen[id] = struct{}{}
+			union = append(union, id)
+		}
+	}
+	return union
 }
 
 // StageMessageScope resolves the Display Group key a Stage Message will
