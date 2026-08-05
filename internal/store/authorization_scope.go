@@ -411,12 +411,14 @@ func (transaction *CommandTx) ProgramChannelScope(
 // carried by every Display Assignment currently routed to channelID's
 // Program Channel, deduplicated and sorted for a stable Facts comparison.
 //
-// A channel feeding a Display with no Display Group key at all contributes
-// none, so an Operator can never be granted authority over it by key; only a
-// Producer, whose shortcut this dimension already carries, can override it.
-// That is a deliberate fail-closed default, not an oversight: it is no
-// stricter than today's rule, under which the synthetic key it replaces was
-// never a key any grant could actually name.
+// A channel feeding any Display with no Display Group key at all resolves to
+// no keys, so an Operator can never be granted authority over it by key; only
+// a Producer, whose shortcut this dimension already carries, can override it.
+// The whole set collapses rather than just the unkeyed Display dropping out,
+// because a partial set would let a grant over the keyed Displays authorize
+// commands that also reach the unkeyed one. That is a deliberate fail-closed
+// default, not an oversight: it is no stricter than today's rule, under which
+// the synthetic key it replaces was never a key any grant could actually name.
 func programChannelConsumingDisplayGroupKeys(
 	ctx context.Context,
 	client *ent.Client,
@@ -439,6 +441,9 @@ func programChannelConsumingDisplayGroupKeys(
 	for _, assignment := range assignments {
 		if routing.channelAt(assignment.LocationID) != channelID {
 			continue
+		}
+		if len(assignment.DisplayGroupKeys) == 0 {
+			return nil, nil
 		}
 		for _, key := range assignment.DisplayGroupKeys {
 			keys[key] = struct{}{}

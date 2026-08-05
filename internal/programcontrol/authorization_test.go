@@ -2,6 +2,7 @@ package programcontrol_test
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"errors"
 	"strings"
 	"testing"
@@ -96,11 +97,30 @@ func TestProgramChannelCommandsAreDisplayGroupScoped(t *testing.T) {
 			t.Fatalf("claim outside scope = %v, want %v", err, programcontrol.ErrOperatorRequired)
 		}
 	}
-	// Two refusals were committed in this test — the unrouted claim and the
-	// out-of-scope claim — and the retried refusal added no third entry
-	// because its retry was answered from its Command Receipt.
+	// A second consuming Display with no Display Group key at all collapses
+	// the channel's scope to no keys, so the previously covering Operator is
+	// refused: a partial key set must not authorize commands that also reach
+	// the unkeyed Display.
+	assignProgramDisplay(t, storage, administrator, displays.AssignInput{
+		EventID: eventID, LocationID: locationID,
+		ViewKey:   displayviews.CompetitionOutput,
+		CommandID: "assign-unkeyed-program-display",
+	})
+	if err := claim(operator, "claim-unkeyed-display-channel"); !errors.Is(
+		err, programcontrol.ErrOperatorRequired,
+	) {
+		t.Fatalf(
+			"claim with an unkeyed consuming Display = %v, want %v",
+			err, programcontrol.ErrOperatorRequired,
+		)
+	}
+
+	// Three refusals were committed in this test — the unrouted claim, the
+	// out-of-scope claim, and the unkeyed-Display claim — and the retried
+	// refusal added no fourth entry because its retry was answered from its
+	// Command Receipt.
 	entries := rejectedProgramAudits(t, storage, administrator, "ChangeProgramControlClaim")
-	if len(entries) != 2 {
+	if len(entries) != 3 {
 		t.Fatalf(
 			"Rejected Audit Entries for refused claims = %d, want one per refused "+
 				"command with the retry answered from its Command Receipt",
@@ -151,8 +171,9 @@ func assignProgramDisplay(
 ) {
 	t.Helper()
 
+	seed := sha256.Sum256([]byte(input.CommandID))
 	service, err := displays.New(storage, displays.Config{
-		Now: time.Now, Random: bytes.NewReader(make([]byte, 128)),
+		Now: time.Now, Random: bytes.NewReader(bytes.Repeat(seed[:], 4)),
 		EnrollmentTTL: 10 * time.Minute,
 	})
 	if err != nil {
@@ -164,7 +185,8 @@ func assignProgramDisplay(
 	}
 	display, err := service.ClaimEnrollment(
 		t.Context(), administrator, displays.ClaimInput{
-			Code: enrollment.Code, Name: "Program", CommandID: "claim-program-display",
+			Code: enrollment.Code, Name: "Program " + input.CommandID,
+			CommandID: "claim-" + input.CommandID,
 		},
 	)
 	if err != nil {

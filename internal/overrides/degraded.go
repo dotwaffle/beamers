@@ -261,7 +261,7 @@ func (service *Service) degradedEmergencyPreviewLocked(
 		!validPriorityTarget(input.Target) {
 		return PriorityPreview{}, ErrInvalidInput
 	}
-	if !canOperateDegradedEmergency(actor, input.EventID, input.Target) {
+	if !service.canOperateDegradedEmergencyLocked(actor, input.EventID, input.Target) {
 		return PriorityPreview{}, ErrScopeDenied
 	}
 	displays, foundEvent := service.resolveDegradedDisplaysLocked(
@@ -449,7 +449,7 @@ func (service *Service) clearDegradedEmergency(
 			key, actor, identity, ErrRevision,
 		)
 	}
-	if !canOperateDegradedEmergency(actor, input.EventID, current.Target) {
+	if !service.canOperateDegradedEmergencyLocked(actor, input.EventID, current.Target) {
 		return Override{}, service.retainDegradedRejectionLocked(
 			key, actor, identity, ErrScopeDenied,
 		)
@@ -511,7 +511,7 @@ func (service *Service) listDegradedEmergency(
 		}
 		return []ActiveOverride{}, nil
 	}
-	if !canOperateDegradedEmergency(actor, eventID, current.Target) {
+	if !service.canOperateDegradedEmergencyLocked(actor, eventID, current.Target) {
 		return nil, ErrScopeDenied
 	}
 	service.degraded = true
@@ -641,23 +641,47 @@ func (service *Service) Degraded() bool {
 	return service.isDegraded()
 }
 
-func canOperateDegradedEmergency(
+func (service *Service) canOperateDegradedEmergencyLocked(
 	actor auth.Account,
 	eventID int,
 	target Target,
 ) bool {
-	identity := viewer.Identity{
-		AccountID: actor.ID, Administrator: actor.Administrator,
-		EventRoles: actor.EventRoles, EventScopes: actor.EventScopes,
-	}
+	identity := actor.Identity()
 	if !authz.Holds(identity, eventID, authz.EmergencyAlert) {
 		return false
 	}
-	facts := authz.DisplayGroups(eventID, []string{degradedTargetKey(target)})
-	if target.Type == store.DisplayOverrideTargetLane {
-		facts = authz.Lanes(eventID, []int{target.ID})
+	return authz.InScope(identity, service.degradedTargetScopeLocked(eventID, target))
+}
+
+// degradedTargetScopeLocked mirrors DisplayOverrideTargetScope from in-memory
+// snapshot state: a Lane target is judged by Lane grant, a Program Channel
+// target by the Display Group keys of the snapshots currently consuming it —
+// collapsing to none when any consuming snapshot carries no key, exactly as
+// the durable resolution fails closed — and every other target by the same
+// literal or synthetic key the durable rule builds.
+func (service *Service) degradedTargetScopeLocked(eventID int, target Target) authz.Facts {
+	switch target.Type {
+	case store.DisplayOverrideTargetLane:
+		return authz.DisplayGroupsOfLane(eventID, target.ID)
+	case store.DisplayOverrideTargetProgramChannel:
+		keys := make(map[string]struct{})
+		for _, snapshot := range service.displaySnapshots {
+			if snapshot.ActiveEventID != eventID || snapshot.ViewKey != "competition-output" ||
+				snapshot.ProgramChannelID != target.ID {
+				continue
+			}
+			if len(snapshot.DisplayGroupKeys) == 0 {
+				return authz.DisplayGroups(eventID, nil)
+			}
+			for _, key := range snapshot.DisplayGroupKeys {
+				keys[key] = struct{}{}
+			}
+		}
+		resolved := slices.Sorted(maps.Keys(keys))
+		return authz.DisplayGroups(eventID, resolved)
+	default:
+		return authz.DisplayGroups(eventID, []string{degradedTargetKey(target)})
 	}
-	return authz.InScope(identity, facts)
 }
 
 func degradedTargetKey(target Target) string {
