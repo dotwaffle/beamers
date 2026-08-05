@@ -46,7 +46,7 @@ const (
 	codeSessionScopeRequired     = "session_scope_required"
 	codeOverrideScopeDenied      = "override_scope_denied"
 	codeManageResultsRequired    = "manage_results_required"
-	noteProgramChannelScope      = "D3: programcontrol authorizes Event-wide through CanOperateEvent and consults no EventScope. The draft proposes DisplayGroups-of-target, resolving the Program Channel to its consuming Displays; that narrows authority and needs a decision."
+	noteProgramChannelScope      = "D3, resolved: a Program Channel command is judged by the Display Group keys of the Displays currently consuming the channel, resolved at plan time, so repointing the channel changes who may operate it. A channel feeding no keyed Display is operable only by a Producer, matching the D6 override rule over the same targets."
 	noteCompetitionEntryScope    = "D4: live Competition Entry actions authorize Event-wide where the analogous Session actions are Lane-scoped. The draft proposes Lanes-of-target; that narrows authority and needs a decision."
 	noteCompetitionEntryProducer = "D4: this action's guard is CanProduceEvent today, so an Operator is refused by the imperative check even though the row's Capability admits one. The row is no stricter than today; the decision that resolves D4 also settles which authority is right."
 	noteOverrideTargetKey        = "D6, resolved: a Program Channel Override target expands at plan time to the Display Group keys of the Displays consuming it, so repointing the channel changes who may override it. Location and Display targets remain judged by the synthetic key displayOverrideTargetKey builds, which the decision left unchanged."
@@ -104,19 +104,19 @@ var table = []Row{
 	{Action: "ReinstateSession", Capabilities: []Capability{OperateSession}, Scope: ScopeLanes, Code: codeOperatorRequired, ScopeCode: codeSessionScopeRequired},
 
 	// Program Channel control.
-	{Action: "TakeProgramOutput", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeEvent, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
-	{Action: "SelectProgramPreview", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeEvent, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
-	{Action: "ChangeProgramControlClaim", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeEvent, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
-	{Action: "ChangeProgramControlRequestHandover", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeEvent, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
-	{Action: "ChangeProgramControlHandover", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeEvent, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
-	{Action: "ChangeProgramControlTakeover", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeEvent, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
-	{Action: "ChangeProgramControlDisconnect", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeEvent, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
-	{Action: "ActOnPrizegivingResultReveal", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeEvent, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
-	{Action: "ActOnPrizegivingResultReplayReveal", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeEvent, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
-	{Action: "ActOnPrizegivingResultSkipToFinal", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeEvent, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
-	{Action: "ActOnPrizegivingResultSkipFromStage", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeEvent, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
+	{Action: "TakeProgramOutput", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeDisplayGroups, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
+	{Action: "SelectProgramPreview", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeDisplayGroups, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
+	{Action: "ChangeProgramControlClaim", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeDisplayGroups, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
+	{Action: "ChangeProgramControlRequestHandover", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeDisplayGroups, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
+	{Action: "ChangeProgramControlHandover", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeDisplayGroups, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
+	{Action: "ChangeProgramControlTakeover", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeDisplayGroups, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
+	{Action: "ChangeProgramControlDisconnect", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeDisplayGroups, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
+	{Action: "ActOnPrizegivingResultReveal", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeDisplayGroups, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
+	{Action: "ActOnPrizegivingResultReplayReveal", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeDisplayGroups, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
+	{Action: "ActOnPrizegivingResultSkipToFinal", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeDisplayGroups, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
+	{Action: "ActOnPrizegivingResultSkipFromStage", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeDisplayGroups, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
 	{Action: "DeferCompetitionEntry", Capabilities: []Capability{OperateCompetitionEntry}, Scope: ScopeEvent, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteCompetitionEntryScope},
-	{Action: "ReconcileProgressiveResultsPublication", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeEvent, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
+	{Action: "ReconcileProgressiveResultsPublication", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeDisplayGroups, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
 
 	// Display Overrides.
 	{Action: "ConfigureStageMessages", Capabilities: []Capability{ConfigureOverrides}, Scope: ScopeEvent, Code: codeProducerRequired, ScopeCode: codeProducerRequired},

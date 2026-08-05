@@ -253,7 +253,7 @@ func (service *Service) OpenConnection(
 	actor auth.Account,
 	eventID, sessionID int,
 ) (State, func(), error) {
-	if !actor.CanOperateEvent(eventID) {
+	if !authz.Holds(actor.Identity(), eventID, authz.OperateProgramChannel) {
 		return State{}, nil, ErrOperatorRequired
 	}
 	if _, err := service.storage.LoadProgramChannelAt(
@@ -433,16 +433,25 @@ func programItemIdentity(item Item) []string {
 	)
 }
 
+// operatorRejection carries one refused Program command into its durable
+// rejection: the identity it commits under, the Event it names, and the scope
+// facts its Capability Table row would have been judged against.
+type operatorRejection struct {
+	identity store.CommandIdentity
+	eventID  int
+	scope    func(context.Context, *store.CommandTx) (authz.Facts, error)
+}
+
 func (service *Service) auditOperatorRejection(
 	ctx context.Context,
-	eventID int,
-	identity store.CommandIdentity,
+	refused operatorRejection,
 ) error {
 	_, err := command.Execute(ctx, command.Plan[struct{}]{
-		Storage: service.storage, Identity: identity,
+		Storage: service.storage, Identity: refused.identity,
 		Authorization: command.Authorization{
-			Facts:    authz.Event(eventID),
-			Refusals: programRejections,
+			LoadFacts: refused.scope,
+			EventID:   refused.eventID,
+			Refusals:  programRejections,
 		},
 		Replay: func(outcome string) (struct{}, error) {
 			var receipt struct{}
@@ -470,7 +479,7 @@ func (service *Service) Current(
 	actor auth.Account,
 	eventID, sessionID int,
 ) (State, error) {
-	if !actor.CanOperateEvent(eventID) {
+	if !authz.Holds(actor.Identity(), eventID, authz.OperateProgramChannel) {
 		return State{}, ErrOperatorRequired
 	}
 	return service.currentAt(ctx, actor, eventID, sessionID, service.now().UTC())
@@ -482,7 +491,7 @@ func (service *Service) ReconcileAndCurrent(
 	actor auth.Account,
 	eventID, sessionID int,
 ) (State, error) {
-	if !actor.CanOperateEvent(eventID) {
+	if !authz.Holds(actor.Identity(), eventID, authz.OperateProgramChannel) {
 		return State{}, ErrOperatorRequired
 	}
 	now := service.now().UTC()
@@ -575,7 +584,13 @@ func (service *Service) reconcileProgressivePublication(
 			command.Plan[results.Publication]{
 				Storage: service.storage, Identity: identity,
 				Authorization: command.Authorization{
-					Facts:    authz.Event(eventID),
+					LoadFacts: func(
+						ctx context.Context,
+						transaction *store.CommandTx,
+					) (authz.Facts, error) {
+						return transaction.ProgramChannelScope(ctx, eventID, sessionID)
+					},
+					EventID:  eventID,
 					Refusals: programRejections,
 				},
 				Replay: func(outcome string) (results.Publication, error) {
@@ -663,10 +678,20 @@ func (service *Service) runControlCommand(
 	if err := command.ValidateID(channelCommand.identity.CommandID); err != nil {
 		return State{}, err
 	}
-	if !actor.CanOperateEvent(channelCommand.eventID) {
-		return State{}, service.auditOperatorRejection(
-			actor.Context(ctx), channelCommand.eventID, channelCommand.identity,
+	scope := func(ctx context.Context, transaction *store.CommandTx) (authz.Facts, error) {
+		return transaction.ProgramChannelScope(
+			ctx, channelCommand.eventID, channelCommand.sessionID,
 		)
+	}
+	if authz.EvaluateCapabilities(authz.CapabilityRequest{
+		Identity: actor.Identity(), Authenticated: true,
+		Action: channelCommand.identity.Action, EventID: channelCommand.eventID,
+	}) != nil {
+		return State{}, service.auditOperatorRejection(actor.Context(ctx), operatorRejection{
+			identity: channelCommand.identity,
+			eventID:  channelCommand.eventID,
+			scope:    scope,
+		})
 	}
 	if _, err := service.storage.LoadProgramChannelAt(
 		actor.Context(ctx), channelCommand.eventID, channelCommand.sessionID,
@@ -690,8 +715,9 @@ func (service *Service) runControlCommand(
 	next, err := command.Execute(ctx, command.Plan[controlState]{
 		Storage: service.storage, Identity: channelCommand.identity,
 		Authorization: command.Authorization{
-			Facts:    authz.Event(channelCommand.eventID),
-			Refusals: programRejections,
+			LoadFacts: scope,
+			EventID:   channelCommand.eventID,
+			Refusals:  programRejections,
 		},
 		Applied: func() { owned.state = executionState },
 		Notify: func() {
@@ -956,6 +982,9 @@ type channelCommand struct {
 	sessionID int
 	// notify publishes freshness hints for the projections this command changed.
 	notify func(takeReceipt)
+	// scope loads the facts this command's Capability Table row is judged
+	// against; nil means the Display Groups of the target Program Channel.
+	scope func(context.Context, *store.CommandTx) (authz.Facts, error)
 	// apply runs the command's guards and durable work with the ownership state
 	// held for the Program Channel.
 	apply func(*store.CommandTx, controlState) (command.Execution[takeReceipt], error)
@@ -973,10 +1002,23 @@ func (service *Service) runChannelCommand(
 	if err := command.ValidateID(durableCommand.identity.CommandID); err != nil {
 		return TakeResult{}, err
 	}
-	if !actor.CanOperateEvent(durableCommand.eventID) {
-		return TakeResult{}, service.auditOperatorRejection(
-			actor.Context(ctx), durableCommand.eventID, durableCommand.identity,
-		)
+	scope := durableCommand.scope
+	if scope == nil {
+		scope = func(ctx context.Context, transaction *store.CommandTx) (authz.Facts, error) {
+			return transaction.ProgramChannelScope(
+				ctx, durableCommand.eventID, durableCommand.sessionID,
+			)
+		}
+	}
+	if authz.EvaluateCapabilities(authz.CapabilityRequest{
+		Identity: actor.Identity(), Authenticated: true,
+		Action: durableCommand.identity.Action, EventID: durableCommand.eventID,
+	}) != nil {
+		return TakeResult{}, service.auditOperatorRejection(actor.Context(ctx), operatorRejection{
+			identity: durableCommand.identity,
+			eventID:  durableCommand.eventID,
+			scope:    scope,
+		})
 	}
 	if _, err := service.storage.LoadProgramChannelAt(
 		actor.Context(ctx), durableCommand.eventID, durableCommand.sessionID,
@@ -995,8 +1037,9 @@ func (service *Service) runChannelCommand(
 		Storage:  service.storage,
 		Identity: durableCommand.identity,
 		Authorization: command.Authorization{
-			Facts:    authz.Event(durableCommand.eventID),
-			Refusals: programRejections,
+			LoadFacts: scope,
+			EventID:   durableCommand.eventID,
+			Refusals:  programRejections,
 		},
 		Applied: func() {
 			owned.state = receipt.Control.control()
@@ -1175,6 +1218,9 @@ func (service *Service) DeferEntry(
 			if service.notifyProgram != nil {
 				service.notifyProgram()
 			}
+		},
+		scope: func(context.Context, *store.CommandTx) (authz.Facts, error) {
+			return authz.Event(input.EventID), nil
 		},
 		apply: func(
 			transaction *store.CommandTx,

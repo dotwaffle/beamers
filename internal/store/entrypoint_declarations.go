@@ -99,6 +99,7 @@ var entrypointDeclarations = map[string][]entrypointActor{
 	"CommandTx.PruneEventSlugAlias":                       {actorPublicVisitor, actorViewer, actorHostMaintenance},
 	"CommandTx.Publish":                                   {actorViewer, actorHostMaintenance},
 	"CommandTx.PullForward":                               {actorViewer, actorHostMaintenance},
+	"CommandTx.ProgramChannelScope":                       {actorViewer, actorHostMaintenance},
 	"CommandTx.PullForwardLaneScope":                      {actorViewer, actorHostMaintenance},
 	"CommandTx.RecordCompetitionTechnicalFailure":         {actorViewer, actorHostMaintenance},
 	"CommandTx.RecordOutcome":                             {actorNone},

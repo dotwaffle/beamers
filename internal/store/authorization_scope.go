@@ -381,6 +381,32 @@ func DisplayOverrideTargetScope(
 	}
 }
 
+// ProgramChannelScope states the DisplayGroups facts one Program Channel
+// command is judged against: the Display Group keys of the Displays currently
+// consuming the channel.
+//
+// D3 resolved a Program Channel command to the real Display Groups of the
+// Displays it feeds, the same rule D6 settled for overriding the channel, so
+// repointing a Program Channel to different consuming Displays changes who may
+// operate it. A channel feeding no keyed Display resolves to no keys, which
+// only the Producer shortcut passes.
+func (transaction *CommandTx) ProgramChannelScope(
+	ctx context.Context,
+	eventID, sessionID int,
+) (authz.Facts, error) {
+	if err := requireActor(ctx, "CommandTx.ProgramChannelScope"); err != nil {
+		return authz.Facts{}, err
+	}
+
+	groupKeys, err := programChannelConsumingDisplayGroupKeys(
+		ctx, transaction.transaction.Client(), eventID, sessionID,
+	)
+	if err != nil {
+		return authz.Facts{}, err
+	}
+	return authz.DisplayGroups(eventID, groupKeys), nil
+}
+
 // programChannelConsumingDisplayGroupKeys returns the Display Group keys
 // carried by every Display Assignment currently routed to channelID's
 // Program Channel, deduplicated and sorted for a stable Facts comparison.
