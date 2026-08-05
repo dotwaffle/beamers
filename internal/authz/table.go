@@ -47,8 +47,8 @@ const (
 	codeOverrideScopeDenied      = "override_scope_denied"
 	codeManageResultsRequired    = "manage_results_required"
 	noteProgramChannelScope      = "D3, resolved: a Program Channel command is judged by the Display Group keys of the Displays currently consuming the channel, resolved at plan time, so repointing the channel changes who may operate it. A channel feeding no keyed Display is operable only by a Producer, matching the D6 override rule over the same targets."
-	noteCompetitionEntryScope    = "D4: live Competition Entry actions authorize Event-wide where the analogous Session actions are Lane-scoped. The draft proposes Lanes-of-target; that narrows authority and needs a decision."
-	noteCompetitionEntryProducer = "D4: this action's guard is CanProduceEvent today, so an Operator is refused by the imperative check even though the row's Capability admits one. The row is no stricter than today; the decision that resolves D4 also settles which authority is right."
+	noteCompetitionEntryScope    = "D4, resolved: a live Competition Entry action is judged by the Lanes of the Entry's Competition Session, the same dimension the analogous Session actions use."
+	noteCompetitionEntryProducer = "D4, resolved: the CanProduceEvent guard this action carried is gone, so an Operator whose Lane grant covers the Competition Session may act, which is the authority the row's Capability always named. The durable code is unchanged for parity."
 	noteOverrideTargetKey        = "D6, resolved: a Program Channel Override target expands at plan time to the Display Group keys of the Displays consuming it, so repointing the channel changes who may override it. Location and Display targets remain judged by the synthetic key displayOverrideTargetKey builds, which the decision left unchanged."
 	noteOverrideTargetRule       = "D7: Stage Message and Technical Difficulties targets are judged by literal Display Group key today, Urgent Notice and Clear by target. Both are literal keys in practice, so one rule here is parity-preserving."
 	noteDegradedEmergency        = "D8: the degraded Emergency Alert path decides this rule a second time in memory at capture time and persists only the outcome. One row now covers both paths; the in-memory copy is deleted with its area in Stage 3."
@@ -115,7 +115,7 @@ var table = []Row{
 	{Action: "ActOnPrizegivingResultReplayReveal", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeDisplayGroups, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
 	{Action: "ActOnPrizegivingResultSkipToFinal", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeDisplayGroups, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
 	{Action: "ActOnPrizegivingResultSkipFromStage", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeDisplayGroups, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
-	{Action: "DeferCompetitionEntry", Capabilities: []Capability{OperateCompetitionEntry}, Scope: ScopeEvent, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteCompetitionEntryScope},
+	{Action: "DeferCompetitionEntry", Capabilities: []Capability{OperateCompetitionEntry}, Scope: ScopeLanes, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteCompetitionEntryScope},
 	{Action: "ReconcileProgressiveResultsPublication", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeDisplayGroups, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
 
 	// Display Overrides.
@@ -136,9 +136,9 @@ var table = []Row{
 	{Action: "AssignCompetitionEntrySubmitter", Capabilities: []Capability{ConfigureCompetition}, Scope: ScopeEvent, Code: codeProducerRequired, ScopeCode: codeProducerRequired},
 	{Action: "ChangeCompetitionEntryDisposition", Capabilities: []Capability{ConfigureCompetition}, Scope: ScopeEvent, Code: codeProducerRequired, ScopeCode: codeProducerRequired},
 	{Action: "ReviewCompetitionEntry", Capabilities: []Capability{ConfigureCompetition}, Scope: ScopeEvent, Code: codeProducerRequired, ScopeCode: codeProducerRequired},
-	{Action: "ResolveCompetitionEntry", Capabilities: []Capability{OperateCompetitionEntry}, Scope: ScopeEvent, Code: codeProducerRequired, ScopeCode: codeProducerRequired, Note: noteCompetitionEntryProducer},
-	{Action: "SetCompetitionEntryReleaseHold", Capabilities: []Capability{OperateCompetitionEntry}, Scope: ScopeEvent, Code: codeProducerRequired, ScopeCode: codeProducerRequired, Note: noteCompetitionEntryProducer},
-	{Action: "RecordCompetitionTechnicalFailure", Capabilities: []Capability{OperateCompetitionEntry}, Scope: ScopeEvent, Code: codeOperatorRequired, ScopeCode: codeOperatorRequired, Note: noteCompetitionEntryScope},
+	{Action: "ResolveCompetitionEntry", Capabilities: []Capability{OperateCompetitionEntry}, Scope: ScopeLanes, Code: codeProducerRequired, ScopeCode: codeProducerRequired, Note: noteCompetitionEntryProducer},
+	{Action: "SetCompetitionEntryReleaseHold", Capabilities: []Capability{OperateCompetitionEntry}, Scope: ScopeLanes, Code: codeProducerRequired, ScopeCode: codeProducerRequired, Note: noteCompetitionEntryProducer},
+	{Action: "RecordCompetitionTechnicalFailure", Capabilities: []Capability{OperateCompetitionEntry}, Scope: ScopeLanes, Code: codeOperatorRequired, ScopeCode: codeOperatorRequired, Note: noteCompetitionEntryScope},
 	{Action: "CreateSubmittedCompetitionEntry", Scope: ScopeNone},
 	{Action: "UpdateSubmittedCompetitionEntry", Scope: ScopeNone},
 

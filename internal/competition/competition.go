@@ -795,7 +795,7 @@ func (service *Service) CreateSubmission(
 		input,
 		func(int) bool { return actor.ID > 0 },
 		ErrSubmitterRequired,
-		authz.Installation(),
+		command.Authorization{Facts: authz.Installation()},
 		service.notifyEntries,
 		func(transaction *store.CommandTx, now time.Time) (store.CompetitionEntry, error) {
 			return transaction.CreateSubmittedCompetitionEntry(
@@ -859,7 +859,7 @@ func (service *Service) UpdateSubmission(
 		input,
 		func(int) bool { return actor.ID > 0 },
 		ErrSubmitterRequired,
-		authz.Installation(),
+		command.Authorization{Facts: authz.Installation()},
 		service.notifyEntries,
 		func(transaction *store.CommandTx, now time.Time) (store.CompetitionEntry, error) {
 			return transaction.UpdateSubmittedCompetitionEntry(
@@ -990,10 +990,11 @@ func (service *Service) RecordTechnicalFailure(
 	if input.Reason == "" || !boundedText(input.Reason, 10000) {
 		return Entry{}, ErrCrewReasonRequired
 	}
-	return service.executeOperator(
+	return service.executeLaneScoped(
 		ctx,
 		actor,
 		input.EventID,
+		input.SessionID,
 		input.CommandID,
 		"RecordCompetitionTechnicalFailure",
 		strconv.Itoa(input.EntryID),
@@ -1033,10 +1034,11 @@ func (service *Service) ResolveEntry(
 		!boundedText(input.PublicDisqualificationMessage, 10000) {
 		return Entry{}, ErrCrewReasonRequired
 	}
-	return service.execute(
+	return service.executeLaneScoped(
 		ctx,
 		actor,
 		input.EventID,
+		input.SessionID,
 		input.CommandID,
 		"ResolveCompetitionEntry",
 		strconv.Itoa(input.EntryID),
@@ -1074,8 +1076,9 @@ func (service *Service) SetEntryReleaseHold(
 	if input.CrewReason == "" || !boundedText(input.CrewReason, 10000) {
 		return Entry{}, ErrCrewReasonRequired
 	}
-	return service.execute(
-		ctx, actor, input.EventID, input.CommandID, "SetCompetitionEntryReleaseHold",
+	return service.executeLaneScoped(
+		ctx, actor, input.EventID, input.SessionID, input.CommandID,
+		"SetCompetitionEntryReleaseHold",
 		strconv.Itoa(input.EntryID), input,
 		service.notifySchedule,
 		func(transaction *store.CommandTx, _ time.Time) (store.CompetitionEntry, error) {
@@ -1170,14 +1173,18 @@ func (service *Service) execute(
 ) (Entry, error) {
 	return service.executeEntryCommand(
 		ctx, actor, eventID, commandID, action, targetID, payload,
-		actor.CanProduceEvent, ErrProducerRequired, authz.Event(eventID), notify, apply,
+		actor.CanProduceEvent, ErrProducerRequired,
+		command.Authorization{Facts: authz.Event(eventID)}, notify, apply,
 	)
 }
 
-func (service *Service) executeOperator(
+// executeLaneScoped runs one live Competition Entry command whose Capability
+// Table row is judged by the Lanes of the Entry's Competition Session, with no
+// imperative twin: the evaluator inside Execute is its only authority.
+func (service *Service) executeLaneScoped(
 	ctx context.Context,
 	actor auth.Account,
-	eventID int,
+	eventID, sessionID int,
 	commandID, action, targetID string,
 	payload any,
 	notify func(),
@@ -1185,7 +1192,14 @@ func (service *Service) executeOperator(
 ) (Entry, error) {
 	return service.executeEntryCommand(
 		ctx, actor, eventID, commandID, action, targetID, payload,
-		actor.CanOperateEvent, ErrOperatorRequired, authz.Event(eventID), notify, apply,
+		nil, nil,
+		command.Authorization{
+			LoadFacts: func(ctx context.Context, transaction *store.CommandTx) (authz.Facts, error) {
+				return transaction.SessionLaneScope(ctx, eventID, sessionID)
+			},
+			EventID: eventID,
+		},
+		notify, apply,
 	)
 }
 
@@ -1197,7 +1211,7 @@ func (service *Service) executeEntryCommand(
 	payload any,
 	authorized func(int) bool,
 	authorizationError error,
-	facts authz.Facts,
+	authorization command.Authorization,
 	notify func(),
 	apply func(*store.CommandTx, time.Time) (store.CompetitionEntry, error),
 ) (Entry, error) {
@@ -1210,11 +1224,10 @@ func (service *Service) executeEntryCommand(
 		Action: action, TargetType: "CompetitionEntry", TargetID: targetID, Now: service.now().UTC(),
 	}
 	ctx = actor.Context(ctx)
+	authorization.Refusals = competitionRejections
 	return command.Execute(ctx, command.Plan[Entry]{
 		Storage: service.storage, Identity: identity, Notify: notify,
-		Authorization: command.Authorization{
-			Facts: facts, Refusals: competitionRejections,
-		},
+		Authorization: authorization,
 		Replay: func(outcome string) (Entry, error) {
 			var stored store.CompetitionEntry
 			if err := decodeCompetitionReceipt(outcome, &stored); err != nil {
@@ -1223,7 +1236,7 @@ func (service *Service) executeEntryCommand(
 			return entry(stored), nil
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[Entry], error) {
-			if !authorized(eventID) {
+			if authorized != nil && !authorized(eventID) {
 				return auditCompetitionRejection(
 					command.Execution[Entry]{},
 					authorizationError,

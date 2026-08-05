@@ -1219,8 +1219,8 @@ func (service *Service) DeferEntry(
 				service.notifyProgram()
 			}
 		},
-		scope: func(context.Context, *store.CommandTx) (authz.Facts, error) {
-			return authz.Event(input.EventID), nil
+		scope: func(ctx context.Context, transaction *store.CommandTx) (authz.Facts, error) {
+			return transaction.SessionLaneScope(ctx, input.EventID, input.SessionID)
 		},
 		apply: func(
 			transaction *store.CommandTx,
