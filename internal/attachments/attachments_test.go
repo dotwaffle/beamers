@@ -15,6 +15,7 @@ import (
 	_ "github.com/dotwaffle/beamers/ent/runtime"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/store"
 	"github.com/dotwaffle/beamers/internal/store/storetest"
 	"github.com/dotwaffle/beamers/internal/systemactor"
@@ -41,6 +42,7 @@ func TestStoreVersionReclaimsRepeatedMaximumSizeFailures(t *testing.T) {
 	for attempt := range 3 {
 		_, err := service.storeVersion(
 			systemactor.NewContext(t.Context(), systemactor.HostMaintenance),
+			authz.Event(1),
 			authorization,
 			"failed-upload-"+string(rune('a'+attempt)),
 			"slides",

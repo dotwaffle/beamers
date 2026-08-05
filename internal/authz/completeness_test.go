@@ -112,10 +112,12 @@ func TestCapabilityTableIsWellFormed(t *testing.T) {
 				t.Errorf("action %s names capability %s outside the closed enum", row.Action, capability)
 			}
 		}
-		if len(row.Capabilities) == 0 && row.Scope != authz.ScopeNone {
+		if len(row.Capabilities) == 0 && len(row.TargetCapabilities) == 0 &&
+			row.Scope != authz.ScopeNone {
 			t.Errorf("action %s declares scope %s without a capability to scope", row.Action, row.Scope)
 		}
-		if len(row.Capabilities) > 0 && (row.Code == "" || row.ScopeCode == "") {
+		if (len(row.Capabilities) > 0 || len(row.TargetCapabilities) > 0) &&
+			(row.Code == "" || row.ScopeCode == "") {
 			t.Errorf("action %s can refuse but declares no durable rejection code", row.Action)
 		}
 	}

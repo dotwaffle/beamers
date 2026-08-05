@@ -51,10 +51,10 @@ const (
 	noteCompetitionEntryProducer = "D4, resolved: the CanProduceEvent guard this action carried is gone, so an Operator whose Lane grant covers the Competition Session may act, which is the authority the row's Capability always named. The durable code is unchanged for parity."
 	noteOverrideTargetKey        = "D6, resolved: a Program Channel Override target expands at plan time to the Display Group keys of the Displays consuming it, so repointing the channel changes who may override it. Location and Display targets remain judged by the synthetic key displayOverrideTargetKey builds, which the decision left unchanged."
 	noteOverrideTargetRule       = "D7: Stage Message and Technical Difficulties targets are judged by literal Display Group key today, Urgent Notice and Clear by target. Both are literal keys in practice, so one rule here is parity-preserving."
-	noteDegradedEmergency        = "D8: the degraded Emergency Alert path decides this rule a second time in memory at capture time and persists only the outcome. One row now covers both paths; the in-memory copy is deleted with its area in Stage 3."
-	noteUploadCallers            = "D8/D9: UploadAttachment is reached by a crew caller guarded by CanProduceEvent before Execute and by an account holder whose rule is upload-target ownership. One action name takes one row, and the row must admit the account holder, so the crew Capability stays with the pre-Execute guard until Stage 3."
+	noteDegradedEmergency        = "D8, resolved: the degraded Emergency Alert path decides this rule in memory at capture time and persists only the outcome, but it now asks the same authz.Holds and authz.InScope questions this row asks, so the two paths cannot drift."
+	noteUploadCallers            = "D9, resolved: UploadAttachment is reached by a crew caller and by an account holder whose rule is upload-target ownership. The row admits the account holder unconditionally — the store enforces ownership — while the crew caller demands ManageAttachments through TargetCapabilities, replacing the CanProduceEvent guard that gated it before Execute."
 	noteResultsProducerGuard     = "D13, resolved: the CanProduceEvent guard this action carried is gone, so a ManageResults grant suffices and a Producer keeps access through role expansion. The durable code is unchanged for parity."
-	noteEvidenceGap              = "D9: refused before Execute today, so the refusal leaves no Command Receipt and no Audit Entry. The row makes the refusal evidential once Stage 3 deletes the pre-Execute guard."
+	noteEvidenceGap              = "D9, resolved: this refusal happened before Execute and left no Command Receipt and no Audit Entry. The pre-Execute guard is gone, so the row now refuses on the command path and the refusal is evidential."
 )
 
 // table is the Capability Table. Rows are grouped by area in the same order as
@@ -162,7 +162,7 @@ var table = []Row{
 	{Action: "ReviewResultsCorrection", Capabilities: []Capability{ManageResults}, Scope: ScopeEvent, Code: codeProducerRequired, ScopeCode: codeProducerRequired, Note: noteResultsProducerGuard},
 
 	// Attachments and Reopen Windows.
-	{Action: "UploadAttachment", Scope: ScopeNone, Note: noteUploadCallers},
+	{Action: "UploadAttachment", TargetCapabilities: []Capability{ManageAttachments}, Scope: ScopeEvent, Code: codeProducerRequired, ScopeCode: codeProducerRequired, Note: noteUploadCallers},
 	{Action: "ConfigureEventAttachmentRelease", Capabilities: []Capability{ManageAttachments}, Scope: ScopeEvent, Code: codeProducerRequired, ScopeCode: codeProducerRequired},
 	{Action: "ConfigureCompetitionAttachmentRelease", Capabilities: []Capability{ManageAttachments}, Scope: ScopeEvent, Code: codeProducerRequired, ScopeCode: codeProducerRequired},
 	{Action: "SetAttachmentVersionRelease", Capabilities: []Capability{ManageAttachments}, Scope: ScopeEvent, Code: codeProducerRequired, ScopeCode: codeProducerRequired},

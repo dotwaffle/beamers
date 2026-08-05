@@ -319,14 +319,13 @@ func (service *Service) UploadForCrew(
 	if err := command.ValidateID(input.CommandID); err != nil {
 		return Version{}, err
 	}
-	if !actor.CanProduceEvent(input.EventID) {
-		return Version{}, ErrProducerRequired
-	}
 	authorization := store.UploadAuthorization{
 		EventID: input.EventID, TargetType: input.TargetType, TargetID: input.TargetID,
 	}
 	return service.storeVersion(
-		actor.Context(ctx), authorization, input.CommandID, input.Name, input.OriginalFilename,
+		actor.Context(ctx),
+		authz.Event(input.EventID).Demanding(authz.ManageAttachments),
+		authorization, input.CommandID, input.Name, input.OriginalFilename,
 		input.MediaType, input.Body, "Crew", actor.ID, input.CrewOnly,
 	)
 }
@@ -349,6 +348,7 @@ func (service *Service) UploadForAccount(
 	}
 	return service.storeVersion(
 		actor.Context(ctx),
+		authz.Event(input.EventID),
 		store.UploadAuthorization{
 			EventID: input.EventID, TargetType: input.TargetType, TargetID: input.TargetID,
 		},
@@ -365,6 +365,7 @@ func (service *Service) UploadForAccount(
 
 func (service *Service) storeVersion(
 	ctx context.Context,
+	facts authz.Facts,
 	authorization store.UploadAuthorization,
 	commandID, name, originalFilename, mediaType string,
 	body io.Reader,
@@ -424,10 +425,11 @@ func (service *Service) storeVersion(
 	created, executeErr := command.Execute(ctx, command.Plan[Version]{
 		Storage: service.storage, Identity: identity,
 		Authorization: command.Authorization{
-			// UploadAttachment names no Capability: the Crew guard that gates
-			// this call stays in place ahead of Execute, so this row only
-			// needs an Installation-scoped Facts to satisfy the required field.
-			Facts: authz.Installation(),
+			// The Crew caller demands ManageAttachments through the row's
+			// TargetCapabilities; the Account caller supplies plain Event
+			// facts and is admitted here because its rule is upload-target
+			// ownership, which SaveAttachmentVersion enforces.
+			Facts: facts, Refusals: attachmentUploadRejections,
 		},
 		Replay: func(outcome string) (Version, error) {
 			var stored Version
@@ -471,6 +473,7 @@ func (service *Service) storeVersion(
 // rejection codes in both directions.
 var attachmentUploadRejections = command.RejectionTable{
 	Rejections: []command.Rejection{
+		{Err: ErrProducerRequired, Code: "producer_required"},
 		{Err: ErrUploadTargetNotFound, Code: "attachment_target_not_found"},
 		{Err: ErrUploadClosed, Code: "upload_closed"},
 	},
@@ -783,9 +786,6 @@ func (service *Service) ConfigureEventRelease(
 		Apply: auditReleaseRejections(func(transaction *store.CommandTx) (
 			command.Execution[store.AttachmentReleaseConfiguration], error,
 		) {
-			if !actor.CanProduceEvent(input.EventID) {
-				return command.Execution[store.AttachmentReleaseConfiguration]{}, ErrProducerRequired
-			}
 			configured, configureErr := transaction.ConfigureEventAttachmentRelease(
 				actor.Context(ctx), store.ConfigureEventAttachmentReleaseParams{
 					EventID: input.EventID, ExpectedRevision: input.ExpectedRevision,
@@ -832,10 +832,6 @@ func (service *Service) ConfigureCompetitionRelease(
 			Apply: auditReleaseRejections(func(transaction *store.CommandTx) (
 				command.Execution[store.CompetitionAttachmentReleaseConfiguration], error,
 			) {
-				if !actor.CanProduceEvent(input.EventID) {
-					return command.Execution[store.CompetitionAttachmentReleaseConfiguration]{},
-						ErrProducerRequired
-				}
 				configured, configureErr := transaction.ConfigureCompetitionAttachmentRelease(
 					actor.Context(ctx), store.ConfigureCompetitionAttachmentReleaseParams{
 						EventID: input.EventID, SessionID: input.SessionID,
@@ -882,9 +878,6 @@ func (service *Service) SetVersionRelease(
 		Apply: auditReleaseRejections(func(
 			transaction *store.CommandTx,
 		) (command.Execution[Version], error) {
-			if !actor.CanProduceEvent(input.EventID) {
-				return command.Execution[Version]{}, ErrProducerRequired
-			}
 			updated, updateErr := transaction.SetAttachmentVersionRelease(
 				actor.Context(ctx), store.SetAttachmentVersionReleaseParams{
 					EventID: input.EventID, VersionID: input.VersionID,
@@ -914,7 +907,7 @@ func (service *Service) PreviewReleaseCue(
 	if eventID <= 0 {
 		return store.AttachmentReleaseCuePreview{}, ErrInvalidInput
 	}
-	if !actor.CanProduceEvent(eventID) {
+	if !authz.Holds(actor.Identity(), eventID, authz.ManageAttachments) {
 		return store.AttachmentReleaseCuePreview{}, ErrProducerRequired
 	}
 	return service.storage.PreviewEventAttachmentReleaseCue(actor.Context(ctx), eventID)
@@ -954,9 +947,6 @@ func (service *Service) FireReleaseCue(
 		Apply: auditReleaseRejections(func(transaction *store.CommandTx) (
 			command.Execution[store.AttachmentReleaseConfiguration], error,
 		) {
-			if !actor.CanProduceEvent(input.EventID) {
-				return command.Execution[store.AttachmentReleaseConfiguration]{}, ErrProducerRequired
-			}
 			fired, fireErr := transaction.FireEventAttachmentReleaseCue(
 				actor.Context(ctx),
 				input.EventID,
@@ -1075,9 +1065,6 @@ func (service *Service) CreateReopenWindow(
 	if err := command.ValidateID(input.CommandID); err != nil {
 		return store.ReopenWindow{}, err
 	}
-	if !actor.CanProduceEvent(input.EventID) {
-		return store.ReopenWindow{}, ErrProducerRequired
-	}
 	encoded, err := json.Marshal(input)
 	if err != nil {
 		return store.ReopenWindow{}, errors.New("encode Reopen Window command")
@@ -1136,9 +1123,6 @@ func (service *Service) UpdateReopenWindow(
 	}
 	if err := command.ValidateID(input.CommandID); err != nil {
 		return store.ReopenWindow{}, err
-	}
-	if !actor.CanProduceEvent(input.EventID) {
-		return store.ReopenWindow{}, ErrProducerRequired
 	}
 	encoded, err := json.Marshal(input)
 	if err != nil {
