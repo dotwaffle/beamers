@@ -14,7 +14,6 @@ import (
 	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
-	"github.com/dotwaffle/beamers/internal/viewer"
 	"github.com/dotwaffle/beamers/internal/votingvalue"
 )
 
@@ -49,9 +48,6 @@ func (service *Service) Save(
 	input.Score = scorePolicyDefaults(input.Score)
 	if err := validateSaveInput(input); err != nil {
 		return Draft{}, err
-	}
-	if !actor.HasCapability(input.EventID, viewer.ManageResults) {
-		return Draft{}, ErrManageRequired
 	}
 	payload, err := json.Marshal(input)
 	if err != nil {

@@ -144,10 +144,12 @@ var table = []Row{
 	{Action: "UpdateSubmittedCompetitionEntry", Scope: ScopeNone},
 
 	// Results. Every row names ManageResults; the rows whose guard is
-	// CanProduceEvent today carry the D13 note.
-	{Action: "SaveCompetitionResultsDraft", Capabilities: []Capability{ManageResults}, Scope: ScopeEvent, Code: codeManageResultsRequired, ScopeCode: codeManageResultsRequired, Note: noteEvidenceGap},
-	{Action: "SaveEventAwardsDraft", Capabilities: []Capability{ManageResults}, Scope: ScopeEvent, Code: codeManageResultsRequired, ScopeCode: codeManageResultsRequired, Note: noteEvidenceGap},
-	{Action: "SaveCompetitionAwards", Capabilities: []Capability{ManageResults}, Scope: ScopeEvent, Code: codeManageResultsRequired, ScopeCode: codeManageResultsRequired, Note: noteEvidenceGap},
+	// CanProduceEvent today carry the D13 note. The three Manage Results
+	// saves carried the D9 evidence-gap note until Stage 3 deleted their
+	// pre-Execute guards, and their refusals are now evidential.
+	{Action: "SaveCompetitionResultsDraft", Capabilities: []Capability{ManageResults}, Scope: ScopeEvent, Code: codeManageResultsRequired, ScopeCode: codeManageResultsRequired},
+	{Action: "SaveEventAwardsDraft", Capabilities: []Capability{ManageResults}, Scope: ScopeEvent, Code: codeManageResultsRequired, ScopeCode: codeManageResultsRequired},
+	{Action: "SaveCompetitionAwards", Capabilities: []Capability{ManageResults}, Scope: ScopeEvent, Code: codeManageResultsRequired, ScopeCode: codeManageResultsRequired},
 	{Action: "MarkCompetitionResultsReady", Capabilities: []Capability{ManageResults}, Scope: ScopeEvent, Code: codeManageResultsRequired, ScopeCode: codeManageResultsRequired, Note: noteResultsProducerGuard},
 	{Action: "MarkEventAwardsReady", Capabilities: []Capability{ManageResults}, Scope: ScopeEvent, Code: codeManageResultsRequired, ScopeCode: codeManageResultsRequired, Note: noteResultsProducerGuard},
 	{Action: "DesignatePrizegiving", Capabilities: []Capability{ManageResults}, Scope: ScopeEvent, Code: codeManageResultsRequired, ScopeCode: codeManageResultsRequired, Note: noteResultsProducerGuard},
