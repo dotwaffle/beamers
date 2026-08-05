@@ -83,6 +83,93 @@ func TestExecuteOwnsRetryConflictRejectionAndAuditOrdering(t *testing.T) {
 	}
 }
 
+func TestExecuteRequiresOneAuthorizationFactsSource(t *testing.T) {
+	storage, actorID, ctx, _ := openExecutionTestStore(t)
+	now := time.Date(2026, time.July, 22, 12, 0, 0, 0, time.UTC)
+	loaded := false
+	loadFacts := func(context.Context, *store.CommandTx) (authz.Facts, error) {
+		loaded = true
+		return authz.Installation(), nil
+	}
+	tests := []struct {
+		name          string
+		authorization Authorization
+	}{
+		{name: "neither", authorization: Authorization{}},
+		{
+			name: "both",
+			authorization: Authorization{
+				Facts:     authz.Installation(),
+				LoadFacts: loadFacts,
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			loaded = false
+			applied := false
+			plan := Plan[string]{
+				Storage: storage,
+				Identity: store.CommandIdentity{
+					ActorAccountID: actorID,
+					CommandID:      "authorization-" + test.name,
+					PayloadHash:    strings.Repeat("a", 64),
+					Action:         "UpdateAccountProfile",
+					TargetType:     "Account",
+					TargetID:       "1",
+					Now:            now,
+				},
+				Authorization: test.authorization,
+				Replay:        func(outcome string) (string, error) { return outcome, nil },
+				Apply: func(*store.CommandTx) (Execution[string], error) {
+					applied = true
+					return Success("applied", `"applied"`), nil
+				},
+			}
+			_, err := Execute(ctx, plan)
+			if err == nil || err.Error() != "command authorization must set exactly one of Facts and LoadFacts" {
+				t.Fatalf("Execute error = %v", err)
+			}
+			if loaded {
+				t.Error("LoadFacts ran for an invalid authorization plan")
+			}
+			if applied {
+				t.Error("Apply ran for an invalid authorization plan")
+			}
+		})
+	}
+}
+
+func TestExecuteDoesNotRevalidateAuthorizationOnReplay(t *testing.T) {
+	storage, actorID, ctx, _ := openExecutionTestStore(t)
+	plan := Plan[string]{
+		Storage: storage,
+		Identity: store.CommandIdentity{
+			ActorAccountID: actorID,
+			CommandID:      "authorization-replay",
+			PayloadHash:    strings.Repeat("a", 64),
+			Action:         "UpdateAccountProfile",
+			TargetType:     "Account",
+			TargetID:       "1",
+			Now:            time.Date(2026, time.July, 22, 12, 0, 0, 0, time.UTC),
+		},
+		Authorization: Authorization{Facts: authz.Installation()},
+		Replay:        func(outcome string) (string, error) { return outcome, nil },
+		Apply: func(*store.CommandTx) (Execution[string], error) {
+			return Success("applied", `"applied"`), nil
+		},
+	}
+	if _, err := Execute(ctx, plan); err != nil {
+		t.Fatalf("first execution: %v", err)
+	}
+	plan.Authorization.LoadFacts = func(context.Context, *store.CommandTx) (authz.Facts, error) {
+		return authz.Facts{}, errors.New("LoadFacts must not run during replay")
+	}
+	if replayed, err := Execute(ctx, plan); err != nil || replayed != `"applied"` {
+		t.Fatalf("replay = %q, %v", replayed, err)
+	}
+}
+
 func TestExecuteNotifiesOnlyAfterSuccess(t *testing.T) {
 	storage, actorID, ctx, dataDir := openExecutionTestStore(t)
 	now := time.Date(2026, time.July, 22, 13, 0, 0, 0, time.UTC)

@@ -128,6 +128,11 @@ func (facts Facts) Demanding(capabilities ...Capability) Facts {
 	return facts
 }
 
+// Supplied reports whether a constructor initialized these facts.
+func (facts Facts) Supplied() bool {
+	return facts.supplied
+}
+
 // Scope returns the dimension these facts were built for.
 func (facts Facts) Scope() Scope {
 	return facts.scope

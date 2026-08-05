@@ -73,12 +73,9 @@ func (execution Execution[T]) WithTargetID(targetID string) Execution[T] {
 // Authorization is the plan phase that judges one command against its
 // Capability Table row.
 //
-// Exactly one of Facts and LoadFacts must be set. Facts serves the rows whose
-// scope is known before the transaction opens; LoadFacts serves the rows whose
-// scope depends on the target, and runs inside the command transaction so that
-// the facts are the ones the application will act on. Supplying neither leaves
-// the facts unset, which every row refuses: a command that declares nothing
-// fails closed rather than passing unjudged.
+// Set exactly one of Facts and LoadFacts. Use Facts when the scope is known
+// before the transaction opens. Use LoadFacts when the target determines the
+// scope. LoadFacts runs inside the command transaction.
 type Authorization struct {
 	// Facts are the scope facts a row is judged against.
 	Facts authz.Facts
@@ -243,6 +240,10 @@ func (plan Plan[T]) authorize(
 	ctx context.Context,
 	transaction *store.CommandTx,
 ) (handled bool, err error) {
+	if plan.Authorization.Facts.Supplied() == (plan.Authorization.LoadFacts != nil) {
+		return true, errors.New("command authorization must set exactly one of Facts and LoadFacts")
+	}
+
 	identity, authenticated := viewer.FromContext(ctx)
 	if plan.Authorization.LoadFacts != nil {
 		capabilities := authz.EvaluateCapabilities(authz.CapabilityRequest{
