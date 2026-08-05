@@ -650,16 +650,14 @@ func canOperateDegradedEmergency(
 		AccountID: actor.ID, Administrator: actor.Administrator,
 		EventRoles: actor.EventRoles, EventScopes: actor.EventScopes,
 	}
-	if !identity.HasCapability(eventID, viewer.EmergencyAlert) {
+	if !authz.Holds(identity, eventID, authz.EmergencyAlert) {
 		return false
 	}
-	if identity.CanProduceEvent(eventID) {
-		return true
-	}
+	facts := authz.DisplayGroups(eventID, []string{degradedTargetKey(target)})
 	if target.Type == store.DisplayOverrideTargetLane {
-		return identity.CanOperateLane(eventID, target.ID)
+		facts = authz.Lanes(eventID, []int{target.ID})
 	}
-	return identity.CanOperateDisplayGroup(eventID, degradedTargetKey(target))
+	return authz.InScope(identity, facts)
 }
 
 func degradedTargetKey(target Target) string {
