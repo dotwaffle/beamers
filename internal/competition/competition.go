@@ -441,7 +441,7 @@ func (service *Service) AssignableAccounts(
 	actor auth.Account,
 	eventID int,
 ) ([]SubmissionAccount, error) {
-	if !actor.CanProduceEvent(eventID) {
+	if !authz.Holds(actor.Identity(), eventID, authz.ConfigureCompetition) {
 		return nil, ErrProducerRequired
 	}
 	return service.storage.ListSubmissionAccounts(actor.Context(ctx))
@@ -490,7 +490,7 @@ func (service *Service) PreflightEnd(
 	if eventID <= 0 || sessionID <= 0 {
 		return EndPreflight{}, ErrInvalidInput
 	}
-	if !actor.CanOperateEvent(eventID) {
+	if !authz.Holds(actor.Identity(), eventID, authz.OperateCompetitionEntry) {
 		return EndPreflight{}, ErrOperatorRequired
 	}
 	stored, err := service.storage.PreflightCompetitionEnd(actor.Context(ctx), eventID, sessionID)
@@ -596,9 +596,6 @@ func (service *Service) executeEntryOrderCommand(
 			return entryOrder(stored), nil
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[EntryOrder], error) {
-			if !actor.CanProduceEvent(eventID) {
-				return command.Execution[EntryOrder]{}, ErrProducerRequired
-			}
 			stored, applyErr := apply(transaction, identity.Now)
 			if applyErr != nil {
 				return command.Execution[EntryOrder]{}, applyErr
@@ -654,9 +651,6 @@ func (service *Service) ConfigureReadiness(
 			return readiness(stored), nil
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[Readiness], error) {
-			if !actor.CanProduceEvent(input.EventID) {
-				return command.Execution[Readiness]{}, ErrProducerRequired
-			}
 			stored, applyErr := transaction.ConfigureCompetitionReadiness(
 				actor.Context(ctx), store.ConfigureCompetitionReadinessParams{
 					EventID: input.EventID, SessionID: input.SessionID,
@@ -719,12 +713,6 @@ func (service *Service) ConfigureSubmissionEligibility(
 			command.Execution[SubmissionEligibilityState],
 			error,
 		) {
-			if !actor.CanProduceEvent(input.EventID) {
-				return auditCompetitionRejection(
-					command.Execution[SubmissionEligibilityState]{},
-					ErrProducerRequired,
-				)
-			}
 			stored, applyErr := transaction.ConfigureCompetitionSubmissionEligibility(
 				actor.Context(ctx),
 				store.ConfigureSubmissionEligibilityParams{
@@ -1130,9 +1118,6 @@ func (service *Service) SetEntryAttachmentReadiness(
 			return attachmentReadiness(stored), nil
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[AttachmentReadiness], error) {
-			if !actor.CanProduceEvent(input.EventID) {
-				return command.Execution[AttachmentReadiness]{}, ErrProducerRequired
-			}
 			stored, applyErr := transaction.SetEntryAttachmentReadiness(
 				actor.Context(ctx), store.SetEntryAttachmentReadinessParams{
 					EventID: input.EventID, SessionID: input.SessionID, EntryID: input.EntryID,
@@ -1173,7 +1158,7 @@ func (service *Service) execute(
 ) (Entry, error) {
 	return service.executeEntryCommand(
 		ctx, actor, eventID, commandID, action, targetID, payload,
-		actor.CanProduceEvent, ErrProducerRequired,
+		nil, nil,
 		command.Authorization{Facts: authz.Event(eventID)}, notify, apply,
 	)
 }
