@@ -3,9 +3,10 @@
 This is the Stage 1 deliverable of the Phase 2 authorization program: the first systematic end-to-end read of the imperative authorization layer.
 It proposes a closed Capability enum, drafts the Capability Table for every state-changing command action, inventories every exported store entrypoint by the actor classes that reach it, and records the discrepancies the read found.
 
-Nothing here changes behavior.
-Everything here describes what the code enforces today and what the table should say once Stage 2 lands the evaluator.
-Where the current behavior is wrong, this document says so and proposes a deliberate resolution rather than normalizing it silently.
+**Status: landed.**
+The program this document specified has shipped, so the authoritative table is now the code: `internal/authz/table.go` holds every row, `internal/store/entrypoint_declarations.go` holds the actor-class declarations, and the "As landed" addendum of ADR 0061 records where the mechanism deviated from the plan and how each discrepancy below was resolved.
+The counts, drafts, and imperative-layer descriptions that follow are the pre-migration read, kept as the record of what the sweep started from; where they disagree with the code, the code is right.
+The imperative checks this document inventories are deleted: a walking test in `internal/authz` fails any file outside the viewer, auth, authz, and server packages that asks a viewer authority predicate directly.
 
 ## Enumeration method
 
@@ -584,6 +585,9 @@ Five packages write authorization codes as string literals rather than through a
 Each entry records what the read found, why it matters, and a proposed deliberate resolution for Stage 2.
 None of these is normalized silently.
 Entries marked **behavior change** cannot be justified by parity tests alone, because the current behavior is the thing being changed; each needs an explicit decision before Stage 2 encodes it.
+
+Every entry below is resolved.
+The behavior changes were each decided explicitly and landed as proposed — D3 scopes Program Channel commands to the consuming Displays' Display Groups, D4 Lane-scopes the live Entry actions, D5 restores Reinstate's Lane scope and admits Operators, D6 resolves indirect Override targets to real Display Groups — and the ADR 0061 "As landed" addendum records the outcomes, including the two places the mechanism deviated from this document's proposal (no allow decision is minted anywhere, and UploadAttachment takes one row serving both callers through TargetCapabilities).
 
 ### D1 — One rule, twenty-two sentinels
 
