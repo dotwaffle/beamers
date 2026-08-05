@@ -31,7 +31,7 @@ var (
 	ErrFinalFilesDestinationExists = errors.New("destination for Final Files Export already exists")
 )
 
-// FinalFilesFile maps one exported path to its source identities and immutable bytes.
+// FinalFilesFile identifies an exported file and the immutable Attachment Version that supplies it.
 type FinalFilesFile struct {
 	Path             string `json:"path"`
 	EventID          int    `json:"event_id"`
@@ -67,7 +67,7 @@ type FinalFilesPlan struct {
 	Collisions    []string `json:"collisions"`
 }
 
-// PlanFinalFiles builds the deterministic logical tree for one Event.
+// PlanFinalFiles returns a deterministic manifest, preview digest, and output-path collisions for one Event.
 func (service *Service) PlanFinalFiles(
 	ctx context.Context,
 	eventID int,
@@ -175,7 +175,7 @@ func (service *Service) WriteFinalFilesDirectory(
 	return plan.FinalFilesManifest, nil
 }
 
-// WriteFinalFilesZIP writes a deterministic verified download after matching a preview.
+// WriteFinalFilesZIP writes a deterministic ZIP only when previewDigest matches the current plan.
 func (service *Service) WriteFinalFilesZIP(
 	ctx context.Context,
 	eventID int,

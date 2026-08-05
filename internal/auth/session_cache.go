@@ -34,8 +34,9 @@ func (service *Service) Authenticate(ctx context.Context, token string) (Account
 	return service.authenticate(ctx, token)
 }
 
-// AuthenticatePreviouslyValidated returns only a pre-failure Account snapshot
-// while storage is degraded. It exists solely for the Emergency Alert path.
+// AuthenticatePreviouslyValidated authenticates normally while storage is
+// available. During degraded storage, it returns an unexpired Account snapshot
+// that this method previously validated. Use it only for Emergency Alerts.
 func (service *Service) AuthenticatePreviouslyValidated(
 	ctx context.Context,
 	token string,

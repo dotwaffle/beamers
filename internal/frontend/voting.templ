@@ -226,11 +226,10 @@ func ballotValue(page VotingBallotPage, entryID, fallback int) int {
 	return fallback
 }
 
-// votingMethodLabel names a Voting Window's Method for display. Range1To5 is
-// the only Method the settings form currently offers -- its option there
-// reads "Range 1–5" -- and generic CamelCase splitting would render it as
-// the malformed "Range1 To5", so it gets an explicit mapping; any other
-// value falls back to the generic splitter rather than failing closed.
+// votingMethodLabel returns a display label for a Voting Window Method.
+// The settings form currently supports only Range1To5 and labels it "Range 1–5".
+// Generic CamelCase splitting would produce "Range1 To5".
+// The function maps Range1To5 explicitly and uses the generic splitter otherwise.
 func votingMethodLabel(method string) string {
 	if method == "Range1To5" {
 		return "Range 1–5"

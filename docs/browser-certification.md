@@ -79,7 +79,8 @@ scripts/check-browser.sh
 
 Set `CONTAINER_RUNTIME=podman` to use Podman.
 Set `BEAMERS_SELENIUM_IMAGE` to test a specific Selenium image.
-Set `BEAMERS_BROWSER_ENGINE=firefox` to use Firefox; Chromium is the default.
+Set `BEAMERS_BROWSER_ENGINE=firefox` to use Firefox.
+Chromium is the default.
 Set `BEAMERS_BROWSER_ROLE` and `BEAMERS_BROWSER_MAJOR` to reproduce one hosted matrix entry exactly.
 Set `BEAMERS_BROWSER_RUNS` to repeat the certification against one container.
 
@@ -97,7 +98,8 @@ go test ./acceptance -run '^TestBrowserCertification$' -count=1 -timeout 25m -v
 ```
 
 Use `firefox` and `geckodriver` for Firefox.
-Never edit or combine reports: each run creates one new file and refuses to overwrite existing evidence.
+Do not edit or combine reports.
+Each run creates a new file and does not overwrite existing evidence.
 Local evidence also requires a clean worktree so the recorded commit identifies the tested source.
 
 ## Current Safari manual run
@@ -151,7 +153,9 @@ Across the role-to-workflow matrix, Enrollment, Crew control, and Display, revie
 - Non-color status, document language, reading order, and reduced motion.
 - The visual state vocabulary: that every badge carries its state as text and shape as well as color, that a Session's publication, Audience Visibility, and lifecycle axes read as three separate states, that Preview and Program Output remain distinguishable without color, and that Stage Timer Emphasis and overtime announce themselves by label as well as by color and viewport outline.
 
-Automated results support this review; they do not replace it.
+Automated results support this review.
+They do not replace it.
 Record the exact Beamers commit, browser and operating-system versions, hardware where relevant, screenshots or video, and a written result for every row.
 Attach the completed role matrix, Safari, manual accessibility, touch, zoom, and kiosk evidence to issue #51 before closing it.
-Leave unperformed rows explicitly pending; never infer manual evidence from hosted automation.
+Mark unperformed rows as pending.
+Do not infer manual evidence from hosted automation.

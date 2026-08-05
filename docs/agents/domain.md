@@ -1,6 +1,6 @@
 # Domain Docs
 
-How the engineering skills should consume this repo's domain documentation when exploring the codebase.
+This document tells engineering skills how to use the repository's domain documentation.
 
 ## Before exploring, read these
 
@@ -10,9 +10,9 @@ How the engineering skills should consume this repo's domain documentation when 
 - **`docs/adr/`** — read ADRs that touch the area you're about to work in.
   In multi-context repos, also check `src/<context>/docs/adr/` for context-scoped decisions.
 
-If any of these files don't exist, **proceed silently**.
-Don't flag their absence; don't suggest creating them upfront.
-The `/domain-modeling` skill (reached via `/grill-with-docs` and `/improve-codebase-architecture`) creates them lazily when terms or decisions actually get resolved.
+If a file is absent, **proceed silently**.
+Do not report its absence or suggest creating it in advance.
+The `/domain-modeling` skill creates these files only when it resolves a term or decision.
 
 ## File structure
 

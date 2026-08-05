@@ -23,7 +23,8 @@ The imported Rundown remains unpublished until the normal Draft review and Publi
 
 ## Version 2 document
 
-Version 2 is strict UTF-8 JSON with this shape: One document must not exceed 64 MiB.
+Version 2 uses strict UTF-8 JSON.
+A document must not exceed 64 MiB.
 
 ```json
 {

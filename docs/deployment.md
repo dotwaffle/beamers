@@ -128,7 +128,9 @@ Add `--replica-url=LITESTREAM-URL` to continuously replicate the authoritative S
 --replica-url=file:///mnt/offsite/beamers.db
 ```
 
-Version one accepts only an absolute, credential-free `file:` URL with no host, user info, query, or fragment; mount the actual destination (a network share, a synced block device, and so on) at that path yourself.
+Version one accepts only an absolute, credential-free `file:` URL.
+The URL must not contain a host, user info, query, or fragment.
+Mount the destination at that path.
 
 This covers **the database only**.
 It does not replicate the Attachment Store; a Litestream replica alone cannot restore uploaded files.
@@ -169,7 +171,9 @@ logger -t beamers-watchdog "readiness failed 3 consecutive checks; check for rec
 
 The `systemctl is-active` guard keeps the watchdog from fighting an Administrator's intentional `systemctl stop beamers.service`, for example during the offline restore below.
 The consecutive-failure counter keeps one slow probe from restarting a healthy process.
-Recovery mode itself fails `/readyz` by design and a restart does not clear it, since the underlying database is still missing or damaged; alert an Administrator to diagnose and restore instead of looping `systemctl restart` against it.
+Recovery mode fails `/readyz` by design.
+Restarting does not repair a missing or damaged database.
+Alert an Administrator to diagnose and restore it.
 Beamers does not implement `sd_notify` watchdog pings; systemd's own `Restart=on-failure` only reacts to the process exiting, not to a running-but-unready process.
 
 ## Run with Docker Compose

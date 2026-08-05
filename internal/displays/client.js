@@ -872,13 +872,10 @@ function appendTimelineGridlines(timeline, gridlines) {
   }
 }
 
-// appendTimelineNow draws the now-line only when the server projected one
-// for this Event day; nowOffset is absent (not zero) when the server time
-// falls outside it, so an absent value must never draw a stray line at 0%.
-// The line's position is then kept live from dayStart/dayEnd and the
-// synchronized clock (see updateTimelineNowLines) rather than left frozen
-// at the offset this one snapshot happened to compute, so it never visibly
-// drifts from the persistent clock and Stage Timer on the same Display.
+// appendTimelineNow draws the now-line only when the server projects one for
+// this Event day. nowOffset is absent when the server time is outside the day.
+// Zero remains a valid offset. updateTimelineNowLines keeps the position
+// synchronized with the clock, Stage Timer, and Event day bounds.
 function appendTimelineNow(timeline, nowOffset, dayStart, dayEnd) {
   if (nowOffset === undefined || nowOffset === null) {
     return;
@@ -1079,12 +1076,10 @@ function appendTimeRow(parent, label, instant, text) {
   parent.append(term, value);
 }
 
-// appendProgressBar draws the elapsed bar for a span, carrying its starting
-// fraction before it ever joins the frame. Set only after insertion, a
-// re-render's bar paints at zero and then animates up to its true value on
-// the very next tick; the server-rendered entry document never has that
-// problem because its style attribute is part of the same markup as the
-// element, so this mirrors that by writing the property before parent.append.
+// appendProgressBar draws an elapsed bar with its initial fraction.
+// Setting the fraction after insertion makes a re-render paint from zero.
+// The server-rendered document includes the fraction in its markup.
+// This function sets the property before parent.append to match that behavior.
 function appendProgressBar(parent, start, end, reference) {
   const fraction = elapsedFraction(Date.parse(start), Date.parse(end), estimatedServerNow(reference));
   if (fraction === null) {
