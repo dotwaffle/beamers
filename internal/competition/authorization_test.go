@@ -142,11 +142,11 @@ func TestLiveEntryCommandsAreLaneScoped(t *testing.T) {
 
 	refuse := func(t *testing.T, action string, want error, run func() error) {
 		t.Helper()
-		if err := run(); !errors.Is(err, want) {
-			t.Fatalf("refused %s = %v, want %v", action, err, want)
+		if runErr := run(); !errors.Is(runErr, want) {
+			t.Fatalf("refused %s = %v, want %v", action, runErr, want)
 		}
-		if err := run(); !errors.Is(err, want) {
-			t.Fatalf("retry of refused %s = %v, want the recorded refusal %v", action, err, want)
+		if runErr := run(); !errors.Is(runErr, want) {
+			t.Fatalf("retry of refused %s = %v, want the recorded refusal %v", action, runErr, want)
 		}
 		entries := rejectedCompetitionAudits(t, storage, producer, action)
 		if len(entries) != 1 {
@@ -158,20 +158,20 @@ func TestLiveEntryCommandsAreLaneScoped(t *testing.T) {
 	}
 
 	refuse(t, "SetCompetitionEntryReleaseHold", ErrProducerRequired, func() error {
-		_, err := service.SetEntryReleaseHold(t.Context(), outsider, SetEntryReleaseHoldInput{
+		_, holdErr := service.SetEntryReleaseHold(t.Context(), outsider, SetEntryReleaseHoldInput{
 			EventID: eventID, SessionID: sessionID, EntryID: created.ID,
 			CommandID: "refused-release-hold", ExpectedRevision: created.Revision,
 			Hold: true, CrewReason: "held for review",
 		})
-		return err
+		return holdErr
 	})
 	refuse(t, "RecordCompetitionTechnicalFailure", ErrOperatorRequired, func() error {
-		_, err := service.RecordTechnicalFailure(t.Context(), outsider, RecordTechnicalFailureInput{
+		_, failErr := service.RecordTechnicalFailure(t.Context(), outsider, RecordTechnicalFailureInput{
 			EventID: eventID, SessionID: sessionID, EntryID: created.ID,
 			CommandID: "refused-technical-failure", ExpectedRevision: created.Revision,
 			Reason: "playback failed",
 		})
-		return err
+		return failErr
 	})
 
 	// The Lane-scoped Operator is admitted where the old guard demanded a

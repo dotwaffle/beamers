@@ -184,7 +184,7 @@ func (commands *Commands) applyCapture(
 	identity store.CommandIdentity,
 	transaction *store.CommandTx,
 ) (command.Execution[CaptureResult], error) {
-	if err := validateCapture(actor.Context(ctx), actor, input, transaction); err != nil {
+	if err := validateCapture(actor.Context(ctx), input, transaction); err != nil {
 		if rejection, rejected := captureRejectionFor(err); rejected {
 			return captureRejection(rejection.code, rejection.reason), nil
 		}
@@ -208,7 +208,6 @@ func (commands *Commands) applyCapture(
 
 func validateCapture(
 	ctx context.Context,
-	actor auth.Account,
 	input CaptureInput,
 	transaction *store.CommandTx,
 ) error {
