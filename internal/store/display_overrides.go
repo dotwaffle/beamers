@@ -376,7 +376,7 @@ func (installationStore *SQLite) PreviewPriorityOverride(
 	}
 	if !authz.InScope(identity, scope) ||
 		params.Kind == DisplayOverrideEmergencyAlert &&
-			!identity.HasCapability(params.EventID, viewer.EmergencyAlert) {
+			!authz.Holds(identity, params.EventID, authz.EmergencyAlert) {
 		return DisplayOverridePreview{}, ErrDisplayOverrideScope
 	}
 	targets, err := resolveOverrideTargets(
@@ -1309,7 +1309,7 @@ func validDisplayGroupKey(key string) bool {
 
 func canOperateDisplayGroup(ctx context.Context, eventID int, key string) bool {
 	identity, ok := viewer.FromContext(ctx)
-	return ok && identity.CanOperateDisplayGroup(eventID, key)
+	return ok && authz.InScope(identity, authz.DisplayGroups(eventID, []string{key}))
 }
 
 func viewerAccountID(ctx context.Context) int {
