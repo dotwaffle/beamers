@@ -15,7 +15,6 @@ import (
 	"github.com/dotwaffle/beamers/internal/systemactor"
 	"github.com/dotwaffle/beamers/internal/themes"
 	"github.com/dotwaffle/beamers/internal/themevalue"
-	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
 var (
@@ -133,7 +132,7 @@ func (service *Service) List(
 	actor auth.Account,
 	eventID int,
 ) ([]Revision, error) {
-	if !producer(actor, eventID) {
+	if !authz.Holds(actor.Identity(), eventID, authz.ManageEventThemes) {
 		return nil, ErrProducerRequired
 	}
 	found, err := service.storage.ListEventThemeRevisions(actor.Context(ctx), eventID)
@@ -158,7 +157,7 @@ func (service *Service) Preview(
 	eventID int,
 	revisionID int,
 ) (Preview, error) {
-	if !producer(actor, eventID) {
+	if !authz.Holds(actor.Identity(), eventID, authz.ManageEventThemes) {
 		return Preview{}, ErrProducerRequired
 	}
 	ctx = actor.Context(ctx)
@@ -217,9 +216,6 @@ func (service *Service) CreateDraft(
 			Facts: authz.Event(eventID), Refusals: eventThemeAuthorizationRejections,
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[Revision], error) {
-			if !producer(actor, eventID) {
-				return rejectRevision("producer_required", ErrProducerRequired), nil
-			}
 			if validationErr := themevalue.ValidateEventDraft(input.Config); validationErr != nil {
 				return rejectRevision("invalid_theme", validationErr), nil
 			}
@@ -268,9 +264,6 @@ func (service *Service) Activate(
 			Facts: authz.Event(eventID), Refusals: eventThemeAuthorizationRejections,
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[Revision], error) {
-			if !producer(actor, eventID) {
-				return rejectRevision("producer_required", ErrProducerRequired), nil
-			}
 			selected := inheritedRevision(eventID)
 			if input.RevisionID > 0 {
 				stored, loadErr := transaction.LoadEventThemeRevision(
@@ -336,10 +329,6 @@ func (service *Service) loadRevision(
 		return Revision{}, err
 	}
 	return validateStoredRevision(revision(found))
-}
-
-func producer(actor auth.Account, eventID int) bool {
-	return actor.EventRoles[eventID] == viewer.Producer
 }
 
 func revision(found store.EventThemeRevision) Revision {
