@@ -221,9 +221,12 @@ func TestReinstateSessionGainsLaneScope(t *testing.T) {
 // calls judge the full set of Lanes a timing ripple moves, not just the
 // anchor Session's own Lane — reproducing what the imperative guard checked
 // before it was deleted. An Operator who holds only the anchor's Lane, and
-// not the Lane of a sibling Session the ripple moves, must still be refused:
-// if the table were judged against the anchor's Lane alone, this Operator
-// would incorrectly pass.
+// not the Lane of a sibling Session the ripple moves, must still be refused,
+// with the same "session_scope_required" evidence — a Rejected Audit Entry
+// and a Command Receipt that answers a retry without deciding it again —
+// every other scope refusal in this package leaves: if the table were
+// judged against the anchor's Lane alone, this Operator would incorrectly
+// pass.
 func TestPullForwardAndAdjustTargetEnforceRippledLaneScope(t *testing.T) {
 	storage, producer, eventID := openSessionControlTest(t)
 	sessions := publishSessionControlRundown(t, storage, producer, eventID)
@@ -253,15 +256,32 @@ func TestPullForwardAndAdjustTargetEnforceRippledLaneScope(t *testing.T) {
 		if err != nil {
 			t.Fatalf("end Pull Forward anchor: %v", err)
 		}
-		if _, pullErr := service.PullForward(t.Context(), anchorOnly, sessioncontrol.PullForwardInput{
-			EventID: eventID, SessionID: pfAnchor, CommandID: "refused-pull-forward-ripple",
-			ExpectedLiveStateRevision: ended.LiveStateRevision,
-		}); !errors.Is(pullErr, sessioncontrol.ErrSessionScopeRequired) {
+		pullForward := func() error {
+			_, pullErr := service.PullForward(t.Context(), anchorOnly, sessioncontrol.PullForwardInput{
+				EventID: eventID, SessionID: pfAnchor, CommandID: "refused-pull-forward-ripple",
+				ExpectedLiveStateRevision: ended.LiveStateRevision,
+			})
+			return pullErr
+		}
+		if pullErr := pullForward(); !errors.Is(pullErr, sessioncontrol.ErrSessionScopeRequired) {
 			t.Fatalf(
 				"Pull Forward by an Operator holding only the anchor's Lane = %v, want %v "+
 					"(the rippled sibling's Lane must be demanded too)",
 				pullErr, sessioncontrol.ErrSessionScopeRequired,
 			)
+		}
+		if pullErr := pullForward(); !errors.Is(pullErr, sessioncontrol.ErrSessionScopeRequired) {
+			t.Fatalf("retry of refused Pull Forward = %v, want the recorded refusal %v", pullErr, sessioncontrol.ErrSessionScopeRequired)
+		}
+		entries := rejectedSessionControlAudits(t, storage, producer, "PullForward")
+		if len(entries) != 1 {
+			t.Fatalf(
+				"Rejected Audit Entries for PullForward = %d, want exactly one recorded refusal "+
+					"whose retry is answered from its Command Receipt", len(entries),
+			)
+		}
+		if entries[0].Reason != "session_scope_required" {
+			t.Errorf("Rejected Audit Entry reason for PullForward = %q, want %q", entries[0].Reason, "session_scope_required")
 		}
 		preview, err := service.PreviewPullForward(t.Context(), producer, sessioncontrol.PreviewPullForwardInput{
 			EventID: eventID, SessionID: pfAnchor,
@@ -287,15 +307,32 @@ func TestPullForwardAndAdjustTargetEnforceRippledLaneScope(t *testing.T) {
 			t.Fatalf("start Adjust Target anchor: %v", err)
 		}
 		adjustment := sessioncontrol.TargetAdjustment{Duration: 45 * time.Minute}
-		if _, adjustErr := service.AdjustTarget(t.Context(), anchorOnly, sessioncontrol.AdjustTargetInput{
-			EventID: eventID, SessionID: atAnchor, CommandID: "refused-adjust-target-ripple",
-			Adjustment: adjustment,
-		}); !errors.Is(adjustErr, sessioncontrol.ErrSessionScopeRequired) {
+		adjustTarget := func() error {
+			_, adjustErr := service.AdjustTarget(t.Context(), anchorOnly, sessioncontrol.AdjustTargetInput{
+				EventID: eventID, SessionID: atAnchor, CommandID: "refused-adjust-target-ripple",
+				Adjustment: adjustment,
+			})
+			return adjustErr
+		}
+		if adjustErr := adjustTarget(); !errors.Is(adjustErr, sessioncontrol.ErrSessionScopeRequired) {
 			t.Fatalf(
 				"Adjust Target by an Operator holding only the anchor's Lane = %v, want %v "+
 					"(the rippled sibling's Lane must be demanded too)",
 				adjustErr, sessioncontrol.ErrSessionScopeRequired,
 			)
+		}
+		if adjustErr := adjustTarget(); !errors.Is(adjustErr, sessioncontrol.ErrSessionScopeRequired) {
+			t.Fatalf("retry of refused Adjust Target = %v, want the recorded refusal %v", adjustErr, sessioncontrol.ErrSessionScopeRequired)
+		}
+		entries := rejectedSessionControlAudits(t, storage, producer, "AdjustTarget")
+		if len(entries) != 1 {
+			t.Fatalf(
+				"Rejected Audit Entries for AdjustTarget = %d, want exactly one recorded refusal "+
+					"whose retry is answered from its Command Receipt", len(entries),
+			)
+		}
+		if entries[0].Reason != "session_scope_required" {
+			t.Errorf("Rejected Audit Entry reason for AdjustTarget = %q, want %q", entries[0].Reason, "session_scope_required")
 		}
 		preview, err := service.PreviewAdjustTarget(t.Context(), producer, sessioncontrol.PreviewAdjustTargetInput{
 			EventID: eventID, SessionID: atAnchor, Adjustment: adjustment,
