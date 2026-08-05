@@ -718,6 +718,10 @@ func (transaction *CommandTx) SupersedeCompetitionResultsDraft(
 	if err != nil {
 		return opaqueError("load Results Draft to supersede", err)
 	}
+	// Attribution, not authorization: the superseding revision records who
+	// caused it, and there is nobody to record without an acting Account. The
+	// Capability Table judged the command that reached here, so this refuses
+	// an unattributable write rather than an unauthorized one.
 	identity, ok := viewer.FromContext(ctx)
 	if !ok || identity.AccountID <= 0 {
 		return errors.New("supersede Results Draft: viewer context is missing")
