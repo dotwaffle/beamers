@@ -492,7 +492,7 @@ func (service *Service) PreviewAdjustTarget(
 	actor auth.Account,
 	input PreviewAdjustTargetInput,
 ) (TargetPreview, error) {
-	if !actor.CanOperateEvent(input.EventID) {
+	if !authz.Holds(actor.Identity(), input.EventID, authz.OperateSession) {
 		return TargetPreview{}, ErrOperatorRequired
 	}
 	found, err := service.storage.PreviewSessionTarget(
@@ -554,12 +554,6 @@ func (service *Service) AdjustTarget(
 			return targetAdjustmentResult(stored), nil
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[TargetAdjustmentResult], error) {
-			if !actor.CanOperateEvent(input.EventID) {
-				return timingCommandRejection(
-					TargetAdjustmentResult{}, State{}, store.LiveSessionState{},
-					"operator_required", ErrOperatorRequired,
-				)
-			}
 			stored, adjustErr := transaction.AdjustSessionTarget(
 				actor.Context(ctx),
 				store.AdjustSessionTargetParams{
@@ -599,7 +593,7 @@ func (service *Service) PreviewPullForward(
 	actor auth.Account,
 	input PreviewPullForwardInput,
 ) (PullForwardPreview, error) {
-	if !actor.CanOperateEvent(input.EventID) {
+	if !authz.Holds(actor.Identity(), input.EventID, authz.OperateSession) {
 		return PullForwardPreview{}, ErrOperatorRequired
 	}
 	found, err := service.storage.PreviewPullForward(
@@ -651,12 +645,6 @@ func (service *Service) PullForward(
 			return pullForwardResult(stored), nil
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[PullForwardResult], error) {
-			if !actor.CanOperateEvent(input.EventID) {
-				return timingCommandRejection(
-					PullForwardResult{}, State{}, store.LiveSessionState{},
-					"operator_required", ErrOperatorRequired,
-				)
-			}
 			stored, pullErr := transaction.PullForward(actor.Context(ctx), store.PullForwardParams{
 				EventID: input.EventID, SessionID: input.SessionID,
 				ExpectedRevision:   input.ExpectedLiveStateRevision,
@@ -687,7 +675,7 @@ func (service *Service) PreviewReinstate(
 	actor auth.Account,
 	input PreviewReinstateInput,
 ) (ReinstatePreview, error) {
-	if !actor.CanOperateEvent(input.EventID) {
+	if !authz.Holds(actor.Identity(), input.EventID, authz.OperateSession) {
 		return ReinstatePreview{}, ErrOperatorRequired
 	}
 	found, err := service.storage.PreviewReinstateSession(
@@ -741,12 +729,6 @@ func (service *Service) Reinstate(
 			return reinstateResult(stored), nil
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[ReinstateResult], error) {
-			if !actor.CanOperateEvent(input.EventID) {
-				return timingCommandRejection(
-					ReinstateResult{}, State{}, store.LiveSessionState{},
-					"operator_required", ErrOperatorRequired,
-				)
-			}
 			stored, reinstateErr := transaction.ReinstateSession(
 				actor.Context(ctx),
 				store.ReinstateSessionParams{
@@ -828,9 +810,6 @@ func (service *Service) CorrectLiveDetails(
 					Correction{}, store.LiveDetailCorrection{},
 					"live_detail_fields_invalid", validateErr,
 				)
-			}
-			if !actor.CanOperateEvent(input.EventID) {
-				return correctionRejection(Correction{}, store.LiveDetailCorrection{}, "operator_required", ErrOperatorRequired)
 			}
 			stored, correctionErr := transaction.CorrectLiveDetails(actor.Context(ctx), store.LiveDetailCorrectionParams{
 				EventID: input.EventID, SessionID: input.SessionID, ActorAccountID: actor.ID,
@@ -1158,9 +1137,6 @@ func (service *Service) execute(
 			return state(original), nil
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[State], error) {
-			if !actor.CanOperateEvent(input.EventID) {
-				return sessionRejection(State{}, store.LiveSessionState{}, "operator_required", ErrOperatorRequired)
-			}
 			stored, transitionErr := transition(transaction, identity.Now)
 			if transitionErr != nil {
 				code, rejected := rejectionCode(transitionErr)

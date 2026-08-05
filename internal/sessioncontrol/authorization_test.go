@@ -122,6 +122,87 @@ func TestSessionCommandsRefuseOperatorOutsideSessionLaneScope(t *testing.T) {
 	})
 }
 
+// TestSessionCommandsRefuseActorWithoutOperateSession pins the capability
+// half of the Session rows now that the imperative in-Apply Operator guards
+// are deleted: a Crew Member with no live-control authority at all — here an
+// Observer — must be refused by the Capability Table's evaluator on every
+// mutating Session command, with the operator_required code the old guards
+// produced and a Rejected Audit Entry recording it.
+func TestSessionCommandsRefuseActorWithoutOperateSession(t *testing.T) {
+	storage, producer, eventID := openSessionControlTest(t)
+	sessions := publishSessionControlRundown(t, storage, producer, eventID)
+	activateSessionControlEvent(t, storage, producer, eventID)
+	service := newSessionControlService(t, storage)
+
+	observer := producer
+	observer.Administrator = false
+	observer.EventRoles = map[int]viewer.Role{eventID: viewer.Observer}
+	observer.EventScopes = nil
+
+	primary := sessions["primary"]
+	refusals := []struct {
+		action string
+		refuse func() error
+	}{
+		{action: "StartSession", refuse: func() error {
+			_, err := service.Start(t.Context(), observer, sessioncontrol.StartInput{
+				EventID: eventID, SessionID: primary, CommandID: "observer-start",
+			})
+			return err
+		}},
+		{action: "CancelSession", refuse: func() error {
+			_, err := service.Cancel(t.Context(), observer, sessioncontrol.CancelInput{
+				EventID: eventID, SessionID: primary, CommandID: "observer-cancel",
+				Confirmed: true,
+			})
+			return err
+		}},
+		{action: "AdjustTarget", refuse: func() error {
+			_, err := service.AdjustTarget(t.Context(), observer, sessioncontrol.AdjustTargetInput{
+				EventID: eventID, SessionID: primary, CommandID: "observer-adjust-target",
+				Adjustment: sessioncontrol.TargetAdjustment{Duration: 5 * time.Minute},
+			})
+			return err
+		}},
+		{action: "CorrectLiveDetails", refuse: func() error {
+			_, err := service.CorrectLiveDetails(t.Context(), observer, sessioncontrol.CorrectLiveDetailsInput{
+				EventID: eventID, SessionID: primary, CommandID: "observer-correct-live-details",
+				Confirmed: true, Title: "New Title", UpdateFields: []string{"title"},
+			})
+			return err
+		}},
+		{action: "EndSession", refuse: func() error {
+			_, err := service.End(t.Context(), observer, sessioncontrol.EndInput{
+				EventID: eventID, SessionID: primary, CommandID: "observer-end",
+			})
+			return err
+		}},
+		{action: "PullForward", refuse: func() error {
+			_, err := service.PullForward(t.Context(), observer, sessioncontrol.PullForwardInput{
+				EventID: eventID, SessionID: primary, CommandID: "observer-pull-forward",
+			})
+			return err
+		}},
+	}
+	for _, refusal := range refusals {
+		t.Run(refusal.action, func(t *testing.T) {
+			if err := refusal.refuse(); !errors.Is(err, sessioncontrol.ErrOperatorRequired) {
+				t.Fatalf("refused %s = %v, want %v", refusal.action, err, sessioncontrol.ErrOperatorRequired)
+			}
+			entries := rejectedSessionControlAudits(t, storage, producer, refusal.action)
+			if len(entries) != 1 {
+				t.Fatalf("Rejected Audit Entries for %s = %d, want exactly one", refusal.action, len(entries))
+			}
+			if entries[0].Reason != "operator_required" {
+				t.Errorf(
+					"Rejected Audit Entry reason for %s = %q, want %q",
+					refusal.action, entries[0].Reason, "operator_required",
+				)
+			}
+		})
+	}
+}
+
 // TestReinstateSessionGainsLaneScope is the D5 regression test: Matt's
 // decision on issue #239 is that Reinstate Session gains the same
 // Lanes-of-target scope as its siblings, replacing the CanProduceEvent-only
