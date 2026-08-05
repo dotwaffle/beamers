@@ -28,3 +28,18 @@ Append-only guarantees for published versions and Results Publications are an in
 Rollout is read, then specify, then migrate: first a systematic end-to-end read of the imperative layer produces the capability enum and a reviewable draft table, then the evaluator and named actors land mirroring existing behavior under parity tests, then the old checks are removed in bisectable per-area changes.
 
 This completes the end state ADR 0059 defined, and serves ADR 0013 and ADR 0040 by making every authorization refusal on the command path produce the evidence those decisions require.
+
+## As landed
+
+The program shipped in tickets 234 through 242, and two mechanisms deviate from the text above; the decisions themselves are unchanged.
+
+First, no allow decision is minted anywhere.
+The plan to route every system caller through one constructor wrapping `privacy.DecisionContext` was dropped, because Ent evaluates an explicit context decision before any policy rule, so a bare allow decision would wave past the tripwire it exists to serve.
+Instead `internal/systemactor` names the actor in the context, and the tripwire enforces naming from three independent positions — the privacy policy, an unconditional mutation hook, and a query interceptor — so neither queries nor mutations can proceed unnamed, and a walking test holds `privacy.DecisionContext` to zero call sites.
+Every exported store entrypoint declares the actor classes it accepts in one hand-maintained map checked at the boundary.
+
+Second, `UploadAttachment` did not stay split.
+One row serves both callers: the crew path demands `ManageAttachments` through the row's `TargetCapabilities`, and the account-holder path is admitted by the table unconditionally because its rule is upload-target ownership, which the store enforces as a domain invariant.
+
+The discrepancy resolutions the draft table deferred were decided as follows: Program Channel commands are judged by the Display Group keys of the Channel's consuming Displays (D3); live Competition Entry actions are judged by the Lanes of the Entry's Session (D4), including Reinstate, which regained the Lane scope it had lost (D5); indirect Override targets resolve to the Display Groups of their consuming Displays rather than to synthetic keys (D6); the degraded Emergency Alert path asks the same `authz.Holds` and `authz.InScope` questions the table asks (D8); every refusal the draft found evidence-free is now a durable rejection on the command path (D9); and the Producer floors layered over `ManageResults` rows are gone, so a grant suffices (D13).
+A walking test now fails any file outside the viewer, auth, authz, and server packages that asks a viewer authority predicate directly, which is what keeps the table the sole authority.

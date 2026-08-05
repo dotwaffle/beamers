@@ -779,9 +779,6 @@ func (service *Service) Assign(
 		},
 		Replay: replayAssignment,
 		Apply: func(transaction *store.CommandTx) (command.Execution[Assignment], error) {
-			if !actor.Administrator {
-				return assignmentRejection(ErrAdministratorRequired), nil
-			}
 			if input.DisplayID <= 0 || input.EventID <= 0 || input.LocationID <= 0 ||
 				!displayviews.IsNormal(input.ViewKey) ||
 				!ValidDisplayGroupKeys(input.DisplayGroupKeys) {
@@ -842,9 +839,6 @@ func (service *Service) ClaimEnrollment(
 		},
 		Replay: replayDisplay,
 		Apply: func(transaction *store.CommandTx) (command.Execution[Display], error) {
-			if !actor.Administrator {
-				return displayRejection(ErrAdministratorRequired), nil
-			}
 			if !validEnrollmentCode(code) ||
 				input.DisplayID < 0 ||
 				input.DisplayID == 0 && !ValidDisplayName(name) {

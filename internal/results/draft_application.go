@@ -137,9 +137,6 @@ func (service *Service) MarkReady(
 	if err := validateMarkReadyInput(input); err != nil {
 		return Draft{}, err
 	}
-	if !actor.CanProduceEvent(input.EventID) {
-		return Draft{}, ErrProducerRequired
-	}
 	payload, err := json.Marshal(input)
 	if err != nil {
 		return Draft{}, errors.New("encode Results review command")
@@ -168,9 +165,6 @@ func (service *Service) MarkReady(
 			return draft(stored), nil
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[Draft], error) {
-			if !actor.CanProduceEvent(input.EventID) {
-				return command.Execution[Draft]{}, ErrProducerRequired
-			}
 			current, storedEntries, loadErr := transaction.LoadCompetitionResultsReviewState(
 				actor.Context(ctx), input.EventID, input.SessionID,
 			)

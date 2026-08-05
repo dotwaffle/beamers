@@ -905,8 +905,9 @@ func TestCrewConfiguresCompetitionEntryOrder(t *testing.T) {
 func TestControlOwnerTakesCompetitionEntryToDurableProgramOutput(t *testing.T) {
 	administrator, server := startAuthenticatedAdministrator(t)
 	prepareActiveSchedule(t, administrator, server)
-	displayClient := enrollAndAssignDisplay(
+	displayClient := enrollAndAssignGroupedDisplay(
 		t, administrator, server, "Competition Display", "competition-output",
+		[]string{"program"},
 	)
 	competitionID, _ := addCompetitionSession(t, administrator, server)
 	competitionClient := connectClient(competitionv1connect.NewCompetitionServiceClient, administrator, server.address)
@@ -1051,7 +1052,7 @@ func TestControlOwnerTakesCompetitionEntryToDurableProgramOutput(t *testing.T) {
 		applied.Msg.GetChannel().GetConsumingDisplays()[0].GetDeliveryState() != "applied" {
 		t.Fatalf("applied consuming Display = %+v, %v", applied, err)
 	}
-	operator := provisionOperator(t, administrator, server)
+	operator := provisionOperatorWithScopes(t, administrator, server, []int{1}, []string{"program"})
 	observer := provisionObserver(t, administrator, server)
 	operatorProgram := connectClient(programv1connect.NewProgramControlServiceClient, operator, server.address)
 	observerProgram := connectClient(programv1connect.NewProgramControlServiceClient, observer, server.address)

@@ -129,9 +129,6 @@ func (service *Service) SavePrizegivingPlan(
 	if err := validateSavePrizegivingPlanInput(input); err != nil {
 		return PrizegivingPlan{}, err
 	}
-	if !actor.CanProduceEvent(input.EventID) {
-		return PrizegivingPlan{}, ErrProducerRequired
-	}
 	payload, err := json.Marshal(input)
 	if err != nil {
 		return PrizegivingPlan{}, errors.New("encode Prizegiving plan command")
@@ -207,9 +204,6 @@ func (service *Service) RunPrizegivingPreflight(
 ) (PrizegivingPreflight, error) {
 	if err := validateRunPrizegivingPreflightInput(input); err != nil {
 		return PrizegivingPreflight{}, err
-	}
-	if !actor.CanProduceEvent(input.EventID) {
-		return PrizegivingPreflight{}, ErrProducerRequired
 	}
 	payload, err := json.Marshal(input)
 	if err != nil {

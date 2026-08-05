@@ -232,9 +232,6 @@ func (service *Service) ConfigureStageMessages(
 			if validationErr != nil {
 				return StageMessageConfiguration{}, validationErr
 			}
-			if !actor.CanProduceEvent(input.EventID) {
-				return StageMessageConfiguration{}, ErrProducerRequired
-			}
 			return transaction.ConfigureStageMessages(
 				actor.Context(ctx),
 				store.ConfigureStageMessagesParams{

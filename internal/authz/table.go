@@ -46,15 +46,15 @@ const (
 	codeSessionScopeRequired     = "session_scope_required"
 	codeOverrideScopeDenied      = "override_scope_denied"
 	codeManageResultsRequired    = "manage_results_required"
-	noteProgramChannelScope      = "D3: programcontrol authorizes Event-wide through CanOperateEvent and consults no EventScope. The draft proposes DisplayGroups-of-target, resolving the Program Channel to its consuming Displays; that narrows authority and needs a decision."
-	noteCompetitionEntryScope    = "D4: live Competition Entry actions authorize Event-wide where the analogous Session actions are Lane-scoped. The draft proposes Lanes-of-target; that narrows authority and needs a decision."
-	noteCompetitionEntryProducer = "D4: this action's guard is CanProduceEvent today, so an Operator is refused by the imperative check even though the row's Capability admits one. The row is no stricter than today; the decision that resolves D4 also settles which authority is right."
+	noteProgramChannelScope      = "D3, resolved: a Program Channel command is judged by the Display Group keys of the Displays currently consuming the channel, resolved at plan time, so repointing the channel changes who may operate it. A channel feeding no keyed Display is operable only by a Producer, matching the D6 override rule over the same targets."
+	noteCompetitionEntryScope    = "D4, resolved: a live Competition Entry action is judged by the Lanes of the Entry's Competition Session, the same dimension the analogous Session actions use."
+	noteCompetitionEntryProducer = "D4, resolved: the CanProduceEvent guard this action carried is gone, so an Operator whose Lane grant covers the Competition Session may act, which is the authority the row's Capability always named. The durable code is unchanged for parity."
 	noteOverrideTargetKey        = "D6, resolved: a Program Channel Override target expands at plan time to the Display Group keys of the Displays consuming it, so repointing the channel changes who may override it. Location and Display targets remain judged by the synthetic key displayOverrideTargetKey builds, which the decision left unchanged."
 	noteOverrideTargetRule       = "D7: Stage Message and Technical Difficulties targets are judged by literal Display Group key today, Urgent Notice and Clear by target. Both are literal keys in practice, so one rule here is parity-preserving."
-	noteDegradedEmergency        = "D8: the degraded Emergency Alert path decides this rule a second time in memory at capture time and persists only the outcome. One row now covers both paths; the in-memory copy is deleted with its area in Stage 3."
-	noteUploadCallers            = "D8/D9: UploadAttachment is reached by a crew caller guarded by CanProduceEvent before Execute and by an account holder whose rule is upload-target ownership. One action name takes one row, and the row must admit the account holder, so the crew Capability stays with the pre-Execute guard until Stage 3."
-	noteResultsProducerGuard     = "D13: this action is guarded by CanProduceEvent rather than by the ManageResults Capability the row names, so an Operator holding a ManageResults grant is refused by the imperative check. The row is no stricter than today."
-	noteEvidenceGap              = "D9: refused before Execute today, so the refusal leaves no Command Receipt and no Audit Entry. The row makes the refusal evidential once Stage 3 deletes the pre-Execute guard."
+	noteDegradedEmergency        = "D8, resolved: the degraded Emergency Alert path decides this rule in memory at capture time and persists only the outcome, but it now asks the same authz.Holds and authz.InScope questions this row asks, so the two paths cannot drift."
+	noteUploadCallers            = "D9, resolved: UploadAttachment is reached by a crew caller and by an account holder whose rule is upload-target ownership. The row admits the account holder unconditionally — the store enforces ownership — while the crew caller demands ManageAttachments through TargetCapabilities, replacing the CanProduceEvent guard that gated it before Execute."
+	noteResultsProducerGuard     = "D13, resolved: the CanProduceEvent guard this action carried is gone, so a ManageResults grant suffices and a Producer keeps access through role expansion. The durable code is unchanged for parity."
+	noteEvidenceGap              = "D9, resolved: this refusal happened before Execute and left no Command Receipt and no Audit Entry. The pre-Execute guard is gone, so the row now refuses on the command path and the refusal is evidential."
 )
 
 // table is the Capability Table. Rows are grouped by area in the same order as
@@ -104,19 +104,19 @@ var table = []Row{
 	{Action: "ReinstateSession", Capabilities: []Capability{OperateSession}, Scope: ScopeLanes, Code: codeOperatorRequired, ScopeCode: codeSessionScopeRequired},
 
 	// Program Channel control.
-	{Action: "TakeProgramOutput", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeEvent, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
-	{Action: "SelectProgramPreview", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeEvent, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
-	{Action: "ChangeProgramControlClaim", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeEvent, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
-	{Action: "ChangeProgramControlRequestHandover", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeEvent, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
-	{Action: "ChangeProgramControlHandover", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeEvent, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
-	{Action: "ChangeProgramControlTakeover", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeEvent, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
-	{Action: "ChangeProgramControlDisconnect", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeEvent, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
-	{Action: "ActOnPrizegivingResultReveal", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeEvent, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
-	{Action: "ActOnPrizegivingResultReplayReveal", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeEvent, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
-	{Action: "ActOnPrizegivingResultSkipToFinal", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeEvent, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
-	{Action: "ActOnPrizegivingResultSkipFromStage", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeEvent, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
-	{Action: "DeferCompetitionEntry", Capabilities: []Capability{OperateCompetitionEntry}, Scope: ScopeEvent, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteCompetitionEntryScope},
-	{Action: "ReconcileProgressiveResultsPublication", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeEvent, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
+	{Action: "TakeProgramOutput", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeDisplayGroups, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
+	{Action: "SelectProgramPreview", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeDisplayGroups, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
+	{Action: "ChangeProgramControlClaim", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeDisplayGroups, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
+	{Action: "ChangeProgramControlRequestHandover", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeDisplayGroups, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
+	{Action: "ChangeProgramControlHandover", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeDisplayGroups, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
+	{Action: "ChangeProgramControlTakeover", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeDisplayGroups, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
+	{Action: "ChangeProgramControlDisconnect", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeDisplayGroups, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
+	{Action: "ActOnPrizegivingResultReveal", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeDisplayGroups, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
+	{Action: "ActOnPrizegivingResultReplayReveal", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeDisplayGroups, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
+	{Action: "ActOnPrizegivingResultSkipToFinal", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeDisplayGroups, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
+	{Action: "ActOnPrizegivingResultSkipFromStage", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeDisplayGroups, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
+	{Action: "DeferCompetitionEntry", Capabilities: []Capability{OperateCompetitionEntry}, Scope: ScopeLanes, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteCompetitionEntryScope},
+	{Action: "ReconcileProgressiveResultsPublication", Capabilities: []Capability{OperateProgramChannel}, Scope: ScopeDisplayGroups, Code: codeProgramOperatorRequired, ScopeCode: codeProgramOperatorRequired, Note: noteProgramChannelScope},
 
 	// Display Overrides.
 	{Action: "ConfigureStageMessages", Capabilities: []Capability{ConfigureOverrides}, Scope: ScopeEvent, Code: codeProducerRequired, ScopeCode: codeProducerRequired},
@@ -136,9 +136,9 @@ var table = []Row{
 	{Action: "AssignCompetitionEntrySubmitter", Capabilities: []Capability{ConfigureCompetition}, Scope: ScopeEvent, Code: codeProducerRequired, ScopeCode: codeProducerRequired},
 	{Action: "ChangeCompetitionEntryDisposition", Capabilities: []Capability{ConfigureCompetition}, Scope: ScopeEvent, Code: codeProducerRequired, ScopeCode: codeProducerRequired},
 	{Action: "ReviewCompetitionEntry", Capabilities: []Capability{ConfigureCompetition}, Scope: ScopeEvent, Code: codeProducerRequired, ScopeCode: codeProducerRequired},
-	{Action: "ResolveCompetitionEntry", Capabilities: []Capability{OperateCompetitionEntry}, Scope: ScopeEvent, Code: codeProducerRequired, ScopeCode: codeProducerRequired, Note: noteCompetitionEntryProducer},
-	{Action: "SetCompetitionEntryReleaseHold", Capabilities: []Capability{OperateCompetitionEntry}, Scope: ScopeEvent, Code: codeProducerRequired, ScopeCode: codeProducerRequired, Note: noteCompetitionEntryProducer},
-	{Action: "RecordCompetitionTechnicalFailure", Capabilities: []Capability{OperateCompetitionEntry}, Scope: ScopeEvent, Code: codeOperatorRequired, ScopeCode: codeOperatorRequired, Note: noteCompetitionEntryScope},
+	{Action: "ResolveCompetitionEntry", Capabilities: []Capability{OperateCompetitionEntry}, Scope: ScopeLanes, Code: codeProducerRequired, ScopeCode: codeProducerRequired, Note: noteCompetitionEntryProducer},
+	{Action: "SetCompetitionEntryReleaseHold", Capabilities: []Capability{OperateCompetitionEntry}, Scope: ScopeLanes, Code: codeProducerRequired, ScopeCode: codeProducerRequired, Note: noteCompetitionEntryProducer},
+	{Action: "RecordCompetitionTechnicalFailure", Capabilities: []Capability{OperateCompetitionEntry}, Scope: ScopeLanes, Code: codeOperatorRequired, ScopeCode: codeOperatorRequired, Note: noteCompetitionEntryScope},
 	{Action: "CreateSubmittedCompetitionEntry", Scope: ScopeNone},
 	{Action: "UpdateSubmittedCompetitionEntry", Scope: ScopeNone},
 
@@ -162,7 +162,7 @@ var table = []Row{
 	{Action: "ReviewResultsCorrection", Capabilities: []Capability{ManageResults}, Scope: ScopeEvent, Code: codeProducerRequired, ScopeCode: codeProducerRequired, Note: noteResultsProducerGuard},
 
 	// Attachments and Reopen Windows.
-	{Action: "UploadAttachment", Scope: ScopeNone, Note: noteUploadCallers},
+	{Action: "UploadAttachment", TargetCapabilities: []Capability{ManageAttachments}, Scope: ScopeEvent, Code: codeProducerRequired, ScopeCode: codeProducerRequired, Note: noteUploadCallers},
 	{Action: "ConfigureEventAttachmentRelease", Capabilities: []Capability{ManageAttachments}, Scope: ScopeEvent, Code: codeProducerRequired, ScopeCode: codeProducerRequired},
 	{Action: "ConfigureCompetitionAttachmentRelease", Capabilities: []Capability{ManageAttachments}, Scope: ScopeEvent, Code: codeProducerRequired, ScopeCode: codeProducerRequired},
 	{Action: "SetAttachmentVersionRelease", Capabilities: []Capability{ManageAttachments}, Scope: ScopeEvent, Code: codeProducerRequired, ScopeCode: codeProducerRequired},

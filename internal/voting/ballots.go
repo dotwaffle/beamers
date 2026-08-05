@@ -59,9 +59,6 @@ func (service *Service) Configure(
 	actor auth.Account,
 	input ConfigureInput,
 ) (Window, error) {
-	if !actor.CanProduceEvent(input.EventID) {
-		return Window{}, ErrProducerRequired
-	}
 	if err := validateConfigure(input); err != nil {
 		return Window{}, err
 	}
@@ -131,9 +128,6 @@ func (service *Service) changeWindow(
 	input WindowInput,
 	open bool,
 ) (Window, error) {
-	if !actor.CanProduceEvent(input.EventID) {
-		return Window{}, ErrProducerRequired
-	}
 	if err := command.ValidateID(input.CommandID); err != nil ||
 		input.EventID <= 0 || input.SessionID <= 0 || input.ExpectedRevision < 0 {
 		return Window{}, ErrInvalidInput

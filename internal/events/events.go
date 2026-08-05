@@ -228,9 +228,6 @@ func (service *Service) Create(
 			Facts: authz.Installation(), Refusals: eventRejections,
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[Event], error) {
-			if !actor.Administrator {
-				return eventRejection[Event](ErrAdministratorRequired), nil
-			}
 			if input.Public {
 				return eventRejection[Event](
 					invalid("public", "must be changed by a Producer after Event creation"),
@@ -271,7 +268,7 @@ func (service *Service) List(
 	ctx context.Context,
 	actor auth.Account,
 ) ([]Event, error) {
-	if !actor.Administrator {
+	if !authz.Holds(actor.Identity(), 0, authz.AdministerEvents) {
 		return nil, ErrAdministratorRequired
 	}
 	found, err := service.storage.ListEvents(actor.Context(ctx))
@@ -321,7 +318,7 @@ func (service *Service) ListEventSlugAliases(
 	ctx context.Context,
 	actor auth.Account,
 ) ([]EventSlugAlias, error) {
-	if !actor.Administrator {
+	if !authz.Holds(actor.Identity(), 0, authz.AdministerEvents) {
 		return nil, ErrAdministratorRequired
 	}
 	found, err := service.storage.ListEventSlugAliases(actor.Context(ctx))
@@ -359,9 +356,6 @@ func (service *Service) PruneEventSlugAlias(
 			Facts: authz.Installation(), Refusals: eventRejections,
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[EventSlugAlias], error) {
-			if !actor.Administrator {
-				return eventRejection[EventSlugAlias](ErrAdministratorRequired), nil
-			}
 			if !confirmed {
 				return eventRejection[EventSlugAlias](
 					ErrEventSlugPruneConfirmationRequired,
@@ -390,7 +384,7 @@ func (service *Service) ListGrants(
 	ctx context.Context,
 	actor auth.Account,
 ) ([]Grant, error) {
-	if !actor.Administrator {
+	if !authz.Holds(actor.Identity(), 0, authz.AdministerEvents) {
 		return nil, ErrAdministratorRequired
 	}
 	found, err := service.storage.ListEventGrants(actor.Context(ctx))
@@ -444,9 +438,6 @@ func (service *Service) GrantScopedEventAccess(
 			Facts: authz.Installation(), Refusals: eventRejections,
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[Grant], error) {
-			if !actor.Administrator {
-				return eventRejection[Grant](ErrAdministratorRequired), nil
-			}
 			normalized, validationErr := validateGrantInput(input)
 			if validationErr != nil {
 				return eventRejection[Grant](validationErr), nil
@@ -540,9 +531,6 @@ func (service *Service) Update(
 			Facts: authz.Event(eventID), Refusals: eventRejections,
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[Event], error) {
-			if !actor.CanProduceEvent(eventID) {
-				return eventRejection[Event](ErrEventAccessDenied), nil
-			}
 			normalized, validationErr := ValidateCreateInput(input)
 			if validationErr != nil {
 				return eventRejection[Event](validationErr), nil
@@ -648,9 +636,6 @@ func (service *Service) ConfigureDisplays(
 			Facts: authz.Event(eventID), Refusals: eventRejections,
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[DisplayConfiguration], error) {
-			if !actor.CanProduceEvent(eventID) {
-				return eventRejection[DisplayConfiguration](ErrEventAccessDenied), nil
-			}
 			updated, updateErr := transaction.UpdateDisplayConfiguration(
 				actor.Context(ctx),
 				store.UpdateDisplayConfigurationParams{

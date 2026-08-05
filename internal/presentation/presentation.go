@@ -108,7 +108,7 @@ func (service *Service) Get(
 	if eventID <= 0 || sessionID <= 0 {
 		return State{}, ErrInvalidInput
 	}
-	if !actor.CanProduceEvent(eventID) {
+	if !authz.Holds(actor.Identity(), eventID, authz.ManagePresentations) {
 		return State{}, ErrProducerRequired
 	}
 	stored, err := service.storage.LoadPresentationSubmission(
@@ -153,7 +153,7 @@ func (service *Service) AssignableAccounts(
 	if eventID <= 0 {
 		return nil, ErrInvalidInput
 	}
-	if !actor.CanProduceEvent(eventID) {
+	if !authz.Holds(actor.Identity(), eventID, authz.ManagePresentations) {
 		return nil, ErrProducerRequired
 	}
 	return service.storage.ListSubmissionAccounts(actor.Context(ctx))
@@ -183,8 +183,8 @@ func (service *Service) AssignSubmitter(
 		input.CommandID,
 		"AssignPresentationSubmitter",
 		input,
-		actor.CanProduceEvent(input.EventID),
-		ErrProducerRequired,
+		true,
+		nil,
 		authz.Event(input.EventID),
 		"Submitter Account #"+strconv.Itoa(input.AccountID),
 		nil,

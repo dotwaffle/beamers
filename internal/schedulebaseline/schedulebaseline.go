@@ -97,7 +97,7 @@ func (queries *Queries) Preview(
 	actor auth.Account,
 	eventID int,
 ) (Preview, error) {
-	if !actor.CanProduceEvent(eventID) {
+	if !authz.Holds(actor.Identity(), eventID, authz.CaptureScheduleBaseline) {
 		return Preview{}, ErrProducerRequired
 	}
 	state, err := queries.storage.LoadPublicScheduleBaselineState(actor.Context(ctx), eventID)
@@ -184,7 +184,7 @@ func (commands *Commands) applyCapture(
 	identity store.CommandIdentity,
 	transaction *store.CommandTx,
 ) (command.Execution[CaptureResult], error) {
-	if err := validateCapture(actor.Context(ctx), actor, input, transaction); err != nil {
+	if err := validateCapture(actor.Context(ctx), input, transaction); err != nil {
 		if rejection, rejected := captureRejectionFor(err); rejected {
 			return captureRejection(rejection.code, rejection.reason), nil
 		}
@@ -208,13 +208,9 @@ func (commands *Commands) applyCapture(
 
 func validateCapture(
 	ctx context.Context,
-	actor auth.Account,
 	input CaptureInput,
 	transaction *store.CommandTx,
 ) error {
-	if !actor.CanProduceEvent(input.EventID) {
-		return ErrProducerRequired
-	}
 	state, err := transaction.LoadPublicScheduleBaselineState(ctx, input.EventID)
 	if err != nil {
 		return err

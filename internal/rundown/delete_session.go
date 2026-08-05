@@ -66,9 +66,6 @@ func (commands *Commands) DeleteDraftSession(
 			Facts: authz.Event(input.EventID), Refusals: rundownAuthorizationRejections,
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[DeleteDraftSessionResult], error) {
-			if !actor.CanProduceEvent(input.EventID) {
-				return deleteDraftSessionRejection(rejection{Code: "event_access_denied", Message: ErrEventAccessDenied.Error()})
-			}
 			stored, deleteErr := transaction.DeleteDraftSession(actor.Context(ctx), store.DeleteDraftSessionParams{
 				EventID: input.EventID, SessionID: input.SessionID, ExpectedDraftRevision: input.ExpectedDraftRevision,
 			})

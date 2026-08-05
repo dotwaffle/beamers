@@ -1732,6 +1732,10 @@ func TestBrowserDefersAndResolvesCompetitionEntries(t *testing.T) {
 		return http.ErrUseLastResponse
 	}
 	prepareActiveSchedule(t, administrator, server)
+	enrollAndAssignGroupedDisplay(
+		t, administrator, server, "Competition Display", "competition-output",
+		[]string{"program"},
+	)
 	competitionID, _ := addCompetitionSession(t, administrator, server)
 	path := "/backstage/events/1/competitions/" +
 		strconv.FormatInt(competitionID, 10) + "/entries"
@@ -1772,7 +1776,9 @@ func TestBrowserDefersAndResolvesCompetitionEntries(t *testing.T) {
 	if started.status != http.StatusSeeOther {
 		t.Fatalf("start browser Competition = %d %q", started.status, started.body)
 	}
-	operator := provisionOperator(t, administrator, server)
+	operator := provisionOperatorWithScopes(
+		t, administrator, server, []int{1}, []string{"program"},
+	)
 	operator.CheckRedirect = func(*http.Request, []*http.Request) error {
 		return http.ErrUseLastResponse
 	}

@@ -101,7 +101,7 @@ func (service *Service) Preflight(
 	actor auth.Account,
 	eventID int,
 ) (Preflight, error) {
-	if !actor.Administrator {
+	if !authz.Holds(actor.Identity(), 0, authz.AdministerActiveEvent) {
 		return Preflight{}, ErrAdministratorRequired
 	}
 	state, err := service.storage.LoadActivationPreflight(actor.Context(ctx), eventID)
@@ -144,9 +144,6 @@ func (service *Service) Activate(
 			return result, nil
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[ActiveEvent], error) {
-			if !actor.Administrator {
-				return activationRejection(ErrAdministratorRequired), nil
-			}
 			state, loadErr := transaction.LoadActivationPreflight(actor.Context(ctx), input.EventID)
 			if errors.Is(loadErr, ErrEventNotFound) {
 				return activationRejection(ErrEventNotFound), nil
@@ -193,7 +190,7 @@ func (service *Service) notifyProjections() {
 
 // ActiveEvent returns current live authority routing to an Administrator.
 func (service *Service) ActiveEvent(ctx context.Context, actor auth.Account) (ActiveEvent, error) {
-	if !actor.Administrator {
+	if !authz.Holds(actor.Identity(), 0, authz.AdministerActiveEvent) {
 		return ActiveEvent{}, ErrAdministratorRequired
 	}
 	found, err := service.storage.LoadActiveEvent(actor.Context(ctx))

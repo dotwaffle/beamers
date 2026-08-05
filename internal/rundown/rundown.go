@@ -295,9 +295,6 @@ func (commands *Commands) EditDraft(
 			Facts: authz.Event(input.EventID), Refusals: rundownAuthorizationRejections,
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[EditDraftResult], error) {
-			if !actor.CanProduceEvent(input.EventID) {
-				return editDraftRejection(rejection{Code: "event_access_denied", Message: ErrEventAccessDenied.Error()})
-			}
 			normalized, validationErr := ValidateEditDraft(input)
 			if validationErr != nil {
 				var invalid *ValidationError

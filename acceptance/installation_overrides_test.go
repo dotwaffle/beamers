@@ -31,6 +31,21 @@ func enrollAndAssignDisplay(
 	viewKey string,
 ) *http.Client {
 	t.Helper()
+	return enrollAndAssignGroupedDisplay(t, administrator, server, name, viewKey, nil)
+}
+
+// enrollAndAssignGroupedDisplay assigns the Display with Display Group keys,
+// which is what lets an Operator's Display Group grant reach the Program
+// Channel the Display consumes.
+func enrollAndAssignGroupedDisplay(
+	t *testing.T,
+	administrator *http.Client,
+	server *runningServer,
+	name string,
+	viewKey string,
+	groupKeys []string,
+) *http.Client {
+	t.Helper()
 	displayClient := authenticatedClient(t)
 	enrollment := get(t, displayClient, server.address, "/display")
 	body, readErr := io.ReadAll(enrollment.Body)
@@ -49,17 +64,28 @@ func enrollAndAssignDisplay(
 	if claimed.StatusCode != http.StatusCreated {
 		t.Fatalf("claim Display = %d, want %d", claimed.StatusCode, http.StatusCreated)
 	}
+	assignment := map[string]any{
+		"event_id": 1, "location_id": 1, "view_key": viewKey,
+		"command_id": "assign-snapshot-display",
+	}
+	want := fmt.Sprintf(
+		"{\"display_id\":1,\"event_id\":1,\"location_id\":1,\"view_key\":%q}\n",
+		viewKey,
+	)
+	if len(groupKeys) > 0 {
+		assignment["display_group_keys"] = groupKeys
+		encodedKeys, err := json.Marshal(groupKeys)
+		if err != nil {
+			t.Fatalf("encode Display Group keys: %v", err)
+		}
+		want = fmt.Sprintf(
+			"{\"display_id\":1,\"event_id\":1,\"location_id\":1,\"view_key\":%q,\"display_group_keys\":%s}\n",
+			viewKey, encodedKeys,
+		)
+	}
 	assertJSONRequest(
 		t, administrator, server.address, "/admin/displays/1/assign",
-		map[string]any{
-			"event_id": 1, "location_id": 1, "view_key": viewKey,
-			"command_id": "assign-snapshot-display",
-		},
-		http.StatusOK,
-		fmt.Sprintf(
-			"{\"display_id\":1,\"event_id\":1,\"location_id\":1,\"view_key\":%q}\n",
-			viewKey,
-		),
+		assignment, http.StatusOK, want,
 	)
 	return displayClient
 }
