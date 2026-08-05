@@ -91,7 +91,7 @@ func (service *Service) Active(ctx context.Context) (Revision, error) {
 
 // List returns every immutable Draft plus the built-in base Revision.
 func (service *Service) List(ctx context.Context, actor auth.Account) ([]Revision, error) {
-	if !actor.Administrator {
+	if !authz.Holds(actor.Identity(), 0, authz.AdministerInstallationThemes) {
 		return nil, ErrAdministratorRequired
 	}
 	found, err := service.storage.ListInstallationThemeRevisions(actor.Context(ctx))
@@ -116,7 +116,7 @@ func (service *Service) Preview(
 	actor auth.Account,
 	revisionID int,
 ) (Preview, error) {
-	if !actor.Administrator {
+	if !authz.Holds(actor.Identity(), 0, authz.AdministerInstallationThemes) {
 		return Preview{}, ErrAdministratorRequired
 	}
 	found, err := service.loadRevision(actor.Context(ctx), revisionID)
@@ -160,9 +160,6 @@ func (service *Service) CreateDraft(
 			Facts: authz.Installation(), Refusals: themeAuthorizationRejections,
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[Revision], error) {
-			if !actor.Administrator {
-				return rejectRevision("administrator_required", ErrAdministratorRequired), nil
-			}
 			if validationErr := themevalue.ValidateDraft(input.Config); validationErr != nil {
 				return rejectRevision("invalid_theme", validationErr), nil
 			}
@@ -218,9 +215,6 @@ func (service *Service) Activate(
 			Facts: authz.Installation(), Refusals: themeAuthorizationRejections,
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[Revision], error) {
-			if !actor.Administrator {
-				return rejectRevision("administrator_required", ErrAdministratorRequired), nil
-			}
 			selected := builtInRevision()
 			if input.RevisionID > 0 {
 				stored, loadErr := transaction.LoadInstallationThemeRevision(

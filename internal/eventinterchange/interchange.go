@@ -170,7 +170,7 @@ func (service *Service) ReviewImport(
 	actor auth.Account,
 	document []byte,
 ) (ImportReview, error) {
-	if !actor.Administrator {
+	if !authz.Holds(actor.Identity(), 0, authz.AdministerInterchange) {
 		return ImportReview{}, ErrAdministratorRequired
 	}
 	plan, err := decodePlan(ctx, document)
@@ -226,9 +226,6 @@ func (service *Service) Import(
 			Facts: authz.Installation(), Refusals: interchangeAuthorizationRejections,
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[ImportResult], error) {
-			if !actor.Administrator {
-				return rejectImport("administrator_required", ErrAdministratorRequired)
-			}
 			if planErr != nil {
 				return rejectImport(importErrorCode(planErr), planErr)
 			}

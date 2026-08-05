@@ -745,7 +745,7 @@ func (queries *Queries) DisplayLocations(
 	actor auth.Account,
 	eventID int,
 ) ([]CrewLocation, error) {
-	if !actor.Administrator {
+	if !authz.Holds(actor.Identity(), 0, authz.AdministerDisplays) {
 		return nil, ErrEventAccessDenied
 	}
 	stored, err := queries.storage.LoadDisplayLocations(actor.Context(ctx), eventID)
@@ -768,7 +768,7 @@ func (queries *Queries) AdministrationLanes(
 	actor auth.Account,
 	eventID int,
 ) ([]CrewLane, error) {
-	if !actor.Administrator {
+	if !authz.Holds(actor.Identity(), 0, authz.AdministerEvents) {
 		return nil, ErrEventAccessDenied
 	}
 	stored, err := queries.storage.LoadAdministrationLanes(actor.Context(ctx), eventID)
