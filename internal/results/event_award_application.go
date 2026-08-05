@@ -11,7 +11,6 @@ import (
 	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
-	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
 // EventAwardPathState records review of one effective release-path revision.
@@ -78,9 +77,6 @@ func (service *Service) SaveEventAwards(
 ) (EventAwardsDraft, error) {
 	if err := validateSaveEventAwardsInput(input); err != nil {
 		return EventAwardsDraft{}, err
-	}
-	if !actor.HasCapability(input.EventID, viewer.ManageResults) {
-		return EventAwardsDraft{}, ErrManageRequired
 	}
 	payload, err := json.Marshal(input)
 	if err != nil {

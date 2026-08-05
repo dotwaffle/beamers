@@ -12,7 +12,6 @@ import (
 	"github.com/dotwaffle/beamers/internal/awardvalue"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/store"
-	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
 // SaveCompetitionAwardsInput replaces Awards while preserving Placement and Score.
@@ -32,9 +31,6 @@ func (service *Service) SaveCompetitionAwards(
 ) (Draft, error) {
 	if err := validateSaveCompetitionAwardsInput(input); err != nil {
 		return Draft{}, err
-	}
-	if !actor.HasCapability(input.EventID, viewer.ManageResults) {
-		return Draft{}, ErrManageRequired
 	}
 	payload, err := json.Marshal(input)
 	if err != nil {

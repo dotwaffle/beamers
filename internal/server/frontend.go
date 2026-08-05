@@ -21,6 +21,7 @@ import (
 	"github.com/a-h/templ"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/events"
 	"github.com/dotwaffle/beamers/internal/federation"
 	"github.com/dotwaffle/beamers/internal/frontend"
@@ -862,8 +863,8 @@ func backstageNavigation(
 			))
 		}
 		if role == viewer.Producer ||
-			account.HasCapability(eventID, viewer.ViewResults) ||
-			account.HasCapability(eventID, viewer.ManageResults) {
+			authz.Holds(account.Identity(), eventID, authz.ViewResults) ||
+			authz.Holds(account.Identity(), eventID, authz.ManageResults) {
 			sections = append(sections,
 				backstageSection(eventID, "results", "Results and Prizegiving"),
 			)
