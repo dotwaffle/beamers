@@ -97,7 +97,7 @@ func (queries *Queries) Preview(
 	actor auth.Account,
 	eventID int,
 ) (Preview, error) {
-	if !actor.CanProduceEvent(eventID) {
+	if !authz.Holds(actor.Identity(), eventID, authz.CaptureScheduleBaseline) {
 		return Preview{}, ErrProducerRequired
 	}
 	state, err := queries.storage.LoadPublicScheduleBaselineState(actor.Context(ctx), eventID)
@@ -212,9 +212,6 @@ func validateCapture(
 	input CaptureInput,
 	transaction *store.CommandTx,
 ) error {
-	if !actor.CanProduceEvent(input.EventID) {
-		return ErrProducerRequired
-	}
 	state, err := transaction.LoadPublicScheduleBaselineState(ctx, input.EventID)
 	if err != nil {
 		return err

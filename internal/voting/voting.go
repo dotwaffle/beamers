@@ -100,9 +100,6 @@ func (service *Service) Issue(
 	input IssueInput,
 ) ([]IssuedKey, error) {
 	now := service.now().UTC()
-	if !actor.CanProduceEvent(input.EventID) {
-		return nil, ErrProducerRequired
-	}
 	if err := command.ValidateID(input.CommandID); err != nil ||
 		input.EventID <= 0 || input.Count <= 0 || input.Count > maxIssueCount ||
 		!input.ExpiresAt.After(now) || input.ExpiresAt.After(now.Add(maxKeyLifetime)) {
@@ -223,7 +220,7 @@ func (service *Service) Keys(
 	actor auth.Account,
 	eventID int,
 ) ([]Key, error) {
-	if !actor.CanProduceEvent(eventID) {
+	if !authz.Holds(actor.Identity(), eventID, authz.ManageVoting) {
 		return nil, ErrProducerRequired
 	}
 	found, err := service.storage.ListVotingKeys(actor.Context(ctx), eventID)
@@ -248,9 +245,6 @@ func (service *Service) Revoke(
 	eventID, keyID int,
 	commandID string,
 ) (Key, error) {
-	if !actor.CanProduceEvent(eventID) {
-		return Key{}, ErrProducerRequired
-	}
 	if err := command.ValidateID(commandID); err != nil || eventID <= 0 || keyID <= 0 {
 		return Key{}, ErrInvalidInput
 	}

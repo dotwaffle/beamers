@@ -143,9 +143,6 @@ func (service *Service) Export(
 			Facts: authz.Event(input.EventID), Refusals: interchangeAuthorizationRejections,
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[Artifact], error) {
-			if !actor.CanProduceEvent(input.EventID) {
-				return rejectArtifact(ErrEventAccessDenied)
-			}
 			state, err := transaction.LoadEventInterchange(actor.Context(ctx), input.EventID)
 			if err != nil {
 				return command.Execution[Artifact]{}, err

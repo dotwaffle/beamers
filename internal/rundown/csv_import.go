@@ -148,9 +148,6 @@ func (commands *Commands) ImportCSV(
 			Facts: authz.Event(input.EventID), Refusals: rundownAuthorizationRejections,
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[CSVImportResult], error) {
-			if !actor.CanProduceEvent(input.EventID) {
-				return rejectCSVImport(rejection{Code: "event_access_denied", Message: ErrEventAccessDenied.Error()})
-			}
 			state, loadErr := transaction.LoadCSVImportState(actor.Context(ctx), input.EventID)
 			if loadErr != nil {
 				return command.Execution[CSVImportResult]{}, loadErr

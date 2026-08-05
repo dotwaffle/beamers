@@ -109,9 +109,6 @@ func (commands *Commands) ImportICalendar(
 			Facts: authz.Event(input.EventID), Refusals: rundownAuthorizationRejections,
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[CSVImportResult], error) {
-			if !actor.CanProduceEvent(input.EventID) {
-				return rejectICalendarImport(rejection{Code: "event_access_denied", Message: ErrEventAccessDenied.Error()})
-			}
 			state, loadErr := transaction.LoadICalendarImportState(actor.Context(ctx), input.EventID)
 			if loadErr != nil {
 				return command.Execution[CSVImportResult]{}, loadErr

@@ -540,9 +540,6 @@ func (service *Service) Update(
 			Facts: authz.Event(eventID), Refusals: eventRejections,
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[Event], error) {
-			if !actor.CanProduceEvent(eventID) {
-				return eventRejection[Event](ErrEventAccessDenied), nil
-			}
 			normalized, validationErr := ValidateCreateInput(input)
 			if validationErr != nil {
 				return eventRejection[Event](validationErr), nil
@@ -648,9 +645,6 @@ func (service *Service) ConfigureDisplays(
 			Facts: authz.Event(eventID), Refusals: eventRejections,
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[DisplayConfiguration], error) {
-			if !actor.CanProduceEvent(eventID) {
-				return eventRejection[DisplayConfiguration](ErrEventAccessDenied), nil
-			}
 			updated, updateErr := transaction.UpdateDisplayConfiguration(
 				actor.Context(ctx),
 				store.UpdateDisplayConfigurationParams{

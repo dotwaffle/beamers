@@ -67,9 +67,6 @@ func (commands *Commands) changeDraftHistory(
 			return result, nil
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[EditDraftResult], error) {
-			if !actor.CanProduceEvent(input.EventID) {
-				return command.Execution[EditDraftResult]{}, ErrEventAccessDenied
-			}
 			params := store.DraftHistoryParams{EventID: input.EventID, ActorAccountID: actor.ID,
 				ExpectedDraftRevision: input.ExpectedDraftRevision, ChangeIDs: input.ChangeIDs, Now: identity.Now}
 			var stored store.EditDraftResult

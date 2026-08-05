@@ -199,9 +199,6 @@ func (commands *Commands) Publish(
 			Facts: authz.Event(input.EventID), Refusals: rundownAuthorizationRejections,
 		},
 		Apply: func(transaction *store.CommandTx) (command.Execution[PublishResult], error) {
-			if !actor.CanProduceEvent(input.EventID) {
-				return publishRejection(rejection{Code: "event_access_denied", Message: ErrEventAccessDenied.Error()})
-			}
 			state, loadErr := transaction.LoadPublishState(actor.Context(ctx), input.EventID)
 			if loadErr != nil {
 				return command.Execution[PublishResult]{}, loadErr
@@ -791,7 +788,7 @@ func (queries *Queries) DraftRundown(
 	actor auth.Account,
 	eventID int,
 ) (DraftRundown, error) {
-	if !actor.CanProduceEvent(eventID) {
+	if !authz.Holds(actor.Identity(), eventID, authz.ConfigureRundown) {
 		return DraftRundown{}, ErrEventAccessDenied
 	}
 	stored, err := queries.storage.LoadDraftRundown(actor.Context(ctx), eventID)
