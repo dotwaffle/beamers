@@ -687,8 +687,8 @@ func (service *Service) PreviewReinstate(
 	actor auth.Account,
 	input PreviewReinstateInput,
 ) (ReinstatePreview, error) {
-	if !actor.CanProduceEvent(input.EventID) {
-		return ReinstatePreview{}, ErrProducerRequired
+	if !actor.CanOperateEvent(input.EventID) {
+		return ReinstatePreview{}, ErrOperatorRequired
 	}
 	found, err := service.storage.PreviewReinstateSession(
 		actor.Context(ctx), input.EventID, input.SessionID,
@@ -724,7 +724,10 @@ func (service *Service) Reinstate(
 		Authorization: command.Authorization{
 			EventID: input.EventID,
 			LoadFacts: func(ctx context.Context, transaction *store.CommandTx) (authz.Facts, error) {
-				return transaction.SessionLaneScope(ctx, input.EventID, input.SessionID)
+				return transaction.ReinstateLaneScope(
+					ctx, input.EventID, input.SessionID,
+					input.ForecastStart, input.LaneIDs, input.LocationIDs,
+				)
 			},
 			Refusals: sessionAuthorizationRejections,
 		},
@@ -1203,14 +1206,27 @@ func sessionRejection(
 	return command.Reject(current, rejection, returnErr), nil
 }
 
-// sessionTransitionRejections classifies the failures a live Session
-// transition can return from the store.
 // sessionAuthorizationRejections translates the Capability Table's refusals for
 // live Session control back into this package's sentinels. It names the codes
 // the imperative guards produce today — the Operator check in each Apply, the
 // Producer check on Reinstate, and the Lane scope check in the store — so an
 // evaluated refusal returns the error the imperative refusal returns, and the
 // codes a scope load can fail with before either runs.
+//
+// It also names ErrSessionLifecycleTransition: AdjustSessionTargetLaneScope
+// and PullForwardLaneScope resolve their Lane facts by running the same
+// preview Apply runs, inside the same transaction, so a Session at the wrong
+// lifecycle stage can be discovered here instead of in Apply. That discovery
+// must still leave the Command Receipt and Rejected Audit Entry this refusal
+// always left when only Apply could reach it, with the same
+// "session_lifecycle_transition" code timingRejections already produces for
+// it there.
+//
+// It also names ErrReinstatePlacement: ReinstateLaneScope resolves its Lane
+// facts by running the same placement preview Apply runs, so an invalid
+// proposed Lane or Location can be discovered here instead of in Apply, and
+// must leave the same evidence, with the same "reinstate_placement_invalid"
+// code timingRejections already produces for it there.
 var sessionAuthorizationRejections = command.RejectionTable{
 	Rejections: []command.Rejection{
 		{Err: ErrOperatorRequired, Code: "operator_required"},
@@ -1218,9 +1234,13 @@ var sessionAuthorizationRejections = command.RejectionTable{
 		{Err: ErrSessionScopeRequired, Code: "session_scope_required"},
 		{Err: ErrSessionNotFound, Code: "session_not_found"},
 		{Err: ErrEventNotActive, Code: "event_not_active"},
+		{Err: ErrSessionLifecycleTransition, Code: "session_lifecycle_transition"},
+		{Err: ErrReinstatePlacement, Code: "reinstate_placement_invalid"},
 	},
 }
 
+// sessionTransitionRejections classifies the failures a live Session
+// transition can return from the store.
 var sessionTransitionRejections = command.RejectionTable{
 	Rejections: []command.Rejection{
 		{Err: ErrSessionNotFound, Code: "session_not_found"},

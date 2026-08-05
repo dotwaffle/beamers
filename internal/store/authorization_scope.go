@@ -189,6 +189,47 @@ func (transaction *CommandTx) PullForwardLaneScope(
 	return authz.Lanes(eventID, preview.AffectedLaneIDs), nil
 }
 
+// ReinstateLaneScope resolves the Lanes a Reinstate Session command is judged
+// against: the proposed placement's Lanes, unioned with the Lanes of every
+// Session the timing ripple moves once that placement is previewed.
+//
+// A Reinstated Session has no current placement to judge — it is Canceled,
+// so it holds no live Run Snapshot and its last Published placement is about
+// to be replaced outright by the caller's proposed Lanes. Scope must
+// therefore be judged against the Lanes the command actually grants the
+// Session on success, matching Apply, which writes the proposed Lanes
+// unconditionally rather than the ones the Session held before
+// cancellation. The ripple Lanes are unioned in for the same reason
+// AdjustSessionTargetLaneScope and PullForwardLaneScope union theirs: an
+// Operator who can move only the anchor is not authorized to move every
+// Session the placement displaces.
+//
+// Every failure previewReinstateSession can return here propagates
+// unchanged rather than being swallowed: unlike an Adjust Target preview,
+// which recomputes the same anchor's ripple against timing state that
+// cannot itself be invalid input, a Reinstate preview's own domain checks
+// (ErrReinstatePlacement) are cheap to classify directly, so there is no
+// narrower "structural vs domain" failure to distinguish.
+func (transaction *CommandTx) ReinstateLaneScope(
+	ctx context.Context,
+	eventID, sessionID int,
+	forecastStart time.Time,
+	laneIDs, locationIDs []int,
+) (authz.Facts, error) {
+	if err := requireActor(ctx, "CommandTx.ReinstateLaneScope"); err != nil {
+		return authz.Facts{}, err
+	}
+
+	preview, err := previewReinstateSession(
+		ctx, transaction.transaction.Client(), eventID, sessionID,
+		forecastStart, laneIDs, locationIDs,
+	)
+	if err != nil {
+		return authz.Facts{}, err
+	}
+	return authz.Lanes(eventID, preview.AffectedLaneIDs), nil
+}
+
 // unionLaneIDs returns the deduplicated union of a and b, preserving a's
 // order then b's.
 func unionLaneIDs(a, b []int) []int {

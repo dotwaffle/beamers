@@ -106,6 +106,7 @@ var entrypointDeclarations = map[string][]entrypointActor{
 	"CommandTx.RecordRejection":                           {actorViewer, actorAccountHolder, actorDisplay, actorPublicVisitor, actorBackup, actorMigration, actorReplication, actorCommandReplay, actorHostMaintenance},
 	"CommandTx.RecoverAccount":                            {actorPublicVisitor, actorViewer, actorHostMaintenance},
 	"CommandTx.RedeemVotingKey":                           {actorPublicVisitor, actorViewer, actorHostMaintenance},
+	"CommandTx.ReinstateLaneScope":                        {actorViewer, actorHostMaintenance},
 	"CommandTx.ReinstateSession":                          {actorViewer, actorHostMaintenance},
 	"CommandTx.RemovePassword":                            {actorPublicVisitor, actorViewer, actorHostMaintenance},
 	"CommandTx.ReplaceRecoveryCodes":                      {actorPublicVisitor, actorViewer, actorHostMaintenance},

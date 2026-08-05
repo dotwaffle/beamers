@@ -125,13 +125,20 @@ func TestSessionCommandsRefuseOperatorOutsideSessionLaneScope(t *testing.T) {
 // TestReinstateSessionGainsLaneScope is the D5 regression test: Matt's
 // decision on issue #239 is that Reinstate Session gains the same
 // Lanes-of-target scope as its siblings, replacing the CanProduceEvent-only
-// guard it had before the Capability Table judged it. An Operator who holds
-// the Event but not the target Session's Lane is refused with
-// "session_scope_required" evidence exactly like Start, End, Cancel, Adjust
-// Target, Pull Forward, and Correct Live Details. An Operator who does hold
-// the Lane can Reinstate even without Producer authority, proving the
-// Apply-time guard change (CanOperateEvent replacing CanProduceEvent) did
-// not just relocate the bug.
+// guard it had before the Capability Table judged it. Reinstate has no
+// current placement to judge — it replaces a Canceled Session's last
+// placement outright with the caller's proposed Lanes — so the fixture
+// Session (originally published to Lane A) is reinstated into Lane B, a
+// different Lane, to tell "judged against the old placement" and "judged
+// against the proposed placement" apart:
+//
+//   - An Operator who holds Lane A (the Session's Lane before cancellation)
+//     but not Lane B (the proposed placement) is refused. Judging the old
+//     placement would incorrectly pass this Operator.
+//   - An Operator who holds Lane B but not Lane A can Reinstate, including
+//     obtaining the required Preview Fingerprint themselves — proving both
+//     the scope check and PreviewReinstate's own guard were rekeyed to the
+//     proposed placement and to Operator authority, not left on Producer.
 func TestReinstateSessionGainsLaneScope(t *testing.T) {
 	storage, producer, eventID := openSessionControlTest(t)
 	sessions := publishSessionControlRundown(t, storage, producer, eventID)
@@ -154,26 +161,47 @@ func TestReinstateSessionGainsLaneScope(t *testing.T) {
 		t.Fatalf("cancel cancelable Session: %v", err)
 	}
 
-	outsider := producer
-	outsider.Administrator = false
-	outsider.EventRoles = map[int]viewer.Role{eventID: viewer.Operator}
-	outsider.EventScopes = nil
+	forecastStart := time.Date(2026, 8, 21, 20, 0, 0, 0, time.UTC)
+	proposedLaneIDs := []int{lanes["B"]}
+	proposedLocationIDs := []int{lanes["hall-b"]}
 
-	reinstate := func(actor auth.Account, commandID string) error {
+	// oldLaneOnly holds the Session's Lane before cancellation (Lane A), but
+	// not the Lane the reinstatement proposes (Lane B).
+	oldLaneOnly := producer
+	oldLaneOnly.Administrator = false
+	oldLaneOnly.EventRoles = map[int]viewer.Role{eventID: viewer.Operator}
+	oldLaneOnly.EventScopes = map[int]viewer.EventScope{
+		eventID: {LaneIDs: map[int]struct{}{lanes["A"]: {}}},
+	}
+
+	// proposedLaneOnly holds the Lane the reinstatement proposes (Lane B),
+	// but not the Session's Lane before cancellation (Lane A).
+	proposedLaneOnly := producer
+	proposedLaneOnly.Administrator = false
+	proposedLaneOnly.EventRoles = map[int]viewer.Role{eventID: viewer.Operator}
+	proposedLaneOnly.EventScopes = map[int]viewer.EventScope{
+		eventID: {LaneIDs: map[int]struct{}{lanes["B"]: {}}},
+	}
+
+	reinstate := func(actor auth.Account, commandID, fingerprint string) error {
 		_, reinstateErr := service.Reinstate(t.Context(), actor, sessioncontrol.ReinstateInput{
 			EventID: eventID, SessionID: cancelable, CommandID: commandID,
 			ExpectedLiveStateRevision: canceled.LiveStateRevision,
-			ForecastStart:             time.Date(2026, 8, 21, 20, 0, 0, 0, time.UTC),
-			LaneIDs:                   []int{lanes["A"]}, LocationIDs: []int{lanes["hall-a"]},
-			Confirmed: true,
+			ForecastStart:             forecastStart,
+			LaneIDs:                   proposedLaneIDs, LocationIDs: proposedLocationIDs,
+			PreviewFingerprint: fingerprint, Confirmed: true,
 		})
 		return reinstateErr
 	}
 
-	if refusalErr := reinstate(outsider, "refused-reinstate"); !errors.Is(refusalErr, sessioncontrol.ErrSessionScopeRequired) {
-		t.Fatalf("refused Reinstate = %v, want %v", refusalErr, sessioncontrol.ErrSessionScopeRequired)
+	if refusalErr := reinstate(oldLaneOnly, "refused-reinstate", ""); !errors.Is(refusalErr, sessioncontrol.ErrSessionScopeRequired) {
+		t.Fatalf(
+			"Reinstate by an Operator holding only the old Lane = %v, want %v "+
+				"(scope must judge the proposed placement, not the old one)",
+			refusalErr, sessioncontrol.ErrSessionScopeRequired,
+		)
 	}
-	if refusalErr := reinstate(outsider, "refused-reinstate"); !errors.Is(refusalErr, sessioncontrol.ErrSessionScopeRequired) {
+	if refusalErr := reinstate(oldLaneOnly, "refused-reinstate", ""); !errors.Is(refusalErr, sessioncontrol.ErrSessionScopeRequired) {
 		t.Fatalf("retry of refused Reinstate = %v, want the recorded refusal %v", refusalErr, sessioncontrol.ErrSessionScopeRequired)
 	}
 	entries := rejectedSessionControlAudits(t, storage, producer, "ReinstateSession")
@@ -187,31 +215,20 @@ func TestReinstateSessionGainsLaneScope(t *testing.T) {
 		t.Errorf("Rejected Audit Entry reason for ReinstateSession = %q, want %q", entries[0].Reason, "session_scope_required")
 	}
 
-	operatorWithLane := producer
-	operatorWithLane.Administrator = false
-	operatorWithLane.EventRoles = map[int]viewer.Role{eventID: viewer.Operator}
-	operatorWithLane.EventScopes = map[int]viewer.EventScope{
-		eventID: {LaneIDs: map[int]struct{}{lanes["A"]: {}}},
-	}
-
-	preview, err := service.PreviewReinstate(t.Context(), producer, sessioncontrol.PreviewReinstateInput{
+	preview, err := service.PreviewReinstate(t.Context(), proposedLaneOnly, sessioncontrol.PreviewReinstateInput{
 		EventID: eventID, SessionID: cancelable,
-		ForecastStart: time.Date(2026, 8, 21, 20, 0, 0, 0, time.UTC),
-		LaneIDs:       []int{lanes["A"]}, LocationIDs: []int{lanes["hall-a"]},
+		ForecastStart: forecastStart,
+		LaneIDs:       proposedLaneIDs, LocationIDs: proposedLocationIDs,
 	})
 	if err != nil {
-		t.Fatalf("preview Reinstate: %v", err)
-	}
-	if _, err := service.Reinstate(t.Context(), operatorWithLane, sessioncontrol.ReinstateInput{
-		EventID: eventID, SessionID: cancelable, CommandID: "reinstate-operator-with-lane",
-		ExpectedLiveStateRevision: canceled.LiveStateRevision,
-		ForecastStart:             time.Date(2026, 8, 21, 20, 0, 0, 0, time.UTC),
-		LaneIDs:                   []int{lanes["A"]}, LocationIDs: []int{lanes["hall-a"]},
-		PreviewFingerprint: preview.Fingerprint, Confirmed: true,
-	}); err != nil {
 		t.Fatalf(
-			"Reinstate by an Operator holding the Session's Lane = %v, want success "+
-				"(the Apply guard must accept Operator authority, not still require Producer)", err,
+			"preview Reinstate as an Operator holding the proposed Lane = %v, want success "+
+				"(PreviewReinstate must accept Operator authority, not still require Producer)", err,
+		)
+	}
+	if err := reinstate(proposedLaneOnly, "reinstate-operator-with-proposed-lane", preview.Fingerprint); err != nil {
+		t.Fatalf(
+			"Reinstate by an Operator holding the proposed Lane = %v, want success", err,
 		)
 	}
 }
@@ -347,6 +364,57 @@ func TestPullForwardAndAdjustTargetEnforceRippledLaneScope(t *testing.T) {
 		}); err != nil {
 			t.Fatalf("Adjust Target as Producer: %v", err)
 		}
+	})
+}
+
+// TestPullForwardAndAdjustTargetPreserveLifecycleEvidence is a self-review
+// regression test. AdjustSessionTargetLaneScope and PullForwardLaneScope
+// resolve their Lane facts by running the same preview Apply runs, inside
+// the same authorize-phase transaction, so a Session at the wrong lifecycle
+// stage can now be discovered there instead of in Apply. Before
+// ErrSessionLifecycleTransition was added to sessionAuthorizationRejections,
+// a refusal discovered this way returned the same sentinel error but left no
+// Command Receipt or Rejected Audit Entry — evidence this exact refusal
+// always left when only Apply could reach it. Both commands, called on the
+// Scheduled primary Session, must still refuse with
+// "session_lifecycle_transition" and leave that evidence.
+func TestPullForwardAndAdjustTargetPreserveLifecycleEvidence(t *testing.T) {
+	storage, producer, eventID := openSessionControlTest(t)
+	sessions := publishSessionControlRundown(t, storage, producer, eventID)
+	activateSessionControlEvent(t, storage, producer, eventID)
+	service := newSessionControlService(t, storage)
+
+	primary := sessions["primary"]
+
+	refuse := func(t *testing.T, action string, run func() error) {
+		t.Helper()
+		if err := run(); !errors.Is(err, sessioncontrol.ErrSessionLifecycleTransition) {
+			t.Fatalf("%s on a Scheduled Session = %v, want %v", action, err, sessioncontrol.ErrSessionLifecycleTransition)
+		}
+		entries := rejectedSessionControlAudits(t, storage, producer, action)
+		if len(entries) != 1 {
+			t.Fatalf(
+				"Rejected Audit Entries for %s = %d, want exactly one recorded refusal",
+				action, len(entries),
+			)
+		}
+		if entries[0].Reason != "session_lifecycle_transition" {
+			t.Errorf("Rejected Audit Entry reason for %s = %q, want %q", action, entries[0].Reason, "session_lifecycle_transition")
+		}
+	}
+
+	refuse(t, "PullForward", func() error {
+		_, err := service.PullForward(t.Context(), producer, sessioncontrol.PullForwardInput{
+			EventID: eventID, SessionID: primary, CommandID: "pull-forward-not-ended",
+		})
+		return err
+	})
+	refuse(t, "AdjustTarget", func() error {
+		_, err := service.AdjustTarget(t.Context(), producer, sessioncontrol.AdjustTargetInput{
+			EventID: eventID, SessionID: primary, CommandID: "adjust-target-not-live",
+			Adjustment: sessioncontrol.TargetAdjustment{Duration: 5 * time.Minute},
+		})
+		return err
 	})
 }
 
