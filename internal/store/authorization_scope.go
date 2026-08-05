@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"slices"
 	"sort"
 	"time"
@@ -118,10 +119,13 @@ func liveSessionSnapshotLaneIDs(
 // checks — the snapshot Lanes unconditionally, the ripple's Lanes only once
 // the preview computed successfully — and refused on whichever failed first.
 // A Session must hold every Lane in the union to pass either sequential
-// check, so judging the union against one row reproduces both, and a preview
-// domain failure here is swallowed and left to surface from Apply's own
-// preview call exactly as it did before, rather than being misreported as an
-// out-of-scope refusal.
+// check, so judging the union against one row reproduces both. Only the
+// preview's own domain rejections are swallowed and left to surface from
+// Apply's own preview call exactly as they did before, rather than being
+// misreported as an out-of-scope refusal; every other failure — the Session
+// or Event structural checks previewSessionTarget runs before it, and any
+// opaque store failure — propagates unchanged, so a technical fault cannot
+// be mistaken for "no additional Lanes" and under-scope the check.
 func (transaction *CommandTx) AdjustSessionTargetLaneScope(
 	ctx context.Context,
 	eventID, sessionID int,
@@ -139,10 +143,25 @@ func (transaction *CommandTx) AdjustSessionTargetLaneScope(
 	preview, previewErr := previewSessionTarget(
 		ctx, transaction.transaction.Client(), eventID, sessionID, adjustment, now,
 	)
-	if previewErr == nil {
+	switch {
+	case previewErr == nil:
 		laneIDs = unionLaneIDs(laneIDs, preview.AffectedLaneIDs)
+	case isSessionTargetPreviewDomainError(previewErr):
+		// Leave laneIDs at the anchor's own Lanes; Apply's own preview call
+		// will recompute and return this same domain rejection.
+	default:
+		return authz.Facts{}, previewErr
 	}
 	return authz.Lanes(eventID, laneIDs), nil
+}
+
+// isSessionTargetPreviewDomainError reports whether err is one of
+// sessiontarget.Preview's own rejections, rather than a structural failure
+// previewSessionTarget raises before ever calling it.
+func isSessionTargetPreviewDomainError(err error) bool {
+	return errors.Is(err, sessiontarget.ErrPresetNotConfigured) ||
+		errors.Is(err, sessiontarget.ErrTargetBeforeNow) ||
+		errors.Is(err, sessiontarget.ErrNoCountdownTarget)
 }
 
 // PullForwardLaneScope resolves the Lanes a Pull Forward command is judged
