@@ -14,13 +14,13 @@ import (
 	"time"
 
 	"github.com/dotwaffle/beamers/internal/auth"
+	"github.com/dotwaffle/beamers/internal/authz"
 	"github.com/dotwaffle/beamers/internal/command"
 	"github.com/dotwaffle/beamers/internal/competition"
 	"github.com/dotwaffle/beamers/internal/events"
 	"github.com/dotwaffle/beamers/internal/frontend"
 	"github.com/dotwaffle/beamers/internal/results"
 	"github.com/dotwaffle/beamers/internal/rundown"
-	"github.com/dotwaffle/beamers/internal/viewer"
 )
 
 const maxResultsRPCBodyBytes = 128 << 10
@@ -58,7 +58,7 @@ func (handlers backstageResultsHandlers) page(
 		return
 	}
 	eventID, err := positivePathID(request, "eventID")
-	if err != nil || !actor.HasCapability(eventID, viewer.ViewResults) {
+	if err != nil || !authz.Holds(actor.Identity(), eventID, authz.ViewResults) {
 		http.NotFound(response, request)
 		return
 	}
@@ -960,7 +960,7 @@ func (handlers backstageResultsHandlers) renderPage(
 			ID: workspace.Event.ID, Name: workspace.Event.Name,
 			EventLocale: workspace.Event.EventLocale,
 		},
-		CanManage:    actor.HasCapability(eventID, viewer.ManageResults),
+		CanManage:    authz.Holds(actor.Identity(), eventID, authz.ManageResults),
 		Producer:     actor.CanProduceEvent(eventID),
 		Competitions: competitions, Prizegivings: prizegivings,
 		SubmittedAction: request.Form.Get("action"), Form: request.Form, Errors: formErrors,
