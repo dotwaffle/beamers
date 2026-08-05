@@ -88,6 +88,75 @@ func TestEveryCommandPlanDeclaresItsAuthorization(t *testing.T) {
 	}
 }
 
+// predicateSites names the packages allowed to call the viewer authority
+// predicates directly. The authz package is the sole authority for every
+// command and application read; the viewer and auth packages define and
+// hydrate the predicates; the server package routes browser surfaces, which
+// keep their existing routing guards.
+var predicateSites = []string{
+	"internal/auth/",
+	"internal/authz/",
+	"internal/server/",
+	"internal/viewer/",
+}
+
+// viewerPredicates are the authority questions only the packages above may
+// ask directly. Everything else asks authz.Holds, authz.InScope, or the
+// Capability Table through its command plan.
+var viewerPredicates = []string{
+	"CanProduceEvent",
+	"CanOperateEvent",
+	"CanOperateLane",
+	"CanOperateDisplayGroup",
+	"HasCapability",
+}
+
+func TestViewerPredicatesStayInsideTheAuthorityBoundary(t *testing.T) {
+	t.Parallel()
+
+	root := repositoryRoot(t)
+	fileSet := token.NewFileSet()
+	walkErr := filepath.WalkDir(
+		filepath.Join(root, "internal"),
+		func(path string, entry fs.DirEntry, err error) error {
+			if err != nil || entry.IsDir() || !isCommandSource(path) {
+				return err
+			}
+			relative := relativePath(t, root, path)
+			if slices.ContainsFunc(predicateSites, func(prefix string) bool {
+				return strings.HasPrefix(relative, prefix)
+			}) {
+				return nil
+			}
+			parsed, parseErr := parser.ParseFile(fileSet, path, nil, 0)
+			if parseErr != nil {
+				return parseErr
+			}
+			ast.Inspect(parsed, func(node ast.Node) bool {
+				call, isCall := node.(*ast.CallExpr)
+				if !isCall {
+					return true
+				}
+				selector, isSelector := call.Fun.(*ast.SelectorExpr)
+				if !isSelector || !slices.Contains(viewerPredicates, selector.Sel.Name) {
+					return true
+				}
+				t.Errorf(
+					"%s:%d asks %s directly; outside %v the Capability Table is the "+
+						"sole authority, so ask authz.Holds or declare the rule in a row",
+					relative, fileSet.Position(call.Pos()).Line,
+					selector.Sel.Name, predicateSites,
+				)
+				return true
+			})
+			return nil
+		},
+	)
+	if walkErr != nil {
+		t.Fatalf("scan viewer predicate call sites: %v", walkErr)
+	}
+}
+
 // scanCallSites returns the repository-relative paths of the non-test files
 // calling the named function in the authz package, sorted and deduplicated.
 func scanCallSites(t *testing.T, function string) []string {
