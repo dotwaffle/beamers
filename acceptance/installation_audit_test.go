@@ -91,6 +91,20 @@ func provisionOperatorWithLanes(
 	laneIDs []int,
 ) *http.Client {
 	t.Helper()
+	return provisionOperatorWithScopes(t, administrator, server, laneIDs, nil)
+}
+
+// provisionOperatorWithScopes grants the Operator explicit Lane and Display
+// Group scopes, which Program Channel commands are judged against since they
+// became DisplayGroups-of-target scoped.
+func provisionOperatorWithScopes(
+	t *testing.T,
+	administrator *http.Client,
+	server *runningServer,
+	laneIDs []int,
+	groupKeys []string,
+) *http.Client {
+	t.Helper()
 	assertJSONRequest(
 		t, administrator, server.address, "/admin/accounts",
 		map[string]string{
@@ -102,11 +116,24 @@ func provisionOperatorWithLanes(
 	grant := map[string]any{
 		"account_id": 2, "role": "Operator", "command_id": "grant-opal-operator",
 	}
-	wantGrant := "{\"event_id\":1,\"account_id\":2,\"role\":\"Operator\"}\n"
+	wantGrant := "{\"event_id\":1,\"account_id\":2,\"role\":\"Operator\""
 	if len(laneIDs) > 0 {
 		grant["lane_ids"] = laneIDs
-		wantGrant = "{\"event_id\":1,\"account_id\":2,\"role\":\"Operator\",\"lane_ids\":[1]}\n"
+		encodedLanes, err := json.Marshal(laneIDs)
+		if err != nil {
+			t.Fatalf("encode Operator Lane IDs: %v", err)
+		}
+		wantGrant += ",\"lane_ids\":" + string(encodedLanes)
 	}
+	if len(groupKeys) > 0 {
+		grant["display_group_keys"] = groupKeys
+		encodedKeys, err := json.Marshal(groupKeys)
+		if err != nil {
+			t.Fatalf("encode Operator Display Group keys: %v", err)
+		}
+		wantGrant += ",\"display_group_keys\":" + string(encodedKeys)
+	}
+	wantGrant += "}\n"
 	assertJSONRequest(
 		t, administrator, server.address, "/admin/events/1/grants",
 		grant, http.StatusCreated, wantGrant,
