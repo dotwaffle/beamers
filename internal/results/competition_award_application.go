@@ -66,7 +66,7 @@ func (service *Service) SaveCompetitionAwards(
 				return command.Execution[Draft]{}, loadErr
 			}
 			if competitionAwardPromotionChanged(current.Awards, input.Awards) &&
-				!actor.CanProduceEvent(input.EventID) {
+				!authz.Holds(actor.Identity(), input.EventID, authz.ConfigureCompetition) {
 				return command.Execution[Draft]{}, ErrProducerRequired
 			}
 			params := cloneCompetitionResultsParams(

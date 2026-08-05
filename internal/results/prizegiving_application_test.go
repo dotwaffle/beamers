@@ -128,7 +128,7 @@ func TestPrizegivingPublicCommandsPreflightAndPreview(t *testing.T) {
 		t.Context(),
 		revoked,
 		unauthorized,
-	); !errors.Is(err, results.ErrProducerRequired) {
+	); !errors.Is(err, results.ErrManageRequired) {
 		t.Fatalf("unauthorized Prizegiving command error = %v", err)
 	}
 	blocked, err := service.RunPrizegivingPreflight(

@@ -53,7 +53,7 @@ const (
 	noteOverrideTargetRule       = "D7: Stage Message and Technical Difficulties targets are judged by literal Display Group key today, Urgent Notice and Clear by target. Both are literal keys in practice, so one rule here is parity-preserving."
 	noteDegradedEmergency        = "D8: the degraded Emergency Alert path decides this rule a second time in memory at capture time and persists only the outcome. One row now covers both paths; the in-memory copy is deleted with its area in Stage 3."
 	noteUploadCallers            = "D8/D9: UploadAttachment is reached by a crew caller guarded by CanProduceEvent before Execute and by an account holder whose rule is upload-target ownership. One action name takes one row, and the row must admit the account holder, so the crew Capability stays with the pre-Execute guard until Stage 3."
-	noteResultsProducerGuard     = "D13: this action is guarded by CanProduceEvent rather than by the ManageResults Capability the row names, so an Operator holding a ManageResults grant is refused by the imperative check. The row is no stricter than today."
+	noteResultsProducerGuard     = "D13, resolved: the CanProduceEvent guard this action carried is gone, so a ManageResults grant suffices and a Producer keeps access through role expansion. The durable code is unchanged for parity."
 	noteEvidenceGap              = "D9: refused before Execute today, so the refusal leaves no Command Receipt and no Audit Entry. The row makes the refusal evidential once Stage 3 deletes the pre-Execute guard."
 )
 

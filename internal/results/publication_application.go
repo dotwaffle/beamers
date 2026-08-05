@@ -105,9 +105,6 @@ func (service *Service) FirePrizegivingResultsCue(
 		Apply: auditResultsRejections(func(
 			transaction *store.CommandTx,
 		) (command.Execution[Publication], error) {
-			if !actor.CanProduceEvent(input.EventID) {
-				return command.Execution[Publication]{}, ErrProducerRequired
-			}
 			next, _, advanceErr := service.advancePrizegivingPublication(
 				actor.Context(ctx),
 				actor,
@@ -167,9 +164,6 @@ func (service *Service) ReleaseStandaloneResults(
 		Apply: auditResultsRejections(func(
 			transaction *store.CommandTx,
 		) (command.Execution[Publication], error) {
-			if !actor.CanProduceEvent(input.EventID) {
-				return command.Execution[Publication]{}, ErrProducerRequired
-			}
 			current, loadErr := transaction.LoadResultsPublication(
 				actor.Context(ctx),
 				input.EventID,
@@ -264,7 +258,7 @@ func (service *Service) PreflightStandaloneEventAwards(
 	if eventID <= 0 {
 		return StandaloneEventAwardsPreflight{}, ErrInvalidInput
 	}
-	if !actor.CanProduceEvent(eventID) {
+	if !authz.Holds(actor.Identity(), eventID, authz.ManageResults) {
 		return StandaloneEventAwardsPreflight{}, ErrProducerRequired
 	}
 	draft, err := service.storage.LoadEventAwardsDraft(actor.Context(ctx), eventID)
@@ -325,9 +319,6 @@ func (service *Service) ReleaseStandaloneEventAwards(
 		Apply: auditResultsRejections(func(
 			transaction *store.CommandTx,
 		) (command.Execution[Publication], error) {
-			if !actor.CanProduceEvent(input.EventID) {
-				return command.Execution[Publication]{}, ErrProducerRequired
-			}
 			current, loadErr := transaction.LoadResultsPublication(
 				actor.Context(ctx),
 				input.EventID,

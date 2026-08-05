@@ -133,9 +133,6 @@ func (service *Service) MarkEventAwardsReady(
 	if err := validateMarkEventAwardsReadyInput(input); err != nil {
 		return EventAwardsDraft{}, err
 	}
-	if !actor.CanProduceEvent(input.EventID) {
-		return EventAwardsDraft{}, ErrProducerRequired
-	}
 	payload, err := json.Marshal(input)
 	if err != nil {
 		return EventAwardsDraft{}, errors.New("encode Event Awards review command")

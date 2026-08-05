@@ -232,9 +232,6 @@ func (service *Service) SaveCorrection(
 		Apply: auditResultsRejections(func(
 			transaction *store.CommandTx,
 		) (command.Execution[Correction], error) {
-			if !actor.CanProduceEvent(input.EventID) {
-				return command.Execution[Correction]{}, ErrProducerRequired
-			}
 			current, loadErr := transaction.LoadResultsCorrection(
 				actor.Context(ctx),
 				input.EventID,
@@ -338,9 +335,6 @@ func (service *Service) PublishCorrection(
 		Apply: auditResultsRejections(func(
 			transaction *store.CommandTx,
 		) (command.Execution[PublishCorrectionResult], error) {
-			if !actor.CanProduceEvent(input.EventID) {
-				return command.Execution[PublishCorrectionResult]{}, ErrProducerRequired
-			}
 			current, loadErr := transaction.LoadResultsCorrection(
 				actor.Context(ctx),
 				input.EventID,
@@ -474,9 +468,6 @@ func (service *Service) advanceCorrectionReview(
 		Apply: auditResultsRejections(func(
 			transaction *store.CommandTx,
 		) (command.Execution[Correction], error) {
-			if !actor.CanProduceEvent(input.EventID) {
-				return command.Execution[Correction]{}, ErrProducerRequired
-			}
 			current, loadErr := transaction.LoadResultsCorrection(
 				actor.Context(ctx),
 				input.EventID,

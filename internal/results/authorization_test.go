@@ -129,6 +129,48 @@ func TestRefusedResultsCommandsLeaveEvidence(t *testing.T) {
 	}
 }
 
+// TestManageResultsGrantSufficesWithoutProducerRole covers the D13
+// resolution: the Results actions that layered a CanProduceEvent floor over
+// their ManageResults rows lost that floor, so a Crew Member holding a
+// ManageResults grant — here an Operator, the weakest role that can carry
+// one — is admitted where previously only a Producer was. A Producer keeps
+// access through role expansion, which the fixture's own setup exercises.
+func TestManageResultsGrantSufficesWithoutProducerRole(t *testing.T) {
+	storage, producer, eventID, _ := openPrizegivingApplicationTest(t)
+	now := func() time.Time {
+		return time.Date(2026, 8, 21, 9, 0, 0, 0, time.UTC)
+	}
+	_, competitionID := publishPrizegivingSessions(t, storage, producer, eventID, now)
+	service, err := results.New(storage, now)
+	if err != nil {
+		t.Fatalf("create Results service: %v", err)
+	}
+
+	grantee := producer
+	grantee.Administrator = false
+	grantee.EventRoles = map[int]viewer.Role{eventID: viewer.Operator}
+	grantee.EventScopes = map[int]viewer.EventScope{
+		eventID: {
+			Capabilities: map[viewer.Capability]struct{}{viewer.ManageResults: {}},
+		},
+	}
+
+	saved, err := service.Save(t.Context(), grantee, results.SaveInput{
+		EventID: eventID, SessionID: competitionID,
+		CommandID: "grantee-draft", Disposition: results.Publish,
+		Score: results.ScorePolicy{Type: results.None},
+	})
+	if err != nil {
+		t.Fatalf("save draft by ManageResults grantee = %v, want admitted", err)
+	}
+	if _, err = service.MarkReady(t.Context(), grantee, results.MarkReadyInput{
+		EventID: eventID, SessionID: competitionID,
+		CommandID: "grantee-mark-ready", ExpectedRevision: saved.Revision,
+	}); err != nil {
+		t.Fatalf("Mark Ready by ManageResults grantee = %v, want admitted", err)
+	}
+}
+
 // rejectedResultsAudits returns the Rejected Audit Entries recorded for one
 // command action.
 func rejectedResultsAudits(

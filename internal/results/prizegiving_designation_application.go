@@ -41,9 +41,6 @@ func (service *Service) DesignatePrizegiving(
 	if input.EventID <= 0 || input.CeremonySessionID <= 0 {
 		return Prizegiving{}, ErrInvalidInput
 	}
-	if !actor.CanProduceEvent(input.EventID) {
-		return Prizegiving{}, ErrProducerRequired
-	}
 	payload, err := json.Marshal(input)
 	if err != nil {
 		return Prizegiving{}, errors.New("encode Prizegiving designation command")
