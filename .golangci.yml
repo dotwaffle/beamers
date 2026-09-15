@@ -76,6 +76,12 @@ linters:
     - usetesting
 
   settings:
+    modernize:
+      # Keep these optional syntax rewrites out of toolchain upgrades.
+      # Existing errors.As calls and explicit embedded fields remain valid.
+      disable:
+        - errorsastype
+        - embedlit
     govet:
       enable-all: true
       disable:
