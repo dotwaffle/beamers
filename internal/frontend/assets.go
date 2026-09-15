@@ -23,8 +23,8 @@ const (
 	ChakraRegularPath     = "/assets/chakra-petch-regular.ttf"
 	ChakraBoldPath        = "/assets/chakra-petch-bold.ttf"
 	OpenSansPath          = "/assets/open-sans.ttf"
-	HTMXPath              = "/assets/htmx-2.0.10.min.js"
-	SSEPath               = "/assets/htmx-ext-sse-2.2.4.min.js"
+	HTMXPath              = "/assets/htmx-4.0.0.min.js"
+	SSEPath               = "/assets/htmx-sse-4.0.0.min.js"
 	EventTimePath         = "/assets/event-time.js"
 	WebAuthnPath          = "/assets/webauthn-v1.js"
 )
@@ -74,9 +74,9 @@ func Asset(path string) ([]byte, error) {
 	case OpenSansPath:
 		return fontassets.Asset(fontassets.OpenSans)
 	case HTMXPath:
-		name = "vendor/htmx-2.0.10.min.js"
+		name = "vendor/htmx-4.0.0.min.js"
 	case SSEPath:
-		name = "vendor/htmx-ext-sse-2.2.4.min.js"
+		name = "vendor/htmx-sse-4.0.0.min.js"
 	case EventTimePath:
 		name = "vendor/event-time.js"
 	case WebAuthnPath:

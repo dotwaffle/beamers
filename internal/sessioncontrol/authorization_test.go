@@ -735,11 +735,12 @@ func activateSessionControlEvent(
 // newSessionControlService constructs the Session Control service under test.
 func newSessionControlService(t *testing.T, storage *store.SQLite) *sessioncontrol.Service {
 	t.Helper()
-	publications, err := results.New(storage, time.Now)
+	now := func() time.Time { return time.Date(2026, 8, 20, 12, 0, 0, 0, time.UTC) }
+	publications, err := results.New(storage, now)
 	if err != nil {
 		t.Fatalf("create Results service: %v", err)
 	}
-	service, err := sessioncontrol.New(storage, publications, time.Now, nil, nil)
+	service, err := sessioncontrol.New(storage, publications, now, nil, nil)
 	if err != nil {
 		t.Fatalf("create Session Control service: %v", err)
 	}

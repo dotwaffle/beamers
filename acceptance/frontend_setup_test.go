@@ -208,8 +208,8 @@ func TestBrowserSetupAndSessionSurviveRestart(t *testing.T) {
 		"/assets/chakra-petch-regular.ttf",
 		"/assets/chakra-petch-bold.ttf",
 		"/assets/open-sans.ttf",
-		"/assets/htmx-2.0.10.min.js",
-		"/assets/htmx-ext-sse-2.2.4.min.js",
+		"/assets/htmx-4.0.0.min.js",
+		"/assets/htmx-sse-4.0.0.min.js",
 		"/assets/webauthn-v1.js",
 	} {
 		response := getFrontendPage(t, client, server.address, asset)

@@ -50,13 +50,13 @@ func TestBrowserConfiguresEventDisplays(t *testing.T) {
 	}
 
 	form := url.Values{
-		"csrf_token":                                   {requireFrontendCSRF(t, page)},
-		"command_id":                                   {"browser-configure-event-displays"},
-		"expected_event_revision":                      {"2"},
-		"rotation_seconds":                             {"30"},
-		"reduced_effects":                              {"true"},
-		"timer_threshold_seconds":                      {"600"},
-		"timer_threshold_emphasis":                     {"attention"},
+		"csrf_token":               {requireFrontendCSRF(t, page)},
+		"command_id":               {"browser-configure-event-displays"},
+		"expected_event_revision":  {"2"},
+		"rotation_seconds":         {"30"},
+		"reduced_effects":          {"true"},
+		"timer_threshold_seconds":  {"600"},
+		"timer_threshold_emphasis": {"attention"},
 		"session_type.Presentation.threshold_override": {"true"},
 		"session_type.Presentation.threshold_seconds":  {"180"},
 		"session_type.Presentation.threshold_emphasis": {"attention"},

@@ -21,7 +21,7 @@ import (
 	"github.com/dotwaffle/beamers/gen/beamers/program/v1/programv1connect"
 )
 
-var frontendSSEConnect = regexp.MustCompile(`sse-connect="([^"]+)"`)
+var frontendSSEConnect = regexp.MustCompile(`hx-sse:connect="([^"]+)"`)
 var votingKeyOutput = regexp.MustCompile(`data-voting-key>([^<]+)</code>`)
 
 func frontendSSEPath(t *testing.T, page string) string {

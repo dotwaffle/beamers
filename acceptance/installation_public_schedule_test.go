@@ -388,13 +388,12 @@ func TestPublicScheduleSupportsCacheableSnapshotsAndLiveInvalidation(t *testing.
 		t.Fatalf("initial public Schedule = %d %q, want nonempty 200", initial.StatusCode, initialBody)
 	}
 	for _, want := range []string{
-		`hx-ext="sse"`,
-		`sse-connect="/schedule/events?`,
-		`hx-trigger="sse:schedule"`,
+		`hx-sse:connect="/schedule/events?`,
+		`hx-trigger="schedule from:body"`,
 		`id="schedule-location"`,
 		`id="schedule-status" role="status" aria-live="polite"`,
-		`src="/assets/htmx-2.0.10.min.js"`,
-		`src="/assets/htmx-ext-sse-2.2.4.min.js"`,
+		`src="/assets/htmx-4.0.0.min.js"`,
+		`src="/assets/htmx-sse-4.0.0.min.js"`,
 	} {
 		if !bytes.Contains(initialBody, []byte(want)) {
 			t.Errorf("initial public Schedule missing %q", want)
@@ -514,7 +513,7 @@ func TestPublicScheduleSupportsCacheableSnapshotsAndLiveInvalidation(t *testing.
 
 func publicScheduleEventsPath(t *testing.T, page []byte) string {
 	t.Helper()
-	match := regexp.MustCompile(`sse-connect="([^"]+)"`).FindSubmatch(page)
+	match := regexp.MustCompile(`hx-sse:connect="([^"]+)"`).FindSubmatch(page)
 	if len(match) != 2 {
 		t.Fatalf("public Schedule has no SSE connection path: %s", page)
 	}

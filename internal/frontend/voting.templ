@@ -136,14 +136,14 @@ templ VotingBallot(page VotingBallotPage) {
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<link rel="stylesheet" href={ StylesheetPath }/>
+			<meta name="htmx-config" content={ `{"noSwap":[204,304,"4xx","5xx"]}` }/>
 			<script src={ HTMXPath } defer></script>
 			<script src={ SSEPath } defer></script>
 			<title>{ page.Ballot.Window.Title } Ballot · Beamers</title>
 		</head>
 		<body
 			data-reduced-effects={ strconv.FormatBool(page.ReducedEffects) }
-			hx-ext="sse"
-			sse-connect={ votingBallotEventsPath(page) }
+			hx-sse:connect={ votingBallotEventsPath(page) }
 		>
 			@ShellNavigation(Shell{
 				AccountName: page.AccountName,
@@ -162,7 +162,7 @@ templ VotingBallotSnapshot(page VotingBallotPage) {
 		id="ballot"
 		tabindex="-1"
 		hx-get={ votingBallotPath(page.Ballot.Window.EventID, page.Ballot.Window.SessionID) }
-		hx-trigger="sse:ballot"
+		hx-trigger="ballot from:body"
 		hx-target="this"
 		hx-select="#ballot"
 		hx-swap="outerHTML"
