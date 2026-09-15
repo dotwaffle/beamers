@@ -272,8 +272,9 @@ func TestOverrideCommandsSelectDisplayNotifications(t *testing.T) {
 
 func TestProgramEntryTakeSelectsDisplayProgramAndVotingNotifications(t *testing.T) {
 	storage, producer, eventID := openNotificationTest(t)
+	now := func() time.Time { return time.Date(2026, 8, 20, 12, 0, 0, 0, time.UTC) }
 	sessionID := publishNotificationCompetition(t, storage, producer, eventID)
-	entries, err := New(storage, time.Now, nil, nil)
+	entries, err := New(storage, now, nil, nil)
 	if err != nil {
 		t.Fatalf("create Competition service: %v", err)
 	}
@@ -293,7 +294,7 @@ func TestProgramEntryTakeSelectsDisplayProgramAndVotingNotifications(t *testing.
 	}); err != nil {
 		t.Fatalf("create Program Entry: %v", err)
 	}
-	activationService, err := activation.New(storage, time.Now, nil, nil)
+	activationService, err := activation.New(storage, now, nil, nil)
 	if err != nil {
 		t.Fatalf("create Activation service: %v", err)
 	}
@@ -311,11 +312,11 @@ func TestProgramEntryTakeSelectsDisplayProgramAndVotingNotifications(t *testing.
 	); err != nil {
 		t.Fatalf("activate Program Event: %v", err)
 	}
-	publications, err := results.New(storage, time.Now)
+	publications, err := results.New(storage, now)
 	if err != nil {
 		t.Fatalf("create Results service: %v", err)
 	}
-	sessions, err := sessioncontrol.New(storage, publications, time.Now, nil, nil)
+	sessions, err := sessioncontrol.New(storage, publications, now, nil, nil)
 	if err != nil {
 		t.Fatalf("create Session service: %v", err)
 	}
@@ -328,7 +329,7 @@ func TestProgramEntryTakeSelectsDisplayProgramAndVotingNotifications(t *testing.
 	program, err := programcontrol.New(
 		storage,
 		publications,
-		time.Now,
+		now,
 		func() { displayNotifications++ },
 		func() { programNotifications++ },
 		func() { votingNotifications++ },
