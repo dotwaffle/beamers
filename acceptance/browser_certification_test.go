@@ -2701,8 +2701,8 @@ func certifyLiveScheduleUpdate(
 	if err := driver.waitFor(
 		t.Context(),
 		5*time.Second,
-		`const source = document.body["htmx-internal-data"]?.sseEventSource; `+
-			`return source?.readyState === EventSource.OPEN;`,
+		`const source = document.body._htmx?.sse; `+
+			`return source?.status === 200 && source.reader !== null;`,
 	); err != nil {
 		t.Fatalf("wait for live Schedule connection: %v", err)
 	}
@@ -2718,7 +2718,7 @@ func certifyLiveScheduleUpdate(
 	}
 	if focused, err = driver.evaluateBool(
 		t.Context(),
-		`window.htmx.trigger(document.querySelector("#schedule"), "sse:schedule"); return true;`,
+		`window.htmx.trigger(document.body, "schedule"); return true;`,
 	); err != nil || !focused {
 		t.Fatalf("trigger Schedule focus-preservation refresh = %t, %v", focused, err)
 	}
@@ -2782,8 +2782,8 @@ func certifyLiveScheduleUpdate(
 		t.Context(),
 		fmt.Sprintf(
 			`document.querySelector("#schedule-session-%d").remove(); `+
-				`document.body.dispatchEvent(new CustomEvent("htmx:afterSwap", `+
-				`{bubbles: true, detail: {target: document.querySelector("#schedule")}})); `+
+				`document.body.dispatchEvent(new CustomEvent("htmx:after:swap", `+
+				`{bubbles: true, detail: {ctx: {target: document.querySelector("#schedule")}}})); `+
 				`return document.activeElement?.id === "schedule-heading";`,
 			sessionID,
 		),

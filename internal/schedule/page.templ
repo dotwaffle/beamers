@@ -19,6 +19,7 @@ templ Page(snapshot Snapshot) {
 			if snapshot.EventID > 0 {
 				<link rel="stylesheet" href={ frontend.EventThemePath(snapshot.EventID) }/>
 			}
+			<meta name="htmx-config" content={ `{"noSwap":[204,304,"4xx","5xx"]}` }/>
 			<script src={ frontend.HTMXPath } defer></script>
 			<script src={ frontend.SSEPath } defer></script>
 			<script src="/assets/schedule.js" defer></script>
@@ -26,15 +27,14 @@ templ Page(snapshot Snapshot) {
 		</head>
 		<body
 			data-reduced-effects={ strconv.FormatBool(snapshot.ReducedEffects) }
-			hx-ext="sse"
-			sse-connect={ snapshot.EventsPath() }
+			hx-sse:connect={ snapshot.EventsPath() }
 			>
 			@ScheduleShell(snapshot, snapshot.ViewPath(), "Schedule", "", "schedule") {
 				<main
 					id="schedule"
 					tabindex="-1"
 					hx-get={ snapshot.ViewPath() }
-					hx-trigger="sse:schedule"
+					hx-trigger="schedule from:body"
 					hx-target="this"
 					hx-select="#schedule"
 					hx-swap="outerHTML"
@@ -106,6 +106,7 @@ templ SessionPage(snapshot Snapshot, session Session, presentationPath string) {
 			if snapshot.EventID > 0 {
 				<link rel="stylesheet" href={ frontend.EventThemePath(snapshot.EventID) }/>
 			}
+			<meta name="htmx-config" content={ `{"noSwap":[204,304,"4xx","5xx"]}` }/>
 			<script src={ frontend.HTMXPath } defer></script>
 			<title>{ session.Title } · { snapshot.EventName } Schedule</title>
 		</head>
