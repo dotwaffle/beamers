@@ -3,7 +3,7 @@ module github.com/dotwaffle/beamers
 go 1.27.1
 
 require (
-	connectrpc.com/connect v1.20.0
+	connectrpc.com/connect v1.21.0
 	connectrpc.com/otelconnect v0.9.0
 	entgo.io/ent v0.14.6
 	github.com/XSAM/otelsql v0.43.0
@@ -28,7 +28,7 @@ require (
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/sys v0.47.0
 	golang.org/x/text v0.40.0
-	google.golang.org/protobuf v1.36.11
+	google.golang.org/protobuf v1.36.12
 	modernc.org/sqlite v1.56.0
 )
 
