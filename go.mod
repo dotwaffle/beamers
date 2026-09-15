@@ -8,7 +8,7 @@ require (
 	entgo.io/ent v0.14.6
 	github.com/XSAM/otelsql v0.43.0
 	github.com/a-h/templ v0.3.1020
-	github.com/benbjohnson/litestream v0.5.16
+	github.com/benbjohnson/litestream v0.5.17
 	github.com/descope/virtualwebauthn v1.0.5
 	github.com/go-webauthn/webauthn v0.17.4
 	github.com/yeqown/go-qrcode/v2 v2.3.0
