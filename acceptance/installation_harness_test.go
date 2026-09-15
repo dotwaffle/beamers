@@ -30,6 +30,7 @@ type runningServer struct {
 	publicAddress string
 	bin           string
 	dataDir       string
+	stderrPath    string
 	cmd           *exec.Cmd
 	done          chan error
 }
@@ -177,23 +178,33 @@ func startBeamersWithAttachmentsAndPublicAt(
 	if err != nil {
 		t.Fatalf("capture beamers stderr: %v", err)
 	}
+	stderrPath := filepath.Join(t.TempDir(), "beamers-stderr.log")
+	stderrLog, err := os.Create(stderrPath)
+	if err != nil {
+		t.Fatalf("create beamers stderr log: %v", err)
+	}
 	if err := cmd.Start(); err != nil {
+		_ = stderrLog.Close()
 		t.Fatalf("start beamers: %v", err)
 	}
 
 	done := make(chan error, 1)
+	readDone := make(chan struct{})
 	go func() {
-		done <- cmd.Wait()
+		<-readDone
+		done <- errors.Join(cmd.Wait(), stderrLog.Close())
 	}()
 
-	server := &runningServer{bin: bin, dataDir: dataDir, cmd: cmd, done: done}
+	server := &runningServer{
+		bin: bin, dataDir: dataDir, cmd: cmd, done: done, stderrPath: stderrPath,
+	}
 	t.Cleanup(func() {
 		if server.cmd.Process != nil {
 			_ = server.cmd.Process.Kill()
 		}
 	})
 	server.address, server.publicAddress = waitForListeningAddresses(
-		t, stderr, done, separatePublic,
+		t, io.TeeReader(stderr, stderrLog), done, readDone, separatePublic,
 	)
 	return server
 }
@@ -202,6 +213,7 @@ func waitForListeningAddresses(
 	t *testing.T,
 	stderr io.Reader,
 	done <-chan error,
+	readDone chan<- struct{},
 	separatePublic bool,
 ) (string, string) {
 	t.Helper()
@@ -213,6 +225,7 @@ func waitForListeningAddresses(
 	}
 	listening := make(chan result, 1)
 	go func() {
+		defer close(readDone)
 		scanner := bufio.NewScanner(stderr)
 		var privateAddress, publicAddress string
 		for scanner.Scan() {
@@ -234,6 +247,7 @@ func waitForListeningAddresses(
 					privateAddress: privateAddress,
 					publicAddress:  publicAddress,
 				}
+				_, _ = io.Copy(io.Discard, stderr)
 				return
 			}
 		}
@@ -943,7 +957,8 @@ func (server *runningServer) stop(t *testing.T) {
 	select {
 	case err := <-server.done:
 		if err != nil {
-			t.Fatalf("beamers shutdown: %v", err)
+			output, readErr := os.ReadFile(server.stderrPath)
+			t.Fatalf("beamers shutdown: %v; read stderr: %v\n%s", err, readErr, output)
 		}
 	case <-time.After(10 * time.Second):
 		t.Fatalf("beamers did not stop after %s", 10*time.Second)

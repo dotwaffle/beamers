@@ -212,29 +212,19 @@ func Run(ctx context.Context, config Config) error {
 			demo: config.Demo,
 		}),
 	)
-	httpServer := &http.Server{
-		Handler:           privateHandler,
-		ReadTimeout:       10 * time.Second,
-		ReadHeaderTimeout: 5 * time.Second,
-		IdleTimeout:       60 * time.Second,
-	}
+	httpServer := newHTTPServer(privateHandler)
 	var publicServer *http.Server
 	if publicListener != nil {
-		publicServer = &http.Server{
-			Handler: instrumentInboundHTTP(
-				config,
-				"beamers.public",
-				protectInterfaces(application, interfacePolicy{
-					logger:          config.Logger,
-					listenerAddress: publicListener.Addr(),
-					trustedProxies:  config.TrustedProxies,
-					publicOnly:      true,
-				}),
-			),
-			ReadTimeout:       10 * time.Second,
-			ReadHeaderTimeout: 5 * time.Second,
-			IdleTimeout:       60 * time.Second,
-		}
+		publicServer = newHTTPServer(instrumentInboundHTTP(
+			config,
+			"beamers.public",
+			protectInterfaces(application, interfacePolicy{
+				logger:          config.Logger,
+				listenerAddress: publicListener.Addr(),
+				trustedProxies:  config.TrustedProxies,
+				publicOnly:      true,
+			}),
+		))
 	}
 	mode := "normal"
 	if startupErr != nil {
